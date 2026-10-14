@@ -19,11 +19,11 @@ public struct AppPaths: Sendable {
     public var models: URL { root.appendingPathComponent("models", isDirectory: true) }
     /// Reserved for sub-project 2.
     public var meetings: URL { root.appendingPathComponent("Meetings", isDirectory: true) }
-    /// Reserved for sub-project 3.
+    /// Notes stored as Markdown files.
     public var notes: URL { root.appendingPathComponent("Notes", isDirectory: true) }
 
     public func ensureExists() throws {
-        for dir in [root, models, meetings] {
+        for dir in [root, models, meetings, notes] {
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         }
     }

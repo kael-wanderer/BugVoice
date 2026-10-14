@@ -8,6 +8,8 @@ Last updated: 2026-10-14
 
 **Sub-project 2 (Meetings): merged on `main` (2026-10-14) after whole-branch review and two fix rounds. Device checks pending.**
 
+**Sub-project 3 (Notes): implemented on `feat/notes` (2026-10-14); automated suite, signed app build, and launch passed. Notes manual checks remain pending. Do not merge or push from this branch.**
+
 ### Pending maintainer checks (deferred by the maintainer, 2026-10-14)
 
 1. **System audio spike** (Task 8a): `Scripts/build-meeting-audio-tap-spike.sh`,
@@ -31,9 +33,12 @@ recovery and playback are **UNVERIFIED on device**.
 | Meetings spec | `docs/superpowers/specs/2026-10-14-meetings-design.md` | Approved with maintainer amendments |
 | Meetings plan | `docs/superpowers/plans/2026-10-14-meetings.md` | Tasks 1–13 implemented and committed on `feat/meetings` |
 | Meetings code | `main` (merged from `feat/meetings`) | Recorder, dual-track journals/finalization, transcription, library, player, exports, settings, recovery |
-| Automated tests | `swift test` | VoiceCore 192 tests / 26 suites, BugVoiceMac 27 tests / 7 suites — all pass |
-| App | `Scripts/build-app.sh` | Final build passed and signed with `Bugler Local Dev`; launched once; process remained running and Core ML model resources were mapped |
-| Manual checklist | `docs/testing/manual-checklist.md` | Dictation rows 1–44 and Meetings rows 45–62 written; **not run** (needs permissions and voice) |
+| Notes spec | `docs/superpowers/specs/2026-10-14-notes-design.md` | Approved with maintainer amendments |
+| Notes plan | `docs/superpowers/plans/2026-10-14-notes.md` | Approved with maintainer amendments; Tasks 1–7 implemented on `feat/notes` |
+| Notes code | `feat/notes` | Markdown store, authoritative edit buffers, captured-note dictation, Notes page, settings, menu, lifecycle |
+| Automated tests | `swift test` on `feat/notes` | VoiceCore 223 tests / 31 suites, BugVoiceMac 49 tests / 11 suites — all pass |
+| App | `Scripts/build-app.sh` on `feat/notes` | Build passed, signed with `Bugler Local Dev`, launched once and remained running; see `docs/progress/notes-log.md` |
+| Manual checklist | `docs/testing/manual-checklist.md` | Dictation rows 1–44, Meetings rows 45–62, Notes rows 63–72 written; **not run** (needs maintainer checks) |
 | Benchmark gate (Task 8 step 12) | `bench/clips/`, `docs/bench/2026-10-14-stt-bench.md` | **Open**: first run found and fixed a decoder bug; clips and references incomplete |
 
 ## Next steps
@@ -55,7 +60,8 @@ recovery and playback are **UNVERIFIED on device**.
      token cap). Turn thinking off in LM Studio's model settings, or choose a
      non-thinking or smaller model.
 2. **Maintainer: manual checklist.** Run `docs/testing/manual-checklist.md`,
-   fill in results. Meetings rows 45–62 cover OS audio permission, track
+   fill in results. Notes rows 63–72 cover note editing, dictation privacy,
+   external edits, undo, export, storage, and quit. Meetings rows 45–62 cover OS audio permission, track
    separation, echo/headphones, focus, dictation concurrency, sleep/crash
    recovery, language fallback, summaries, player, exports, retention, and
    storage. Failures in decisions that live in `VoiceCore` get a test.

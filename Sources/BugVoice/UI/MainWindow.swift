@@ -11,7 +11,9 @@ struct MainWindow: View {
             }
             .safeAreaInset(edge: .top) {
                 HStack(spacing: 8) {
-                    Image(systemName: "waveform")
+                    Image(nsImage: NSApp.applicationIconImage)
+                        .resizable()
+                        .frame(width: 20, height: 20)
                     Text("BugVoice").font(.headline)
                     Text("Local")
                         .font(.caption2.weight(.semibold))
@@ -26,6 +28,7 @@ struct MainWindow: View {
             switch model.page {
             case .dictation: DictationHistoryView(model: model)
             case .meetings: MeetingsPage(model: model)
+            case .notes: NotesPage(model: model)
             case .settings: SettingsView(model: model)
             }
         }

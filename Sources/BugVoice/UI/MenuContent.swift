@@ -25,6 +25,9 @@ struct MenuContent: View {
         Divider()
         meetingControls
         Divider()
+        Button("New note") { model.createNoteAndShow() }
+            .keyboardShortcut("n", modifiers: [.control, .option])
+        if !model.newNoteShortcutAvailable { Text("New note shortcut unavailable") }
         Button("Open BugVoice…") { model.openMainWindow(.dictation) }
             .keyboardShortcut("b", modifiers: [.control, .option])
         Divider()
@@ -43,6 +46,7 @@ struct MenuContent: View {
         }
         Divider()
         Button("Meetings…") { model.openMainWindow(.meetings) }
+        Button("Notes…") { model.openMainWindow(.notes) }
         Button("Settings…") { model.openMainWindow(.settings) }.keyboardShortcut(",")
         Button("Permissions…") { model.openPermissionsWindow() }
         Button("Open data folder") { NSWorkspace.shared.open(model.paths.root) }
@@ -96,11 +100,11 @@ struct MenuContent: View {
     }
 }
 
-/// The menu-bar icon. A badge means a permission is missing.
+/// The menu-bar icon. A badge dot means a permission is missing.
 struct MenuBarIcon: View {
     var model: AppModel
 
     var body: some View {
-        Image(systemName: model.permissionsGranted ? "waveform" : "waveform.badge.exclamationmark")
+        Image(nsImage: BrandImages.menuBar(badge: !model.permissionsGranted))
     }
 }

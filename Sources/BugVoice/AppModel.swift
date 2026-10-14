@@ -15,10 +15,10 @@ private enum MeetingGenerationError: LocalizedError {
 
 /// Main-window pages. Notes are reserved for sub-project 3.
 enum Page: String, CaseIterable, Identifiable {
-    case dictation, meetings, settings
+    case dictation, meetings, notes, settings
     var id: String { rawValue }
-    var title: String { switch self { case .dictation: "Dictation"; case .meetings: "Meetings"; case .settings: "Settings" } }
-    var symbol: String { switch self { case .dictation: "mic"; case .meetings: "waveform.path"; case .settings: "gearshape" } }
+    var title: String { switch self { case .dictation: "Dictation"; case .meetings: "Meetings"; case .notes: "Notes"; case .settings: "Settings" } }
+    var symbol: String { switch self { case .dictation: "mic"; case .meetings: "waveform.path"; case .notes: "note.text"; case .settings: "gearshape" } }
 }
 
 @MainActor
@@ -26,6 +26,8 @@ enum Page: String, CaseIterable, Identifiable {
 final class AppModel {
     let paths = AppPaths.standard()
     let keychain = Keychain()
+    @ObservationIgnored let notesStore: NotesStore
+    @ObservationIgnored let notesController: NotesController
     @ObservationIgnored let store = SettingsStore(url: AppPaths.standard().settings)
     @ObservationIgnored let historyLog = HistoryLog(url: AppPaths.standard().history)
     @ObservationIgnored private var meetingStore: MeetingStore { MeetingStore(root: paths.meetings) }
@@ -52,8 +54,12 @@ final class AppModel {
     var page: Page = .dictation
     var speechState: WhisperKitTranscriber.LoadState = .notLoaded
     var hotkeyActive = false
+    var newNoteShortcutAvailable = true
     /// True while the microphone is recording a dictation.
     var isListening = false
+    var notesIsListening = false
+    var notesRecordingStartedAt: Date?
+    var notesFocusRequest: UInt64 = 0
     var permissionsGranted = Permissions.allGranted
     var permissionStatus: [PermissionKind: Bool] = [:]
     var systemAudioPermissionFailed = false
@@ -75,6 +81,9 @@ final class AppModel {
     @ObservationIgnored private var speechAPIKeyGeneration: UInt64 = 0
 
     init() {
+        let notesStore = NotesStore(directory: AppPaths.standard().notes)
+        self.notesStore = notesStore
+        notesController = NotesController(store: notesStore)
         let engine = WhisperKitTranscriber(modelName: AppSettings().speech.whisperModel, downloadBase: AppPaths.standard().models)
         whisper = engine
         let priority = PriorityTranscriber(base: engine)
@@ -88,6 +97,7 @@ final class AppModel {
         } catch {
             saveError = "Could not create \(paths.root.path): \(error.localizedDescription)"
         }
+        await notesController.reloadList()
         let loaded = store.load()
         whisper = WhisperKitTranscriber(modelName: loaded.speech.whisperModel, downloadBase: paths.models)
         priorityTranscriber = PriorityTranscriber(base: ProviderFactory.transcriber(loaded.speech, whisper: whisper, keychain: keychain))
@@ -108,6 +118,12 @@ final class AppModel {
         vocabularyText = (try? String(contentsOf: paths.vocabulary, encoding: .utf8)) ?? ""
         vocabulary = Vocabulary.parse(vocabularyText)
         startDictation()
+        newNoteShortcutAvailable = GlobalShortcuts.shared.register(
+            keyCode: UInt32(kVK_ANSI_N),
+            modifiers: GlobalShortcuts.controlOption
+        ) { [weak self] in
+            self?.createNoteAndShow()
+        }
         GlobalShortcuts.shared.register(keyCode: UInt32(kVK_ANSI_M), modifiers: GlobalShortcuts.controlOption) { [weak self] in
             Task { @MainActor in self?.meetings?.toggleRecording() }
         }
@@ -133,6 +149,18 @@ final class AppModel {
     func openMainWindow(_ page: Page? = nil) {
         if let page { self.page = page }
         presentMainWindow?()
+    }
+
+    func createNoteAndShow() {
+        openMainWindow(.notes)
+        Task { @MainActor in
+            do {
+                _ = try await notesController.create()
+                notesFocusRequest &+= 1
+            } catch {
+                saveError = "Could not create note: \(error.localizedDescription)"
+            }
+        }
     }
 
     func openPermissionsWindow() {
@@ -236,6 +264,24 @@ final class AppModel {
             settings: settings,
             vocabulary: vocabulary
         )
+    }
+
+    func captureNotesDictation(startFocus: FocusSnapshot) -> NotesDictationCapture? {
+        let frontmostPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
+        let bugVoiceIsFrontmost = NSApp.isActive
+            && frontmostPID == ProcessInfo.processInfo.processIdentifier
+            && startFocus.bundleID == Bundle.main.bundleIdentifier
+        let firstResponderEditorID = (NSApp.keyWindow?.firstResponder as? NotesTextView)?.editorID
+        return notesController.captureAtStart(
+            bugVoiceIsFrontmost: bugVoiceIsFrontmost,
+            notesPageIsSelected: page == .notes,
+            firstResponderEditorID: firstResponderEditorID
+        )
+    }
+
+    func captureSelectedNoteForMic() -> NotesDictationCapture? {
+        guard page == .notes else { return nil }
+        return notesController.captureSelectedNoteForMic()
     }
 
     func record(_ result: DictationResult) async {

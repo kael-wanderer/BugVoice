@@ -15,11 +15,12 @@ runs on device (WhisperKit); cleanup uses any local model through an
 OpenAI-compatible or Anthropic-compatible API (LM Studio, Ollama, MLX…) or
 Apple Intelligence.
 
-Status: sub-project 1 is merged on `main`; its manual checklist, benchmark gate,
-and deferred-findings review remain pending. Sub-project 2 (Meetings) is
-merged on `main`; its device checks (system audio spike, checklist rows 45–62)
-remain pending. See
-`docs/progress/HANDOFF.md` and `docs/progress/meetings-log.md`.
+Status: sub-project 1 (dictation) and sub-project 2 (Meetings) are merged on
+`main`; their manual checklist, benchmark, system-audio spike, and deferred-
+findings gates remain pending. Sub-project 3 (Notes) is implemented on
+`feat/notes`; build/launch completed, Notes manual checklist rows 63–72 remain
+pending. See `docs/progress/HANDOFF.md`, `docs/progress/meetings-log.md`, and
+`docs/progress/notes-log.md`.
 
 Built in three sub-projects, each with its own spec → plan → implementation:
 
@@ -27,8 +28,8 @@ Built in three sub-projects, each with its own spec → plan → implementation:
 2. **Meetings** — merged on `main`; device checks pending.
 3. **Notes** — speak into an in-app note editor (no timeline).
 
-Notes remains reserved in the UI, storage layout and code seams (spec §10).
-Do not build Notes as part of the Meetings branch.
+Notes is implemented on `feat/notes`. Do not build Notes as part of the
+Meetings branch.
 
 ## Key documents
 
@@ -39,6 +40,9 @@ Do not build Notes as part of the Meetings branch.
 - Meetings spec: `docs/superpowers/specs/2026-10-14-meetings-design.md`
 - Meetings plan: `docs/superpowers/plans/2026-10-14-meetings.md`
 - Meetings execution log: `docs/progress/meetings-log.md`
+- Notes spec: `docs/superpowers/specs/2026-10-14-notes-design.md`
+- Notes plan: `docs/superpowers/plans/2026-10-14-notes.md`
+- Notes execution log: `docs/progress/notes-log.md`
 
 ## Rules
 

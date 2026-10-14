@@ -30,6 +30,32 @@ struct DictationPipelineTests {
         #expect(r.historyEntry?.text == "Hello world.")
     }
 
+    @Test func ordinaryDictationPreservesPasteTextBytesOutsideBugVoice() async {
+        var settings = AppSettings()
+        settings.cleanupEnabled = false
+        let insertion = RecordingInsertion()
+        let safari = FocusSnapshot(appName: "Safari", bundleID: "com.apple.Safari")
+        let result = await pipeline(
+            transcriber: FakeTranscriber(text: "xin chào world"),
+            model: nil,
+            insertion: insertion,
+            focusAtInsert: safari,
+            settings: settings
+        ).run(
+            clip: speechClip,
+            startFocus: safari,
+            startedAt: Date(),
+            onStage: { _ in }
+        )
+
+        let expected = "xin chào world"
+        #expect(result.outcome == .inserted)
+        #expect(Array(result.finalText.utf8) == Array(expected.utf8))
+        #expect(await insertion.inserted.count == 1)
+        #expect(await insertion.inserted.first.map { Array($0.utf8) } == Array(expected.utf8))
+        #expect(await insertion.copied.isEmpty)
+    }
+
     @Test func terminalSkipsModelAndDropsTrailingPeriod() async {
         let insertion = RecordingInsertion()
         let r = await pipeline(transcriber: FakeTranscriber(text: "run swift test."), insertion: insertion, focusAtInsert: terminalFocus)
@@ -150,6 +176,66 @@ struct DictationPipelineTests {
             .run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })
         #expect(r.outcome == .copiedSecureField)
         #expect(r.historyEntry == nil)
+    }
+
+    @Test func notesModeForcesDocumentStyleAndNeverCopiesAfterFocusChanges() async {
+        var settings = AppSettings()
+        settings.cleanupEnabled = false
+        let insertion = RecordingInsertion()
+        let result = await pipeline(
+            model: nil,
+            insertion: insertion,
+            focusAtInsert: FocusSnapshot(bundleID: "com.apple.Safari", isSecure: true),
+            settings: settings
+        ).run(
+            clip: speechClip,
+            startFocus: terminalFocus,
+            startedAt: Date(),
+            mode: .notes,
+            onStage: { _ in }
+        )
+
+        #expect(result.style == .document)
+        #expect(result.finalText == "hello world")
+        #expect(result.outcome == .insertedInNote)
+        #expect(result.historyEntry == nil)
+        #expect(await insertion.inserted == ["hello world"])
+        #expect(await insertion.copied.isEmpty)
+    }
+
+    @Test func notesTargetNotConsumedMeansCapturedNoteWasDeleted() async {
+        var settings = AppSettings()
+        settings.cleanupEnabled = false
+        let result = await pipeline(
+            model: nil,
+            insertion: RecordingInsertion(outcome: .notConsumed),
+            settings: settings
+        ).run(
+            clip: speechClip,
+            startFocus: notionFocus,
+            startedAt: Date(),
+            mode: .notes,
+            onStage: { _ in }
+        )
+        #expect(result.outcome == .noteDeleted)
+        #expect(result.historyEntry == nil)
+    }
+
+    @Test func notesInsertionFailureKeepsTextOutOfHistoryAndClipboard() async {
+        var settings = AppSettings()
+        settings.cleanupEnabled = false
+        let insertion = RecordingInsertion(outcome: .failed)
+        let result = await pipeline(model: nil, insertion: insertion, settings: settings).run(
+            clip: speechClip,
+            startFocus: notionFocus,
+            startedAt: Date(),
+            mode: .notes,
+            onStage: { _ in }
+        )
+        #expect(result.outcome == .noteSaveFailed)
+        #expect(result.finalText == "hello world")
+        #expect(result.historyEntry == nil)
+        #expect(await insertion.copied.isEmpty)
     }
 
     @Test func notConsumedIsReported() async {

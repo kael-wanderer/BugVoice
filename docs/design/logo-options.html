@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BugVoice Logo Options</title>
+<style>
+:root{
+  --bg:#eceae6; --panel:#ffffff; --line:#dedbd5; --ink:#1d1c1a; --ink2:#5d5a55; --ink3:#8d8983;
+  --accent:#2f6df6; --rec:#e5484d;
+  --barL:#f3f2ef; --barD:#2a2927;
+  --shadow:0 18px 40px rgba(0,0,0,.12),0 2px 6px rgba(0,0,0,.06);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#141413; --panel:#232220; --line:#3a3936; --ink:#f1efea; --ink2:#b4b0a8; --ink3:#85817a;
+    --shadow:0 18px 40px rgba(0,0,0,.45),0 2px 6px rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#141413; --panel:#232220; --line:#3a3936; --ink:#f1efea; --ink2:#b4b0a8; --ink3:#85817a;
+  --shadow:0 18px 40px rgba(0,0,0,.45),0 2px 6px rgba(0,0,0,.3);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:32px 16px 64px}
+header{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between;margin-bottom:28px}
+h1{margin:0;font-size:28px;letter-spacing:-.02em}
+.sub{margin:6px 0 0;color:var(--ink2);max-width:720px}
+.toggle{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:999px;padding:8px 14px;font:inherit;cursor:pointer}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:20px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:22px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:16px}
+.num{font-size:12px;font-weight:600;color:var(--ink3);letter-spacing:.08em;text-transform:uppercase}
+.card h2{margin:2px 0 0;font-size:20px;letter-spacing:-.01em}
+.hero{display:flex;justify-content:center;padding:6px 0}
+.hero svg{width:200px;height:200px;filter:drop-shadow(0 10px 18px rgba(0,0,0,.18))}
+.sizes{display:flex;align-items:flex-end;justify-content:center;gap:18px}
+.sizes figure{margin:0;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;color:var(--ink3)}
+.bars{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.menubar{display:flex;align-items:center;justify-content:flex-end;gap:12px;height:28px;padding:0 10px;border-radius:7px;font-size:12px;font-weight:500}
+.menubar.light{background:var(--barL);color:#1d1c1a;border:1px solid #dedbd5}
+.menubar.dark{background:var(--barD);color:#f1efea;border:1px solid #3a3936}
+.menubar svg{width:17px;height:17px}
+.menubar .dim{opacity:.55}
+.idea{margin:0;color:var(--ink2);font-size:14px}
+ul{margin:0;padding-left:18px;color:var(--ink2);font-size:13.5px}
+li{margin:2px 0}
+footer{margin-top:28px;color:var(--ink3);font-size:13px}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5a90ff"/><stop offset="1" stop-color="#1f4fd6"/></linearGradient>
+    <linearGradient id="g2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff7a73"/><stop offset="1" stop-color="#d42f4a"/></linearGradient>
+    <linearGradient id="g3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#34343a"/><stop offset="1" stop-color="#141416"/></linearGradient>
+    <linearGradient id="g4" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#faf7f1"/><stop offset="1" stop-color="#e2dbcd"/></linearGradient>
+    <linearGradient id="g5" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8a6cff"/><stop offset="1" stop-color="#2f6df6"/></linearGradient>
+    <linearGradient id="g6" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b2a5c"/><stop offset="1" stop-color="#070c1f"/></linearGradient>
+    <radialGradient id="glow6" cx=".5" cy=".55" r=".55"><stop offset="0" stop-color="#fff6b0"/><stop offset=".6" stop-color="#ffd84d"/><stop offset="1" stop-color="#f5a524"/></radialGradient>
+    <linearGradient id="g7" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff6ea"/><stop offset="1" stop-color="#f0d9bb"/></linearGradient>
+    <linearGradient id="g8" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd84a"/><stop offset="1" stop-color="#f59f00"/></linearGradient>
+    <linearGradient id="g9" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4be3a4"/><stop offset="1" stop-color="#0c8a5a"/></linearGradient>
+    <linearGradient id="g10" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6f5f2"/><stop offset="1" stop-color="#d6d3cc"/></linearGradient>
+    <linearGradient id="g11" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffa94d"/><stop offset="1" stop-color="#e8590c"/></linearGradient>
+    <linearGradient id="g12" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3bc9db"/><stop offset="1" stop-color="#0b7285"/></linearGradient>
+    <linearGradient id="g13" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#eef0f3"/><stop offset="1" stop-color="#c9ced6"/></linearGradient>
+    <linearGradient id="g14" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f3150"/><stop offset="1" stop-color="#15162a"/></linearGradient>
+    <linearGradient id="g15" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5cb8ff"/><stop offset="1" stop-color="#1864ab"/></linearGradient>
+  </defs>
+
+  <!-- 1 Wave Bug -->
+  <symbol id="app1" viewBox="0 0 1024 1024">
+    <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#g1)"/>
+    <g stroke="#fff" stroke-width="26" stroke-linecap="round" fill="none">
+      <path d="M470 286 Q440 222 392 206"/><path d="M554 286 Q584 222 632 206"/>
+      <path d="M312 470 L248 440"/><path d="M302 570 L232 570"/><path d="M312 670 L248 702"/>
+      <path d="M712 470 L776 440"/><path d="M722 570 L792 570"/><path d="M712 670 L776 702"/>
+    </g>
+    <circle cx="392" cy="206" r="20" fill="#fff"/><circle cx="632" cy="206" r="20" fill="#fff"/>
+    <circle cx="512" cy="318" r="62" fill="#fff"/>
+    <ellipse cx="512" cy="566" rx="208" ry="232" fill="#fff"/>
+    <g fill="#2f6df6">
+      <rect x="397" y="521" width="30" height="90" rx="15"/>
+      <rect x="447" y="481" width="30" height="170" rx="15"/>
+      <rect x="497" y="441" width="30" height="250" rx="15"/>
+      <rect x="547" y="481" width="30" height="170" rx="15"/>
+      <rect x="597" y="521" width="30" height="90" rx="15"/>
+    </g>
+  </symbol>
+  <symbol id="menu1" viewBox="0 0 24 24">
+    <g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+      <ellipse cx="12" cy="14.5" rx="5.6" ry="6.5"/><circle cx="12" cy="6" r="1.9"/>
+      <path d="M11 4.4 9.4 2.4M13 4.4l1.6-2"/><path d="M10 13.2v2.6M12 11.6v5.8M14 13.2v2.6"/>
+    </g>
+  </symbol>
+
+  <!-- 2 Antenna Mic -->
+  <symbol id="app2" viewBox="0 0 1024 1024">
+    <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#g2)"/>
+    <g stroke="#fff" stroke-width="26" stroke-linecap="round" fill="none">
+      <path d="M466 270 Q436 200 394 180"/><path d="M558 270 Q588 200 630 180"/>
+    </g>
+    <circle cx="394" cy="180" r="21" fill="#fff"/><circle cx="630" cy="180" r="21" fill="#fff"/>
+    <rect x="402" y="256" width="220" height="370" rx="110" fill="#fff"/>
+    <g fill="#d42f4a">
+      <rect x="452" y="402" width="30" height="80" rx="15"/>
+      <rect x="497" y="367" width="30" height="150" rx="15"/>
+      <rect x="542" y="402" width="30" height="80" rx="15"/>
+    </g>
+    <g stroke="#fff" stroke-width="30" stroke-linecap="round" fill="none">
+      <path d="M326 520 Q326 724 512 724 Q698 724 698 520"/><path d="M512 724 V806"/><path d="M420 806 H604"/>
+    </g>
+  </symbol>
+  <symbol id="menu2" viewBox="0 0 24 24">
+    <g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+      <rect x="9" y="5.2" width="6" height="10" rx="3"/><path d="M10.2 5.4 8.6 2.8M13.8 5.4l1.6-2.6"/>
+      <path d="M6.3 11.2a5.7 5.7 0 0 0 11.4 0"/><path d="M12 17v3M9.4 20.2h5.2"/>
+    </g>
+  </symbol>
+
+  <!-- 3 Caret Bubble -->
+  <symbol id="app3" viewBox="0 0 1024 1024">
+    <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#g3)"/>
+    <rect x="196" y="300" width="520" height="380" rx="130" fill="#2f6df6"/>
+    <path d="M292 650 L254 786 L414 676 Z" fill="#2f6df6"/>
+    <g fill="#fff">
+      <rect x="291" y="450" width="34" height="80" rx="17"/>
+      <rect x="353" y="410" width="34" height="160" rx="17"/>
+      <rect x="415" y="375" width="34" height="230" rx="17"/>
+      <rect x="477" y="420" width="34" height="140" rx="17"/>
+      <rect x="539" y="455" width="34" height="70" rx="17"/>
+      <rect x="601" y="475" width="34" height="30" rx="15"/>
+    </g>
+    <g stroke="#fff" stroke-width="34" stroke-linecap="round" fill="none">
+      <path d="M800 300 V680"/><path d="M752 300 H848"/><path d="M752 680 H848"/>
+    </g>
+  </symbol>
+  <symbol id="menu3" viewBox="0 0 24 24">
+    <g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M5.5 5h7a3.5 3.5 0 0 1 3.5 3.5v3a3.5 3.5 0 0 1-3.5 3.5H8l-3.2 3 .4-3.2A3.5 3.5 0 0 1 2 11.5v-3A3.5 3.5 0 0 1 5.5 5z"/>
+      <path d="M6.5 9v2M9 8v4M11.5 9v2"/><path d="M20 4.5v11M18.4 4.5h3.2M18.4 15.5h3.2"/>
+    </g>
+  </symbol>
+
+  <!-- 4 Wave b -->
+  <symbol id="app4" viewBox="0 0 1024 1024">
+    <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#g4)"/>
+    <rect x="292" y="226" width="72" height="572" rx="36" fill="#1d1c1a"/>
+    <g fill="#1d1c1a">
+      <rect x="410" y="560" width="50" height="150" rx="25"/>
+      <rect x="490" y="480" width="50" height="310" rx="25"/>
+      <rect x="650" y="480" width="50" height="310" rx="25"/>
+      <rect x="730" y="560" width="50" height="150" rx="25"/>
+    </g>
+    <rect x="570" y="430" width="50" height="410" rx="25" fill="#e5484d"/>
+  </symbol>
+  <symbol id="menu4" viewBox="0 0 24 24">
+    <g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+      <path d="M5.5 3v18"/><path d="M9.5 13.5v4M12.5 11.5v8M15.5 10v11M18.5 11.5v8"/>
+    </g>
+  </symbol>
+
+  <!-- 5 Option Wave -->
+  <symbol id="app5" viewBox="0 0 1024 1024">
+    <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#g5)"/>
+    <g stroke="#fff" stroke-width="58" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <path d="M226 352 H402 L540 640"/>
+      <path d="M540 640 q36 -96 72 0 t72 0 t72 0"/>
+      <path d="M560 352 H798"/>
+    </g>
+    <circle cx="804" cy="640" r="36" fill="#ff5d63"/>
+  </symbol>
+  <symbol id="menu5" viewBox="0 0 24 24">
+    <g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M2 6.5h4.4l4.2 9"/><path d="M10.6 15.5q1.3-3.4 2.6 0t2.6 0t2.6 0"/><path d="M12 6.5h9.5"/>
+      <circle cx="21.3" cy="15.5" r="1.3" fill="currentColor" stroke="none"/>
+    </g>
+  </symbol>
+
+  <!-- 6 Firefly -->
+  <symbol id="app6" viewBox="0 0 1024 1024">
+    <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#g6)"/>
+    <g fill="none" stroke="#ffd84d" stroke-width="24" stroke-linecap="round">
+      <path d="M352 720 A200 200 0 0 0 672 720" opacity=".7"/>
+      <path d="M282 770 A290 290 0 0 0 742 770" opacity=".35"/>
+    </g>
+    <g fill="#ffffff" opacity=".22">
+      <ellipse cx="418" cy="450" rx="64" ry="150" transform="rotate(28 418 450)"/>
+      <ellipse cx="606" cy="450" rx="64" ry="150" transform="rotate(-28 606 450)"/>
+    </g>
+    <g stroke="#dfe5ff" stroke-width="22" stroke-linecap="round" fill="none">
+      <path d="M486 262 Q466 214 430 196"/><path d="M538 262 Q558 214 594 196"/>
+    </g>
+    <circle cx="512" cy="296" r="50" fill="#dfe5ff"/>
+    <ellipse cx="512" cy="400" rx="72" ry="62" fill="#b9c3ea"/>
+    <ellipse cx="512" cy="566" rx="106" ry="140" fill="url(#glow6)"/>
+  </symbol>
+  <symbol id="menu6" viewBox="0 0 24 24">
+    <g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+      <circle cx="12" cy="5" r="1.7"/><path d="M11 3.6 9.6 1.8M13 3.6l1.4-1.8"/>
+      <path d="M8.6 18.6a4.6 4.6 0 0 0 6.8 0M6.6 20.8a7.4 7.4 0 0 0 10.8 0"/>
+    </g>
+    <ellipse cx="12" cy="12.2" rx="2.7" ry="3.6" fill="currentColor"/>
+  </symbol>
+
+  <!-- 7 Ladybug Level -->
+  <symbol id="app7" viewBox="0 0 1024 1024">
+    <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#g7)"/>
+    <g stroke="#1d1c1a" stroke-width="22" stroke-linecap="round" fill="none">
+      <path d="M470 270 Q444 214 402 200"/><path d="M554 270 Q580 214 622 200"/>
+    </g>
+    <circle cx="512" cy="330" r="92" fill="#1d1c1a"/>
+    <circle cx="480" cy="300" r="13" fill="#fff"/><circle cx="544" cy="300" r="13" fill="#fff"/>
+    <circle cx="512" cy="580" r="236" fill="#e5484d"/>
+    <path d="M512 400 V812" stroke="#1d1c1a" stroke-width="16"/>
+    <g fill="#1d1c1a">
+      <rect x="352" y="535" width="44" height="90" rx="22"/>
+      <rect x="420" y="490" width="44" height="180" rx="22"/>
+      <rect x="560" y="490" width="44" height="180" rx="22"/>
+      <rect x="628" y="535" width="44" height="90" rx="22"/>
+    </g>
+  </symbol>
+  <symbol id="menu7" viewBox="0 0 24 24">
+    <g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+      <circle cx="12" cy="14" r="7"/><path d="M12 7v14"/><path d="M9.4 6.6a2.8 2.8 0 0 1 5.2 0"/>
+      <path d="M8.6 12.6v2.8M10 11.6v4.8M14 11.6v4.8M15.4 12.6v2.8" stroke-width="1.4"/>
+    </g>
+  </symbol>
+
+  <!-- 8 Bee Bars -->
+  <symbol id="app8" viewBox="0 0 1024 1024">
+    <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#g8)"/>
+    <g fill="#ffffff" opacity=".9">
+      <ellipse cx="396" cy="420" rx="96" ry="58" transform="rotate(-32 396 420)"/>
+      <ellipse cx="628" cy="420" rx="96" ry="58" transform="rotate(32 628 420)"/>
+    </g>
+    <g stroke="#1d1c1a" stroke-width="22" stroke-linecap="round" fill="none">
+      <path d="M482 250 Q460 200 424 186"/><path d="M542 250 Q564 200 600 186"/>
+    </g>
+    <circle cx="512" cy="292" r="64" fill="#1d1c1a"/>
+    <ellipse cx="512" cy="580" rx="160" ry="236" fill="#1d1c1a"/>
+    <path d="M490 806 L512 856 L534 806 Z" fill="#1d1c1a"/>
+    <g fill="#ffd43b">
+      <rect x="432" y="450" width="160" height="34" rx="17"/>
+      <rect x="370" y="518" width="284" height="34" rx="17"/>
+      <rect x="402" y="586" width="220" height="34" rx="17"/>
+      <rect x="380" y="654" width="264" height="34" rx="17"/>
+      <rect x="446" y="722" width="132" height="34" rx="17"/>
+    </g>
+  </symbol>
+  <symbol id="menu8" viewBox="0 0 24 24">
+    <g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+      <ellipse cx="12" cy="13.8" rx="4" ry="6.2"/><circle cx="12" cy="5.2" r="1.7"/>
+      <path d="M8.4 10.4 5 8.6M15.6 10.4 19 8.6"/><path d="M10.4 12h3.2M9.6 14.4h4.8M10.6 16.8h2.8" stroke-width="1.4"/>
+    </g>
+  </symbol>
+
+  <!-- 9 Sound Rings -->
+  <symbol id="app9" viewBox="0 0 1024 1024">
+    <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#g9)"/>
+    <g fill="none" stroke="#fff" stroke-width="42" stroke-linecap="round">
+      <path d="M464 436 A170 170 0 0 1 584 644"/>
+      <path d="M487 349 A260 260 0 0 1 671 667" opacity=".75"/>
+      <path d="M511 262 A350 350 0 0 1 758 691" opacity=".5"/>
+    </g>
+    <g stroke="#fff" stroke-width="22" stroke-linecap="round" fill="none">
+      <path d="M372 560 Q340 500 296 488"/><path d="M402 540 Q398 470 366 434"/>
+    </g>
+    <circle cx="412" cy="608" r="78" fill="#fff"/>
+  </symbol>
+  <symbol id="menu9" viewBox="0 0 24 24">
+    <g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+      <path d="M9.4 11.4a4 4 0 0 1 3.2 4.8M10 7.8a7.4 7.4 0 0 1 6 8.8M10.6 4.2a10.8 10.8 0 0 1 9 12.6"/>
+      <path d="M6.6 14.2 5 11.6M8.2 13.4l-.4-3"/>
+    </g>
+    <circle cx="8" cy="17" r="2.6" fill="currentColor"/>
+  </symbol>
+
+  <!-- 10 HUD Pill -->
+  <symbol id="app10" viewBox="0 0 1024 1024">
+    <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#g10)"/>
+    <rect x="186" y="404" width="652" height="216" rx="108" fill="#1c1c1e"/>
+    <circle cx="300" cy="512" r="34" fill="#e5484d"/>
+    <g fill="#f5f5f7">
+      <rect x="380" y="482" width="26" height="60" rx="13"/>
+      <rect x="432" y="452" width="26" height="120" rx="13"/>
+      <rect x="484" y="422" width="26" height="180" rx="13"/>
+      <rect x="536" y="462" width="26" height="100" rx="13"/>
+      <rect x="588" y="437" width="26" height="150" rx="13"/>
+      <rect x="640" y="477" width="26" height="70" rx="13"/>
+      <rect x="692" y="492" width="26" height="40" rx="13"/>
+    </g>
+  </symbol>
+  <symbol id="menu10" viewBox="0 0 24 24">
+    <rect x="1.8" y="7.5" width="20.4" height="9" rx="4.5" fill="none" stroke="currentColor" stroke-width="1.6"/>
+    <circle cx="6.3" cy="12" r="1.5" fill="currentColor"/>
+    <g stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M10 11v2M12.4 10v4M14.8 10.6v2.8M17.2 11.2v1.6"/></g>
+  </symbol>
+
+  <!-- 11 Quote Wave -->
+  <symbol id="app11" viewBox="0 0 1024 1024">
+    <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#g11)"/>
+    <g fill="#fff"><circle cx="420" cy="410" r="74"/><circle cx="624" cy="410" r="74"/></g>
+    <g stroke="#fff" stroke-width="42" stroke-linecap="round" fill="none">
+      <path d="M368 450 Q360 540 420 590"/><path d="M572 450 Q564 540 624 590"/>
+      <path d="M260 720 q42 -70 84 0 t84 0 t84 0 t84 0 t84 0 t84 0"/>
+    </g>
+  </symbol>
+  <symbol id="menu11" viewBox="0 0 24 24">
+    <g fill="currentColor"><circle cx="9" cy="6.6" r="2.2"/><circle cx="15" cy="6.6" r="2.2"/></g>
+    <g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+      <path d="M7.2 7.8q-.2 2.6 1.8 3.8M13.2 7.8q-.2 2.6 1.8 3.8"/>
+      <path d="M3 17q1.5-2.6 3 0t3 0t3 0t3 0t3 0t3 0"/>
+    </g>
+  </symbol>
+
+  <!-- 12 Non La -->
+  <symbol id="app12" viewBox="0 0 1024 1024">
+    <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#g12)"/>
+    <path d="M512 214 L812 528 Q512 590 212 528 Z" fill="#fbf3dc"/>
+    <g stroke="#e3d3a6" stroke-width="9" stroke-linecap="round">
+      <path d="M512 214 L392 556"/><path d="M512 214 L512 566"/><path d="M512 214 L632 556"/>
+    </g>
+    <path d="M340 560 Q512 690 684 560" stroke="#fbf3dc" stroke-width="12" fill="none" opacity=".7"/>
+    <g fill="#fff">
+      <rect x="395" y="680" width="34" height="60" rx="17"/>
+      <rect x="445" y="650" width="34" height="120" rx="17"/>
+      <rect x="495" y="625" width="34" height="170" rx="17"/>
+      <rect x="545" y="650" width="34" height="120" rx="17"/>
+      <rect x="595" y="680" width="34" height="60" rx="17"/>
+    </g>
+  </symbol>
+  <symbol id="menu12" viewBox="0 0 24 24">
+    <g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 2.6 20.5 11.4Q12 13.2 3.5 11.4Z"/><path d="M9.2 16v2M12 15v4M14.8 16v2" stroke-width="1.5"/>
+    </g>
+  </symbol>
+
+  <!-- 13 Keycap Mic -->
+  <symbol id="app13" viewBox="0 0 1024 1024">
+    <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#g13)"/>
+    <rect x="246" y="276" width="532" height="532" rx="96" fill="#9aa3ae"/>
+    <rect x="246" y="236" width="532" height="532" rx="96" fill="#ffffff"/>
+    <g stroke="#9aa3ae" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <path d="M300 300 h36 l38 58 h36"/><path d="M358 300 h52"/>
+    </g>
+    <rect x="462" y="356" width="100" height="176" rx="50" fill="#2f6df6"/>
+    <g stroke="#2f6df6" stroke-width="26" stroke-linecap="round" fill="none">
+      <path d="M408 476 Q408 600 512 600 Q616 600 616 476"/><path d="M512 600 V660"/><path d="M462 664 H562"/>
+    </g>
+  </symbol>
+  <symbol id="menu13" viewBox="0 0 24 24">
+    <g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+      <rect x="3" y="3" width="18" height="18" rx="4"/><rect x="10.3" y="6.6" width="3.4" height="6.4" rx="1.7"/>
+      <path d="M8.4 11a3.6 3.6 0 0 0 7.2 0M12 14.6v2.4"/>
+    </g>
+  </symbol>
+
+  <!-- 14 Code Bug -->
+  <symbol id="app14" viewBox="0 0 1024 1024">
+    <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#g14)"/>
+    <g stroke="#a5b4fc" stroke-width="36" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <path d="M372 300 Q314 300 314 360 V456 Q314 512 262 512 Q314 512 314 568 V664 Q314 724 372 724"/>
+      <path d="M652 300 Q710 300 710 360 V456 Q710 512 762 512 Q710 512 710 568 V664 Q710 724 652 724"/>
+    </g>
+    <g fill="#fbbf24">
+      <rect x="397" y="472" width="30" height="80" rx="15"/>
+      <rect x="447" y="432" width="30" height="160" rx="15"/>
+      <rect x="547" y="432" width="30" height="160" rx="15"/>
+      <rect x="597" y="472" width="30" height="80" rx="15"/>
+    </g>
+    <rect x="497" y="392" width="30" height="240" rx="15" fill="#e5484d"/>
+  </symbol>
+  <symbol id="menu14" viewBox="0 0 24 24">
+    <g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M7 4.5Q5 4.5 5 6.5v3.4Q5 12 3 12q2 0 2 2.1v3.4q0 2 2 2"/><path d="M17 4.5q2 0 2 2v3.4q0 2.1 2 2.1-2 0-2 2.1v3.4q0 2-2 2"/>
+      <path d="M9.5 11v2M12 9v6M14.5 11v2" stroke-width="1.5"/>
+    </g>
+  </symbol>
+
+  <!-- 15 Voice V -->
+  <symbol id="app15" viewBox="0 0 1024 1024">
+    <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#g15)"/>
+    <path d="M306 286 L512 716 L718 286" stroke="#fff" stroke-width="54" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <circle cx="306" cy="286" r="44" fill="#fff"/><circle cx="718" cy="286" r="44" fill="#fff"/>
+    <g fill="#fff">
+      <rect x="452" y="386" width="30" height="80" rx="15"/>
+      <rect x="497" y="351" width="30" height="150" rx="15"/>
+      <rect x="542" y="386" width="30" height="80" rx="15"/>
+    </g>
+    <circle cx="512" cy="804" r="30" fill="#ff5d63"/>
+  </symbol>
+  <symbol id="menu15" viewBox="0 0 24 24">
+    <path d="M5.5 5 12 18.5 18.5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="5.5" cy="4.6" r="1.6" fill="currentColor"/><circle cx="18.5" cy="4.6" r="1.6" fill="currentColor"/>
+    <path d="M10.6 8.6v1.6M12 7.6v3.6M13.4 8.6v1.6" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+  </symbol>
+</svg>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>BugVoice logo options</h1>
+      <p class="sub">Fifteen directions for the app icon and the menu-bar glyph. Each card shows the macOS icon at 200, 64, 32 and 16 px and the monochrome glyph in light and dark menu bars. The colours come from the app mockup: blue accent <code>#2f6df6</code> and record red <code>#e5484d</code>.</p>
+    </div>
+    <button class="toggle" id="theme" type="button">Toggle light / dark</button>
+  </header>
+
+  <div class="grid" id="grid"></div>
+
+  <footer>Source: <code>docs/design/logo-options.html</code>. Pick one, and the chosen SVG becomes <code>App/AppIcon.icns</code> and the menu-bar template image.</footer>
+</div>
+
+<script>
+const options = [
+  {n:1, name:"Wave Bug", idea:"A bug seen from above whose body is a live waveform. Literal, friendly, and it carries the name.",
+   pros:["Strong name recall: bug plus voice in one shape","Reads at 32 px; the bars stay visible","Blue matches the app accent"],
+   cons:["Legs add detail that blurs at 16 px"]},
+  {n:2, name:"Antenna Mic", idea:"A studio microphone with bug antennae. Says “dictation” first, “Bug” second.",
+   pros:["Instantly read as a voice app","Record red matches the Listening state","Simple menu-bar glyph"],
+   cons:["Many dictation apps use a mic; antennae are the only differentiator"]},
+  {n:3, name:"Caret Bubble", idea:"A speech bubble of sound flowing into a text caret: speak, and text lands at the cursor.",
+   pros:["Shows exactly what the app does","Dark tile stands out in the Dock","Works for Notes and Meetings too"],
+   cons:["No bug; relies on the name for identity"]},
+  {n:4, name:"Wave b", idea:"A lowercase b whose bowl is a waveform, with one red bar for the live level.",
+   pros:["Monogram: clean, typographic, scales well","The glyph is unique in a menu bar","Neutral light tile looks native on macOS"],
+   cons:["Abstract; the voice meaning needs a second look"]},
+  {n:5, name:"Option Wave", idea:"The ⌥ key symbol whose lower stroke turns into a sound wave: hold Right Option to speak.",
+   pros:["Teaches the hotkey every time you see it","Distinctive among Mac utilities","Bold strokes hold up at 16 px"],
+   cons:["Ties the brand to the default hotkey, which users can change"]},
+  {n:6, name:"Firefly", idea:"A firefly whose glowing tail sends out sound rings. Night-time, quiet, and alive.",
+   pros:["Glow reads as an active microphone","Dark tile is distinctive in the Dock","Bug identity without looking like a pest"],
+   cons:["Wings and glow lose detail below 32 px"]},
+  {n:7, name:"Ladybug Level", idea:"A ladybug whose spots are level-meter bars on either side of the wing line.",
+   pros:["Friendliest bug; instantly recognised","Red ties to the recording state","Symmetric, balanced shape"],
+   cons:["Red tile and red body need contrast checks on light backgrounds"]},
+  {n:8, name:"Bee Bars", idea:"A bee whose stripes have different lengths, like a waveform. Busy, productive, buzzing.",
+   pros:["Buzz suggests sound with no extra glyph","High-energy yellow is easy to spot","Stripes double as bars"],
+   cons:["Yellow tiles can look like warning icons"]},
+  {n:9, name:"Sound Rings", idea:"A small bug head broadcasting arcs of sound, like a voice going out.",
+   pros:["Clear voice and output meaning","Very legible at 16 px","Fresh green stands apart from blue tools"],
+   cons:["Arcs resemble Wi-Fi and broadcast icons"]},
+  {n:10, name:"HUD Pill", idea:"The app's own Listening pill: red dot plus live bars. The icon is the product.",
+   pros:["Matches what users see on screen while dictating","Neutral light tile, native Mac feel","Glyph is unique in the menu bar"],
+   cons:["No bug; generic recorder look"]},
+  {n:11, name:"Quote Wave", idea:"Quotation marks over a sound wave: your spoken words become quoted text.",
+   pros:["Speech becomes text in one image","Warm orange is energetic and rare","Works for Notes and Meetings"],
+   cons:["Quote marks are common in writing apps"]},
+  {n:12, name:"Nón Lá", idea:"A Vietnamese conical hat over a waveform: a nod to bilingual English and Vietnamese dictation.",
+   pros:["Signals Vietnamese support at a glance","Memorable cultural identity","Simple triangle scales well"],
+   cons:["Narrows the brand to one culture; may read as decoration"]},
+  {n:13, name:"Keycap Mic", idea:"A keyboard key with a microphone and a small ⌥ legend: press a key, speak.",
+   pros:["Explains hold-to-talk","Looks native beside Mac keyboard utilities","Blue mic matches the accent"],
+   cons:["Keycap depth flattens at small sizes"]},
+  {n:14, name:"Code Bug", idea:"Curly braces around a waveform: dictation for developers and terminal coding agents.",
+   pros:["Speaks to the main use: prompts for Claude Code and Codex","“Bug” gains a developer meaning","Glyph is crisp at 16 px"],
+   cons:["Alienates non-developer use such as Notion and chat"]},
+  {n:15, name:"Voice V", idea:"A V for Voice whose arms are bug antennae, holding a small waveform.",
+   pros:["Letter, antennae and voice in one mark","Bold single stroke scales well","Calm blue fits Mac utilities"],
+   cons:["The V alone can read as a check mark at 16 px"]}
+];
+const grid = document.getElementById("grid");
+const use = (id, size) => `<svg viewBox="0 0 1024 1024" width="${size}" height="${size}" role="img" aria-label="icon"><use href="#${id}"/></svg>`;
+const glyph = (id) => `<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#${id}"/></svg>`;
+grid.innerHTML = options.map(o => `
+  <article class="card">
+    <div>
+      <div class="num">Option ${o.n}</div>
+      <h2>${o.name}</h2>
+    </div>
+    <div class="hero">${use("app"+o.n, 200)}</div>
+    <div class="sizes">
+      <figure>${use("app"+o.n, 64)}<figcaption>64</figcaption></figure>
+      <figure>${use("app"+o.n, 32)}<figcaption>32</figcaption></figure>
+      <figure>${use("app"+o.n, 16)}<figcaption>16</figcaption></figure>
+    </div>
+    <div class="bars">
+      <div class="menubar light"><span class="dim">Wi-Fi</span>${glyph("menu"+o.n)}<span>21:58</span></div>
+      <div class="menubar dark"><span class="dim">Wi-Fi</span>${glyph("menu"+o.n)}<span>21:58</span></div>
+    </div>
+    <p class="idea">${o.idea}</p>
+    <ul>${o.pros.map(p => `<li>${p}</li>`).join("")}${o.cons.map(c => `<li><b>Watch:</b> ${c}</li>`).join("")}</ul>
+  </article>`).join("");
+
+const root = document.documentElement;
+document.getElementById("theme").addEventListener("click", () => {
+  const dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  root.dataset.theme = dark ? "light" : "dark";
+});
+</script>
+</body>
+</html>

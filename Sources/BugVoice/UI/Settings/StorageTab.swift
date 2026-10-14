@@ -30,8 +30,8 @@ struct StorageTab: View {
                         Button("Show") { NSWorkspace.shared.activateFileViewerSelecting([model.paths.meetings]) }
                     }
                 }
-                if FileManager.default.fileExists(atPath: model.paths.notes.path) {
-                    row("Notes", path: model.paths.notes, detail: "") { EmptyView() }
+                row("Notes", path: model.paths.notes, detail: "\(model.notesController.notes.count) notes") {
+                    Button("Show") { NSWorkspace.shared.activateFileViewerSelecting([model.paths.notes]) }
                 }
             }
             Picker("Keep dictation history", selection: retentionBinding) {

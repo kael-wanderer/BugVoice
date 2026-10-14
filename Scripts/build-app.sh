@@ -41,6 +41,7 @@ rm -rf "$APP_DIR"
 mkdir -p "$CONTENTS/MacOS" "$CONTENTS/Resources"
 cp "$BIN/$APP_NAME" "$CONTENTS/MacOS/$APP_NAME"
 cp "$ROOT/App/Info.plist" "$CONTENTS/Info.plist"
+cp "$ROOT/App/AppIcon.icns" "$CONTENTS/Resources/AppIcon.icns"
 printf 'APPL????' > "$CONTENTS/PkgInfo"
 for bundle in "$BIN"/*.bundle; do
     if [[ -d "$bundle" ]]; then cp -R "$bundle" "$CONTENTS/Resources/"; fi
