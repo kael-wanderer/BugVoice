@@ -23,13 +23,27 @@ public struct Keychain: Sendable {
         return String(data: data, encoding: .utf8)
     }
 
-    /// `nil` or empty deletes.
-    public func write(_ value: String?, account: String) {
-        SecItemDelete(query(account) as CFDictionary)
-        guard let value, !value.isEmpty else { return }
+    /// `nil` or empty deletes (a missing item is not an error). Otherwise
+    /// updates in place, adding when absent, so a failure never loses the
+    /// existing value.
+    public func write(_ value: String?, account: String) throws {
+        guard let value, !value.isEmpty else {
+            let status = SecItemDelete(query(account) as CFDictionary)
+            guard status == errSecSuccess || status == errSecItemNotFound else { throw KeychainError(status: status) }
+            return
+        }
+        let data = Data(value.utf8)
+        let update = SecItemUpdate(query(account) as CFDictionary, [kSecValueData as String: data] as CFDictionary)
+        if update == errSecSuccess { return }
+        guard update == errSecItemNotFound else { throw KeychainError(status: update) }
         var q = query(account)
-        q[kSecValueData as String] = Data(value.utf8)
+        q[kSecValueData as String] = data
         q[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
-        SecItemAdd(q as CFDictionary, nil)
+        let add = SecItemAdd(q as CFDictionary, nil)
+        guard add == errSecSuccess else { throw KeychainError(status: add) }
     }
+}
+
+public struct KeychainError: Error, Equatable, Sendable {
+    public let status: OSStatus
 }

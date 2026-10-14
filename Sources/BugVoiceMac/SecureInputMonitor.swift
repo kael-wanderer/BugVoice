@@ -6,6 +6,14 @@ import Carbon
 public enum SecureInputMonitor {
     public static var isActive: Bool { IsSecureEventInputEnabled() }
 
+    public static var state: SecureInputState {
+        guard isActive else { return .off }
+        guard let session = CGSessionCopyCurrentDictionary() as? [String: Any],
+              let pid = session["kCGSSessionSecureInputPID"] as? pid_t
+        else { return .ownerUnknown }
+        return .owner(pid)
+    }
+
     public static var owningAppName: String? {
         guard isActive,
               let session = CGSessionCopyCurrentDictionary() as? [String: Any],
