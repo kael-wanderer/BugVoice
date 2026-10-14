@@ -108,3 +108,21 @@ blank until the maintainer runs each check.
 | 60 | Meeting actions | Rename, delete one meeting, and inspect a second meeting | Rename persists; confirmed deletion removes only the selected meeting and its files | |
 | 61 | Settings → Meetings | Set Never, then 30/90/365 day deletion and change summary budgets | Values persist after relaunch; only expired Ready meetings are removed; generation limits clamp safely | |
 | 62 | Settings → Storage | Inspect Meetings size during a recording and after finalization; Show in Finder | Allocated size includes `.capture` journals while recording and final audio after finalization | |
+
+## Notes
+
+Run these after building with `Scripts/build-app.sh`. Keep the Result column
+blank until the maintainer runs each check.
+
+| # | Where | Do | Expect | Result |
+|---|---|---|---|---|
+| 63 | Notes page | Open Notes, create notes, search by title and body, select another note | Split list/editor works; search is literal and case/diacritic insensitive; selected note is clear | |
+| 64 | Notes files | Open a user-added `.md` with no leading `# ` heading, then an empty `.md` | Filename supplies the title; whole original file is the body; opening does not rewrite either file | |
+| 65 | Note title and save | Rename to an existing title, type in the body, wait 500 ms, then quit and reopen | Rename commits on Return/focus out with a collision-safe filename; body survives save and relaunch | |
+| 66 | External edits | Change a clean note outside BugVoice, then repeat after editing it in BugVoice; activate/select/save | Clean change reloads; dirty change says “Changed outside BugVoice” and offers Reload or Keep mine | |
+| 67 | Notes dictation | Put the caret or a selection in the editor, hold Right Option, speak, and release | Text replaces the captured selection or inserts at the caret; no pasteboard, history, or `last.wav` change | |
+| 68 | Focus loss and changed note | Start Notes dictation, move focus to another app, then repeat after changing the captured note | First run inserts into the captured note; changed note receives text at the body end; no paste occurs elsewhere | |
+| 69 | Deleted captured note | Start Notes dictation, delete its captured note before transcription finishes | Result is discarded with a plain-English message; no other note or paste target receives text | |
+| 70 | Undo | Dictate into a visible note, then into a note whose editor is off screen; reopen and undo | Each insertion is one undo step; off-screen insertion can be undone after reopening | |
+| 71 | Notes controls | Use the mic button, ⌃⌥N, Copy as Markdown, Export, and confirmed Trash | Listening bar appears; shortcut opens a new note; copy/export contain canonical Markdown; Trash affects only the confirmed note | |
+| 72 | Notes storage and quit | Inspect Notes size/count and Show in Finder; quit with dirty Notes and with an active Meeting | Notes size/count are shown; pending notes save before quit; meeting Stop and keep / Cancel flow still works | |

@@ -2,12 +2,13 @@
 
 ## Summary
 
-Implementation is in progress on feat/notes. Tasks 1–5b are implemented; Notes UI, menu, settings, quit, and final packaging remain.
+Implementation is complete on `feat/notes`; final build and launch passed. Notes manual checks remain pending.
 
 - **Documentation commit:** 035a116 — docs: notes design and implementation plan
 - **Baseline tests:** swift test passed with 192 VoiceCore tests in 26 suites and 27 BugVoiceMac tests in 7 suites (219 total).
-- **Build / launch / manual checks:** final app build, launch, and manual checks have not run.
-- **UNVERIFIED:** live-window editor interaction, app activation refresh wiring, quit, shortcut registration, storage size, export, and live app behavior remain until implemented and manually checked.
+- **Final suite:** `swift test` passed with 223 VoiceCore tests in 31 suites and 49 BugVoiceMac tests in 11 suites (272 total).
+- **Build / launch:** `Scripts/build-app.sh` passed and signed `build/BugVoice.app` with `Bugler Local Dev`; the app launched and remained running. `codesign` reported `Authority=Bugler Local Dev` and `Identifier=com.kael.bugvoice`.
+- **UNVERIFIED:** all Notes manual checklist rows 63–72 remain blank. Live microphone, clipboard observation, focus/caret behavior, external-change UI, export dialog, and quit dialogs were not manually exercised. The production build emits the existing WhisperKit non-Sendable warnings in `WhisperKitTranscriber.swift`.
 
 ## Approved decisions and costs
 
@@ -18,7 +19,7 @@ Implementation is in progress on feat/notes. Tasks 1–5b are implemented; Notes
 - Note files without a leading nonempty H1 derive the title from the filename stem, with hyphens changed to spaces. The entire file remains body content until edited.
 - Notes routing is selected only at recording start. Later focus changes do not cancel or reroute the run. An unchanged note uses the captured selection; a changed note appends. A deleted note discards the result. Notes never write dictation history, last.wav, menu last-result, or pasteboard.
 - Body saves debounce 500 ms. A title rename commits only on Return or title-field focus out.
-- No Notes behavior has been built or manually verified yet.
+- Notes implementation is complete; no Notes manual checklist behavior has been verified yet.
 
 ## Implementation commits and verification
 
@@ -32,6 +33,7 @@ Implementation is in progress on feat/notes. Tasks 1–5b are implemented; Notes
 | ea0c27f | Task 5a: loaded note buffer and undo | 222 VoiceCore + 41 BugVoiceMac passed | Buffer authority, pending-save insertion, and per-note undo |
 | 9f769f8 | Pre-Task 5b ordinary dictation regression | 223 VoiceCore + 41 BugVoiceMac passed | Pins exact output and inserted UTF-8 bytes for outside-app dictation |
 | 5d05016 | Task 5b: Notes route-at-start wiring | 223 VoiceCore + 43 BugVoiceMac passed | Captured-note routing; ordinary byte regression stayed green |
+| de5954e | Task 6: Notes page and lifecycle integration | 223 VoiceCore + 49 BugVoiceMac passed | UI, menu, storage, activation refresh, combined quit handler |
 
 ## Decisions made during implementation
 
@@ -113,3 +115,10 @@ Not run. Keep all Notes Result cells blank until the maintainer performs the dev
 - Decisions left by this plan: a blank committed title becomes “Untitled”; rename advances the note revision beyond the current loaded buffer revision to invalidate queued body snapshots. Cost if wrong: users cannot intentionally keep an empty title, and callers that bypass NotesController must supply a revision that reflects pending edits.
 - Skipped / NOT BUILT: no UI automation was added for showing the shortcut-registration warning or the combined quit dialog; those remain manual-checklist cases. Export overwrite behavior uses NSSavePanel's standard confirmation.
 - UNVERIFIED: live NSWindow caret/focus behavior, ⌃⌥N inside the running app, activation conflict UI, menu shortcut warning visibility, Storage rendering, export dialog/write, Trash dialog, combined quit interaction, and launch behavior remain for the final app launch/manual checklist. No live microphone or clipboard observation has been run.
+
+### Task 7 — Manual checklist, handoff, final build
+
+- Added Notes manual checklist rows 63–72 with blank Result cells, updated the sub-project status in `AGENTS.md`, and recorded Notes branch status and remaining maintainer gates in `HANDOFF.md`.
+- Verification: final `swift test` passed (223 VoiceCore tests / 31 suites; 49 BugVoiceMac tests / 11 suites). `Scripts/build-app.sh` passed. The built app was opened once; process `BugVoice` remained running. `codesign -dv` confirmed `Bugler Local Dev` and `com.kael.bugvoice`. `git diff --check` passed.
+- Self-review: earlier Dictation and Meetings maintainer gates are retained. Notes manual Result cells remain blank. `.planning/` remains ignored scratch and is not committed. No merge or push was performed.
+- Skipped / UNVERIFIED: all Notes manual checklist rows, live microphone and actual pasteboard observation, and UI-only editor/focus, export, shortcut-warning, storage, Trash, and combined quit behavior await maintainer checks.
