@@ -1,6 +1,16 @@
 import AppKit
 import SwiftUI
 
+/// Hosting view that reports intrinsic size changes to its owner.
+private final class SizingHostingView<Content: View>: NSHostingView<Content> {
+    var onSizeChange: (() -> Void)?
+
+    override func invalidateIntrinsicContentSize() {
+        super.invalidateIntrinsicContentSize()
+        onSizeChange?()
+    }
+}
+
 /// Floating, non-activating pill at the bottom-center of the screen with the
 /// mouse. It never takes focus, so the paste lands in the user's app.
 @MainActor
@@ -8,6 +18,7 @@ final class HUDController {
     let model = HUDModel()
     var levelSource: (() -> Float)?
     private let panel: NSPanel
+    private let hosting: SizingHostingView<HUDView>
     private var hideTask: Task<Void, Never>?
     private var meterTimer: Timer?
 
@@ -25,13 +36,19 @@ final class HUDController {
         panel.hasShadow = true
         panel.ignoresMouseEvents = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
-        panel.contentView = NSHostingView(rootView: HUDView(model: model))
+        hosting = SizingHostingView(rootView: HUDView(model: model))
+        hosting.sizingOptions = [.intrinsicContentSize]
+        panel.contentView = hosting
+        hosting.onSizeChange = { [weak self] in
+            MainActor.assumeIsolated { self?.layout() }
+        }
     }
 
     func show(_ state: HUDState) {
         hideTask?.cancel()
         model.state = state
         if case .listening = state { startMeter() } else { stopMeter() }
+        hosting.layoutSubtreeIfNeeded()
         layout()
         panel.orderFrontRegardless()
         if let delay = state.autoHideAfter {
@@ -51,8 +68,9 @@ final class HUDController {
     }
 
     private func layout() {
-        guard let view = panel.contentView else { return }
-        let size = view.fittingSize
+        guard model.state != nil else { return }
+        let size = hosting.fittingSize
+        guard size.width > 0, size.height > 0 else { return }
         let mouse = NSEvent.mouseLocation
         let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main
         guard let frame = screen?.visibleFrame else { return }
@@ -61,12 +79,14 @@ final class HUDController {
 
     private func startMeter() {
         stopMeter()
-        meterTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
+        let timer = Timer(timeInterval: 0.05, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self else { return }
                 self.model.level = self.levelSource?() ?? 0
             }
         }
+        RunLoop.main.add(timer, forMode: .common)
+        meterTimer = timer
     }
 
     private func stopMeter() {
