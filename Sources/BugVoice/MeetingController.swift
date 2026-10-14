@@ -67,14 +67,14 @@ final class MeetingController {
             let store = MeetingStore(root: model.paths.meetings)
             let scheduler = MeetingLiveTranscriptionScheduler(
                 writer: writer,
-                store: store,
                 transcriber: model.transcriptionRouter,
                 language: model.settings.speech.language
             )
-            let finalizer = MeetingAudioFinalizer(meetingDirectory: directory, store: store)
+            let finalizer = MeetingAudioFinalizer(meetingDirectory: directory)
             let session = MeetingSession(
                 store: store, audio: capture, scheduler: scheduler, finalizer: finalizer, meetingID: id
             )
+            await scheduler.bindSession(session)
             _ = try await session.start()
             self.session = session
             self.capture = capture
@@ -120,12 +120,12 @@ final class MeetingController {
         let store = MeetingStore(root: model.paths.meetings)
         let scheduler = MeetingLiveTranscriptionScheduler(
             writer: writer,
-            store: store,
             transcriber: model.transcriptionRouter,
             language: model.settings.speech.language
         )
-        let finalizer = MeetingAudioFinalizer(meetingDirectory: directory, store: store)
+        let finalizer = MeetingAudioFinalizer(meetingDirectory: directory)
         let session = MeetingSession(store: store, audio: capture, scheduler: scheduler, finalizer: finalizer, meetingID: id)
+        await scheduler.bindSession(session)
         self.session = session
         self.capture = capture
         self.writer = writer
@@ -197,6 +197,18 @@ final class MeetingController {
         await model.reloadMeetings()
     }
 
+    func renameSession(id: MeetingID, title: String) async throws -> Bool {
+        guard meetingID == id, let session else { return false }
+        try await session.rename(title: title)
+        return true
+    }
+
+    func saveGeneratedTextToSession(id: MeetingID, text: String, kind: MeetingTextKind) async throws -> Bool {
+        guard meetingID == id, let session else { return false }
+        try await session.saveGeneratedText(text, kind: kind)
+        return true
+    }
+
     func cancel() async {
         guard let session else { return }
         onRecordingStopped?()
@@ -256,7 +268,6 @@ private actor MeetingLiveTranscriptionScheduler: MeetingTranscriptionScheduler {
     }
 
     private let writer: MeetingPCMJournalWriter
-    private let store: MeetingStore
     private let transcriber: any Transcriber
     private let language: SpeechLanguage
     private let processor = MeetingChunkProcessor()
@@ -267,15 +278,17 @@ private actor MeetingLiveTranscriptionScheduler: MeetingTranscriptionScheduler {
     private var cancelled = false
     private var waiters: [CheckedContinuation<Void, Never>] = []
     private var latestSegmentText = ""
+    private var session: MeetingSession?
 
     var latestLine: String { latestSegmentText }
 
-    init(writer: MeetingPCMJournalWriter, store: MeetingStore, transcriber: any Transcriber, language: SpeechLanguage) {
+    init(writer: MeetingPCMJournalWriter, transcriber: any Transcriber, language: SpeechLanguage) {
         self.writer = writer
-        self.store = store
         self.transcriber = transcriber
         self.language = language
     }
+
+    func bindSession(_ session: MeetingSession) { self.session = session }
 
     func enqueueInterim(meetingID: MeetingID, id: String, track: MeetingTrack, offset: TimeInterval, clip: AudioClip) {
         guard !cancelled, submitted.insert(id).inserted else { return }
@@ -361,16 +374,8 @@ private actor MeetingLiveTranscriptionScheduler: MeetingTranscriptionScheduler {
     }
 
     private func persistInterim(_ result: MeetingChunkProcessingResult, meetingID: MeetingID) async {
-        guard var manifest = try? await store.load(id: meetingID), manifest.state == .recording || manifest.state == .paused else { return }
-        manifest.chunks.removeAll { $0.id == result.record.id }
-        manifest.chunks.append(result.record)
-        var chunks = manifest.chunks.map { record in
-            MeetingChunkProcessingResult(record: record, segments: manifest.segments.filter { $0.sourceChunkID == record.id })
-        }
-        chunks.removeAll { $0.record.id == result.record.id }
-        chunks.append(result)
-        manifest.segments = MeetingTranscriptMerger.merge(chunks)
-        try? await store.save(manifest)
+        guard let session, await session.snapshot()?.id == meetingID else { return }
+        try? await session.persistInterim(result)
     }
 
     private func resumeWaiters() {

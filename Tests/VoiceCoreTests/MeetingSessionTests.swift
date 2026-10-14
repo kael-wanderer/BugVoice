@@ -147,11 +147,75 @@ struct MeetingSessionTests {
         _ = try await stopping.value
     }
 
+    @Test func renameDuringFinalTranscriptionSurvivesReadySave() async throws {
+        let rig = SessionRig(blockTranscription: true)
+        let session = rig.makeSession()
+        try await session.start()
+        let stopping = Task { try await session.stop() }
+        await rig.scheduler.waitUntilStarted()
+        try await session.rename(title: "Renamed while transcribing")
+        await rig.scheduler.release()
+
+        let ready = try await stopping.value
+        #expect(ready.title == "Renamed while transcribing")
+        #expect(await rig.store.meetings[ready.id]?.title == "Renamed while transcribing")
+    }
+
+    @Test func markAndConcurrentInterimSaveBothSurvive() async throws {
+        let rig = SessionRig()
+        let session = rig.makeSession()
+        try await session.start()
+        let result = interim(id: "mic-live-1", track: .mic, text: "interim words")
+
+        async let mark = session.mark(label: "Decision")
+        async let save = session.persistInterim(result)
+        _ = try await mark
+        try await save
+
+        let saved = await session.snapshot()
+        #expect(saved?.marks.map(\.label) == ["Decision"])
+        #expect(saved?.segments.map(\.text) == ["interim words"])
+        #expect(saved?.chunks.map(\.id) == ["mic-live-1"])
+    }
+
+    @Test func pauseAndMarkPreserveInterimSegments() async throws {
+        let rig = SessionRig()
+        let session = rig.makeSession()
+        try await session.start()
+        try await session.persistInterim(interim(id: "mic-live-2", track: .mic, text: "saved words"))
+        try await session.pause()
+        _ = try await session.mark(label: "After pause")
+
+        let saved = await session.snapshot()
+        #expect(saved?.segments.map(\.text) == ["saved words"])
+        #expect(saved?.chunks.map(\.id) == ["mic-live-2"])
+        #expect(saved?.marks.map(\.label) == ["After pause"])
+        #expect(saved?.state == .paused)
+    }
+
+    @Test func readyManifestIsDurableBeforeCaptureCleanup() async throws {
+        let rig = SessionRig()
+        await rig.finalizer.observe(rig.store)
+        let session = rig.makeSession()
+        try await session.start()
+        let ready = try await session.stop()
+
+        #expect(ready.state == .ready)
+        #expect(await rig.finalizer.cleanupObservedReadyManifest)
+    }
+
     private func chunk(_ id: String, track: MeetingTrack, segments: [MeetingSegment]) -> MeetingChunkProcessingResult {
         MeetingChunkProcessingResult(record: MeetingChunkRecord(
             id: id, track: track, offset: 0, duration: 30,
             requestedLanguage: .auto, state: .complete
         ), segments: segments)
+    }
+
+    private func interim(id: String, track: MeetingTrack, text: String) -> MeetingChunkProcessingResult {
+        MeetingChunkProcessingResult(
+            record: MeetingChunkRecord(id: id, track: track, offset: 0, duration: 30, requestedLanguage: .auto, state: .complete),
+            segments: [MeetingSegment(start: 1, end: 2, text: text, track: track, sourceChunkID: id)]
+        )
     }
 }
 
@@ -253,7 +317,14 @@ private actor SchedulerProbe: MeetingTranscriptionScheduler {
 
 private actor FinalizerProbe: MeetingAudioFinalizerProtocol {
     private(set) var callCount = 0
+    private(set) var cleanupObservedReadyManifest = false
+    private var store: SessionStoreProbe?
+    func observe(_ store: SessionStoreProbe) { self.store = store }
     func finalize(_ manifest: MeetingManifest) async throws -> MeetingManifest { callCount += 1; return manifest }
+    func cleanupCapture() async throws {
+        guard let store else { return }
+        cleanupObservedReadyManifest = await store.meetings.values.contains { $0.state == .ready }
+    }
 }
 
 private final class CompletionProbe: @unchecked Sendable {

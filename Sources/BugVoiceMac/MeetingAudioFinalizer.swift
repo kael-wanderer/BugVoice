@@ -11,11 +11,9 @@ public enum MeetingAudioFinalizationError: Error, Equatable {
 
 public struct MeetingAudioFinalizer: MeetingAudioFinalizerProtocol {
     private let meetingDirectory: URL
-    private let store: MeetingStore
 
-    public init(meetingDirectory: URL, store: MeetingStore) {
+    public init(meetingDirectory: URL) {
         self.meetingDirectory = meetingDirectory
-        self.store = store
     }
 
     public func finalize(_ manifest: MeetingManifest) async throws -> MeetingManifest {
@@ -32,13 +30,15 @@ public struct MeetingAudioFinalizer: MeetingAudioFinalizerProtocol {
 
         var finalized = manifest
         finalized.audioFormat.finalEncoding = "aac"
-        try await store.save(finalized)
+        return finalized
+    }
+
+    public func cleanupCapture() async throws {
         let captureDirectory = meetingDirectory.appendingPathComponent(".capture", isDirectory: true)
         if FileManager.default.fileExists(atPath: captureDirectory.path) {
             try FileManager.default.removeItem(at: captureDirectory)
             try syncDirectory(meetingDirectory)
         }
-        return finalized
     }
 
     private func samples(from data: Data, track: MeetingTrack) throws -> [Float] {

@@ -293,6 +293,18 @@ final class AppModel {
 
     func renameMeeting(id: MeetingID, title: String) async {
         let cleaned = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty else { return }
+        if let meetings {
+            do {
+                if try await meetings.renameSession(id: id, title: cleaned) {
+                    await reloadMeetings()
+                    return
+                }
+            } catch {
+                saveError = "Could not rename meeting: \(error.localizedDescription)"
+                return
+            }
+        }
         guard !cleaned.isEmpty, var meeting = meetingManifests.first(where: { $0.id == id }) else { return }
         meeting.title = cleaned
         do {
@@ -331,6 +343,10 @@ final class AppModel {
         )
         if kind == .summary { meeting.summary = text }
         else { meeting.actionItems = text }
+        if let meetings, try await meetings.saveGeneratedTextToSession(id: id, text: text, kind: kind) {
+            await reloadMeetings()
+            return text
+        }
         try await meetingStore.save(meeting)
         await reloadMeetings()
         return text

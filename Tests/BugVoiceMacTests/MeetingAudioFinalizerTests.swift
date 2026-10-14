@@ -16,17 +16,19 @@ struct MeetingAudioFinalizerTests {
         writer.append(Array(repeating: 0, count: 8_000), track: .system, offset: 0)
         _ = try writer.checkpoint()
         writer.close()
-        let store = MeetingStore(root: root)
         let meeting = MeetingManifest(id: MeetingID(rawValue: "finalize"), startedAt: Date(), duration: 1, state: .transcribing)
 
-        let result = try await MeetingAudioFinalizer(meetingDirectory: root, store: store).finalize(meeting)
+        let finalizer = MeetingAudioFinalizer(meetingDirectory: root)
+        let result = try await finalizer.finalize(meeting)
 
         #expect(FileManager.default.fileExists(atPath: root.appendingPathComponent("audio.m4a").path))
         #expect(FileManager.default.fileExists(atPath: root.appendingPathComponent("mic.m4a").path))
         #expect(FileManager.default.fileExists(atPath: root.appendingPathComponent("system.m4a").path))
-        #expect(!FileManager.default.fileExists(atPath: capture.path))
+        #expect(FileManager.default.fileExists(atPath: capture.path))
         #expect(result.audioFormat.finalEncoding == "aac")
         #expect(abs(try duration(root.appendingPathComponent("audio.m4a")) - 1) < 0.1)
+        try await finalizer.cleanupCapture()
+        #expect(!FileManager.default.fileExists(atPath: capture.path))
     }
 
     @Test func failedFinalizationLeavesPCMJournalsForRetry() async throws {
@@ -38,7 +40,7 @@ struct MeetingAudioFinalizerTests {
         let meeting = MeetingManifest(id: MeetingID(rawValue: "failure"), startedAt: Date(), state: .transcribing)
 
         do {
-            _ = try await MeetingAudioFinalizer(meetingDirectory: root, store: MeetingStore(root: root)).finalize(meeting)
+            _ = try await MeetingAudioFinalizer(meetingDirectory: root).finalize(meeting)
             Issue.record("Expected finalization to fail without a committed checkpoint")
         } catch {}
 

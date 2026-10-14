@@ -35,6 +35,11 @@ public protocol MeetingTranscriptionScheduler: Sendable {
 
 public protocol MeetingAudioFinalizerProtocol: Sendable {
     func finalize(_ manifest: MeetingManifest) async throws -> MeetingManifest
+    func cleanupCapture() async throws
+}
+
+public extension MeetingAudioFinalizerProtocol {
+    func cleanupCapture() async throws {}
 }
 
 public actor MeetingSession {
@@ -66,6 +71,42 @@ public actor MeetingSession {
     }
 
     public func snapshot() -> MeetingManifest? { manifest }
+
+    public func rename(title: String) async throws {
+        guard var meeting = manifest else { throw MeetingSessionError.invalidState }
+        let cleaned = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty else { throw MeetingSessionError.invalidState }
+        meeting.title = cleaned
+        manifest = meeting
+        try await store.save(meeting)
+    }
+
+    public func saveGeneratedText(_ text: String, kind: MeetingTextKind) async throws {
+        guard var meeting = manifest else { throw MeetingSessionError.invalidState }
+        if kind == .summary { meeting.summary = text }
+        else { meeting.actionItems = text }
+        manifest = meeting
+        try await store.save(meeting)
+    }
+
+    public func persistInterim(_ result: MeetingChunkProcessingResult) async throws {
+        guard var meeting = manifest, meeting.state == .recording || meeting.state == .paused else {
+            throw MeetingSessionError.invalidState
+        }
+        meeting.chunks.removeAll { $0.id == result.record.id }
+        meeting.chunks.append(result.record)
+        var chunks = meeting.chunks.map { record in
+            MeetingChunkProcessingResult(
+                record: record,
+                segments: meeting.segments.filter { $0.sourceChunkID == record.id }
+            )
+        }
+        chunks.removeAll { $0.record.id == result.record.id }
+        chunks.append(result)
+        meeting.segments = MeetingTranscriptMerger.merge(chunks)
+        manifest = meeting
+        try await store.save(meeting)
+    }
 
     @discardableResult
     public func start() async throws -> MeetingManifest {
@@ -209,11 +250,19 @@ public actor MeetingSession {
             meeting.segments = MeetingTranscriptMerger.merge(chunks)
             meeting.transcriptProgress = 1
             meeting.transcriptionError = nil
-            meeting = try await finalizer.finalize(meeting)
-            meeting.state = .ready
-            manifest = meeting
-            try await store.save(meeting)
-            return meeting
+            let finalized = try await finalizer.finalize(meeting)
+            guard !cancelRequested else { return manifest ?? meeting }
+            var current = manifest ?? meeting
+            current.audioFormat = finalized.audioFormat
+            current.chunks = finalized.chunks
+            current.segments = finalized.segments
+            current.transcriptProgress = 1
+            current.transcriptionError = nil
+            current.state = .ready
+            manifest = current
+            try await store.save(current)
+            try? await finalizer.cleanupCapture()
+            return current
         } catch {
             if cancelRequested { return manifest ?? meeting }
             meeting.state = .transcribing
