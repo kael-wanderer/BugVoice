@@ -100,6 +100,7 @@ final class MeetingController {
                case .coreAudio(let operation, _) = coreAudioError,
                operation.contains("system audio") {
                 statusMessage = "System Audio Recording access is required to start a meeting."
+                model.noteSystemAudioCaptureStartFailure()
                 model.openPermissionsWindow()
             } else {
                 statusMessage = "Could not start meeting audio: \(error.localizedDescription)"

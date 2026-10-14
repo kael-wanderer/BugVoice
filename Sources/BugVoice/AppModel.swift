@@ -56,6 +56,7 @@ final class AppModel {
     var isListening = false
     var permissionsGranted = Permissions.allGranted
     var permissionStatus: [PermissionKind: Bool] = [:]
+    var systemAudioPermissionFailed = false
     /// The latest failure to save something (settings, vocabulary, history,
     /// Keychain, login item). The UI shows it and sets it back to nil once
     /// the user has seen it. Never cleared by a later success.
@@ -436,5 +437,12 @@ final class AppModel {
     func setSystemAudioCaptureObserved(_ granted: Bool) {
         systemAudioGrantedThisRun = granted
         permissionStatus[.systemAudioRecording] = granted
+        if granted { systemAudioPermissionFailed = false }
+    }
+
+    func noteSystemAudioCaptureStartFailure() {
+        systemAudioGrantedThisRun = false
+        permissionStatus[.systemAudioRecording] = false
+        systemAudioPermissionFailed = true
     }
 }

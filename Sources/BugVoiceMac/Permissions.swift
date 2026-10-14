@@ -41,12 +41,11 @@ public enum Permissions {
 
     @MainActor
     public static func openSettings(_ kind: PermissionKind) {
-        guard kind != .systemAudioRecording else { return }
         let anchor = switch kind {
         case .microphone: "Privacy_Microphone"
         case .accessibility: "Privacy_Accessibility"
         case .inputMonitoring: "Privacy_ListenEvent"
-        case .systemAudioRecording: ""
+        case .systemAudioRecording: "Privacy_ScreenCapture"
         }
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?\(anchor)") {
             NSWorkspace.shared.open(url)

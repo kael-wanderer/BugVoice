@@ -28,10 +28,16 @@ struct PermissionsView: View {
                 .background(.quaternary, in: RoundedRectangle(cornerRadius: 9))
             VStack(alignment: .leading) {
                 Text("System Audio Recording").fontWeight(.semibold)
-                Text("Requested when the first meeting starts").font(.callout).foregroundStyle(.secondary)
+                Text(model.systemAudioPermissionFailed
+                    ? "Allow BugVoice under Privacy & Security → Screen & System Audio Recording."
+                    : "Requested when the first meeting starts")
+                    .font(.callout).foregroundStyle(.secondary)
             }
             Spacer()
-            if model.permissionStatus[.systemAudioRecording] == true {
+            if model.systemAudioPermissionFailed {
+                Button("Open System Settings") { Permissions.openSettings(.systemAudioRecording) }
+                    .buttonStyle(.borderedProminent)
+            } else if model.permissionStatus[.systemAudioRecording] == true {
                 Text("Granted").foregroundStyle(.green)
             }
         }
