@@ -32,6 +32,29 @@ struct MeetingSessionTests {
         #expect(await rig.audio.resumeCount == 1)
     }
 
+    @Test func sleepPauseCheckpointsAndRemainsPausedWithoutAutoResume() async throws {
+        let rig = SessionRig()
+        let session = rig.makeSession()
+        try await session.start()
+        try await session.pauseForSleep()
+        rig.clock.advance(60)
+
+        #expect(await session.snapshot()?.state == .paused)
+        #expect(await rig.audio.pauseCount == 1)
+        #expect(await rig.audio.resumeCount == 0)
+    }
+
+    @Test func quitStopLeavesDurableInterruptedMeeting() async throws {
+        let rig = SessionRig()
+        let session = rig.makeSession()
+        try await session.start()
+        let interrupted = try await session.cancel()
+
+        #expect(interrupted.state == .interrupted)
+        #expect(await rig.audio.stopCount == 1)
+        #expect(await rig.store.meetings[interrupted.id]?.state == .interrupted)
+    }
+
     @Test func markUsesMeetingRelativeActiveTime() async throws {
         let rig = SessionRig()
         let session = rig.makeSession()

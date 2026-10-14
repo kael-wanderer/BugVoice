@@ -144,6 +144,13 @@ public actor MeetingSession {
         return meeting
     }
 
+    /// Sleep uses the same durable pause boundary as the recorder's Pause
+    /// control. It deliberately leaves the session paused after wake.
+    @discardableResult
+    public func pauseForSleep() async throws -> MeetingManifest {
+        try await pause()
+    }
+
     @discardableResult
     public func resume() async throws -> MeetingManifest {
         guard var meeting = manifest, meeting.state == .paused else { throw MeetingSessionError.invalidState }

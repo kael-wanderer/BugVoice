@@ -160,6 +160,18 @@ final class MeetingController {
         }
     }
 
+    func pauseForSleep() async {
+        guard let session, isRecording else { return }
+        do {
+            try await session.pauseForSleep()
+            elapsedBeforePause = elapsed
+            isRecording = false
+            isPaused = true
+        } catch {
+            statusMessage = "Could not checkpoint the meeting before sleep: \(error.localizedDescription)"
+        }
+    }
+
     func resume() async {
         guard let session, isPaused else { return }
         do {
@@ -219,6 +231,18 @@ final class MeetingController {
         isTranscribing = false
         do { _ = try await session.cancel() }
         catch { statusMessage = "Could not stop meeting audio: \(error.localizedDescription)" }
+        await model.reloadMeetings()
+    }
+
+    func stopAndKeepForQuit() async throws {
+        guard let session, isRecording || isPaused else { return }
+        onRecordingStopped?()
+        monitorTask?.cancel()
+        monitorTask = nil
+        isRecording = false
+        isPaused = false
+        isTranscribing = false
+        _ = try await session.cancel()
         await model.reloadMeetings()
     }
 
