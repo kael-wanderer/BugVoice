@@ -23,6 +23,40 @@ public enum MeetingChunkPlanner {
     }
 }
 
+/// Tracks the next unsent complete chunk independently for each audio track.
+/// Partial trailing chunks are reconsidered on the next monitor tick.
+public struct MeetingLiveChunkCursor: Sendable {
+    private var nextIndex: [MeetingTrack: Int] = [:]
+
+    public init() {}
+
+    public mutating func takeReadyRanges(
+        track: MeetingTrack,
+        sampleCount: Int,
+        chunkSeconds: TimeInterval = 30,
+        overlapSeconds: TimeInterval = 1,
+        sampleRate: Int = MeetingPCMJournal.sampleRate
+    ) -> [Range<Int>] {
+        let ranges = MeetingChunkPlanner.plan(
+            sampleCount: sampleCount,
+            chunkSeconds: chunkSeconds,
+            overlapSeconds: overlapSeconds,
+            sampleRate: sampleRate
+        )
+        let chunkSize = max(1, Int((chunkSeconds * Double(sampleRate)).rounded()))
+        var index = nextIndex[track, default: 0]
+        var ready: [Range<Int>] = []
+        while index < ranges.count {
+            let range = ranges[index]
+            guard range.count == chunkSize, range.upperBound <= sampleCount else { break }
+            ready.append(range)
+            index += 1
+        }
+        nextIndex[track] = index
+        return ready
+    }
+}
+
 public enum MeetingSilenceGate {
     public static func hasSpeech(
         _ samples: [Float],

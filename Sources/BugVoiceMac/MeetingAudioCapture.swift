@@ -97,6 +97,8 @@ public final class MeetingPCMJournalWriter: @unchecked Sendable {
 
     private let directory: URL
     private let queue = DispatchQueue(label: "com.bugvoice.meeting-pcm-journal")
+    private let sampleCountsLock = NSLock()
+    private var latestSampleCounts: [MeetingTrack: Int] = [:]
     private var tracks: [MeetingTrack: TrackState] = [:]
     private var appendFailure: Error?
     private var checkpointTimer: DispatchSourceTimer?
@@ -114,7 +116,9 @@ public final class MeetingPCMJournalWriter: @unchecked Sendable {
             }
             let handle = try FileHandle(forWritingTo: url)
             try handle.seekToEnd()
-            tracks[track] = TrackState(handle: handle, bytes: Int(try handle.offset()))
+            let existingBytes = Int(try handle.offset())
+            tracks[track] = TrackState(handle: handle, bytes: existingBytes, samples: existingBytes / 2)
+            setLatestSampleCount(existingBytes / 2, for: track)
             appendFailure = nil
             if checkpointTimer == nil {
                 let timer = DispatchSource.makeTimerSource(queue: DispatchQueue(label: "com.bugvoice.meeting-checkpoint-timer"))
@@ -139,6 +143,7 @@ public final class MeetingPCMJournalWriter: @unchecked Sendable {
                 state.startOffset = min(state.startOffset, offset)
                 state.endOffset = max(state.endOffset, offset + clip.duration)
                 self.tracks[track] = state
+                self.setLatestSampleCount(state.samples, for: track)
             } catch {
                 self.appendFailure = error
             }
@@ -194,6 +199,9 @@ public final class MeetingPCMJournalWriter: @unchecked Sendable {
                 ))
             }
             let safeCheckpoint = MeetingCheckpoint(tracks: safeTracks)
+            for track in MeetingTrack.allCases {
+                setLatestSampleCount(safeCheckpoint.track(track)?.sampleCount ?? 0, for: track)
+            }
             if safeCheckpoint != checkpoint {
                 let encoder = JSONEncoder()
                 encoder.outputFormatting = [.sortedKeys]
@@ -219,23 +227,55 @@ public final class MeetingPCMJournalWriter: @unchecked Sendable {
         return try JSONDecoder().decode(MeetingCheckpoint.self, from: data)
     }
 
+    /// A lock-only snapshot for UI scheduling. It never waits for journal I/O.
+    public func sampleCount(for track: MeetingTrack) -> Int {
+        sampleCountsLock.lock()
+        defer { sampleCountsLock.unlock() }
+        return latestSampleCounts[track, default: 0]
+    }
+
     public func committedSamples(for track: MeetingTrack, range: Range<Int>) throws -> [Float] {
         try queue.sync {
-            if let appendFailure { throw appendFailure }
-            let checkpoint = try storedCheckpoint()
-            let count = checkpoint.track(track)?.sampleCount ?? 0
-            let lower = min(count, max(0, range.lowerBound))
-            let upper = min(count, max(lower, range.upperBound))
-            guard upper > lower else { return [] }
-            let handle = try FileHandle(forReadingFrom: journalURL(track))
-            defer { try? handle.close() }
-            try handle.seek(toOffset: UInt64(lower * 2))
-            let data = try handle.read(upToCount: (upper - lower) * 2) ?? Data()
-            guard data.count.isMultiple(of: 2) else { throw CocoaError(.fileReadCorruptFile) }
-            return data.withUnsafeBytes { bytes in
-                bytes.bindMemory(to: Int16.self).map { Float(Int16(littleEndian: $0)) / 32_768 }
+            try committedSamplesOnQueue(for: track, range: range)
+        }
+    }
+
+    /// Reads away from the caller's actor so live monitoring never performs
+    /// journal file I/O on MainActor.
+    public func committedSamplesAsync(for track: MeetingTrack, range: Range<Int>) async throws -> [Float] {
+        try await withCheckedThrowingContinuation { continuation in
+            queue.async {
+                do { continuation.resume(returning: try self.committedSamplesOnQueue(for: track, range: range)) }
+                catch { continuation.resume(throwing: error) }
             }
         }
+    }
+
+    private func committedSamplesOnQueue(for track: MeetingTrack, range: Range<Int>) throws -> [Float] {
+        if let appendFailure { throw appendFailure }
+        let count: Int
+        if let activeTrack = tracks[track] {
+            count = activeTrack.samples
+        } else {
+            count = try storedCheckpoint().track(track)?.sampleCount ?? 0
+        }
+        let lower = min(count, max(0, range.lowerBound))
+        let upper = min(count, max(lower, range.upperBound))
+        guard upper > lower else { return [] }
+        let handle = try FileHandle(forReadingFrom: journalURL(track))
+        defer { try? handle.close() }
+        try handle.seek(toOffset: UInt64(lower * 2))
+        let data = try handle.read(upToCount: (upper - lower) * 2) ?? Data()
+        guard data.count.isMultiple(of: 2) else { throw CocoaError(.fileReadCorruptFile) }
+        return data.withUnsafeBytes { bytes in
+            bytes.bindMemory(to: Int16.self).map { Float(Int16(littleEndian: $0)) / 32_768 }
+        }
+    }
+
+    private func setLatestSampleCount(_ count: Int, for track: MeetingTrack) {
+        sampleCountsLock.lock()
+        latestSampleCounts[track] = count
+        sampleCountsLock.unlock()
     }
 
     public func committedData(for track: MeetingTrack) throws -> Data {

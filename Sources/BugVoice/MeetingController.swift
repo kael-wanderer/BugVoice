@@ -27,6 +27,7 @@ final class MeetingController {
     @ObservationIgnored private var startedAt = Date()
     @ObservationIgnored private var elapsedBeforePause: TimeInterval = 0
     @ObservationIgnored private var monitorTask: Task<Void, Never>?
+    @ObservationIgnored private var liveChunkCursor = MeetingLiveChunkCursor()
 
     init(model: AppModel) { self.model = model }
 
@@ -80,6 +81,7 @@ final class MeetingController {
             self.writer = writer
             self.scheduler = scheduler
             self.meetingID = id
+            liveChunkCursor = MeetingLiveChunkCursor()
             startedAt = Date()
             elapsedBeforePause = 0
             elapsed = 0
@@ -216,16 +218,16 @@ final class MeetingController {
                 guard let self, self.isRecording, let writer = self.writer, let scheduler = self.scheduler, let capture = self.capture, let meetingID = self.meetingID else { continue }
                 self.elapsed = self.elapsedBeforePause + max(0, Date().timeIntervalSince(self.startedAt))
                 do {
-                    let checkpoint = try writer.checkpoint()
                     for track in MeetingTrack.allCases {
-                        guard let count = checkpoint.track(track)?.sampleCount, count > 0 else { continue }
-                        let ranges = MeetingChunkPlanner.plan(sampleCount: count)
-                        for (index, range) in ranges.enumerated() where range.count == 30 * MeetingPCMJournal.sampleRate && range.upperBound <= count {
-                            let samples = try writer.committedSamples(for: track, range: range)
+                        let count = writer.sampleCount(for: track)
+                        guard count > 0 else { continue }
+                        let ranges = self.liveChunkCursor.takeReadyRanges(track: track, sampleCount: count)
+                        for range in ranges {
+                            let samples = try await writer.committedSamplesAsync(for: track, range: range)
                             guard !samples.isEmpty else { continue }
                             await scheduler.enqueueInterim(
                                 meetingID: meetingID,
-                                id: "\(track.rawValue)-\(index)",
+                                id: "\(track.rawValue)-\(range.lowerBound)",
                                 track: track,
                                 offset: Double(range.lowerBound) / Double(MeetingPCMJournal.sampleRate),
                                 clip: AudioClip(samples: samples)

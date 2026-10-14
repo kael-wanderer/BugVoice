@@ -11,6 +11,18 @@ struct MeetingTranscriptionTests {
         #expect(ranges[1].upperBound > ranges[2].lowerBound)
     }
 
+    @Test func liveCursorReturnsOnlyNewCompleteChunksPerTrack() {
+        var cursor = MeetingLiveChunkCursor()
+        let thirtySeconds = 30 * 16_000
+        let fiftyNineSeconds = 59 * 16_000
+
+        #expect(cursor.takeReadyRanges(track: .mic, sampleCount: thirtySeconds) == [0..<thirtySeconds])
+        #expect(cursor.takeReadyRanges(track: .mic, sampleCount: thirtySeconds).isEmpty)
+        #expect(cursor.takeReadyRanges(track: .system, sampleCount: thirtySeconds) == [0..<thirtySeconds])
+        #expect(cursor.takeReadyRanges(track: .mic, sampleCount: fiftyNineSeconds) == [29 * 16_000..<fiftyNineSeconds])
+        #expect(cursor.takeReadyRanges(track: .mic, sampleCount: 60 * 16_000).isEmpty)
+    }
+
     @Test func shortSpeechInsideThirtySecondsOfSilencePassesGateAndReachesTranscriber() async throws {
         var samples = Array(repeating: Float.zero, count: 30 * 16_000)
         samples.replaceSubrange(29 * 16_000..<30 * 16_000, with: speechClip.samples)
