@@ -33,3 +33,11 @@ Continuous implementation is in progress. Tasks 1–3 and Task 4 are complete. T
 - Decisions beyond the plan: no `Settings.swift` edit was needed because `MeetingSettings` already stores independent context/output values; `MeetingTextBudget(settings:)` clamps them at the generation boundary, including older or malformed settings. Part size estimates include timestamp/speaker markers at three characters per token, not only transcript text. If the model returns merge text too large to fit the next context window or does not reduce the number of merge inputs, generation throws `mergeDidNotReduceToFitContext` rather than submitting an over-budget request. Cost if wrong: generation can fail for a model that produces unusually long partial results; the user can retry with a smaller output budget or a model that compresses merge results.
 - No skipped checks. Cancellation is cooperative between model calls; progress reports completed part and merge calls. Persistent saving is intentionally left to app integration tasks.
 - Open questions: none for Task 5.
+
+### Task 6 — export formatting and timeline mapping
+
+- Commit: `b303bd0` — `feat(core): export meeting transcripts and map timeline seeks`.
+- Tests: 2 `MeetingExportTests` and 3 `MeetingTimelineTests` passed; full suite passed 163 VoiceCore + 17 BugVoiceMac tests.
+- Decisions beyond the plan: Markdown dates use a stable UTC timestamp; transcript line breaks are flattened to spaces in Markdown and SRT so each cue remains one readable line. Cost if wrong: users in other time zones may prefer local time; the stored date remains authoritative and export formatting can be changed without data migration.
+- No skipped checks; SRT uses millisecond rounding and timeline intervals are start-inclusive/end-exclusive.
+- Open questions: none for Task 6.
