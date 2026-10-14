@@ -125,6 +125,14 @@ Not run. Keep all Notes Result cells blank until the maintainer performs the dev
 
 ## Whole-branch review fixes
 
+| Commit | Review fix | Tests |
+|---|---|---|
+| b29a9ac | Keep Notes mic dictation in Notes | 224 VoiceCore + 50 BugVoiceMac passed |
+| 19c51eb | Keep Notes undo ranges valid | 224 VoiceCore + 51 BugVoiceMac passed |
+| d1cc248 | Ignore Notes Store-owned file versions | 224 VoiceCore + 54 BugVoiceMac passed |
+| 83be30a | Keep failed Notes dictation recoverable | 225 VoiceCore + 55 BugVoiceMac passed |
+| 84b5150 | Update Notes rows without rescanning | 225 VoiceCore + 56 BugVoiceMac passed |
+
 ### Review item 1 — Notes mic route and last selection
 
 - Test-first: added a VoiceCore policy test for mic capture with no first-responder requirement and a controller test for using the editor's last selection after focus moves. The policy test first failed to compile because `captureForMic` was missing; the first controller run exposed that the fixture had not moved the NSTextView selection, so the test now models the selection callback before focus loss.
