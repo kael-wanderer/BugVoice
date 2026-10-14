@@ -24,7 +24,7 @@ public enum PipelineStage: Sendable, Equatable {
 }
 
 public enum DictationOutcome: String, Codable, Sendable {
-    case inserted, copiedSecureField, copiedNotConsumed, discardedTooShort, nothingHeard, transcriptionFailed
+    case inserted, copiedSecureField, copiedNotConsumed, discardedTooShort, nothingHeard, transcriptionFailed, cancelled
 }
 
 public struct DictationResult: Sendable, Equatable {
@@ -58,7 +58,7 @@ public struct DictationResult: Sendable, Equatable {
     /// into a password field is likely a secret and is never logged.
     public var historyEntry: HistoryEntry? {
         switch outcome {
-        case .discardedTooShort, .nothingHeard, .transcriptionFailed, .copiedSecureField:
+        case .discardedTooShort, .nothingHeard, .transcriptionFailed, .cancelled, .copiedSecureField:
             return nil
         case .inserted, .copiedNotConsumed:
             return HistoryEntry(
@@ -138,6 +138,10 @@ public struct DictationPipeline: Sendable {
         let transcript: Transcript
         do {
             transcript = try await transcriber.transcribe(clip, options: options)
+        } catch is CancellationError {
+            result.outcome = .cancelled
+            result.timings.transcribe = Date().timeIntervalSince(mark)
+            return result
         } catch {
             result.outcome = .transcriptionFailed
             result.errorMessage = String(describing: error)

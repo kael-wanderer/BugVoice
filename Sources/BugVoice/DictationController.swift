@@ -204,7 +204,7 @@ final class DictationController {
                 }
             }
             stagedRun = nil
-            if Self.isCancellation(result) {
+            if result.outcome == .cancelled {
                 hud.hide()
             } else {
                 if let state = HUDState.from(result) { hud.show(state) } else { hud.hide() }
@@ -221,12 +221,6 @@ final class DictationController {
         case .cleaning: hud.show(.cleaning(model: modelName, app: app))
         case .inserting: break
         }
-    }
-
-    /// A transcription cut short by cancellation is not a failure to report.
-    private static func isCancellation(_ result: DictationResult) -> Bool {
-        result.outcome == .transcriptionFailed
-            && result.errorMessage == String(describing: CancellationError())
     }
 
     private static func languageLabel(_ language: SpeechLanguage) -> String {
