@@ -121,6 +121,23 @@ struct NotesControllerTests {
         #expect(!controller.isLoaded(id: created.id))
     }
 
+    @Test func saveUpdatesItsListRowWithoutRescanningTheNotesDirectory() async throws {
+        let root = try directory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = NotesStore(directory: root)
+        let created = try await store.create(title: "Loaded", body: "original")
+        let controller = NotesController(store: store)
+        await controller.reloadList()
+        try await controller.load(id: created.id)
+        try Data("# External\n\nexternal".utf8).write(to: root.appendingPathComponent("external.md"))
+
+        controller.updateBody(id: created.id, body: "saved locally")
+        #expect(await controller.flush(id: created.id))
+        #expect(controller.notes.count == 1)
+        #expect(controller.notes.first?.id == created.id)
+        #expect(controller.notes.first?.body == "saved locally")
+    }
+
     @Test func routeCaptureRequiresBugVoiceNotesPageAndMatchingFirstResponder() async throws {
         let root = try directory()
         defer { try? FileManager.default.removeItem(at: root) }

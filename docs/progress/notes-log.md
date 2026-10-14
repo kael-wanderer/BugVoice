@@ -156,3 +156,11 @@ Not run. Keep all Notes Result cells blank until the maintainer performs the dev
 - Tests: full `swift test` passed with 225 VoiceCore tests / 31 suites and 55 BugVoiceMac tests / 11 suites (280 total). The read-only Store failure test and Notes pipeline failure/privacy test pass.
 - Self-review: ordinary insertion targets continue to return only `.pasted` or `.notConsumed`; the new failure outcome is used by Notes. Deleted captured notes still produce the existing deleted-note message.
 - Skipped / UNVERIFIED: no device-level forced disk failure or live Copy interaction was run; the failure is simulated by removing write permission from a temporary Notes directory.
+
+### Review item 5 — Update only the saved note's list row
+
+- Test-first: added a controller test that places a new external Markdown file beside an initially listed note, saves the loaded note, and expects the unrelated file to remain undiscovered until a full refresh. It failed before the fix because each body save reloaded the directory and returned two rows.
+- Implemented in-memory row upsert/sort for successful body save, title rename, external reload, Keep mine, and direct insertion into an unloaded listed note. External deletion removes only that row. Full NotesStore list reads remain on initial/retry load, create/delete, and app activation (`refreshAll`).
+- Tests: full `swift test` passed with 225 VoiceCore tests / 31 suites and 56 BugVoiceMac tests / 11 suites (281 total); NotesControllerTests passed (14).
+- Self-review: no per-note save path calls `reloadList()` or scans/hashes other note files. The controller uses the Store-returned NoteDocument for the row update.
+- Skipped / UNVERIFIED: list timing/animation in the live Notes window remains on the manual checklist.

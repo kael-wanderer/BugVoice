@@ -138,7 +138,7 @@ public final class NotesController {
             latest.isDirty = false
             latest.saveError = nil
             latest.externalChangeDetected = false
-            await reloadList()
+            updateListRow(latest.note)
         } catch NotesStoreError.externalChange {
             do {
                 let change = try await store.checkExternalChange(
@@ -189,9 +189,11 @@ public final class NotesController {
                 state.externalVersion = nil
                 state.saveError = nil
                 state.editor?.string = reloaded.body
+                updateListRow(reloaded)
             } catch NotesStoreError.missing {
                 loaded[id] = nil
                 if selectedNoteID == id { selectedNoteID = nil }
+                removeListRow(id: id)
             } catch {
                 state.saveError = "Could not reload note: \(error.localizedDescription)"
             }
@@ -217,7 +219,7 @@ public final class NotesController {
                 state.externalChangeDetected = false
                 state.externalVersion = nil
                 state.saveError = nil
-                await reloadList()
+                updateListRow(state.note)
                 if state.titleDraft != state.note.title {
                     await commitTitle(id: id, reason: .returnKey)
                 }
@@ -346,7 +348,8 @@ public final class NotesController {
             do {
                 let outcome = try await store.applyInsertion(capture: capture, text: text)
                 switch outcome {
-                case .saved:
+                case .saved(let saved, _):
+                    updateListRow(saved)
                     return .inserted
                 case .deleted:
                     return .noteDeleted
@@ -478,6 +481,7 @@ public final class NotesController {
                 state.isDirty = false
                 state.externalChangeDetected = false
                 state.editor?.string = reloaded.body
+                updateListRow(reloaded)
             case .conflict(let version):
                 state.externalChangeDetected = true
                 state.externalVersion = version
@@ -488,6 +492,7 @@ public final class NotesController {
                 if case .deleted = result {
                     loaded[id] = nil
                     if selectedNoteID == id { selectedNoteID = nil }
+                    removeListRow(id: id)
                 }
             }
         } catch {
@@ -546,11 +551,13 @@ public final class NotesController {
                     state.externalChangeDetected = false
                     state.externalVersion = nil
                 }
+                updateListRow(state.note)
             case .reloaded(let note, _):
                 if !state.isDirty {
                     state.note = note
                     state.lastPersistedRevision = note.revision
                     state.editor?.string = note.body
+                    updateListRow(note)
                 }
             case .conflict(let version):
                 state.externalChangeDetected = true
@@ -570,7 +577,6 @@ public final class NotesController {
             state.saveError = "Could not save note: \(error.localizedDescription)"
         }
         clearSaveTask(id: id, matching: taskToken)
-        await reloadList()
         changed()
         return !state.isDirty && !state.externalChangeDetected && state.saveError == nil
     }
@@ -590,6 +596,22 @@ public final class NotesController {
         guard saveTokens[id] == token else { return }
         saveTokens[id] = nil
         saveTasks[id] = nil
+    }
+
+    private func updateListRow(_ note: NoteDocument) {
+        if let index = notes.firstIndex(where: { $0.id == note.id }) {
+            notes[index] = note
+        } else {
+            notes.append(note)
+        }
+        notes.sort {
+            if $0.modifiedAt != $1.modifiedAt { return $0.modifiedAt > $1.modifiedAt }
+            return $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
+        }
+    }
+
+    private func removeListRow(id: NoteID) {
+        notes.removeAll { $0.id == id }
     }
 
     private func restore(id: NoteID, body: String, selection: NSRange?) {
