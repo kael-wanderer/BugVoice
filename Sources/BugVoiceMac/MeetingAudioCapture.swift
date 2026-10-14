@@ -99,6 +99,7 @@ public final class MeetingPCMJournalWriter: @unchecked Sendable {
     private let queue = DispatchQueue(label: "com.bugvoice.meeting-pcm-journal")
     private var tracks: [MeetingTrack: TrackState] = [:]
     private var appendFailure: Error?
+    private var checkpointTimer: DispatchSourceTimer?
 
     public init(directory: URL) { self.directory = directory }
 
@@ -115,6 +116,13 @@ public final class MeetingPCMJournalWriter: @unchecked Sendable {
             try handle.seekToEnd()
             tracks[track] = TrackState(handle: handle, bytes: Int(try handle.offset()))
             appendFailure = nil
+            if checkpointTimer == nil {
+                let timer = DispatchSource.makeTimerSource(queue: DispatchQueue(label: "com.bugvoice.meeting-checkpoint-timer"))
+                timer.schedule(deadline: .now() + 1, repeating: 1)
+                timer.setEventHandler { [weak self] in self?.checkpointOnTimer() }
+                checkpointTimer = timer
+                timer.resume()
+            }
         }
     }
 
@@ -140,6 +148,7 @@ public final class MeetingPCMJournalWriter: @unchecked Sendable {
     public func checkpoint() throws -> MeetingCheckpoint {
         try queue.sync {
             if let appendFailure { throw appendFailure }
+            guard !tracks.isEmpty else { return MeetingCheckpoint() }
             for track in Array(tracks.keys) {
                 guard let state = tracks[track] else { continue }
                 try state.handle.synchronize()
@@ -196,6 +205,9 @@ public final class MeetingPCMJournalWriter: @unchecked Sendable {
 
     public func close() {
         queue.sync {
+            checkpointTimer?.setEventHandler {}
+            checkpointTimer?.cancel()
+            checkpointTimer = nil
             for state in tracks.values { try? state.handle.close() }
             tracks.removeAll()
         }
@@ -207,6 +219,11 @@ public final class MeetingPCMJournalWriter: @unchecked Sendable {
         let committed = model.track(track)?.committedByteCount ?? 0
         let data = try Data(contentsOf: journalURL(track))
         return MeetingPCMJournal.recover(data, committedByteCount: committed).committedData
+    }
+
+    private func checkpointOnTimer() {
+        do { _ = try checkpoint() }
+        catch { queue.async { self.appendFailure = error } }
     }
 
     private func journalURL(_ track: MeetingTrack) -> URL {

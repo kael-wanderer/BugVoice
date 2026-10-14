@@ -73,6 +73,19 @@ struct MeetingAudioCaptureTests {
         #expect(try Data(contentsOf: journal).count == 2)
     }
 
+    @Test func activeJournalWritesPeriodicCheckpointWithoutPauseOrStop() async throws {
+        let root = try testDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let writer = MeetingPCMJournalWriter(directory: root)
+        try writer.start(track: .mic)
+        writer.append([0.5, 0.25], track: .mic, offset: 0)
+
+        try await Task.sleep(for: .milliseconds(1_200))
+        let recovered = try MeetingPCMJournalWriter(directory: root).recover()
+
+        #expect(recovered.track(.mic)?.committedByteCount == 4)
+    }
+
     private func testDirectory() throws -> URL {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("BugVoiceMeetingCapture-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
