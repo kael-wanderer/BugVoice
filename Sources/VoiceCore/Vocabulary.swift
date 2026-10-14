@@ -44,12 +44,14 @@ public struct Vocabulary: Sendable, Equatable {
 
     /// Whole-word, case-insensitive, single pass. All spoken phrases form one
     /// alternation, longest first, so "claude code" is not pre-empted by a rule
-    /// for "code" and already-replaced text is never re-scanned.
+    /// for "code" and already-replaced text is never re-scanned. Text and rules
+    /// are compared in NFC, so precomposed and decomposed Vietnamese match.
     public func applyReplacements(to text: String) -> String {
         let rules = replacements.sorted { $0.spoken.count > $1.spoken.count }
         guard !rules.isEmpty else { return text }
+        let text = text.precomposedStringWithCanonicalMapping
         let alternation = rules
-            .map { "(" + NSRegularExpression.escapedPattern(for: $0.spoken) + ")" }
+            .map { "(" + NSRegularExpression.escapedPattern(for: $0.spoken.precomposedStringWithCanonicalMapping) + ")" }
             .joined(separator: "|")
         let pattern = "(?<![\\p{L}\\p{N}])(?:" + alternation + ")(?![\\p{L}\\p{N}])"
         guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
