@@ -28,6 +28,7 @@ Implementation is in progress on feat/notes. Tasks 1–4 are implemented; loaded
 | a8d8a82 | Task 1: VoiceCore note model, parsing, slug policy | 203 VoiceCore + 27 BugVoiceMac passed | Foundation-only policy and Notes directory |
 | e48f79e | Task 2: route, insertion, search, export | 214 VoiceCore + 27 BugVoiceMac passed | Notes pipeline mode and VoiceCore operations |
 | a690259 | Task 3: autosave and external-version policy | 222 VoiceCore + 27 BugVoiceMac passed | 500 ms debounce and FNV-1a version checks |
+| 0e53b0d | Task 4: durable NotesStore actor | 222 VoiceCore + 34 BugVoiceMac passed | One actor owns Markdown file operations |
 
 ## Decisions made during implementation
 
@@ -78,3 +79,12 @@ Not run. Keep all Notes Result cells blank until the maintainer performs the dev
 - Decision left by the plan: the durability call order is implemented directly with POSIX calls rather than an injectable filesystem abstraction. Cost if wrong: tests do not fault-inject each fsync/rename boundary, so failure recovery for hardware/filesystem errors relies on code review and returned errors.
 - Skipped / NOT BUILT: direct insertion into unloaded notes is deferred to Task 5a because loaded-buffer authority must be coordinated there. No watcher or polling loop was added.
 - UNVERIFIED: crash/power-loss durability and system Trash behavior outside the temporary-directory test are not manually checked.
+
+### Task 5a — Loaded-note buffer, insertion, and undo
+
+- Test-first: controller and insertion tests first failed to compile because NotesController and NotesEditorInsertion were not implemented. Tests now cover in-memory buffer ownership during a pending save, captured-note routing, unloaded direct-store insertion, version-baseline updates, deleted-note rejection, and per-note undo lifetime.
+- Implemented NotesController as the authoritative loaded-note buffer. User edits and captured dictation update the buffer and visible text view, increment revision, and rearm the normal 500 ms save. Saves run through NotesStore and update the controller's known file version. The store has a direct insertion operation for notes not loaded in the controller. Each loaded note retains its own undo manager for the app run, including off-screen insertion; NotesTextView supplies it through the AppKit `undoManager` override.
+- Tests: NotesControllerTests 5 and NotesEditorInsertionTests 2 passed; NotesStoreTests 7 passed; full swift test passed with 222 VoiceCore tests / 41 BugVoiceMac tests (263 total).
+- Self-review: loaded insertions do not call NotesStore's direct insertion path; pending body edits are kept because dictation mutates the same note buffer before the save snapshot. A successful store write updates the baseline before selection refresh. NotesEditorInsertion has no pasteboard dependency and its `copy` method is a no-op.
+- Decision left by the plan: controller retains every loaded note and its undo manager for the full app run; no unload/eviction policy was added. Cost if wrong: long sessions with many opened notes retain their in-memory buffers and undo histories until app exit.
+- Skipped / UNVERIFIED: an AppKit test that created a real NSWindow passed alone but caused the combined controller test process to exit with signal 11, so it was removed. The visible-window placement and editing behavior remain for manual verification; off-screen buffer insertion and undo are automated. No Notes UI delegate wiring exists yet.

@@ -8,6 +8,7 @@ public enum NotesStoreOutcome: Equatable, Sendable {
     case saved(NoteDocument, NoteFileVersion)
     case conflict(NoteFileVersion)
     case stale(NoteDocument, NoteFileVersion)
+    case deleted
 }
 
 public enum NotesStoreError: Error, Equatable {
@@ -144,6 +145,36 @@ public actor NotesStore {
         }
         guard isDirty else { return .reloaded(try read(id: id, url: url), version) }
         return .conflict(version)
+    }
+
+    /// Applies an insertion through the store only when no NotesController has
+    /// the note loaded. Loaded notes are mutated by their authoritative buffer.
+    public func applyInsertion(capture: NotesDictationCapture, text: String) throws -> NotesStoreOutcome {
+        let current: NoteDocument
+        do {
+            current = try open(id: capture.noteID)
+        } catch NotesStoreError.missing {
+            return .deleted
+        }
+        guard let plan = NotesInsertionPlan.make(
+            capture: capture,
+            noteExists: true,
+            currentRevision: current.revision,
+            currentBodyUTF16Length: (current.body as NSString).length,
+            editorVisible: false
+        ) else { return .deleted }
+
+        var updated = current
+        let range: NSRange
+        switch plan.location {
+        case .selection(let selection):
+            range = NSRange(location: selection.location, length: selection.length)
+        case .bodyEnd(let location):
+            range = NSRange(location: location, length: 0)
+        }
+        updated.body = (current.body as NSString).replacingCharacters(in: range, with: text)
+        updated.revision &+= 1
+        return try save(updated, expectedVersion: current.fileVersion, isDirty: true)
     }
 
     public func delete(id: NoteID, confirmed: Bool) throws {
