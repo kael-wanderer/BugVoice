@@ -1,0 +1,199 @@
+import Foundation
+
+public enum InsertOutcome: Sendable, Equatable {
+    case pasted
+    case notConsumed
+}
+
+/// Where finished text goes. Dictation pastes into the focused app; Notes
+/// (sub-project 3) will write into its own editor.
+public protocol InsertionTarget: Sendable {
+    func insert(_ text: String) async -> InsertOutcome
+    /// Clipboard only, never pasted. Used for secure fields.
+    func copy(_ text: String) async
+}
+
+public protocol FocusProvider: Sendable {
+    func snapshot() async -> FocusSnapshot
+}
+
+public enum PipelineStage: Sendable, Equatable {
+    case transcribing
+    case cleaning(model: String)
+    case inserting
+}
+
+public enum DictationOutcome: String, Codable, Sendable {
+    case inserted, copiedSecureField, copiedNotConsumed, discardedTooShort, nothingHeard, transcriptionFailed
+}
+
+public struct DictationResult: Sendable, Equatable {
+    public var id = UUID()
+    public var startedAt: Date
+    public var appName: String?
+    public var bundleID: String?
+    public var style: Style
+    public var language: String?
+    public var raw: String
+    public var cleaned: String?
+    public var finalText: String
+    public var outcome: DictationOutcome
+    public var rawReason: RawReason?
+    public var errorMessage: String?
+    public var timings: StageTimings
+
+    /// Nil when nothing reached the user, and for secure fields: a dictation
+    /// into a password field is likely a secret and is never logged.
+    public var historyEntry: HistoryEntry? {
+        switch outcome {
+        case .discardedTooShort, .nothingHeard, .transcriptionFailed, .copiedSecureField:
+            return nil
+        case .inserted, .copiedNotConsumed:
+            return HistoryEntry(
+                id: id, startedAt: startedAt, appName: appName, bundleID: bundleID, style: style,
+                language: language, raw: raw, cleaned: cleaned, text: finalText,
+                outcome: outcome.rawValue, rawReason: rawReason, timings: timings
+            )
+        }
+    }
+}
+
+public struct DictationPipeline: Sendable {
+    public var transcriber: any Transcriber
+    public var textModel: (any TextModel)?
+    public var insertion: any InsertionTarget
+    public var focus: any FocusProvider
+    public var settings: AppSettings
+    public var vocabulary: Vocabulary
+    public var minimumDuration: TimeInterval = 0.3
+    /// Below this RMS the clip is treated as silence and never transcribed.
+    public var silenceRMS: Float = 0.003
+
+    public init(
+        transcriber: any Transcriber,
+        textModel: (any TextModel)?,
+        insertion: any InsertionTarget,
+        focus: any FocusProvider,
+        settings: AppSettings,
+        vocabulary: Vocabulary
+    ) {
+        self.transcriber = transcriber
+        self.textModel = textModel
+        self.insertion = insertion
+        self.focus = focus
+        self.settings = settings
+        self.vocabulary = vocabulary
+    }
+
+    /// Removes Whisper annotations such as `[BLANK_AUDIO]` or `[Music]`.
+    /// Parentheses stay: dictated text may use them.
+    static func stripPlaceholders(_ text: String) -> String {
+        text.replacing(/\[[^\]]*\]/, with: " ")
+            .split(whereSeparator: \.isWhitespace)
+            .joined(separator: " ")
+    }
+
+    public func run(
+        clip: AudioClip,
+        startFocus: FocusSnapshot,
+        startedAt: Date,
+        onStage: @escaping @Sendable (PipelineStage) -> Void
+    ) async -> DictationResult {
+        let style = StyleRouter(overrides: settings.styles.appOverrides).style(for: startFocus)
+        var result = DictationResult(
+            startedAt: startedAt, appName: startFocus.appName, bundleID: startFocus.bundleID,
+            style: style, language: nil, raw: "", cleaned: nil, finalText: "",
+            outcome: .nothingHeard, rawReason: nil, errorMessage: nil,
+            timings: StageTimings(recording: clip.duration)
+        )
+
+        guard clip.duration >= minimumDuration else {
+            result.outcome = .discardedTooShort
+            return result
+        }
+        guard clip.rms >= silenceRMS else {
+            result.outcome = .nothingHeard
+            return result
+        }
+
+        // Transcribe
+        onStage(.transcribing)
+        var mark = Date()
+        let options = TranscriptionOptions(
+            language: settings.speech.language,
+            prompt: settings.speech.useVocabularyHints ? vocabulary.whisperPrompt() : ""
+        )
+        let transcript: Transcript
+        do {
+            transcript = try await transcriber.transcribe(clip, options: options)
+        } catch {
+            result.outcome = .transcriptionFailed
+            result.errorMessage = String(describing: error)
+            result.timings.transcribe = Date().timeIntervalSince(mark)
+            return result
+        }
+        result.timings.transcribe = Date().timeIntervalSince(mark)
+        result.language = transcript.language
+        let raw = Self.stripPlaceholders(transcript.text)
+        result.raw = raw
+        guard !raw.isEmpty, !HallucinationFilter.isHallucination(raw) else {
+            result.outcome = .nothingHeard
+            return result
+        }
+
+        // Clean
+        var text = raw
+        if let model = textModel, settings.cleanupEnabled, settings.styles.isCleanupEnabled(for: style) {
+            onStage(.cleaning(model: settings.textModel.model))
+            mark = Date()
+            var built = PromptBuilder(customRules: settings.styles.customRules).request(
+                raw: raw, style: style, focus: startFocus, vocabulary: vocabulary,
+                modelID: settings.textModel.model, disableThinking: settings.textModel.disableThinking
+            )
+            built.maxTokens = min(1024, 2 * raw.count + 50)
+            let request = built
+            do {
+                let output = try await withTimeout(seconds: settings.textModel.timeoutSeconds) {
+                    try await model.clean(request)
+                }
+                switch OutputSanitizer.sanitize(output, raw: raw) {
+                case .accepted(let cleaned):
+                    result.cleaned = cleaned
+                    text = cleaned
+                case .rejected(let reason):
+                    result.rawReason = reason
+                }
+            } catch is TimeoutError {
+                result.rawReason = .modelTimeout
+            } catch {
+                result.rawReason = .modelError
+                result.errorMessage = String(describing: error)
+            }
+            result.timings.clean = Date().timeIntervalSince(mark)
+        } else {
+            result.rawReason = .cleanupOff
+        }
+
+        text = vocabulary.applyReplacements(to: text)
+        if style == .terminal, text.hasSuffix("."), !text.hasSuffix("..") {
+            text.removeLast()
+        }
+        result.finalText = text
+
+        // Insert
+        onStage(.inserting)
+        mark = Date()
+        let current = await focus.snapshot()
+        if current.isSecure {
+            await insertion.copy(text)
+            result.outcome = .copiedSecureField
+        } else {
+            switch await insertion.insert(text) {
+            case .pasted: result.outcome = .inserted
+            case .notConsumed: result.outcome = .copiedNotConsumed
+            }
+        }
+        result.timings.insert = Date().timeIntervalSince(mark)
+        return result
+    }
+}
