@@ -227,6 +227,7 @@ public final class NotesController {
               !state.externalChangeDetected,
               let editor = state.editor else { return nil }
         let selection = editor.selectedRange()
+        state.lastSelection = selection
         let bodyLength = (state.note.body as NSString).length
         let conditions = NotesRouteConditions(
             bugVoiceIsFrontmost: bugVoiceIsFrontmost,
@@ -240,6 +241,18 @@ public final class NotesController {
             editingBlocked: state.externalChangeDetected
         )
         return NotesRoutePolicy.capture(atStart: conditions)
+    }
+
+    public func captureSelectedNoteForMic() -> NotesDictationCapture? {
+        guard let id = selectedNoteID, let state = loaded[id] else { return nil }
+        return NotesRoutePolicy.captureForMic(
+            selectedNoteID: id,
+            editorID: state.editorID,
+            lastSelection: NotesTextRange(location: state.lastSelection.location, length: state.lastSelection.length),
+            bodyUTF16Length: (state.note.body as NSString).length,
+            noteRevision: state.note.revision,
+            editingBlocked: state.externalChangeDetected
+        )
     }
 
     public func note(id: NoteID) -> NoteDocument? {
@@ -263,6 +276,10 @@ public final class NotesController {
             loaded[previousID]?.editor = nil
         }
         state.editor = editor
+        if let editor {
+            state.editorID = editor.editorID
+            state.lastSelection = editor.selectedRange()
+        }
         editor?.notesController = self
         editor?.noteID = id
         editor?.allowsUndo = true
@@ -272,10 +289,19 @@ public final class NotesController {
     public func detachEditor(_ editor: NotesTextView, from id: NoteID) {
         guard loaded[id]?.editor === editor else { return }
         loaded[id]?.editor = nil
+        loaded[id]?.lastSelection = editor.selectedRange()
         if editor.noteID == id {
             editor.notesController = nil
             editor.noteID = nil
         }
+    }
+
+    public func updateSelection(id: NoteID, range: NSRange) {
+        guard let state = loaded[id] else { return }
+        let length = (state.note.body as NSString).length
+        let location = min(max(range.location, 0), length)
+        let selectionLength = min(max(range.length, 0), length - location)
+        state.lastSelection = NSRange(location: location, length: selectionLength)
     }
 
     /// The NSTextView delegate calls this after ordinary user edits. The
@@ -533,6 +559,8 @@ private final class LoadedNote {
     var note: NoteDocument
     let undoManager = UndoManager()
     weak var editor: NotesTextView?
+    var editorID = UUID()
+    var lastSelection = NSRange(location: 0, length: 0)
     var isDirty = false
     var externalChangeDetected = false
     var externalVersion: NoteFileVersion?

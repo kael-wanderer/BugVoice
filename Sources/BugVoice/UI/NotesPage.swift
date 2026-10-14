@@ -426,5 +426,10 @@ private struct NotesBodyEditor: NSViewRepresentable {
             guard let editor else { return }
             controller.updateBody(id: noteID, body: editor.string)
         }
+
+        func textViewDidChangeSelection(_ notification: Notification) {
+            guard let editor else { return }
+            controller.updateSelection(id: noteID, range: editor.selectedRange())
+        }
     }
 }

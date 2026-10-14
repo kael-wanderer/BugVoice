@@ -70,7 +70,7 @@ final class DictationController {
             guard notesCapture != nil else { return }
             finish()
         } else {
-            begin(handsFree: false)
+            begin(handsFree: false, notesOnly: true)
         }
     }
 
@@ -118,15 +118,17 @@ final class DictationController {
 
     // MARK: Recording
 
-    private func begin(handsFree: Bool) {
+    private func begin(handsFree: Bool, notesOnly: Bool = false) {
         guard !recorder.isRunning else { return }
+        let micCapture = notesOnly ? model.captureSelectedNoteForMic() : nil
+        guard !notesOnly || micCapture != nil else { return }
         if let notReady = speechNotReadyState() {
             detector.reset()
             hud.show(notReady)
             return
         }
         startFocus = FocusInspector.read()
-        notesCapture = model.captureNotesDictation(startFocus: startFocus)
+        notesCapture = notesOnly ? micCapture : model.captureNotesDictation(startFocus: startFocus)
         startedAt = Date()
         do {
             try recorder.start(deviceUID: model.settings.speech.microphoneUID)

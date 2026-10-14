@@ -279,6 +279,11 @@ final class AppModel {
         )
     }
 
+    func captureSelectedNoteForMic() -> NotesDictationCapture? {
+        guard page == .notes else { return nil }
+        return notesController.captureSelectedNoteForMic()
+    }
+
     func record(_ result: DictationResult) async {
         lastResult = result.recallable
         guard settings.historyRetention != .off, let entry = result.historyEntry else { return }

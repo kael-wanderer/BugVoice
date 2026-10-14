@@ -71,6 +71,29 @@ public enum NotesRoutePolicy {
             bodyRevision: conditions.noteRevision
         )
     }
+
+    /// The Notes mic button already expresses an in-app Notes destination, so
+    /// it does not depend on which control currently owns first responder.
+    public static func captureForMic(
+        selectedNoteID: NoteID?,
+        editorID: UUID,
+        lastSelection: NotesTextRange?,
+        bodyUTF16Length: Int,
+        noteRevision: UInt64,
+        editingBlocked: Bool
+    ) -> NotesDictationCapture? {
+        guard let selectedNoteID,
+              !editingBlocked,
+              let lastSelection,
+              lastSelection.isValid(inUTF16Length: bodyUTF16Length) else { return nil }
+        return NotesDictationCapture(
+            noteID: selectedNoteID,
+            editorID: editorID,
+            selection: lastSelection,
+            bodyUTF16Length: bodyUTF16Length,
+            bodyRevision: noteRevision
+        )
+    }
 }
 
 public enum NotesInsertionLocation: Equatable, Sendable {

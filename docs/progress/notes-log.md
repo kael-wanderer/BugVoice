@@ -122,3 +122,13 @@ Not run. Keep all Notes Result cells blank until the maintainer performs the dev
 - Verification: final `swift test` passed (223 VoiceCore tests / 31 suites; 49 BugVoiceMac tests / 11 suites). `Scripts/build-app.sh` passed. The built app was opened once; process `BugVoice` remained running. `codesign -dv` confirmed `Bugler Local Dev` and `com.kael.bugvoice`. `git diff --check` passed.
 - Self-review: earlier Dictation and Meetings maintainer gates are retained. Notes manual Result cells remain blank. `.planning/` remains ignored scratch and is not committed. No merge or push was performed.
 - Skipped / UNVERIFIED: all Notes manual checklist rows, live microphone and actual pasteboard observation, and UI-only editor/focus, export, shortcut-warning, storage, Trash, and combined quit behavior await maintainer checks.
+
+## Whole-branch review fixes
+
+### Review item 1 — Notes mic route and last selection
+
+- Test-first: added a VoiceCore policy test for mic capture with no first-responder requirement and a controller test for using the editor's last selection after focus moves. The policy test first failed to compile because `captureForMic` was missing; the first controller run exposed that the fixture had not moved the NSTextView selection, so the test now models the selection callback before focus loss.
+- Implemented a dedicated Notes mic capture policy requiring a selected, editable note and valid cached selection. `NotesTextView` selection changes update the loaded note's last range. The mic button passes a Notes-only start mode and returns without starting if there is no selected note; it cannot fall back to ordinary dictation. The existing Right Option route continues to require its original frontmost/page/first-responder conditions.
+- Tests: full `swift test` passed with 224 VoiceCore tests / 31 suites and 50 BugVoiceMac tests / 11 suites (274 total).
+- Self-review: ordinary `begin` still reads start focus once after readiness checks and uses the original route-at-start decision. Mic captures bind to selected NoteID, cached selection, and current revision before recording.
+- Skipped / UNVERIFIED: no live mic-button recording or focus loss was manually exercised; device checks remain pending.

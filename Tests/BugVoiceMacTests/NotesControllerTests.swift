@@ -128,6 +128,29 @@ struct NotesControllerTests {
         #expect(valid?.noteID == created.id)
     }
 
+    @Test func notesMicUsesLastEditorSelectionAfterFocusMovesToAnotherControl() async throws {
+        let root = try directory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = NotesStore(directory: root)
+        let created = try await store.create(title: "Mic", body: "hello world")
+        let controller = NotesController(store: store)
+        try await controller.select(id: created.id)
+        let editor = NotesTextView(frame: .zero)
+        controller.attachEditor(editor, to: created.id)
+        editor.setSelectedRange(NSRange(location: 6, length: 5))
+        controller.updateSelection(id: created.id, range: NSRange(location: 6, length: 5))
+
+        let capture = try #require(controller.captureSelectedNoteForMic())
+        #expect(capture.noteID == created.id)
+        #expect(capture.selection == NotesTextRange(location: 6, length: 5))
+        #expect(controller.captureAtStart(
+            bugVoiceIsFrontmost: true,
+            notesPageIsSelected: true,
+            firstResponderEditorID: nil
+        ) == nil)
+        #expect(controller.captureSelectedNoteForMic()?.selection == capture.selection)
+    }
+
     @Test func externalBodyChangeAfterCaptureMovesInsertionToLatestBodyEnd() async throws {
         let root = try directory()
         defer { try? FileManager.default.removeItem(at: root) }

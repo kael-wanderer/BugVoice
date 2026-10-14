@@ -54,6 +54,32 @@ struct NotesPolicyTests {
         }
     }
 
+    @Test func micCaptureUsesSelectedNotesAndLastSelectionWithoutRequiringFirstResponder() throws {
+        let noteID = NoteID()
+        let editorID = UUID()
+        let selection = NotesTextRange(location: 5, length: 3)
+        let capture = try #require(NotesRoutePolicy.captureForMic(
+            selectedNoteID: noteID,
+            editorID: editorID,
+            lastSelection: selection,
+            bodyUTF16Length: 12,
+            noteRevision: 9,
+            editingBlocked: false
+        ))
+        #expect(capture.noteID == noteID)
+        #expect(capture.editorID == editorID)
+        #expect(capture.selection == selection)
+        #expect(capture.bodyRevision == 9)
+        #expect(NotesRoutePolicy.captureForMic(
+            selectedNoteID: nil,
+            editorID: editorID,
+            lastSelection: selection,
+            bodyUTF16Length: 12,
+            noteRevision: 9,
+            editingBlocked: false
+        ) == nil)
+    }
+
     @Test func unchangedNoteUsesCapturedSelectionEvenWhenEditorIsOffScreen() throws {
         let capture = capture(revision: 4, selection: NotesTextRange(location: 2, length: 3))
         let plan = try #require(NotesInsertionPlan.make(
