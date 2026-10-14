@@ -71,6 +71,7 @@ final class AppModel {
     @ObservationIgnored private(set) var meetings: MeetingController?
     @ObservationIgnored private var isLoadingSettings = false
     @ObservationIgnored private var preparingEngine: WhisperKitTranscriber?
+    @ObservationIgnored private var speechAPIKeyGeneration: UInt64 = 0
 
     init() {
         let engine = WhisperKitTranscriber(modelName: AppSettings().speech.whisperModel, downloadBase: AppPaths.standard().models)
@@ -145,17 +146,9 @@ final class AppModel {
         } catch {
             saveError = "Could not save settings: \(error.localizedDescription)"
         }
-        if settings.speech.whisperModel != old.speech.whisperModel || settings.speech.engine != old.speech.engine {
-            let replacementWhisper = WhisperKitTranscriber(modelName: settings.speech.whisperModel, downloadBase: paths.models)
-            let replacement = PriorityTranscriber(base: ProviderFactory.transcriber(settings.speech, whisper: replacementWhisper, keychain: keychain))
-            speechState = settings.speech.engine == .whisperKit ? .notLoaded : .ready
-            Task { [weak self] in
-                guard let self else { return }
-                await transcriptionRouter.replace(with: replacement)
-                whisper = replacementWhisper
-                priorityTranscriber = replacement
-                if settings.speech.engine == .whisperKit { Task { await prepareSpeech() } }
-            }
+        if SpeechTranscriberConfiguration(settings: settings.speech, speechAPIKeyGeneration: speechAPIKeyGeneration)
+            != SpeechTranscriberConfiguration(settings: old.speech, speechAPIKeyGeneration: speechAPIKeyGeneration) {
+            rebuildSpeechTranscriber()
         }
         if settings.launchAtLogin != old.launchAtLogin { applyLaunchAtLogin() }
         if settings.historyRetention != old.historyRetention {
@@ -165,6 +158,20 @@ final class AppModel {
             Task { await applyMeetingRetention() }
         }
         onSettingsChanged?()
+    }
+
+    private func rebuildSpeechTranscriber() {
+        let speech = settings.speech
+        let replacementWhisper = WhisperKitTranscriber(modelName: speech.whisperModel, downloadBase: paths.models)
+        let replacement = PriorityTranscriber(base: ProviderFactory.transcriber(speech, whisper: replacementWhisper, keychain: keychain))
+        speechState = speech.engine == .whisperKit ? .notLoaded : .ready
+        Task { [weak self] in
+            guard let self else { return }
+            await transcriptionRouter.replace(with: replacement)
+            whisper = replacementWhisper
+            priorityTranscriber = replacement
+            if speech.engine == .whisperKit { Task { await prepareSpeech() } }
+        }
     }
 
     private func applyLaunchAtLogin() {
@@ -384,6 +391,10 @@ final class AppModel {
     func saveKey(_ value: String, account: String) -> Bool {
         do {
             try keychain.write(value, account: account)
+            if account == "speech-openai" {
+                speechAPIKeyGeneration &+= 1
+                rebuildSpeechTranscriber()
+            }
             return true
         } catch let error as KeychainError {
             saveError = "Could not save the key in Keychain (error \(error.status))."

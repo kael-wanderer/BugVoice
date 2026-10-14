@@ -72,6 +72,25 @@ public struct SpeechSettings: Codable, Equatable, Sendable {
     public init() {}
 }
 
+/// The settings and credential version that determine the live speech
+/// transcriber. Language, vocabulary hints, and microphone selection are
+/// consumed elsewhere and do not change the provider instance.
+public struct SpeechTranscriberConfiguration: Equatable, Sendable {
+    public let engine: SpeechEngine
+    public let whisperModel: String
+    public let serverBaseURL: String
+    public let serverModel: String
+    public let speechAPIKeyGeneration: UInt64
+
+    public init(settings: SpeechSettings, speechAPIKeyGeneration: UInt64) {
+        engine = settings.engine
+        whisperModel = settings.whisperModel
+        serverBaseURL = settings.serverBaseURL
+        serverModel = settings.serverModel
+        self.speechAPIKeyGeneration = speechAPIKeyGeneration
+    }
+}
+
 public struct TextModelSettings: Codable, Equatable, Sendable {
     public var provider: TextModelProvider = .openAICompatible
     public var baseURL = "http://localhost:1234"

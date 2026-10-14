@@ -74,4 +74,29 @@ struct SettingsTests {
         #expect(Retention.forever.maxAge == nil)
         #expect(Retention.days7.maxAge == 7 * 86_400.0)
     }
+
+    @Test func transcriberConfigurationTracksEveryFactoryInputAndCredentialSave() {
+        let initialSettings = SpeechSettings()
+        let initial = SpeechTranscriberConfiguration(settings: initialSettings, speechAPIKeyGeneration: 0)
+
+        var changed = initialSettings
+        changed.serverBaseURL = "http://127.0.0.1:9000"
+        #expect(SpeechTranscriberConfiguration(settings: changed, speechAPIKeyGeneration: 0) != initial)
+        changed = initialSettings
+        changed.serverModel = "other-model"
+        #expect(SpeechTranscriberConfiguration(settings: changed, speechAPIKeyGeneration: 0) != initial)
+        changed = initialSettings
+        changed.whisperModel = "other-whisper"
+        #expect(SpeechTranscriberConfiguration(settings: changed, speechAPIKeyGeneration: 0) != initial)
+        changed = initialSettings
+        changed.engine = .openAICompatible
+        #expect(SpeechTranscriberConfiguration(settings: changed, speechAPIKeyGeneration: 0) != initial)
+        #expect(SpeechTranscriberConfiguration(settings: initialSettings, speechAPIKeyGeneration: 1) != initial)
+
+        changed = initialSettings
+        changed.language = .vi
+        changed.useVocabularyHints = false
+        changed.microphoneUID = "device-uid"
+        #expect(SpeechTranscriberConfiguration(settings: changed, speechAPIKeyGeneration: 0) == initial)
+    }
 }
