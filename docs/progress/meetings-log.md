@@ -90,3 +90,12 @@ Continuous implementation is in progress. Tasks 1–3 and Task 4 are complete. T
 - Menu recording controls call the meeting controller while the existing dictation hotkey, HUD and paste pipeline continue through the shared router. Ctrl-Option-M is registered as a global shortcut; the duplicate SwiftUI menu shortcut was removed to avoid dispatching the toggle twice.
 - No test failure remains. Process-tap capture and permission denial behavior remain **UNVERIFIED on device** per Task 8a; the spike was not launched. No dictation-specific manual interaction was run during this task.
 - Open questions: none for Task 9 beyond the Task 8a maintainer run listed above.
+
+### Task 10 — non-activating recorder panel
+
+- Implementation commit: `cada987` — `feat(app): add floating meeting recorder`.
+- Test-first evidence: `MeetingRecorderPresentationTests` first failed to compile because the VoiceCore presentation policy did not exist. Added tests for action availability in idle/recording/paused/transcribing states and for preserving the latest valid transcript line after empty or filtered chunks. Focused tests passed; full `swift test` passed 174 VoiceCore + 26 BugVoiceMac tests; `swift build --product BugVoice` passed.
+- The panel uses a floating, non-activating `NSPanel`, a hosting view that declines first-responder status, and `orderFrontRegardless`; it does not call `makeKeyAndOrderFront` or activate BugVoice. It is positioned at the top of the main screen and repositions when display parameters change. Stop hides the panel immediately while session final transcription continues.
+- Decision beyond the plan: the app executable is not an importable test target, so panel action availability and latest-line retention were factored into Foundation-only `VoiceCore` and the view renders that policy. Cost if wrong: app controller state could drift from the tested presentation state mapping; the view derives this enum directly from the controller's four booleans.
+- Skipped/unverified: did not launch the app to check focus retention or click the panel during a real dictation. Panel non-activation and screen movement remain manual checks for the final checklist. No UI automation or audio capture was run.
+- Open questions: none beyond the panel focus manual check and the outstanding Task 8a device checks.
