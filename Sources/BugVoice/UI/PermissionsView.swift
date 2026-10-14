@@ -4,7 +4,6 @@ import SwiftUI
 
 struct PermissionsView: View {
     @Bindable var model: AppModel
-    @State private var granted: [PermissionKind: Bool] = [:]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -18,19 +17,6 @@ struct PermissionsView: View {
         }
         .padding(22)
         .frame(width: 540)
-        .task {
-            // Re-checks once a second while the window is open; the task is
-            // cancelled when the window's content goes away.
-            while !Task.isCancelled {
-                refresh()
-                try? await Task.sleep(for: .seconds(1))
-            }
-        }
-    }
-
-    func refresh() {
-        for kind in PermissionKind.allCases { granted[kind] = Permissions.isGranted(kind) }
-        model.refreshPermissions()
     }
 
     @ViewBuilder
@@ -44,7 +30,7 @@ struct PermissionsView: View {
                 Text(detail).font(.callout).foregroundStyle(.secondary)
             }
             Spacer()
-            if granted[kind] == true {
+            if model.permissionStatus[kind] == true {
                 if kind == .inputMonitoring, !model.hotkeyActive {
                     // The event tap cannot be created until the app restarts
                     // after the grant.
@@ -77,6 +63,7 @@ struct PermissionsView: View {
 final class PermissionsWindowController: NSObject, NSWindowDelegate {
     private let model: AppModel
     private var window: NSWindow?
+    private var pollTask: Task<Void, Never>?
 
     init(model: AppModel) {
         self.model = model
@@ -88,6 +75,20 @@ final class PermissionsWindowController: NSObject, NSWindowDelegate {
         NSApp.setActivationPolicy(.regular)
         window.makeKeyAndOrderFront(nil)
         NSApp.activate()
+        startPolling()
+    }
+
+    /// Re-checks the grants once a second while the window is open. The
+    /// window is kept alive after closing, so this task is owned here and
+    /// cancelled in `windowWillClose`.
+    private func startPolling() {
+        pollTask?.cancel()
+        pollTask = Task { [model] in
+            while !Task.isCancelled {
+                model.refreshPermissions()
+                try? await Task.sleep(for: .seconds(1))
+            }
+        }
     }
 
     private func makeWindow() -> NSWindow {
@@ -107,6 +108,8 @@ final class PermissionsWindowController: NSObject, NSWindowDelegate {
     }
 
     func windowWillClose(_ notification: Notification) {
+        pollTask?.cancel()
+        pollTask = nil
         AppWindow.didClose(notification.object as? NSWindow)
     }
 }

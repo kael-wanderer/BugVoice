@@ -100,7 +100,7 @@ enum AppWindow {
     static func didClose(_ closing: NSWindow?) {
         let ours: Set<NSUserInterfaceItemIdentifier> = [main, permissions]
         let otherVisible = NSApp.windows.contains {
-            $0 !== closing && $0.isVisible && ($0.identifier.map(ours.contains) ?? false)
+            $0 !== closing && ($0.isVisible || $0.isMiniaturized) && ($0.identifier.map(ours.contains) ?? false)
         }
         if !otherVisible { NSApp.setActivationPolicy(.accessory) }
     }

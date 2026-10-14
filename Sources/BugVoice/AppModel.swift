@@ -42,6 +42,7 @@ final class AppModel {
     /// True while the microphone is recording a dictation.
     var isListening = false
     var permissionsGranted = Permissions.allGranted
+    var permissionStatus: [PermissionKind: Bool] = [:]
     /// The latest failure to save something (settings, vocabulary, history,
     /// Keychain, login item). The UI shows it and sets it back to nil once
     /// the user has seen it. Never cleared by a later success.
@@ -274,6 +275,10 @@ final class AppModel {
     // MARK: Permissions
 
     func refreshPermissions() {
-        permissionsGranted = Permissions.allGranted
+        var status: [PermissionKind: Bool] = [:]
+        for kind in PermissionKind.allCases { status[kind] = Permissions.isGranted(kind) }
+        if permissionStatus != status { permissionStatus = status }
+        let granted = status.values.allSatisfy { $0 }
+        if permissionsGranted != granted { permissionsGranted = granted }
     }
 }

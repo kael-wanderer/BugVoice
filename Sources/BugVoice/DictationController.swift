@@ -67,6 +67,7 @@ final class DictationController {
     private func tapLost() {
         model.hotkeyActive = false
         detector.reset()
+        model.isListening = false
         if recorder.isRunning { cancel() }
     }
 
@@ -166,6 +167,7 @@ final class DictationController {
 
     private func finish() {
         limitTask?.cancel()
+        model.isListening = recorder.isRunning
         guard recorder.isRunning else { return }
         let clip = recorder.stop()
         model.isListening = false
