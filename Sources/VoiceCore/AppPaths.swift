@@ -23,7 +23,7 @@ public struct AppPaths: Sendable {
     public var notes: URL { root.appendingPathComponent("Notes", isDirectory: true) }
 
     public func ensureExists() throws {
-        for dir in [root, models] {
+        for dir in [root, models, meetings] {
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         }
     }

@@ -12,11 +12,36 @@ struct PermissionsView: View {
             row(.accessibility, "Accessibility", "To find the focused text field and paste into it.", "accessibility")
             Divider()
             row(.inputMonitoring, "Input Monitoring", "To notice when you hold the hotkey. Keys are watched, never recorded.", "keyboard")
+            Divider()
+            systemAudioRow
             Text("Nothing you say leaves this Mac unless you set a remote server in Settings → Text model.")
                 .font(.caption).foregroundStyle(.secondary).padding(.top, 12)
         }
         .padding(22)
         .frame(width: 540)
+    }
+
+    private var systemAudioRow: some View {
+        HStack(spacing: 14) {
+            Image(systemName: "speaker.wave.2")
+                .frame(width: 34, height: 34)
+                .background(.quaternary, in: RoundedRectangle(cornerRadius: 9))
+            VStack(alignment: .leading) {
+                Text("System Audio Recording").fontWeight(.semibold)
+                Text(model.systemAudioPermissionFailed
+                    ? "Allow BugVoice under Privacy & Security → Screen & System Audio Recording."
+                    : "Requested when the first meeting starts")
+                    .font(.callout).foregroundStyle(.secondary)
+            }
+            Spacer()
+            if model.systemAudioPermissionFailed {
+                Button("Open System Settings") { Permissions.openSettings(.systemAudioRecording) }
+                    .buttonStyle(.borderedProminent)
+            } else if model.permissionStatus[.systemAudioRecording] == true {
+                Text("Granted").foregroundStyle(.green)
+            }
+        }
+        .padding(.vertical, 12)
     }
 
     @ViewBuilder

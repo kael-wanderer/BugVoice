@@ -23,6 +23,8 @@ struct MenuContent: View {
             .disabled(model.lastResult?.finalText.isEmpty ?? true)
         Button("Retry last recording") { model.dictation?.retryLast() }
         Divider()
+        meetingControls
+        Divider()
         Button("Open BugVoice…") { model.openMainWindow(.dictation) }
             .keyboardShortcut("b", modifiers: [.control, .option])
         Divider()
@@ -40,11 +42,29 @@ struct MenuContent: View {
             Text("None").tag(TextModelProvider.none)
         }
         Divider()
+        Button("Meetings…") { model.openMainWindow(.meetings) }
         Button("Settings…") { model.openMainWindow(.settings) }.keyboardShortcut(",")
         Button("Permissions…") { model.openPermissionsWindow() }
         Button("Open data folder") { NSWorkspace.shared.open(model.paths.root) }
         Divider()
         Button("Quit BugVoice") { NSApp.terminate(nil) }.keyboardShortcut("q")
+    }
+
+
+    @ViewBuilder private var meetingControls: some View {
+        if model.meetings?.isTranscribing == true {
+            Text("Transcribing meeting…")
+        } else if model.meetings?.isRecording == true {
+            Button("Pause meeting") { Task { await model.meetings?.pause() } }
+            Button("Mark moment") { Task { await model.meetings?.mark() } }
+            Button("Stop meeting") { Task { await model.meetings?.stop() } }
+        } else if model.meetings?.isPaused == true {
+            Button("Resume meeting") { Task { await model.meetings?.resume() } }
+            Button("Mark moment") { Task { await model.meetings?.mark() } }
+            Button("Stop meeting") { Task { await model.meetings?.stop() } }
+        } else {
+            Button("Start meeting recording") { Task { await model.meetings?.start() } }
+        }
     }
 
     /// The speech model matters only while on-device transcription is selected.

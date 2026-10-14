@@ -66,11 +66,48 @@ struct SettingsTests {
         #expect(paths.lastRecording.lastPathComponent == "last.wav")
         #expect(FileManager.default.fileExists(atPath: paths.models.path))
         #expect(paths.meetings.lastPathComponent == "Meetings")
+        #expect(FileManager.default.fileExists(atPath: paths.meetings.path))
         #expect(paths.notes.lastPathComponent == "Notes")
     }
 
     @Test func retentionMaxAge() {
         #expect(Retention.forever.maxAge == nil)
         #expect(Retention.days7.maxAge == 7 * 86_400.0)
+    }
+
+    @Test func transcriberConfigurationTracksEveryFactoryInputAndCredentialSave() {
+        let initialSettings = SpeechSettings()
+        let initial = SpeechTranscriberConfiguration(settings: initialSettings, speechAPIKeyGeneration: 0)
+
+        var changed = initialSettings
+        changed.serverBaseURL = "http://127.0.0.1:9000"
+        changed.serverModel = "other-model"
+        #expect(SpeechTranscriberConfiguration(settings: changed, speechAPIKeyGeneration: 0) == initial)
+        #expect(SpeechTranscriberConfiguration(settings: initialSettings, speechAPIKeyGeneration: 1) == initial)
+
+        changed = initialSettings
+        changed.whisperModel = "other-whisper"
+        #expect(SpeechTranscriberConfiguration(settings: changed, speechAPIKeyGeneration: 0) != initial)
+        changed = initialSettings
+        changed.engine = .openAICompatible
+        #expect(SpeechTranscriberConfiguration(settings: changed, speechAPIKeyGeneration: 0) != initial)
+
+        var openAISettings = changed
+        let openAIInitial = SpeechTranscriberConfiguration(settings: openAISettings, speechAPIKeyGeneration: 0)
+        openAISettings.whisperModel = "inactive-whisper-model"
+        #expect(SpeechTranscriberConfiguration(settings: openAISettings, speechAPIKeyGeneration: 0) == openAIInitial)
+        openAISettings = changed
+        openAISettings.serverBaseURL = "http://127.0.0.1:9000"
+        #expect(SpeechTranscriberConfiguration(settings: openAISettings, speechAPIKeyGeneration: 0) != openAIInitial)
+        openAISettings = changed
+        openAISettings.serverModel = "other-model"
+        #expect(SpeechTranscriberConfiguration(settings: openAISettings, speechAPIKeyGeneration: 0) != openAIInitial)
+        #expect(SpeechTranscriberConfiguration(settings: changed, speechAPIKeyGeneration: 1) != openAIInitial)
+
+        changed = initialSettings
+        changed.language = .vi
+        changed.useVocabularyHints = false
+        changed.microphoneUID = "device-uid"
+        #expect(SpeechTranscriberConfiguration(settings: changed, speechAPIKeyGeneration: 0) == initial)
     }
 }

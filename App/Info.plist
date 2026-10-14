@@ -14,6 +14,7 @@
 	<key>LSMinimumSystemVersion</key><string>15.0</string>
 	<key>LSUIElement</key><true/>
 	<key>NSHighResolutionCapable</key><true/>
+	<key>NSAudioCaptureUsageDescription</key><string>BugVoice records system audio during meetings so it can create a local transcript.</string>
 	<key>NSMicrophoneUsageDescription</key><string>BugVoice listens while you hold the dictation key and turns your speech into text on this Mac.</string>
 	<key>NSAppleEventsUsageDescription</key><string>BugVoice pastes dictated text into the app you are using.</string>
 </dict>

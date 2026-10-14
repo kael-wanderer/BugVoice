@@ -1,0 +1,466 @@
+import Foundation
+import Testing
+@testable import VoiceCore
+
+struct MeetingSessionTests {
+    @Test func startRollsBackFirstSourceWhenSecondSourceFails() async throws {
+        let fewMilliseconds = MeetingCheckpoint(tracks: [
+            MeetingTrackCheckpoint(track: .mic, committedByteCount: 320, sampleCount: 160, startOffset: 0, endOffset: 0.01)
+        ])
+        let rig = SessionRig(failStarting: .system, checkpoint: fewMilliseconds)
+        let session = rig.makeSession()
+        do {
+            try await session.start()
+            Issue.record("Expected source start failure")
+        } catch {}
+        #expect(await rig.audio.started == [.mic, .system])
+        #expect(await rig.audio.stopCount == 1)
+        #expect(await rig.store.meetings.isEmpty)
+        #expect(await rig.store.deleted.count == 1)
+    }
+
+    @Test func failedStartKeepsFolderWhenAudioWasCommitted() async throws {
+        let committed = MeetingCheckpoint(tracks: [
+            MeetingTrackCheckpoint(track: .mic, committedByteCount: 32_000, sampleCount: 16_000, startOffset: 0, endOffset: 1)
+        ])
+        let rig = SessionRig(failStarting: .system, checkpoint: committed)
+        let session = rig.makeSession()
+        do { try await session.start(); Issue.record("Expected source start failure") } catch {}
+
+        #expect(await rig.store.meetings.values.first?.state == .failed)
+        #expect(await rig.store.deleted.isEmpty)
+    }
+
+    @Test func pauseCheckpointsAndResumeExcludesPausedGap() async throws {
+        let rig = SessionRig()
+        let session = rig.makeSession()
+        try await session.start()
+        rig.clock.advance(10)
+        try await session.pause()
+        rig.clock.advance(100)
+        try await session.resume()
+        rig.clock.advance(5)
+        let stopped = try await session.stop()
+
+        #expect(stopped.duration == 15)
+        #expect(stopped.state == .ready)
+        #expect(await rig.audio.pauseCount == 1)
+        #expect(await rig.audio.resumeCount == 1)
+    }
+
+    @Test func sleepPauseCheckpointsAndRemainsPausedWithoutAutoResume() async throws {
+        let rig = SessionRig()
+        let session = rig.makeSession()
+        try await session.start()
+        try await session.pauseForSleep()
+        rig.clock.advance(60)
+
+        #expect(await session.snapshot()?.state == .paused)
+        #expect(await rig.audio.pauseCount == 1)
+        #expect(await rig.audio.resumeCount == 0)
+    }
+
+    @Test func quitStopLeavesDurableInterruptedMeeting() async throws {
+        let rig = SessionRig()
+        let session = rig.makeSession()
+        try await session.start()
+        let interrupted = try await session.cancel()
+
+        #expect(interrupted.state == .interrupted)
+        #expect(await rig.audio.stopCount == 1)
+        #expect(await rig.store.meetings[interrupted.id]?.state == .interrupted)
+    }
+
+    @Test func markUsesMeetingRelativeActiveTime() async throws {
+        let rig = SessionRig()
+        let session = rig.makeSession()
+        try await session.start()
+        rig.clock.advance(4.5)
+        let mark = try await session.mark(label: "Decision")
+        #expect(mark.offset == 4.5)
+        #expect(mark.label == "Decision")
+    }
+
+    @Test func stopSchedulesFinalChunksAndPersistsMergedSegments() async throws {
+        let speech = MeetingSegment(start: 1, end: 2, text: "hello", track: .mic)
+        let rig = SessionRig(finalChunks: [chunk("mic-0", track: .mic, segments: [speech])])
+        let session = rig.makeSession()
+        try await session.start()
+        let stopped = try await session.stop()
+
+        #expect(stopped.state == .ready)
+        #expect(stopped.segments.map(\.text) == ["hello"])
+        #expect(await rig.scheduler.finalCallCount == 1)
+        #expect(await rig.finalizer.callCount == 1)
+    }
+
+    @Test func recoverUsesAudioControllerCommittedCheckpoint() async throws {
+        let meeting = MeetingManifest(id: MeetingID(rawValue: "recover"), startedAt: Date(), state: .recording)
+        let rig = SessionRig()
+        try await rig.store.save(meeting)
+        let session = rig.makeSession()
+        let recovered = try await session.recover(id: meeting.id)
+
+        #expect(recovered.state == .interrupted)
+        #expect(recovered.duration == 3)
+        #expect(await rig.audio.recoveredID == meeting.id)
+        #expect(await rig.store.saved.last?.state == .interrupted)
+    }
+
+    @Test func recoveryRetriesTranscribingMeetingsFromCommittedAudio() async throws {
+        let meeting = MeetingManifest(id: MeetingID(rawValue: "retry"), startedAt: Date(), state: .transcribing)
+        let expected = MeetingSegment(start: 0, end: 1, text: "recovered", track: .mic)
+        let rig = SessionRig(finalChunks: [chunk("retry-mic-0", track: .mic, segments: [expected])])
+        try await rig.store.save(meeting)
+        let recovered = try await rig.makeSession().recover(id: meeting.id)
+        #expect(recovered.state == .ready)
+        #expect(recovered.segments.map(\.text) == ["recovered"])
+        #expect(await rig.scheduler.finalCallCount == 1)
+    }
+
+    @Test func interruptedCaptureCanRetryTranscriptionFromCommittedAudio() async throws {
+        let meeting = MeetingManifest(id: MeetingID(rawValue: "interrupted-retry"), startedAt: Date(), state: .interrupted)
+        let expected = MeetingSegment(start: 0, end: 1, text: "saved audio", track: .mic)
+        let rig = SessionRig(finalChunks: [chunk("retry-mic-0", track: .mic, segments: [expected])])
+        try await rig.store.save(meeting)
+        let session = rig.makeSession()
+
+        _ = try await session.recover(id: meeting.id)
+        let finished = try await session.retryTranscription()
+
+        #expect(finished.state == .ready)
+        #expect(finished.segments.map(\.text) == ["saved audio"])
+        #expect(await rig.scheduler.finalCallCount == 1)
+    }
+
+    @Test func cancelRemovesQueuedWorkAndWaitsForInFlightChunk() async throws {
+        let rig = SessionRig(blockTranscription: true)
+        let session = rig.makeSession()
+        let started = try await session.start()
+        let inFlightChunk = Task {
+            try await rig.scheduler.transcribeFinal(started, chunkSeconds: 30) { _ in }
+        }
+        await rig.scheduler.waitUntilStarted()
+        let completion = CompletionProbe()
+        let cancellation = Task {
+            try await session.cancel()
+            completion.finish()
+        }
+        #expect(!completion.isFinished)
+        await rig.scheduler.waitUntilCancelled()
+        let queuedCancellationCount = await rig.scheduler.cancelQueuedCount
+        #expect(queuedCancellationCount == 1)
+        await rig.scheduler.release()
+        _ = try await inFlightChunk.value
+        try await cancellation.value
+        #expect(completion.isFinished)
+    }
+
+    @Test func stopWaitsForInFlightChunkBeforeFinalizing() async throws {
+        let rig = SessionRig(blockTranscription: true)
+        let session = rig.makeSession()
+        try await session.start()
+        let completion = CompletionProbe()
+        let stopping = Task {
+            _ = try await session.stop()
+            completion.finish()
+        }
+        await rig.scheduler.waitUntilStarted()
+        #expect(!completion.isFinished)
+        #expect(await rig.finalizer.callCount == 0)
+        await rig.scheduler.release()
+        _ = try await stopping.value
+        #expect(completion.isFinished)
+        #expect(await rig.finalizer.callCount == 1)
+    }
+
+    @Test func finalTranscriptionProgressIsSavedForTheMeetingList() async throws {
+        let rig = SessionRig(blockTranscription: true)
+        let session = rig.makeSession()
+        try await session.start()
+        let stopping = Task { try await session.stop() }
+        await rig.scheduler.waitUntilProgressReported()
+        let saved = await rig.store.saved
+        #expect(saved.contains { $0.state == .transcribing && $0.transcriptProgress == 0.5 })
+        await rig.scheduler.release()
+        _ = try await stopping.value
+    }
+
+    @Test func renameDuringFinalTranscriptionSurvivesReadySave() async throws {
+        let rig = SessionRig(blockTranscription: true)
+        let session = rig.makeSession()
+        try await session.start()
+        let stopping = Task { try await session.stop() }
+        await rig.scheduler.waitUntilStarted()
+        try await session.rename(title: "Renamed while transcribing")
+        await rig.scheduler.release()
+
+        let ready = try await stopping.value
+        #expect(ready.title == "Renamed while transcribing")
+        #expect(await rig.store.meetings[ready.id]?.title == "Renamed while transcribing")
+    }
+
+    @Test func renameDuringFailedFinalTranscriptionSurvivesErrorSave() async throws {
+        let rig = SessionRig(blockTranscription: true, failTranscription: true)
+        let session = rig.makeSession()
+        try await session.start()
+        let stopping = Task { try await session.stop() }
+        await rig.scheduler.waitUntilStarted()
+        try await session.rename(title: "Renamed during failed pass")
+        await rig.scheduler.release()
+
+        do {
+            _ = try await stopping.value
+            Issue.record("Expected final transcription to fail")
+        } catch TestFailure.transcriptionFailed {
+        }
+
+        let saved = await session.snapshot()
+        guard let saved else {
+            Issue.record("Expected a saved meeting manifest")
+            return
+        }
+        #expect(saved.title == "Renamed during failed pass")
+        #expect(saved.state == .transcribing)
+        #expect(await rig.store.meetings[saved.id]?.title == "Renamed during failed pass")
+    }
+
+    @Test func markAndConcurrentInterimSaveBothSurvive() async throws {
+        let rig = SessionRig()
+        let session = rig.makeSession()
+        try await session.start()
+        let result = interim(id: "mic-live-1", track: .mic, text: "interim words")
+
+        async let mark = session.mark(label: "Decision")
+        async let save = session.persistInterim(result)
+        _ = try await mark
+        try await save
+
+        let saved = await session.snapshot()
+        #expect(saved?.marks.map(\.label) == ["Decision"])
+        #expect(saved?.segments.map(\.text) == ["interim words"])
+        #expect(saved?.chunks.map(\.id) == ["mic-live-1"])
+    }
+
+    @Test func pauseAndMarkPreserveInterimSegments() async throws {
+        let rig = SessionRig()
+        let session = rig.makeSession()
+        try await session.start()
+        try await session.persistInterim(interim(id: "mic-live-2", track: .mic, text: "saved words"))
+        try await session.pause()
+        _ = try await session.mark(label: "After pause")
+
+        let saved = await session.snapshot()
+        #expect(saved?.segments.map(\.text) == ["saved words"])
+        #expect(saved?.chunks.map(\.id) == ["mic-live-2"])
+        #expect(saved?.marks.map(\.label) == ["After pause"])
+        #expect(saved?.state == .paused)
+    }
+
+    @Test func interimSavedWhilePauseWaitsForAudioIsPreserved() async throws {
+        let rig = SessionRig(blockPause: true)
+        let session = rig.makeSession()
+        try await session.start()
+        let pausing = Task { try await session.pause() }
+        await rig.audio.waitUntilPauseStarted()
+        try await session.persistInterim(interim(id: "mic-during-pause", track: .mic, text: "pause race"))
+        await rig.audio.releasePause()
+        _ = try await pausing.value
+
+        #expect(await session.snapshot()?.segments.map(\.text) == ["pause race"])
+    }
+
+    @Test func readyManifestIsDurableBeforeCaptureCleanup() async throws {
+        let rig = SessionRig()
+        await rig.finalizer.observe(rig.store)
+        let session = rig.makeSession()
+        try await session.start()
+        let ready = try await session.stop()
+
+        #expect(ready.state == .ready)
+        #expect(await rig.finalizer.cleanupObservedReadyManifest)
+    }
+
+    private func chunk(_ id: String, track: MeetingTrack, segments: [MeetingSegment]) -> MeetingChunkProcessingResult {
+        MeetingChunkProcessingResult(record: MeetingChunkRecord(
+            id: id, track: track, offset: 0, duration: 30,
+            requestedLanguage: .auto, state: .complete
+        ), segments: segments)
+    }
+
+    private func interim(id: String, track: MeetingTrack, text: String) -> MeetingChunkProcessingResult {
+        MeetingChunkProcessingResult(
+            record: MeetingChunkRecord(id: id, track: track, offset: 0, duration: 30, requestedLanguage: .auto, state: .complete),
+            segments: [MeetingSegment(start: 1, end: 2, text: text, track: track, sourceChunkID: id)]
+        )
+    }
+}
+
+private final class ManualClock: MeetingClock, @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: Date
+    init(_ value: Date) { self.value = value }
+    func now() -> Date { lock.lock(); defer { lock.unlock() }; return value }
+    func advance(_ interval: TimeInterval) { lock.lock(); defer { lock.unlock() }; value.addTimeInterval(interval) }
+}
+
+private actor SessionStoreProbe: MeetingSessionStore {
+    var meetings: [MeetingID: MeetingManifest] = [:]
+    private(set) var saved: [MeetingManifest] = []
+    private(set) var deleted: [MeetingID] = []
+    func save(_ manifest: MeetingManifest) async throws {
+        meetings[manifest.id] = manifest
+        saved.append(manifest)
+    }
+    func load(id: MeetingID) async throws -> MeetingManifest { meetings[id]! }
+    func delete(id: MeetingID) async throws { deleted.append(id); meetings.removeValue(forKey: id) }
+}
+
+private actor AudioControlProbe: MeetingAudioSourceControl {
+    let failStarting: MeetingTrack?
+    let blockPause: Bool
+    private(set) var started: [MeetingTrack] = []
+    private(set) var stopCount = 0
+    private(set) var pauseCount = 0
+    private(set) var resumeCount = 0
+    private(set) var recoveredID: MeetingID?
+    let committedCheckpoint: MeetingCheckpoint
+    private var pauseStartedContinuation: CheckedContinuation<Void, Never>?
+    private var pauseReleaseContinuation: CheckedContinuation<Void, Never>?
+    init(failStarting: MeetingTrack?, checkpoint: MeetingCheckpoint = MeetingCheckpoint()) {
+        self.failStarting = failStarting
+        committedCheckpoint = checkpoint
+        blockPause = false
+    }
+    init(failStarting: MeetingTrack?, checkpoint: MeetingCheckpoint = MeetingCheckpoint(), blockPause: Bool) {
+        self.failStarting = failStarting
+        committedCheckpoint = checkpoint
+        self.blockPause = blockPause
+    }
+    func start(track: MeetingTrack) async throws {
+        started.append(track)
+        if track == failStarting { throw TestFailure.startFailed }
+    }
+    func pause() async throws {
+        pauseCount += 1
+        guard blockPause else { return }
+        pauseStartedContinuation?.resume()
+        pauseStartedContinuation = nil
+        await withCheckedContinuation { pauseReleaseContinuation = $0 }
+    }
+    func waitUntilPauseStarted() async {
+        if pauseCount > 0 { return }
+        await withCheckedContinuation { pauseStartedContinuation = $0 }
+    }
+    func releasePause() { pauseReleaseContinuation?.resume(); pauseReleaseContinuation = nil }
+    func resume() async throws { resumeCount += 1 }
+    func checkpoint() async throws -> MeetingCheckpoint { committedCheckpoint }
+    func stop() async throws { stopCount += 1 }
+    func recover(id: MeetingID, manifest: MeetingManifest) async throws -> MeetingCheckpoint {
+        recoveredID = id
+        return MeetingCheckpoint(tracks: [MeetingTrackCheckpoint(track: .mic, committedByteCount: 64, sampleCount: 32, startOffset: 0, endOffset: 3)])
+    }
+}
+
+private actor SchedulerProbe: MeetingTranscriptionScheduler {
+    let block: Bool
+    let failTranscription: Bool
+    let chunks: [MeetingChunkProcessingResult]
+    private(set) var finalCallCount = 0
+    private(set) var cancelQueuedCount = 0
+    private var startedContinuation: CheckedContinuation<Void, Never>?
+    private var releaseContinuation: CheckedContinuation<Void, Never>?
+    private var releaseRequested = false
+    private var inFlight = false
+    private var cancelContinuation: CheckedContinuation<Void, Never>?
+    private var progressContinuation: CheckedContinuation<Void, Never>?
+    private var didReportProgress = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+    init(block: Bool, chunks: [MeetingChunkProcessingResult], failTranscription: Bool = false) {
+        self.block = block
+        self.chunks = chunks
+        self.failTranscription = failTranscription
+    }
+    func cancelQueued(meetingID: MeetingID) async {
+        cancelQueuedCount += 1
+        cancelContinuation?.resume()
+        cancelContinuation = nil
+    }
+    func transcribeFinal(
+        _ manifest: MeetingManifest,
+        chunkSeconds: TimeInterval,
+        progress: @escaping @Sendable (Double) async -> Void
+    ) async throws -> [MeetingChunkProcessingResult] {
+        finalCallCount += 1
+        inFlight = true
+        startedContinuation?.resume()
+        startedContinuation = nil
+        await progress(0.5)
+        didReportProgress = true
+        progressContinuation?.resume()
+        progressContinuation = nil
+        if block && !releaseRequested { await withCheckedContinuation { releaseContinuation = $0 } }
+        inFlight = false
+        waiters.forEach { $0.resume() }
+        waiters.removeAll()
+        if failTranscription { throw TestFailure.transcriptionFailed }
+        return chunks
+    }
+    func waitUntilCancelled() async {
+        if cancelQueuedCount > 0 { return }
+        await withCheckedContinuation { cancelContinuation = $0 }
+    }
+    func waitUntilStarted() async {
+        if finalCallCount > 0 { return }
+        await withCheckedContinuation { startedContinuation = $0 }
+    }
+    func waitUntilProgressReported() async {
+        if didReportProgress { return }
+        await withCheckedContinuation { progressContinuation = $0 }
+    }
+    func waitForInFlight(meetingID: MeetingID) async {
+        guard inFlight else { return }
+        await withCheckedContinuation { waiters.append($0) }
+    }
+    func release() {
+        releaseRequested = true
+        releaseContinuation?.resume()
+        releaseContinuation = nil
+    }
+}
+
+private actor FinalizerProbe: MeetingAudioFinalizerProtocol {
+    private(set) var callCount = 0
+    private(set) var cleanupObservedReadyManifest = false
+    private var store: SessionStoreProbe?
+    func observe(_ store: SessionStoreProbe) { self.store = store }
+    func finalize(_ manifest: MeetingManifest) async throws -> MeetingManifest { callCount += 1; return manifest }
+    func cleanupCapture() async throws {
+        guard let store else { return }
+        cleanupObservedReadyManifest = await store.meetings.values.contains { $0.state == .ready }
+    }
+}
+
+private final class CompletionProbe: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = false
+    var isFinished: Bool { lock.lock(); defer { lock.unlock() }; return value }
+    func finish() { lock.lock(); defer { lock.unlock() }; value = true }
+}
+
+private struct SessionRig {
+    let clock = ManualClock(Date(timeIntervalSince1970: 1_000))
+    let store = SessionStoreProbe()
+    let audio: AudioControlProbe
+    let scheduler: SchedulerProbe
+    let finalizer = FinalizerProbe()
+    init(failStarting: MeetingTrack? = nil, checkpoint: MeetingCheckpoint = MeetingCheckpoint(), finalChunks: [MeetingChunkProcessingResult] = [], blockTranscription: Bool = false, blockPause: Bool = false, failTranscription: Bool = false) {
+        audio = AudioControlProbe(failStarting: failStarting, checkpoint: checkpoint, blockPause: blockPause)
+        scheduler = SchedulerProbe(block: blockTranscription, chunks: finalChunks, failTranscription: failTranscription)
+    }
+    func makeSession() -> MeetingSession {
+        MeetingSession(clock: clock, store: store, audio: audio, scheduler: scheduler, finalizer: finalizer)
+    }
+}
+
+private enum TestFailure: Error { case startFailed, transcriptionFailed }

@@ -1,0 +1,350 @@
+import AppKit
+import SwiftUI
+import UniformTypeIdentifiers
+import VoiceCore
+
+private enum MeetingDetailTab: String, CaseIterable {
+    case transcript = "Transcript"
+    case summary = "Summary"
+    case actionItems = "Action items"
+}
+
+private enum MeetingExportKind {
+    case markdown, srt, audio
+}
+
+struct MeetingsPage: View {
+    @Bindable var model: AppModel
+    @State private var player = MeetingPlayerModel()
+
+    private var groups: [MeetingDayGroup] {
+        MeetingListProjection.groups(meetings: model.meetingManifests, query: model.meetingSearchQuery)
+    }
+
+    var body: some View {
+        HStack(spacing: 0) {
+            library
+                .frame(minWidth: 250, idealWidth: 285, maxWidth: 340)
+            Divider()
+            if let meeting = model.selectedMeeting {
+                MeetingDetails(model: model, meeting: meeting, player: player)
+            } else {
+                ContentUnavailableView("No meeting selected", systemImage: "waveform.path", description: Text("Choose a meeting or start a recording."))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .task {
+            await model.reloadMeetings()
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(2))
+                await model.reloadMeetings()
+            }
+        }
+    }
+
+    private var library: some View {
+        VStack(spacing: 10) {
+            HStack {
+                Text("Meetings").font(.title2.weight(.semibold))
+                Spacer()
+                if model.meetings?.isRecording == true || model.meetings?.isPaused == true {
+                    Button("Stop") { Task { await model.meetings?.stop(); await model.reloadMeetings() } }
+                } else if model.meetings?.isTranscribing == true {
+                    Label("Transcribing…", systemImage: "hourglass")
+                } else {
+                    Button { Task { await model.meetings?.start() } } label: { Image(systemName: "record.circle") }
+                        .buttonStyle(.borderedProminent)
+                        .help("Start meeting recording")
+                }
+            }
+            TextField("Search meetings", text: $model.meetingSearchQuery)
+                .textFieldStyle(.roundedBorder)
+            if model.meetingManifests.isEmpty {
+                ContentUnavailableView("No meetings yet", systemImage: "waveform.path", description: Text("Record a meeting to see its transcript here."))
+            } else if groups.isEmpty {
+                ContentUnavailableView("No matching meetings", systemImage: "magnifyingglass", description: Text("Try a different title or transcript search."))
+            } else {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 14) {
+                        ForEach(groups) { group in
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(group.label.uppercased()).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                                ForEach(group.meetings) { meeting in
+                                    MeetingListRow(
+                                        meeting: meeting,
+                                        selected: meeting.id == model.selectedMeetingID
+                                    ) {
+                                        model.selectedMeetingID = meeting.id
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+        }
+        .padding(14)
+    }
+}
+
+private struct MeetingListRow: View {
+    let meeting: MeetingManifest
+    let selected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 5) {
+                HStack {
+                    Text(meeting.title).font(.body.weight(.medium)).lineLimit(1)
+                    Spacer(minLength: 3)
+                    Text(status).font(.caption).foregroundStyle(meeting.state == .failed ? .orange : .secondary)
+                }
+                Text(meeting.startedAt.formatted(date: .omitted, time: .shortened) + " · " + clock(meeting.duration))
+                    .font(.caption).foregroundStyle(.secondary)
+                if let line = meeting.segments.last?.text, !line.isEmpty {
+                    Text(line).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                }
+            }
+            .padding(9)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(selected ? Color.accentColor.opacity(0.15) : Color.clear, in: RoundedRectangle(cornerRadius: 8))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var status: String {
+        switch meeting.state {
+        case .recording: "Recording"
+        case .paused: "Paused"
+        case .interrupted: "Interrupted"
+        case .transcribing: "Transcribing \(Int((meeting.transcriptProgress ?? 0) * 100))%"
+        case .ready: "Ready"
+        case .failed: "Transcript failed"
+        }
+    }
+
+    private func clock(_ seconds: TimeInterval) -> String {
+        let whole = max(0, Int(seconds))
+        return String(format: "%d:%02d", whole / 60, whole % 60)
+    }
+}
+
+private struct MeetingDetails: View {
+    @Bindable var model: AppModel
+    let meeting: MeetingManifest
+    @Bindable var player: MeetingPlayerModel
+    @State private var tab: MeetingDetailTab = .transcript
+    @State private var showDelete = false
+    @State private var showRename = false
+    @State private var renameTitle = ""
+    @State private var generationTask: Task<Void, Never>?
+    @State private var generationProgress: MeetingTextProgress?
+    @State private var generationError: String?
+
+    private var meetingDirectory: URL { model.paths.meetings.appendingPathComponent(meeting.id.rawValue, isDirectory: true) }
+    private var audioURL: URL? {
+        let url = meetingDirectory.appendingPathComponent("audio.m4a")
+        return FileManager.default.fileExists(atPath: url.path) ? url : nil
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            header
+            Text(meeting.startedAt.formatted(date: .long, time: .shortened) + " · " + clock(meeting.duration))
+                .font(.callout).foregroundStyle(.secondary)
+            if let audioURL {
+                MeetingPlayer(audioURL: audioURL, model: player)
+                    .padding(.vertical, 4)
+            } else {
+                Label(meeting.state == .recording || meeting.state == .paused ? "Audio is recording" : "Audio is unavailable", systemImage: "waveform")
+                    .foregroundStyle(.secondary)
+            }
+            Picker("Meeting details", selection: $tab) {
+                ForEach(MeetingDetailTab.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            Group {
+                switch tab {
+                case .transcript: transcript
+                case .summary: generatedText(meeting.summary, kind: .summary, emptyMessage: "Generate a summary from this transcript.")
+                case .actionItems: generatedText(meeting.actionItems, kind: .actionItems, emptyMessage: "Find the action items discussed in this meeting.")
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+        .padding(20)
+        .confirmationDialog("Delete this meeting?", isPresented: $showDelete, titleVisibility: .visible) {
+            Button("Delete meeting", role: .destructive) { Task { await model.deleteMeeting(id: meeting.id) } }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("The transcript and audio files will be deleted.")
+        }
+        .sheet(isPresented: $showRename) {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Rename meeting").font(.headline)
+                TextField("Meeting title", text: $renameTitle)
+                HStack {
+                    Spacer()
+                    Button("Cancel") { showRename = false }
+                    Button("Save") {
+                        Task { await model.renameMeeting(id: meeting.id, title: renameTitle); showRename = false }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(renameTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+            .padding(20).frame(width: 360)
+        }
+        .onChange(of: meeting.id) { _, _ in
+            generationTask?.cancel()
+            player.stopAndDetach()
+        }
+    }
+
+    private var header: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(meeting.title).font(.title2.weight(.semibold)).lineLimit(2)
+            Spacer()
+            if recoveryAction == .recoverCapture, meeting.state == .interrupted {
+                Button("Recover recording") { Task { await model.meetings?.recover(id: meeting.id) } }
+                    .buttonStyle(.borderedProminent)
+            } else if recoveryAction == .retryTranscription {
+                if model.meetings?.isTranscribing == true {
+                    Button("Cancel") { Task { await model.meetings?.cancel() } }
+                } else {
+                    Button("Retry transcript") { Task { await model.meetings?.recover(id: meeting.id) } }
+                        .buttonStyle(.borderedProminent)
+                }
+            }
+            Menu("More") {
+                Button("Rename…") { renameTitle = meeting.title; showRename = true }
+                Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([meetingDirectory]) }
+                Menu("Export") {
+                    Button("Markdown…") { export(.markdown) }
+                    Button("SubRip captions…") { export(.srt) }
+                    Button("Audio…") { export(.audio) }
+                }
+                Divider()
+                Button("Delete…", role: .destructive) { showDelete = true }
+            }
+        }
+    }
+
+    private var recoveryAction: MeetingRecoveryAction? {
+        MeetingRecoveryPolicy.action(for: meeting.state)
+    }
+
+    private var transcript: some View {
+        let activeSegmentID = MeetingTimeline.activeSegment(at: player.currentTime, segments: meeting.segments, isPlaying: player.isPlaying)?.id
+        return ScrollView {
+            LazyVStack(alignment: .leading, spacing: 3) {
+                if let error = meeting.transcriptionError {
+                    Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(.orange).padding(8)
+                }
+                ForEach(meeting.segments.sorted { $0.start < $1.start }) { segment in
+                    let active = activeSegmentID == segment.id
+                    Button { player.seek(to: MeetingTimeline.seekTime(for: segment)) } label: {
+                        HStack(alignment: .top, spacing: 12) {
+                            Text("\(clock(segment.start)) – \(clock(segment.end))")
+                                .font(.caption.monospacedDigit()).foregroundStyle(.secondary).frame(width: 108, alignment: .leading)
+                            Text(segment.speaker).font(.caption.weight(.semibold)).frame(width: 48, alignment: .leading)
+                            Text(segment.text).font(.body).frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .padding(.horizontal, 9).padding(.vertical, 7)
+                        .background(active ? Color.accentColor.opacity(0.16) : .clear, in: RoundedRectangle(cornerRadius: 6))
+                    }
+                    .buttonStyle(.plain)
+                }
+                if meeting.segments.isEmpty {
+                    ContentUnavailableView("No transcript yet", systemImage: "text.bubble", description: Text("Transcript lines appear as speech is processed."))
+                }
+            }
+        }
+    }
+
+    private func generatedText(_ value: String?, kind: MeetingTextKind, emptyMessage: String) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if let value, !value.isEmpty {
+                ScrollView { Text(value).frame(maxWidth: .infinity, alignment: .leading).textSelection(.enabled) }
+            } else {
+                ContentUnavailableView(kind == .summary ? "No summary" : "No action items", systemImage: kind == .summary ? "text.alignleft" : "checklist", description: Text(emptyMessage))
+            }
+            if let generationProgress {
+                ProgressView(value: generationProgress.fraction) {
+                    Text(generationProgress.phase == .parts ? "Summarizing part \(generationProgress.completedParts) of \(generationProgress.totalParts)" : "Combining results")
+                }
+            }
+            if let generationError { Text(generationError).font(.callout).foregroundStyle(.orange) }
+            HStack {
+                if generationTask != nil {
+                    Button("Cancel") { generationTask?.cancel() }
+                } else {
+                    Button(value == nil || value?.isEmpty == true ? (kind == .summary ? "Generate summary" : "Generate action items") : "Regenerate") {
+                        generate(kind)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(meeting.segments.isEmpty)
+                }
+            }
+        }
+    }
+
+    private func generate(_ kind: MeetingTextKind) {
+        generationError = nil
+        generationProgress = nil
+        generationTask = Task {
+            defer { generationTask = nil }
+            do {
+                _ = try await model.generateMeetingText(id: meeting.id, kind: kind) { progress in
+                    Task { @MainActor in generationProgress = progress }
+                }
+            } catch is CancellationError {
+                generationError = nil
+            } catch {
+                generationError = "Could not generate text: \(error.localizedDescription)"
+            }
+        }
+    }
+
+    private func export(_ kind: MeetingExportKind) {
+        guard kind == .audio || meeting.state == .ready else { return }
+        let panel = NSSavePanel()
+        switch kind {
+        case .markdown:
+            panel.nameFieldStringValue = "\(safeFilename(meeting.title)).md"
+            panel.allowedContentTypes = [.plainText]
+        case .srt:
+            panel.nameFieldStringValue = "\(safeFilename(meeting.title)).srt"
+            panel.allowedContentTypes = [.plainText]
+        case .audio:
+            panel.nameFieldStringValue = "\(safeFilename(meeting.title)).m4a"
+            panel.allowedContentTypes = [.mpeg4Audio]
+        }
+        guard panel.runModal() == .OK, let destination = panel.url else { return }
+        do {
+            switch kind {
+            case .markdown: try MeetingExporter.markdown(meeting).write(to: destination, atomically: true, encoding: .utf8)
+            case .srt: try MeetingExporter.srt(meeting).write(to: destination, atomically: true, encoding: .utf8)
+            case .audio:
+                guard let audioURL else { return }
+                if FileManager.default.fileExists(atPath: destination.path) { try FileManager.default.removeItem(at: destination) }
+                try FileManager.default.copyItem(at: audioURL, to: destination)
+            }
+        } catch {
+            model.saveError = "Could not export meeting: \(error.localizedDescription)"
+        }
+    }
+
+    private func safeFilename(_ value: String) -> String {
+        let invalid = CharacterSet(charactersIn: "/:")
+        let cleaned = value.components(separatedBy: invalid).filter { !$0.isEmpty }.joined(separator: "-")
+        return cleaned.isEmpty ? "Meeting" : cleaned
+    }
+
+    private func clock(_ value: TimeInterval) -> String {
+        let whole = max(0, Int(value))
+        return String(format: "%d:%02d", whole / 60, whole % 60)
+    }
+}

@@ -4,6 +4,11 @@ public enum SpeechLanguage: String, Codable, Sendable, CaseIterable {
     case auto, vi, en
 }
 
+public enum TranscriptionPriority: Int, Codable, Sendable {
+    case meeting = 0
+    case dictation = 1
+}
+
 /// One timed piece of a transcript. Dictation ignores timing; Meetings
 /// (sub-project 2) builds its timeline from it.
 public struct TranscriptSegment: Sendable, Equatable, Codable {
@@ -34,10 +39,19 @@ public struct TranscriptionOptions: Sendable, Equatable {
     public var language: SpeechLanguage
     /// Vocabulary hint passed to Whisper as its initial prompt. Empty = none.
     public var prompt: String
+    public var timestamps: Bool
+    public var priority: TranscriptionPriority
 
-    public init(language: SpeechLanguage = .auto, prompt: String = "") {
+    public init(
+        language: SpeechLanguage = .auto,
+        prompt: String = "",
+        timestamps: Bool = false,
+        priority: TranscriptionPriority = .dictation
+    ) {
         self.language = language
         self.prompt = prompt
+        self.timestamps = timestamps
+        self.priority = priority
     }
 }
 

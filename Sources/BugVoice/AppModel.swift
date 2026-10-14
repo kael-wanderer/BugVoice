@@ -1,4 +1,5 @@
 import AppKit
+import Carbon
 import BugVoiceMac
 import Foundation
 import Observation
@@ -7,12 +8,17 @@ import SwiftUI
 import VoiceCore
 import WhisperEngine
 
-/// Main-window pages. Meetings and Notes are added by sub-projects 2 and 3.
+private enum MeetingGenerationError: LocalizedError {
+    case noTextModel
+    var errorDescription: String? { "Choose a text model in Settings before generating meeting notes." }
+}
+
+/// Main-window pages. Notes are reserved for sub-project 3.
 enum Page: String, CaseIterable, Identifiable {
-    case dictation, settings
+    case dictation, meetings, settings
     var id: String { rawValue }
-    var title: String { self == .dictation ? "Dictation" : "Settings" }
-    var symbol: String { self == .dictation ? "mic" : "gearshape" }
+    var title: String { switch self { case .dictation: "Dictation"; case .meetings: "Meetings"; case .settings: "Settings" } }
+    var symbol: String { switch self { case .dictation: "mic"; case .meetings: "waveform.path"; case .settings: "gearshape" } }
 }
 
 @MainActor
@@ -22,7 +28,11 @@ final class AppModel {
     let keychain = Keychain()
     @ObservationIgnored let store = SettingsStore(url: AppPaths.standard().settings)
     @ObservationIgnored let historyLog = HistoryLog(url: AppPaths.standard().history)
+    @ObservationIgnored private var meetingStore: MeetingStore { MeetingStore(root: paths.meetings) }
     @ObservationIgnored private(set) var whisper: WhisperKitTranscriber
+    @ObservationIgnored private(set) var priorityTranscriber: PriorityTranscriber
+    @ObservationIgnored let transcriptionRouter: TranscriptionRouter
+    @ObservationIgnored private var systemAudioGrantedThisRun = false
 
     var settings = AppSettings() {
         didSet {
@@ -33,6 +43,9 @@ final class AppModel {
     var vocabularyText = ""
     var vocabulary = Vocabulary()
     var history: [HistoryEntry] = []
+    var meetingManifests: [MeetingManifest] = []
+    var selectedMeetingID: MeetingID?
+    var meetingSearchQuery = ""
     /// The latest dictation, for the menu preview and *Paste last*. A
     /// secure-field result is stored without its text.
     var lastResult: DictationResult?
@@ -43,6 +56,7 @@ final class AppModel {
     var isListening = false
     var permissionsGranted = Permissions.allGranted
     var permissionStatus: [PermissionKind: Bool] = [:]
+    var systemAudioPermissionFailed = false
     /// The latest failure to save something (settings, vocabulary, history,
     /// Keychain, login item). The UI shows it and sets it back to nil once
     /// the user has seen it. Never cleared by a later success.
@@ -55,11 +69,17 @@ final class AppModel {
     @ObservationIgnored var presentPermissionsWindow: (() -> Void)?
     /// Created by `bootstrap()` once settings are loaded.
     @ObservationIgnored private(set) var dictation: DictationController?
+    @ObservationIgnored private(set) var meetings: MeetingController?
     @ObservationIgnored private var isLoadingSettings = false
     @ObservationIgnored private var preparingEngine: WhisperKitTranscriber?
+    @ObservationIgnored private var speechAPIKeyGeneration: UInt64 = 0
 
     init() {
-        whisper = WhisperKitTranscriber(modelName: AppSettings().speech.whisperModel, downloadBase: AppPaths.standard().models)
+        let engine = WhisperKitTranscriber(modelName: AppSettings().speech.whisperModel, downloadBase: AppPaths.standard().models)
+        whisper = engine
+        let priority = PriorityTranscriber(base: engine)
+        priorityTranscriber = priority
+        transcriptionRouter = TranscriptionRouter(initial: priority)
     }
 
     func bootstrap() async {
@@ -70,6 +90,8 @@ final class AppModel {
         }
         let loaded = store.load()
         whisper = WhisperKitTranscriber(modelName: loaded.speech.whisperModel, downloadBase: paths.models)
+        priorityTranscriber = PriorityTranscriber(base: ProviderFactory.transcriber(loaded.speech, whisper: whisper, keychain: keychain))
+        await transcriptionRouter.replace(with: priorityTranscriber)
         // Loading is not a change: no save, no model reload, no login-item call.
         isLoadingSettings = true
         settings = loaded
@@ -86,9 +108,15 @@ final class AppModel {
         vocabularyText = (try? String(contentsOf: paths.vocabulary, encoding: .utf8)) ?? ""
         vocabulary = Vocabulary.parse(vocabularyText)
         startDictation()
+        GlobalShortcuts.shared.register(keyCode: UInt32(kVK_ANSI_M), modifiers: GlobalShortcuts.controlOption) { [weak self] in
+            Task { @MainActor in self?.meetings?.toggleRecording() }
+        }
+        meetings = MeetingController(model: self)
         refreshPermissions()
         if !permissionsGranted { openPermissionsWindow() }
         await applyRetention()
+        await recoverUnfinishedMeetings()
+        await applyMeetingRetention()
         Task { await prepareSpeech() }
     }
 
@@ -119,16 +147,32 @@ final class AppModel {
         } catch {
             saveError = "Could not save settings: \(error.localizedDescription)"
         }
-        if settings.speech.whisperModel != old.speech.whisperModel {
-            whisper = WhisperKitTranscriber(modelName: settings.speech.whisperModel, downloadBase: paths.models)
-            speechState = .notLoaded
-            Task { await prepareSpeech() }
+        if SpeechTranscriberConfiguration(settings: settings.speech, speechAPIKeyGeneration: speechAPIKeyGeneration)
+            != SpeechTranscriberConfiguration(settings: old.speech, speechAPIKeyGeneration: speechAPIKeyGeneration) {
+            rebuildSpeechTranscriber()
         }
         if settings.launchAtLogin != old.launchAtLogin { applyLaunchAtLogin() }
         if settings.historyRetention != old.historyRetention {
             Task { await applyRetention() }
         }
+        if settings.meetings.deleteAfter != old.meetings.deleteAfter {
+            Task { await applyMeetingRetention() }
+        }
         onSettingsChanged?()
+    }
+
+    private func rebuildSpeechTranscriber() {
+        let speech = settings.speech
+        let replacementWhisper = WhisperKitTranscriber(modelName: speech.whisperModel, downloadBase: paths.models)
+        let replacement = PriorityTranscriber(base: ProviderFactory.transcriber(speech, whisper: replacementWhisper, keychain: keychain))
+        speechState = speech.engine == .whisperKit ? .notLoaded : .ready
+        Task { [weak self] in
+            guard let self else { return }
+            await transcriptionRouter.replace(with: replacement)
+            whisper = replacementWhisper
+            priorityTranscriber = replacement
+            if speech.engine == .whisperKit { Task { await prepareSpeech() } }
+        }
     }
 
     private func applyLaunchAtLogin() {
@@ -185,7 +229,7 @@ final class AppModel {
 
     func makePipeline(insertion: any InsertionTarget) -> DictationPipeline {
         DictationPipeline(
-            transcriber: ProviderFactory.transcriber(settings.speech, whisper: whisper, keychain: keychain),
+            transcriber: transcriptionRouter,
             textModel: ProviderFactory.textModel(settings.textModel, keychain: keychain),
             insertion: insertion,
             focus: FocusInspector(),
@@ -231,6 +275,84 @@ final class AppModel {
         await reloadHistory()
     }
 
+    // MARK: Meetings
+
+    var selectedMeeting: MeetingManifest? {
+        meetingManifests.first { $0.id == selectedMeetingID }
+    }
+
+    func reloadMeetings() async {
+        do {
+            meetingManifests = try await meetingStore.list()
+            if let selectedMeetingID, !meetingManifests.contains(where: { $0.id == selectedMeetingID }) {
+                self.selectedMeetingID = nil
+            }
+        } catch {
+            saveError = "Could not load meetings: \(error.localizedDescription)"
+        }
+    }
+
+    func renameMeeting(id: MeetingID, title: String) async {
+        let cleaned = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty else { return }
+        if let meetings {
+            do {
+                if try await meetings.renameSession(id: id, title: cleaned) {
+                    await reloadMeetings()
+                    return
+                }
+            } catch {
+                saveError = "Could not rename meeting: \(error.localizedDescription)"
+                return
+            }
+        }
+        guard !cleaned.isEmpty, var meeting = meetingManifests.first(where: { $0.id == id }) else { return }
+        meeting.title = cleaned
+        do {
+            try await meetingStore.save(meeting)
+            await reloadMeetings()
+        } catch {
+            saveError = "Could not rename meeting: \(error.localizedDescription)"
+        }
+    }
+
+    func deleteMeeting(id: MeetingID) async {
+        do {
+            try await meetingStore.delete(id: id)
+            if selectedMeetingID == id { selectedMeetingID = nil }
+            await reloadMeetings()
+        } catch {
+            saveError = "Could not delete meeting: \(error.localizedDescription)"
+        }
+    }
+
+    func generateMeetingText(
+        id: MeetingID,
+        kind: MeetingTextKind,
+        progress: @escaping @Sendable (MeetingTextProgress) -> Void
+    ) async throws -> String {
+        var meeting = try await meetingStore.load(id: id)
+        guard let textModel = ProviderFactory.textModel(settings.textModel, keychain: keychain) else {
+            throw MeetingGenerationError.noTextModel
+        }
+        let text = try await MeetingTextGenerator().generate(
+            transcript: meeting.segments,
+            kind: kind,
+            budget: MeetingTextBudget(settings: settings.meetings),
+            model: textModel,
+            progress: progress
+        )
+        if kind == .summary { meeting.summary = text }
+        else { meeting.actionItems = text }
+        if let meetings, try await meetings.saveGeneratedTextToSession(id: id, text: text, kind: kind) {
+            await reloadMeetings()
+            return text
+        }
+        try await meetingStore.save(meeting)
+        await reloadMeetings()
+        return text
+    }
+
     /// Drops entries older than the retention window, then reloads.
     private func applyRetention() async {
         if let age = settings.historyRetention.maxAge {
@@ -241,6 +363,30 @@ final class AppModel {
             }
         }
         await reloadHistory()
+    }
+
+    private func recoverUnfinishedMeetings() async {
+        do {
+            for var meeting in try await meetingStore.list() where meeting.state == .recording || meeting.state == .paused {
+                meeting.state = .interrupted
+                meeting.endedAt = meeting.endedAt ?? Date()
+                try await meetingStore.save(meeting)
+            }
+            await reloadMeetings()
+        } catch {
+            saveError = "Could not recover meetings: \(error.localizedDescription)"
+        }
+    }
+
+    private func applyMeetingRetention() async {
+        do {
+            let meetings = try await meetingStore.list()
+            let expired = MeetingRetention.pruneCandidates(meetings, policy: settings.meetings.deleteAfter, now: Date())
+            for id in expired { try await meetingStore.delete(id: id) }
+            await reloadMeetings()
+        } catch {
+            saveError = "Could not remove old meetings: \(error.localizedDescription)"
+        }
     }
 
     // MARK: Vocabulary
@@ -262,6 +408,10 @@ final class AppModel {
     func saveKey(_ value: String, account: String) -> Bool {
         do {
             try keychain.write(value, account: account)
+            if account == "speech-openai", settings.speech.engine == .openAICompatible {
+                speechAPIKeyGeneration &+= 1
+                rebuildSpeechTranscriber()
+            }
             return true
         } catch let error as KeychainError {
             saveError = "Could not save the key in Keychain (error \(error.status))."
@@ -276,9 +426,23 @@ final class AppModel {
 
     func refreshPermissions() {
         var status: [PermissionKind: Bool] = [:]
-        for kind in PermissionKind.allCases { status[kind] = Permissions.isGranted(kind) }
+        for kind in PermissionKind.allCases {
+            status[kind] = kind == .systemAudioRecording ? systemAudioGrantedThisRun : Permissions.isGranted(kind)
+        }
         if permissionStatus != status { permissionStatus = status }
-        let granted = status.values.allSatisfy { $0 }
+        let granted = Permissions.allGranted
         if permissionsGranted != granted { permissionsGranted = granted }
+    }
+
+    func setSystemAudioCaptureObserved(_ granted: Bool) {
+        systemAudioGrantedThisRun = granted
+        permissionStatus[.systemAudioRecording] = granted
+        if granted { systemAudioPermissionFailed = false }
+    }
+
+    func noteSystemAudioCaptureStartFailure() {
+        systemAudioGrantedThisRun = false
+        permissionStatus[.systemAudioRecording] = false
+        systemAudioPermissionFailed = true
     }
 }

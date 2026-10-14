@@ -26,7 +26,9 @@ struct StorageTab: View {
                 }
                 row("Last recording (last.wav)", path: model.paths.lastRecording, detail: "1 file") { EmptyView() }
                 if FileManager.default.fileExists(atPath: model.paths.meetings.path) {
-                    row("Meetings", path: model.paths.meetings, detail: "") { EmptyView() }
+                    row("Meetings", path: model.paths.meetings, detail: "\(model.meetingManifests.count) meetings") {
+                        Button("Show") { NSWorkspace.shared.activateFileViewerSelecting([model.paths.meetings]) }
+                    }
                 }
                 if FileManager.default.fileExists(atPath: model.paths.notes.path) {
                     row("Notes", path: model.paths.notes, detail: "") { EmptyView() }

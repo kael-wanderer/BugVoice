@@ -15,7 +15,7 @@ enum HUDState: Equatable {
     /// What the user sees after a run; nil means hide immediately.
     static func from(_ r: DictationResult) -> HUDState? {
         switch r.outcome {
-        case .discardedTooShort:
+        case .discardedTooShort, .cancelled:
             return nil
         case .nothingHeard:
             return .nothingHeard

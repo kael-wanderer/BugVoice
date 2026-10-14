@@ -4,7 +4,7 @@ import Testing
 
 struct DictationPipelineTests {
     func pipeline(
-        transcriber: FakeTranscriber = FakeTranscriber(),
+        transcriber: any Transcriber = FakeTranscriber(),
         model: (any TextModel)? = FakeModel(),
         insertion: RecordingInsertion = RecordingInsertion(),
         focusAtInsert: FocusSnapshot = notionFocus,
@@ -84,6 +84,27 @@ struct DictationPipelineTests {
         let r = await pipeline(transcriber: FakeTranscriber(error: Boom())).run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })
         #expect(r.outcome == .transcriptionFailed)
         #expect(r.errorMessage != nil)
+    }
+
+    @Test func cancelledPriorityRequestIsQuietCancellation() async {
+        let stages = StageRecorder()
+        let pipeline = pipeline(transcriber: PriorityTranscriber(base: FakeTranscriber()))
+        let task = Task {
+            withUnsafeCurrentTask { $0?.cancel() }
+            return await pipeline.run(
+                clip: speechClip,
+                startFocus: notionFocus,
+                startedAt: Date(),
+                onStage: { stages.add($0) }
+            )
+        }
+
+        let result = await task.value
+
+        #expect(result.outcome == .cancelled)
+        #expect(result.errorMessage == nil)
+        #expect(stages.all == [.transcribing])
+        #expect(result.historyEntry == nil)
     }
 
     @Test func slowModelTimesOutToRaw() async {

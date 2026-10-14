@@ -22,12 +22,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let model = AppModel()
     private lazy var mainWindow = MainWindowController(model: model)
     private lazy var permissionsWindow = PermissionsWindowController(model: model)
+    private var meetingRecorderPanel: MeetingRecorderPanel?
+    private var sleepObserver: NSObjectProtocol?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         model.presentMainWindow = { [weak self] in self?.mainWindow.show() }
         model.presentPermissionsWindow = { [weak self] in self?.permissionsWindow.show() }
         installEditMenu()
-        Task { await model.bootstrap() }
+        sleepObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.willSleepNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in await self?.model.meetings?.pauseForSleep() }
+        }
+        Task {
+            await model.bootstrap()
+            guard let controller = model.meetings else { return }
+            let panel = MeetingRecorderPanel(controller: controller)
+            meetingRecorderPanel = panel
+            controller.onRecordingStarted = { [weak panel] in panel?.show() }
+            controller.onRecordingStopped = { [weak panel] in panel?.hide() }
+        }
     }
 
     /// The app has no document scenes, so SwiftUI builds no Edit menu. Without
@@ -55,5 +71,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         model.openMainWindow()
         return false
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard let meetings = model.meetings, meetings.isRecording || meetings.isPaused else {
+            return .terminateNow
+        }
+        let alert = NSAlert()
+        alert.messageText = "A meeting is recording"
+        alert.informativeText = "Stop the recording and keep the audio before quitting? The transcript can finish later."
+        alert.addButton(withTitle: "Stop and keep")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return .terminateCancel }
+        Task { [weak self, weak meetings] in
+            guard let self, let meetings else {
+                NSApp.reply(toApplicationShouldTerminate: false)
+                return
+            }
+            do {
+                try await meetings.stopAndKeepForQuit()
+                NSApp.reply(toApplicationShouldTerminate: true)
+            } catch {
+                self.model.saveError = "Could not checkpoint the meeting before quitting: \(error.localizedDescription)"
+                NSApp.reply(toApplicationShouldTerminate: false)
+            }
+        }
+        return .terminateLater
     }
 }
