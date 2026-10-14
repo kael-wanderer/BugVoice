@@ -15,21 +15,21 @@ runs on device (WhisperKit); cleanup uses any local model through an
 OpenAI-compatible or Anthropic-compatible API (LM Studio, Ollama, MLX…) or
 Apple Intelligence.
 
-Status: sub-project 1 (dictation) and sub-project 2 (Meetings) are merged on
-`main`; their manual checklist, benchmark, system-audio spike, and deferred-
-findings gates remain pending. Sub-project 3 (Notes) is implemented on
-`feat/notes`; build/launch completed, Notes manual checklist rows 63–72 remain
-pending. See `docs/progress/HANDOFF.md`, `docs/progress/meetings-log.md`, and
+Status: all three sub-projects (dictation, Meetings, Notes) are merged on
+`main`. Pending maintainer gates: manual checklist (dictation 1–44, Meetings
+45–62, Notes 63–72), benchmark, system-audio spike, and the sub-project 1
+deferred-findings review. See `docs/progress/HANDOFF.md`, `docs/progress/meetings-log.md`, and
 `docs/progress/notes-log.md`.
 
 Built in three sub-projects, each with its own spec → plan → implementation:
 
 1. **Dictation core + app shell** — merged on `main`; maintainer gates remain.
 2. **Meetings** — merged on `main`; device checks pending.
-3. **Notes** — speak into an in-app note editor (no timeline).
+3. **Notes** — speak into an in-app note editor; merged on `main`; device checks pending.
 
-Notes is implemented on `feat/notes`. Do not build Notes as part of the
-Meetings branch.
+Release packaging: `Scripts/build-dmg.sh` builds `build/BugVoice-<version>-<build>.dmg`;
+version and build live in `App/Info.plist`. App icon source is `App/Icon/AppIcon.svg`
+(`Scripts/make-app-icon.sh` regenerates `App/AppIcon.icns`).
 
 ## Key documents
 

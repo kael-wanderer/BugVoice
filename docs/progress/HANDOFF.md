@@ -8,7 +8,9 @@ Last updated: 2026-10-14
 
 **Sub-project 2 (Meetings): merged on `main` (2026-10-14) after whole-branch review and two fix rounds. Device checks pending.**
 
-**Sub-project 3 (Notes): implemented on `feat/notes` (2026-10-14); automated suite, signed app build, and launch passed. Notes manual checks remain pending. Do not merge or push from this branch.**
+**Sub-project 3 (Notes): merged on `main` (2026-10-14) after whole-branch review and fixes. Notes manual checks (rows 63–72) pending.**
+
+**Packaging:** app icon (Antenna Mic) and `Scripts/build-dmg.sh`; current version 0.1.0 build 10.
 
 ### Pending maintainer checks (deferred by the maintainer, 2026-10-14)
 
@@ -29,15 +31,15 @@ recovery and playback are **UNVERIFIED on device**.
 | Design spec | `docs/superpowers/specs/2026-10-14-dictation-core-and-shell-design.md` | Approved |
 | UI mockup | `docs/design/mockup.html` | Approved |
 | Implementation plan | `docs/superpowers/plans/2026-10-14-dictation-core-and-shell.md` | Approved; Tasks 1–20 done |
-| Code | `feat/dictation-core` | Built subagent-driven: each task implemented, reviewed, fixed until clean |
+| Code | `main` (merged from `feat/dictation-core`) | Built subagent-driven: each task implemented, reviewed, fixed until clean |
 | Meetings spec | `docs/superpowers/specs/2026-10-14-meetings-design.md` | Approved with maintainer amendments |
 | Meetings plan | `docs/superpowers/plans/2026-10-14-meetings.md` | Tasks 1–13 implemented and committed on `feat/meetings` |
 | Meetings code | `main` (merged from `feat/meetings`) | Recorder, dual-track journals/finalization, transcription, library, player, exports, settings, recovery |
 | Notes spec | `docs/superpowers/specs/2026-10-14-notes-design.md` | Approved with maintainer amendments |
-| Notes plan | `docs/superpowers/plans/2026-10-14-notes.md` | Approved with maintainer amendments; Tasks 1–7 implemented on `feat/notes` |
-| Notes code | `feat/notes` | Markdown store, authoritative edit buffers, captured-note dictation, Notes page, settings, menu, lifecycle |
-| Automated tests | `swift test` on `feat/notes` | VoiceCore 223 tests / 31 suites, BugVoiceMac 49 tests / 11 suites — all pass |
-| App | `Scripts/build-app.sh` on `feat/notes` | Build passed, signed with `Bugler Local Dev`, launched once and remained running; see `docs/progress/notes-log.md` |
+| Notes plan | `docs/superpowers/plans/2026-10-14-notes.md` | Approved with maintainer amendments; Tasks 1–7 implemented; merged on `main` |
+| Notes code | `main` (merged from `feat/notes`) | Markdown store, authoritative edit buffers, captured-note dictation, Notes page, settings, menu, lifecycle |
+| Automated tests | `swift test` on `main` | VoiceCore 225 tests / 31 suites, BugVoiceMac 56 tests / 11 suites — all pass |
+| App | `Scripts/build-app.sh` on `main` | Build passed, signed with `Bugler Local Dev`, launched once and remained running; see `docs/progress/notes-log.md` |
 | Manual checklist | `docs/testing/manual-checklist.md` | Dictation rows 1–44, Meetings rows 45–62, Notes rows 63–72 written; **not run** (needs maintainer checks) |
 | Benchmark gate (Task 8 step 12) | `bench/clips/`, `docs/bench/2026-10-14-stt-bench.md` | **Open**: first run found and fixed a decoder bug; clips and references incomplete |
 
