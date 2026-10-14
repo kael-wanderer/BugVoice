@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- BugVoice app icon: "Antenna Mic" (logo option 2, docs/design/logo-options.html). -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ff7a73"/><stop offset="1" stop-color="#d42f4a"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#000" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#tile)" filter="url(#shadow)"/>
+  <g stroke="#fff" stroke-width="26" stroke-linecap="round" fill="none">
+    <path d="M466 270 Q436 200 394 180"/><path d="M558 270 Q588 200 630 180"/>
+  </g>
+  <circle cx="394" cy="180" r="21" fill="#fff"/><circle cx="630" cy="180" r="21" fill="#fff"/>
+  <rect x="402" y="256" width="220" height="370" rx="110" fill="#fff"/>
+  <g fill="#d42f4a">
+    <rect x="452" y="402" width="30" height="80" rx="15"/>
+    <rect x="497" y="367" width="30" height="150" rx="15"/>
+    <rect x="542" y="402" width="30" height="80" rx="15"/>
+  </g>
+  <g stroke="#fff" stroke-width="30" stroke-linecap="round" fill="none">
+    <path d="M326 520 Q326 724 512 724 Q698 724 698 520"/><path d="M512 724 V806"/><path d="M420 806 H604"/>
+  </g>
+</svg>

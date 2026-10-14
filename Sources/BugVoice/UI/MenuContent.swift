@@ -100,11 +100,11 @@ struct MenuContent: View {
     }
 }
 
-/// The menu-bar icon. A badge means a permission is missing.
+/// The menu-bar icon. A badge dot means a permission is missing.
 struct MenuBarIcon: View {
     var model: AppModel
 
     var body: some View {
-        Image(systemName: model.permissionsGranted ? "waveform" : "waveform.badge.exclamationmark")
+        Image(nsImage: BrandImages.menuBar(badge: !model.permissionsGranted))
     }
 }

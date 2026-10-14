@@ -11,7 +11,9 @@ struct MainWindow: View {
             }
             .safeAreaInset(edge: .top) {
                 HStack(spacing: 8) {
-                    Image(systemName: "waveform")
+                    Image(nsImage: NSApp.applicationIconImage)
+                        .resizable()
+                        .frame(width: 20, height: 20)
                     Text("BugVoice").font(.headline)
                     Text("Local")
                         .font(.caption2.weight(.semibold))
