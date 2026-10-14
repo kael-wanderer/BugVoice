@@ -63,13 +63,16 @@ struct NotesControllerTests {
             bodyUTF16Length: 4,
             bodyRevision: 0
         )
+        controller.detachEditor(editor, from: created.id)
         #expect(await controller.insert(capture: capture, text: " dictation"))
         #expect(controller.undoManager(for: created.id) === manager)
         #expect(controller.note(id: created.id)?.body == "body dictation")
 
+        let reopenedEditor = NotesTextView(frame: .zero)
+        controller.attachEditor(reopenedEditor, to: created.id)
         manager?.undo()
         #expect(controller.note(id: created.id)?.body == "body")
-        #expect(editor.string == "body")
+        #expect(reopenedEditor.string == "body")
         #expect(manager?.canUndo == false)
     }
 
@@ -149,6 +152,45 @@ struct NotesControllerTests {
             firstResponderEditorID: nil
         ) == nil)
         #expect(controller.captureSelectedNoteForMic()?.selection == capture.selection)
+    }
+
+    @Test func textViewTypingAndDictationUndoRemainSafeAcrossExternalReloadWithoutWindow() async throws {
+        let root = try directory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = NotesStore(directory: root)
+        let created = try await store.create(title: "Undo", body: "hello")
+        let controller = NotesController(store: store)
+        try await controller.select(id: created.id)
+        let editor = NotesTextView(frame: .zero)
+        #expect(editor.textStorage != nil)
+        controller.attachEditor(editor, to: created.id)
+        editor.setSelectedRange(NSRange(location: 5, length: 0))
+        editor.insertText(" typed", replacementRange: NSRange(location: 5, length: 0))
+        controller.updateBody(id: created.id, body: editor.string)
+
+        editor.setSelectedRange(NSRange(location: (editor.string as NSString).length, length: 0))
+        let capture = try #require(controller.captureAtStart(
+            bugVoiceIsFrontmost: true,
+            notesPageIsSelected: true,
+            firstResponderEditorID: editor.editorID
+        ))
+        #expect(await controller.insert(capture: capture, text: " dictated"))
+        #expect(editor.string == "hello typed dictated")
+
+        let undo = try #require(controller.undoManager(for: created.id))
+        undo.undo()
+        controller.updateBody(id: created.id, body: editor.string)
+        undo.undo()
+        controller.updateBody(id: created.id, body: editor.string)
+        #expect(editor.string == "hello")
+        #expect(controller.note(id: created.id)?.body == "hello")
+        #expect(await controller.flush(id: created.id))
+
+        try Data("# Undo\n\nexternal replacement".utf8).write(to: root.appendingPathComponent("undo.md"))
+        await controller.refresh(id: created.id, trigger: .appActivation)
+        undo.undo()
+        #expect(editor.string == "external replacement")
+        #expect(controller.note(id: created.id)?.body == "external replacement")
     }
 
     @Test func externalBodyChangeAfterCaptureMovesInsertionToLatestBodyEnd() async throws {

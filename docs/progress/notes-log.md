@@ -132,3 +132,11 @@ Not run. Keep all Notes Result cells blank until the maintainer performs the dev
 - Tests: full `swift test` passed with 224 VoiceCore tests / 31 suites and 50 BugVoiceMac tests / 11 suites (274 total).
 - Self-review: ordinary `begin` still reads start focus once after readiness checks and uses the original route-at-start decision. Mic captures bind to selected NoteID, cached selection, and current revision before recording.
 - Skipped / UNVERIFIED: no live mic-button recording or focus loss was manually exercised; device checks remain pending.
+
+### Review item 2 — Undo-safe editor insertion and reload
+
+- Test-first: added a no-window standalone NSTextView regression covering typed text, dictated text, two undos, an external reload, and another undo. It passed before the fix because the old snapshot path did not reproduce the real visible editor's native undo sequence; after the fix it exercises the range-based NSTextView undo path and verifies text and buffer contents at each boundary. The off-screen test now explicitly detaches the editor before insertion and reattaches it before undo.
+- Implemented attached-editor insertion with `breakUndoCoalescing()`, `shouldChangeText(in:replacementString:)`, textStorage replacement, `didChangeText()`, and a grouped named undo action. A detached note keeps snapshot undo. External reload and explicit Reload clear that note's undo actions before wholesale body replacement. Snapshot restoration updates a reopened editor with undo registration disabled.
+- Tests: full `swift test` passed with 224 VoiceCore tests / 31 suites and 51 BugVoiceMac tests / 11 suites (275 total).
+- Self-review: SwiftUI's `updateNSView` reuses the controller-attached body; normal dictation edits no longer assign `editor.string`. Full-string replacement remains only on attach/snapshot restore/external reload, with undo registration suppressed or cleared first.
+- Skipped / UNVERIFIED: no real NSWindow was created per the regression requirement; visible window focus/caret behavior remains on the Notes device checklist.

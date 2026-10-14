@@ -159,6 +159,7 @@ public final class NotesController {
             do {
                 var reloaded = try await store.open(id: id)
                 if reloaded.body != state.note.body { reloaded.revision = max(reloaded.revision, state.note.revision &+ 1) }
+                state.undoManager.removeAllActions()
                 state.note = reloaded
                 state.titleDraft = reloaded.title
                 state.lastPersistedRevision = reloaded.revision
@@ -283,7 +284,7 @@ public final class NotesController {
         editor?.notesController = self
         editor?.noteID = id
         editor?.allowsUndo = true
-        if let editor, editor.string != state.note.body { editor.string = state.note.body }
+        if let editor, editor.string != state.note.body { replaceEditorContentsWithoutUndo(editor, with: state.note.body) }
     }
 
     public func detachEditor(_ editor: NotesTextView, from id: NoteID) {
@@ -337,7 +338,7 @@ public final class NotesController {
             noteExists: true,
             currentRevision: latestState.note.revision,
             currentBodyUTF16Length: bodyLength,
-            editorVisible: latestState.editor?.window != nil
+            editorVisible: latestState.editor != nil
         ) else { return false }
 
         let range: NSRange
@@ -348,15 +349,32 @@ public final class NotesController {
             range = NSRange(location: location, length: 0)
         }
         let oldBody = latestState.note.body
-        let oldSelection = latestState.editor?.selectedRange()
-        registerUndo(for: capture.noteID, body: oldBody, selection: oldSelection)
-        latestState.note.body = (oldBody as NSString).replacingCharacters(in: range, with: text)
-        latestState.note.revision &+= 1
-        latestState.note.modifiedAt = .now
-        latestState.isDirty = true
+        let updatedBody = (oldBody as NSString).replacingCharacters(in: range, with: text)
         if let editor = latestState.editor {
-            editor.string = latestState.note.body
+            guard let textStorage = editor.textStorage else { return false }
+            let undoManager = latestState.undoManager
+            editor.breakUndoCoalescing()
+            undoManager.beginUndoGrouping()
+            guard editor.shouldChangeText(in: range, replacementString: text) else {
+                undoManager.endUndoGrouping()
+                return false
+            }
+            textStorage.replaceCharacters(in: range, with: text)
+            latestState.note.body = updatedBody
+            latestState.note.revision &+= 1
+            latestState.note.modifiedAt = .now
+            latestState.isDirty = true
+            editor.didChangeText()
             editor.setSelectedRange(NSRange(location: range.location + (text as NSString).length, length: 0))
+            latestState.lastSelection = editor.selectedRange()
+            undoManager.setActionName("Dictation")
+            undoManager.endUndoGrouping()
+        } else {
+            registerUndo(for: capture.noteID, body: oldBody, selection: nil)
+            latestState.note.body = updatedBody
+            latestState.note.revision &+= 1
+            latestState.note.modifiedAt = .now
+            latestState.isDirty = true
         }
         scheduleSave(id: capture.noteID)
         changed()
@@ -411,6 +429,7 @@ public final class NotesController {
                 if reloaded.body != state.note.body {
                     reloaded.revision = max(reloaded.revision, state.note.revision &+ 1)
                 }
+                state.undoManager.removeAllActions()
                 reloaded.fileVersion = version
                 state.note = reloaded
                 state.titleDraft = reloaded.title
@@ -542,11 +561,17 @@ public final class NotesController {
         state.note.modifiedAt = .now
         state.isDirty = true
         if let editor = state.editor {
-            editor.string = body
+            replaceEditorContentsWithoutUndo(editor, with: body)
             if let selection { editor.setSelectedRange(selection) }
         }
         scheduleSave(id: id)
         changed()
+    }
+
+    private func replaceEditorContentsWithoutUndo(_ editor: NotesTextView, with body: String) {
+        editor.undoManager?.disableUndoRegistration()
+        editor.string = body
+        editor.undoManager?.enableUndoRegistration()
     }
 
     private func changed() {
