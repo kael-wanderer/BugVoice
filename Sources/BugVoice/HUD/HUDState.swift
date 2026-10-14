@@ -10,6 +10,8 @@ enum HUDState: Equatable {
     case failure(title: String, detail: String)
     case nothingHeard
 
+    static let secureFieldCopied = HUDState.failure(title: "Secure field — copied", detail: "text copied, not pasted")
+
     /// What the user sees after a run; nil means hide immediately.
     static func from(_ r: DictationResult) -> HUDState? {
         switch r.outcome {
@@ -20,7 +22,7 @@ enum HUDState: Equatable {
         case .transcriptionFailed:
             return .failure(title: "Transcription failed", detail: "Retry last from the menu")
         case .copiedSecureField:
-            return .failure(title: "Secure field — copied", detail: "text copied, not pasted")
+            return .secureFieldCopied
         case .copiedNotConsumed:
             return .warning(title: "Copied — press ⌘V", detail: "paste not picked up")
         case .inserted:

@@ -51,6 +51,7 @@ final class AppModel {
     /// Created by `bootstrap()` once settings are loaded.
     @ObservationIgnored private(set) var dictation: DictationController?
     @ObservationIgnored private var isLoadingSettings = false
+    @ObservationIgnored private var preparingEngine: WhisperKitTranscriber?
 
     init() {
         whisper = WhisperKitTranscriber(modelName: AppSettings().speech.whisperModel, downloadBase: AppPaths.standard().models)
@@ -133,8 +134,20 @@ final class AppModel {
 
     // MARK: Speech model
 
+    /// Starts loading the speech model again after a failure. Repeated
+    /// calls while a retry is under way do nothing.
+    func retrySpeech() {
+        guard case .failed = speechState else { return }
+        speechState = .notLoaded
+        Task { await prepareSpeech() }
+    }
+
     func prepareSpeech() async {
         let engine = whisper
+        // One load per engine at a time; a new engine (model change) may start its own.
+        guard preparingEngine !== engine else { return }
+        preparingEngine = engine
+        defer { if preparingEngine === engine { preparingEngine = nil } }
         do {
             try await engine.prepare { [weak self] fraction in
                 Task { @MainActor in self?.showDownloadProgress(fraction, for: engine) }

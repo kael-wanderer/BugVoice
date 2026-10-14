@@ -32,7 +32,7 @@ final class DictationController {
         hotkey = HotkeyMonitor(key: model.settings.hotkey) { [weak self] input in
             self?.receive(input)
         }
-        hotkey.onTapLost = { [weak model] in model?.hotkeyActive = false }
+        hotkey.onTapLost = { [weak self] in self?.tapLost() }
     }
 
     /// Call once settings are loaded.
@@ -60,6 +60,14 @@ final class DictationController {
     /// the system disabled it.
     func retryHotkey() {
         model.hotkeyActive = hotkey.start()
+    }
+
+    /// The monitor has stopped, so no key-up will end a hold: drop any
+    /// recording in progress rather than leave the microphone on.
+    private func tapLost() {
+        model.hotkeyActive = false
+        detector.reset()
+        if recorder.isRunning { cancel() }
     }
 
     // MARK: Gesture
@@ -117,15 +125,15 @@ final class DictationController {
             return
         }
         if model.settings.soundsEnabled { NSSound(named: "Tink")?.play() }
-        let limit = handsFree ? TimeInterval(model.settings.handsFreeLimitMinutes * 60) : nil
-        hud.show(.listening(handsFree: handsFree, app: startFocus.appName, startedAt: startedAt, limit: limit))
-        if let limit {
-            limitTask = Task { [weak self] in
-                try? await Task.sleep(for: .seconds(limit))
-                guard !Task.isCancelled, let self else { return }
-                self.detector.reset()
-                self.finish()
-            }
+        // The cap applies to holds too, so no recording runs unbounded even
+        // if a key-up never arrives. The HUD shows it only in hands-free.
+        let limit = TimeInterval(model.settings.handsFreeLimitMinutes * 60)
+        hud.show(.listening(handsFree: handsFree, app: startFocus.appName, startedAt: startedAt, limit: handsFree ? limit : nil))
+        limitTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(limit))
+            guard !Task.isCancelled, let self else { return }
+            self.detector.reset()
+            self.finish()
         }
     }
 
@@ -141,7 +149,7 @@ final class DictationController {
         case .loading, .notLoaded:
             return .warning(title: "Model loading", detail: "try again in a moment")
         case .failed:
-            Task { await model.prepareSpeech() }
+            model.retrySpeech()
             return .warning(title: "Model loading", detail: "the last load failed, retrying")
         }
     }
@@ -149,6 +157,7 @@ final class DictationController {
     /// Option used as a modifier (e.g. ⌥E): nothing is pasted or logged.
     private func cancel() {
         limitTask?.cancel()
+        detector.reset()
         _ = recorder.stop()
         hud.hide()
     }
@@ -159,7 +168,11 @@ final class DictationController {
         let clip = recorder.stop()
         detector.reset()
         if model.settings.soundsEnabled { NSSound(named: "Pop")?.play() }
-        if clip.duration >= 0.3 {
+        if startFocus.isSecure {
+            // Likely a spoken secret: keep no audio of it. An older
+            // last.wav goes too, so Retry last cannot replay another clip.
+            try? FileManager.default.removeItem(at: model.paths.lastRecording)
+        } else if clip.duration >= 0.3 {
             do {
                 try WAVEncoder.encode(clip).write(to: model.paths.lastRecording, options: .atomic)
             } catch {
@@ -234,6 +247,13 @@ final class DictationController {
 
     func pasteLast() {
         guard !isBusy, let text = model.lastResult?.finalText, !text.isEmpty else { return }
+        if FocusInspector.read().isSecure {
+            Task {
+                await inserter.copy(text)
+                hud.show(.secureFieldCopied)
+            }
+            return
+        }
         Task { _ = await inserter.insert(text) }
     }
 }
