@@ -15,6 +15,10 @@ runs on device (WhisperKit); cleanup uses any local model through an
 OpenAI-compatible or Anthropic-compatible API (LM Studio, Ollama, MLX…) or
 Apple Intelligence.
 
+Status: sub-project 1 implemented on branch `feat/dictation-core` (plan Tasks
+1–20 done and reviewed); manual checklist, benchmark gate and final branch
+review pending — see `docs/progress/HANDOFF.md`.
+
 Built in three sub-projects, each with its own spec → plan → implementation:
 
 1. **Dictation core + app shell** — current. Spec and plan below.
