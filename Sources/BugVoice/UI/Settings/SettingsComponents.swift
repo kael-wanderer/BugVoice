@@ -20,7 +20,9 @@ extension HotkeyKey {
 }
 
 /// A secret field for the Keychain item `account`. Edits stay in local state;
-/// the Keychain is written once, on Return or when the field loses focus.
+/// the Keychain is written once, on Return, when the field loses focus or
+/// when it goes away. Callers key the view by `account` (`.id(account)`) so a
+/// pending edit is committed to the old account before the account changes.
 struct KeyField: View {
     let model: AppModel
     let title: String
@@ -34,7 +36,6 @@ struct KeyField: View {
             .focused($focused)
             .onSubmit(commit)
             .onChange(of: focused) { _, isFocused in if !isFocused { commit() } }
-            .onChange(of: account) { _, _ in text = model.keychain.read(account) ?? "" }
             .onAppear { text = model.keychain.read(account) ?? "" }
             .onDisappear(perform: commit)
     }

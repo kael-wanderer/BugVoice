@@ -246,16 +246,6 @@ final class AppModel {
 
     // MARK: Keychain
 
-    /// A text binding backed by the Keychain item `account` (service
-    /// `BugVoice`). Empty deletes the item. A failed write sets `saveError`
-    /// and leaves the stored value as it was.
-    func keyBinding(account: String) -> Binding<String> {
-        Binding(
-            get: { [keychain] in keychain.read(account) ?? "" },
-            set: { [weak self] value in self?.saveKey(value, account: account) }
-        )
-    }
-
     /// Returns false, and sets `saveError`, when the Keychain refused the write.
     @discardableResult
     func saveKey(_ value: String, account: String) -> Bool {

@@ -29,6 +29,14 @@ struct MainWindow: View {
             }
         }
         .frame(minWidth: 820, minHeight: 560)
+        .alert("Could not save", isPresented: Binding(
+            get: { model.saveError != nil },
+            set: { if !$0 { model.saveError = nil } }
+        )) {
+            Button("OK") { model.saveError = nil }
+        } message: {
+            Text(model.saveError ?? "")
+        }
     }
 }
 

@@ -60,6 +60,7 @@ struct TextModelTab: View {
                 KeyField(model: model, title: "API key (stored in Keychain)", account: keyAccount) {
                     Task { await refresh() }
                 }
+                .id(keyAccount)
             }
             Picker("Timeout", selection: $model.settings.textModel.timeoutSeconds) {
                 Text("3 seconds").tag(3.0)
