@@ -54,8 +54,12 @@ final class AppModel {
     var page: Page = .dictation
     var speechState: WhisperKitTranscriber.LoadState = .notLoaded
     var hotkeyActive = false
+    var newNoteShortcutAvailable = true
     /// True while the microphone is recording a dictation.
     var isListening = false
+    var notesIsListening = false
+    var notesRecordingStartedAt: Date?
+    var notesFocusRequest: UInt64 = 0
     var permissionsGranted = Permissions.allGranted
     var permissionStatus: [PermissionKind: Bool] = [:]
     var systemAudioPermissionFailed = false
@@ -93,6 +97,7 @@ final class AppModel {
         } catch {
             saveError = "Could not create \(paths.root.path): \(error.localizedDescription)"
         }
+        await notesController.reloadList()
         let loaded = store.load()
         whisper = WhisperKitTranscriber(modelName: loaded.speech.whisperModel, downloadBase: paths.models)
         priorityTranscriber = PriorityTranscriber(base: ProviderFactory.transcriber(loaded.speech, whisper: whisper, keychain: keychain))
@@ -113,6 +118,12 @@ final class AppModel {
         vocabularyText = (try? String(contentsOf: paths.vocabulary, encoding: .utf8)) ?? ""
         vocabulary = Vocabulary.parse(vocabularyText)
         startDictation()
+        newNoteShortcutAvailable = GlobalShortcuts.shared.register(
+            keyCode: UInt32(kVK_ANSI_N),
+            modifiers: GlobalShortcuts.controlOption
+        ) { [weak self] in
+            self?.createNoteAndShow()
+        }
         GlobalShortcuts.shared.register(keyCode: UInt32(kVK_ANSI_M), modifiers: GlobalShortcuts.controlOption) { [weak self] in
             Task { @MainActor in self?.meetings?.toggleRecording() }
         }
@@ -138,6 +149,18 @@ final class AppModel {
     func openMainWindow(_ page: Page? = nil) {
         if let page { self.page = page }
         presentMainWindow?()
+    }
+
+    func createNoteAndShow() {
+        openMainWindow(.notes)
+        Task { @MainActor in
+            do {
+                _ = try await notesController.create()
+                notesFocusRequest &+= 1
+            } catch {
+                saveError = "Could not create note: \(error.localizedDescription)"
+            }
+        }
     }
 
     func openPermissionsWindow() {

@@ -10,27 +10,37 @@ public final class GlobalShortcuts {
     private var actions: [UInt32: @MainActor () -> Void] = [:]
     private var refs: [EventHotKeyRef] = []
     private var installed = false
+    private let registerHotKey: @MainActor (UInt32, UInt32, EventHotKeyID) -> (OSStatus, EventHotKeyRef?)
 
-    public func register(keyCode: UInt32, modifiers: UInt32, action: @escaping @MainActor () -> Void) {
-        installHandler()
+    public init() {
+        registerHotKey = Self.systemRegister
+    }
+
+    init(registerHotKey: @escaping @MainActor (UInt32, UInt32, EventHotKeyID) -> (OSStatus, EventHotKeyRef?)) {
+        self.registerHotKey = registerHotKey
+    }
+
+    @discardableResult
+    public func register(keyCode: UInt32, modifiers: UInt32, action: @escaping @MainActor () -> Void) -> Bool {
+        guard installHandler() else { return false }
         let id = UInt32(actions.count + 1)
-        actions[id] = action
-        var ref: EventHotKeyRef?
         let hotKeyID = EventHotKeyID(signature: OSType(0x4256_4345), id: id) // 'BVCE'
-        if RegisterEventHotKey(keyCode, modifiers, hotKeyID, GetApplicationEventTarget(), 0, &ref) == noErr, let ref {
-            refs.append(ref)
-        }
+        let (status, ref) = registerHotKey(keyCode, modifiers, hotKeyID)
+        guard status == noErr,
+              let ref else { return false }
+        actions[id] = action
+        refs.append(ref)
+        return true
     }
 
     func fire(_ id: UInt32) {
         actions[id]?()
     }
 
-    private func installHandler() {
-        guard !installed else { return }
-        installed = true
+    private func installHandler() -> Bool {
+        guard !installed else { return true }
         var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
-        InstallEventHandler(GetApplicationEventTarget(), { _, event, _ in
+        let status = InstallEventHandler(GetApplicationEventTarget(), { _, event, _ in
             var hotKeyID = EventHotKeyID()
             GetEventParameter(
                 event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID),
@@ -40,5 +50,18 @@ public final class GlobalShortcuts {
             MainActor.assumeIsolated { GlobalShortcuts.shared.fire(id) }
             return noErr
         }, 1, &spec, nil, nil)
+        guard status == noErr else { return false }
+        installed = true
+        return true
+    }
+
+    private static func systemRegister(
+        _ keyCode: UInt32,
+        _ modifiers: UInt32,
+        _ id: EventHotKeyID
+    ) -> (OSStatus, EventHotKeyRef?) {
+        var ref: EventHotKeyRef?
+        let status = RegisterEventHotKey(keyCode, modifiers, id, GetApplicationEventTarget(), 0, &ref)
+        return (status, ref)
     }
 }

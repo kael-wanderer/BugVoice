@@ -29,15 +29,17 @@ Implementation is in progress on feat/notes. Tasks 1–5b are implemented; Notes
 | e48f79e | Task 2: route, insertion, search, export | 214 VoiceCore + 27 BugVoiceMac passed | Notes pipeline mode and VoiceCore operations |
 | a690259 | Task 3: autosave and external-version policy | 222 VoiceCore + 27 BugVoiceMac passed | 500 ms debounce and FNV-1a version checks |
 | 0e53b0d | Task 4: durable NotesStore actor | 222 VoiceCore + 34 BugVoiceMac passed | One actor owns Markdown file operations |
+| ea0c27f | Task 5a: loaded note buffer and undo | 222 VoiceCore + 41 BugVoiceMac passed | Buffer authority, pending-save insertion, and per-note undo |
 | 9f769f8 | Pre-Task 5b ordinary dictation regression | 223 VoiceCore + 41 BugVoiceMac passed | Pins exact output and inserted UTF-8 bytes for outside-app dictation |
+| 5d05016 | Task 5b: Notes route-at-start wiring | 223 VoiceCore + 43 BugVoiceMac passed | Captured-note routing; ordinary byte regression stayed green |
 
 ## Decisions made during implementation
 
-None yet.
+See each task section below for decisions, rationale, and cost if wrong.
 
 ## Skipped or NOT BUILT
 
-None yet.
+See each task section below. Manual and live app checks remain unverified until final launch/checklist work.
 
 ## Manual checklist
 
@@ -101,3 +103,13 @@ Not run. Keep all Notes Result cells blank until the maintainer performs the dev
 - Decision left by the plan: only a body-content change during clean external reload increments the insertion revision; title-only or metadata-only changes preserve the captured body selection. Cost if wrong: if title-only changes should count as an edited body, dictation would insert at selection rather than append.
 - Skipped / NOT BUILT: mic button integration, in-editor route availability in a real Notes page, and UI conflict/save-state presentation are Task 6. No outside-BugVoice behavior changes were made.
 - UNVERIFIED: no live microphone, focus-loss recording, last.wav filesystem observation, pasteboard observation, or app launch has been run yet.
+
+### Task 6 — Notes page, menu, storage settings, and quit integration
+
+- Test-first: added a Store regression for a delayed body save after title rename. It failed because the rename did not advance the Store's saved revision. Rename now accepts and records a revision above the controller's current buffer revision; the delayed write is rejected as stale. `NotesStoreTests` passed (9).
+- Implemented the searchable split Notes page, title and Markdown body editors, word count/modified-time rows, save/conflict states, New note, mic/listening bar, Markdown copy/export, confirmed Trash, menu shortcut, shortcut registration feedback, storage count/allocated-size row, app-activation refresh, and the combined Meetings/Notes quit flow. The Notes mic button refuses first responder so it preserves the editor selection.
+- Tests: full `swift test` passed with 223 VoiceCore + 49 BugVoiceMac tests (272 total). This includes the ordinary dictation byte regression, Notes route/insertion/privacy tests, pending-save buffer test, title-rename revision race, and global shortcut registration failure test. `git diff --check` passed.
+- Self-review: Notes file access remains in NotesStore; storage measurement and export writes run detached. NotesController remains authoritative for loaded notes and receives its own store versions. `applicationShouldTerminate` is still the single handler. Failed shortcut registration leaves the menu action available and shows “New note shortcut unavailable”.
+- Decisions left by this plan: a blank committed title becomes “Untitled”; rename advances the note revision beyond the current loaded buffer revision to invalidate queued body snapshots. Cost if wrong: users cannot intentionally keep an empty title, and callers that bypass NotesController must supply a revision that reflects pending edits.
+- Skipped / NOT BUILT: no UI automation was added for showing the shortcut-registration warning or the combined quit dialog; those remain manual-checklist cases. Export overwrite behavior uses NSSavePanel's standard confirmation.
+- UNVERIFIED: live NSWindow caret/focus behavior, ⌃⌥N inside the running app, activation conflict UI, menu shortcut warning visibility, Storage rendering, export dialog/write, Trash dialog, combined quit interaction, and launch behavior remain for the final app launch/manual checklist. No live microphone or clipboard observation has been run.

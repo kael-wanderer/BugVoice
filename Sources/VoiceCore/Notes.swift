@@ -52,6 +52,7 @@ public struct NoteDocument: Equatable, Sendable, Identifiable {
     public var modifiedAt: Date
     public var fileVersion: NoteFileVersion
     public var needsNormalization: Bool
+    public var slug: String
 
     public init(
         id: NoteID = NoteID(),
@@ -60,7 +61,8 @@ public struct NoteDocument: Equatable, Sendable, Identifiable {
         revision: UInt64 = 0,
         modifiedAt: Date = .now,
         fileVersion: NoteFileVersion = NoteFileVersion(modifiedAt: .distantPast, byteCount: 0, contentHash: 0),
-        needsNormalization: Bool = false
+        needsNormalization: Bool = false,
+        slug: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -69,6 +71,7 @@ public struct NoteDocument: Equatable, Sendable, Identifiable {
         self.modifiedAt = modifiedAt
         self.fileVersion = fileVersion
         self.needsNormalization = needsNormalization
+        self.slug = slug ?? NotesSlug.make(title)
     }
 }
 

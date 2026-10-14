@@ -55,11 +55,33 @@ struct NotesStoreTests {
         #expect(first.id.rawValue == "plan")
         #expect(second.id.rawValue == "plan-2")
 
-        let renamed = try await store.rename(id: first.id, title: "Next Plan", expectedVersion: first.fileVersion)
+        let renamed = try await store.rename(id: first.id, title: "Next Plan", revision: first.revision + 1, expectedVersion: first.fileVersion)
         #expect(renamed.id == first.id)
         #expect(renamed.title == "Next Plan")
         #expect(FileManager.default.fileExists(atPath: root.appendingPathComponent("next-plan.md").path))
         #expect(!FileManager.default.fileExists(atPath: root.appendingPathComponent("plan.md").path))
+    }
+
+    @Test func delayedBodySaveCannotOverwriteCommittedTitleRename() async throws {
+        let root = try directory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = NotesStore(directory: root)
+        let original = try await store.create(title: "Before", body: "body")
+        let renamed = try await store.rename(id: original.id, title: "After", revision: original.revision + 2, expectedVersion: original.fileVersion)
+        var delayed = original
+        delayed.body = "late body write"
+        delayed.revision += 1
+
+        guard case .stale = try await store.save(
+            delayed,
+            expectedVersion: original.fileVersion,
+            isDirty: true
+        ) else {
+            Issue.record("Expected body save queued before rename to be stale")
+            return
+        }
+        #expect(try await store.open(id: original.id).title == "After")
+        #expect(renamed.revision > original.revision)
     }
 
     @Test func cleanExternalChangeReloadsAndDirtyExternalChangeConflicts() async throws {
@@ -92,11 +114,22 @@ struct NotesStoreTests {
         let note = try await store.create(title: "Mine")
         let url = root.appendingPathComponent("mine.md")
         try Data("# Mine\n\nExternal".utf8).write(to: url)
+        let conflict = try await store.checkExternalChange(id: note.id, knownVersion: note.fileVersion, isDirty: true)
+        guard case let .conflict(externalVersion) = conflict else {
+            Issue.record("Expected external conflict version")
+            return
+        }
         var local = note
         local.body = "Local confirmed"
         local.revision += 1
 
-        let outcome = try await store.save(local, expectedVersion: note.fileVersion, isDirty: true, keepMine: true)
+        let outcome = try await store.save(
+            local,
+            expectedVersion: note.fileVersion,
+            isDirty: true,
+            keepMine: true,
+            confirmedExternalVersion: externalVersion
+        )
         guard case let .saved(saved, version) = outcome else {
             Issue.record("Expected confirmed Keep mine to save")
             return
@@ -104,6 +137,32 @@ struct NotesStoreTests {
         #expect(saved.body == "Local confirmed")
         #expect(version != note.fileVersion)
         #expect(try String(contentsOf: url, encoding: .utf8) == "# Mine\n\nLocal confirmed")
+    }
+
+    @Test func explicitKeepMineCanRecreateExternallyDeletedNote() async throws {
+        let root = try directory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = NotesStore(directory: root)
+        let note = try await store.create(title: "Missing", body: "local body")
+        try FileManager.default.removeItem(at: root.appendingPathComponent("missing.md"))
+
+        let conflict = try await store.checkExternalChange(id: note.id, knownVersion: note.fileVersion, isDirty: true)
+        #expect(conflict == .missingConflict)
+        var local = note
+        local.revision += 1
+        local.body = "kept local body"
+        let outcome = try await store.save(
+            local,
+            expectedVersion: note.fileVersion,
+            isDirty: true,
+            keepMine: true,
+            confirmedExternalVersion: nil
+        )
+        guard case .saved = outcome else {
+            Issue.record("Expected confirmed Keep mine to recreate the note")
+            return
+        }
+        #expect(try await store.open(id: note.id).body == "kept local body")
     }
 
     @Test func olderRevisionCannotReplaceNewerSavedRevision() async throws {

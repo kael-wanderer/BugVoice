@@ -151,6 +151,60 @@ struct NotesControllerTests {
         #expect(controller.note(id: created.id)?.body == "new external body dictated")
     }
 
+    @Test func bodySaveUsesCommittedTitleUntilTitleEditingEndsThenRenames() async throws {
+        let root = try directory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = NotesStore(directory: root)
+        let created = try await store.create(title: "Old title", body: "body")
+        let controller = NotesController(store: store)
+        try await controller.load(id: created.id)
+        controller.updateTitleDraft(id: created.id, title: "New title")
+        controller.updateBody(id: created.id, body: "edited body")
+
+        try await Task.sleep(for: .milliseconds(600))
+        #expect(try await store.open(id: created.id).title == "Old title")
+        #expect(try await store.open(id: created.id).body == "edited body")
+        #expect(FileManager.default.fileExists(atPath: root.appendingPathComponent("old-title.md").path))
+
+        await controller.commitTitle(id: created.id, reason: .returnKey)
+        #expect(try await store.open(id: created.id).title == "New title")
+        #expect(FileManager.default.fileExists(atPath: root.appendingPathComponent("new-title.md").path))
+        #expect(!FileManager.default.fileExists(atPath: root.appendingPathComponent("old-title.md").path))
+    }
+
+    @Test func dirtyExternalChangeRequiresExplicitKeepMineOrReload() async throws {
+        let root = try directory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = NotesStore(directory: root)
+        let created = try await store.create(title: "Conflict", body: "original")
+        let controller = NotesController(store: store)
+        try await controller.load(id: created.id)
+        controller.updateBody(id: created.id, body: "local edit")
+        try Data("# Conflict\n\nexternal edit".utf8).write(to: root.appendingPathComponent("conflict.md"))
+        await controller.refresh(id: created.id, trigger: .appActivation)
+        #expect(controller.externalChangeMessage(for: created.id) == "Changed outside BugVoice")
+
+        await controller.resolveExternalChange(id: created.id, keepMine: true)
+        #expect(controller.externalChangeMessage(for: created.id) == nil)
+        #expect(try await store.open(id: created.id).body == "local edit")
+    }
+
+    @Test func dirtyBufferCanBeRecoveredAfterExternalFileDeletion() async throws {
+        let root = try directory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = NotesStore(directory: root)
+        let created = try await store.create(title: "Missing", body: "original")
+        let controller = NotesController(store: store)
+        try await controller.load(id: created.id)
+        controller.updateBody(id: created.id, body: "local recovery")
+        try FileManager.default.removeItem(at: root.appendingPathComponent("missing.md"))
+        await controller.refresh(id: created.id, trigger: .selection)
+        #expect(controller.externalChangeMessage(for: created.id) == "Changed outside BugVoice")
+
+        await controller.resolveExternalChange(id: created.id, keepMine: true)
+        #expect(try await store.open(id: created.id).body == "local recovery")
+    }
+
     @Test func undoHistoryIsPerControllerAndDoesNotSurviveRecreation() async throws {
         let root = try directory()
         defer { try? FileManager.default.removeItem(at: root) }

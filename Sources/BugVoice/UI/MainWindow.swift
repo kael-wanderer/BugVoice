@@ -26,7 +26,7 @@ struct MainWindow: View {
             switch model.page {
             case .dictation: DictationHistoryView(model: model)
             case .meetings: MeetingsPage(model: model)
-            case .notes: ContentUnavailableView("Notes", systemImage: "note.text", description: Text("Create or open a note."))
+            case .notes: NotesPage(model: model)
             case .settings: SettingsView(model: model)
             }
         }

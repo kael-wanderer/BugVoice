@@ -26,6 +26,7 @@ final class DictationController {
     /// final state is shown.
     private var stagedRun: Int?
     private(set) var isBusy = false
+    var recordingLevel: Float { recorder.level }
 
     init(model: AppModel) {
         self.model = model
@@ -61,6 +62,16 @@ final class DictationController {
     /// the system disabled it.
     func retryHotkey() {
         model.hotkeyActive = hotkey.start()
+    }
+
+    func toggleNotesRecording() {
+        guard !isBusy else { return }
+        if recorder.isRunning {
+            guard notesCapture != nil else { return }
+            finish()
+        } else {
+            begin(handsFree: false)
+        }
     }
 
     /// The monitor has stopped, so no key-up will end a hold: drop any
@@ -129,6 +140,8 @@ final class DictationController {
             return
         }
         model.isListening = true
+        model.notesIsListening = notesCapture != nil
+        model.notesRecordingStartedAt = notesCapture == nil ? nil : startedAt
         if model.settings.soundsEnabled { NSSound(named: "Tink")?.play() }
         // The cap applies to holds too, so no recording runs unbounded even
         // if a key-up never arrives. The HUD shows it only in hands-free.
@@ -166,6 +179,8 @@ final class DictationController {
         _ = recorder.stop()
         model.isListening = false
         notesCapture = nil
+        model.notesIsListening = false
+        model.notesRecordingStartedAt = nil
         hud.hide()
     }
 
@@ -179,6 +194,8 @@ final class DictationController {
         if model.settings.soundsEnabled { NSSound(named: "Pop")?.play() }
         let capturedNotesRun = notesCapture
         notesCapture = nil
+        model.notesIsListening = false
+        model.notesRecordingStartedAt = nil
         if capturedNotesRun == nil {
             if startFocus.isSecure {
                 // Likely a spoken secret: keep no audio of it. An older

@@ -1,14 +1,23 @@
 import AppKit
 import Foundation
+import Observation
 import VoiceCore
 
+public enum NotesControllerError: Error {
+    case saveFailed(NoteID)
+}
+
 @MainActor
+@Observable
 public final class NotesController {
-    private let store: NotesStore
-    private var loaded: [NoteID: LoadedNote] = [:]
-    private var saveTasks: [NoteID: Task<Void, Never>] = [:]
-    private var saveTokens: [NoteID: UUID] = [:]
+    @ObservationIgnored private let store: NotesStore
+    @ObservationIgnored private var loaded: [NoteID: LoadedNote] = [:]
+    @ObservationIgnored private var saveTasks: [NoteID: Task<Void, Never>] = [:]
+    @ObservationIgnored private var saveTokens: [NoteID: UUID] = [:]
     public private(set) var selectedNoteID: NoteID?
+    public private(set) var notes: [NoteDocument] = []
+    public private(set) var changeCounter: UInt64 = 0
+    public private(set) var listError: String?
 
     public init(store: NotesStore) {
         self.store = store
@@ -18,11 +27,194 @@ public final class NotesController {
         if loaded[id] != nil { return }
         let note = try await store.open(id: id)
         loaded[id] = LoadedNote(note: note)
+        changed()
     }
 
     public func select(id: NoteID) async throws {
+        if let previous = selectedNoteID, previous != id {
+            guard await flush(id: previous) else { throw NotesControllerError.saveFailed(previous) }
+        }
         try await load(id: id)
         selectedNoteID = id
+        await refresh(id: id, trigger: .selection)
+        changed()
+    }
+
+    public func reloadList() async {
+        do {
+            notes = try await store.list()
+            listError = nil
+        } catch {
+            listError = "Could not read Notes: \(error.localizedDescription)"
+        }
+        changed()
+    }
+
+    @discardableResult
+    public func create(title: String = "Untitled") async throws -> NoteDocument {
+        if let selectedNoteID {
+            guard await flush(id: selectedNoteID) else { throw NotesControllerError.saveFailed(selectedNoteID) }
+        }
+        let note = try await store.create(title: title)
+        loaded[note.id] = LoadedNote(note: note)
+        selectedNoteID = note.id
+        await reloadList()
+        changed()
+        return note
+    }
+
+    public func delete(id: NoteID, confirmed: Bool) async throws {
+        guard confirmed else { return }
+        saveTasks[id]?.cancel()
+        saveTasks[id] = nil
+        saveTokens[id] = nil
+        try await store.delete(id: id, confirmed: true)
+        loaded[id] = nil
+        if selectedNoteID == id { selectedNoteID = nil }
+        await reloadList()
+        changed()
+    }
+
+    public func updateTitleDraft(id: NoteID, title: String) {
+        guard let state = loaded[id] else { return }
+        state.titleDraft = title
+        state.isTitleEditing = true
+        changed()
+    }
+
+    public func titleDraft(id: NoteID) -> String? {
+        _ = changeCounter
+        return loaded[id]?.titleDraft
+    }
+
+    public func commitTitle(id: NoteID, reason: NotesTitleCommitReason) async {
+        guard let state = loaded[id] else { return }
+        let requestedTitle = NotesAutosavePolicy.committedTitle(
+            previous: state.note.title,
+            draft: state.titleDraft,
+            reason: reason
+        ).trimmingCharacters(in: .whitespacesAndNewlines)
+        let title = requestedTitle.isEmpty ? "Untitled" : requestedTitle
+        state.isTitleEditing = false
+        state.titleDraft = title
+        guard title != state.note.title else { changed(); return }
+        guard await flushBody(id: id) else { return }
+        guard let latest = loaded[id] else { return }
+        do {
+            let renamed = try await store.rename(
+                id: id,
+                title: title,
+                revision: latest.note.revision &+ 1,
+                expectedVersion: latest.note.fileVersion
+            )
+            latest.note.title = renamed.title
+            latest.note.slug = renamed.slug
+            latest.note.fileVersion = renamed.fileVersion
+            latest.note.modifiedAt = renamed.modifiedAt
+            latest.note.needsNormalization = false
+            latest.note.revision = renamed.revision
+            latest.lastPersistedRevision = latest.note.revision
+            latest.isDirty = false
+            latest.saveError = nil
+            latest.externalChangeDetected = false
+            await reloadList()
+        } catch NotesStoreError.externalChange {
+            do {
+                let change = try await store.checkExternalChange(
+                    id: id,
+                    knownVersion: latest.note.fileVersion,
+                    isDirty: true
+                )
+                switch change {
+                case .conflict(let version): latest.externalVersion = version
+                case .missingConflict, .deleted: latest.externalVersion = nil
+                case .unchanged, .reloaded, .saved, .stale: break
+                }
+                latest.externalChangeDetected = true
+            } catch {
+                latest.saveError = "Could not check note changes: \(error.localizedDescription)"
+            }
+        } catch {
+            latest.saveError = "Could not save note: \(error.localizedDescription)"
+        }
+        changed()
+    }
+
+    public func saveMessage(for id: NoteID) -> String {
+        _ = changeCounter
+        guard let state = loaded[id] else { return "" }
+        if state.externalChangeDetected { return "Changed outside BugVoice" }
+        if let saveError = state.saveError { return saveError }
+        return state.isDirty ? "Saving" : "Saved"
+    }
+
+    public var hasUnsavedChanges: Bool {
+        _ = changeCounter
+        return loaded.values.contains { $0.isDirty || $0.titleDraft != $0.note.title }
+    }
+
+    public func resolveExternalChange(id: NoteID, keepMine: Bool) async {
+        guard let state = loaded[id], state.externalChangeDetected else { return }
+        if !keepMine {
+            do {
+                var reloaded = try await store.open(id: id)
+                if reloaded.body != state.note.body { reloaded.revision = max(reloaded.revision, state.note.revision &+ 1) }
+                state.note = reloaded
+                state.titleDraft = reloaded.title
+                state.lastPersistedRevision = reloaded.revision
+                state.isDirty = false
+                state.externalChangeDetected = false
+                state.externalVersion = nil
+                state.saveError = nil
+                state.editor?.string = reloaded.body
+            } catch NotesStoreError.missing {
+                loaded[id] = nil
+                if selectedNoteID == id { selectedNoteID = nil }
+            } catch {
+                state.saveError = "Could not reload note: \(error.localizedDescription)"
+            }
+            changed()
+            return
+        }
+
+        do {
+            let result = try await store.save(
+                state.note,
+                expectedVersion: state.note.fileVersion,
+                isDirty: true,
+                keepMine: true,
+                confirmedExternalVersion: state.externalVersion
+            )
+            switch result {
+            case .saved(let saved, let version):
+                state.note.fileVersion = version
+                state.note.modifiedAt = saved.modifiedAt
+                state.note.needsNormalization = false
+                state.lastPersistedRevision = saved.revision
+                state.isDirty = false
+                state.externalChangeDetected = false
+                state.externalVersion = nil
+                state.saveError = nil
+                await reloadList()
+                if state.titleDraft != state.note.title {
+                    await commitTitle(id: id, reason: .returnKey)
+                }
+            case .conflict(let version):
+                state.externalVersion = version
+                state.externalChangeDetected = true
+            case .missingConflict:
+                state.externalVersion = nil
+                state.externalChangeDetected = true
+            case .deleted:
+                state.externalVersion = nil
+                state.externalChangeDetected = true
+            case .reloaded, .stale, .unchanged:
+                break
+            }
+        } catch {
+            state.saveError = "Could not save note: \(error.localizedDescription)"
+        }
+        changed()
     }
 
     public func captureAtStart(
@@ -51,11 +243,13 @@ public final class NotesController {
     }
 
     public func note(id: NoteID) -> NoteDocument? {
-        loaded[id]?.note
+        _ = changeCounter
+        return loaded[id]?.note
     }
 
     public func isLoaded(id: NoteID) -> Bool {
-        loaded[id] != nil
+        _ = changeCounter
+        return loaded[id] != nil
     }
 
     public func undoManager(for id: NoteID) -> UndoManager? {
@@ -64,11 +258,24 @@ public final class NotesController {
 
     public func attachEditor(_ editor: NotesTextView?, to id: NoteID) {
         guard let state = loaded[id] else { return }
+        if let editor, let previousID = editor.noteID, previousID != id,
+           loaded[previousID]?.editor === editor {
+            loaded[previousID]?.editor = nil
+        }
         state.editor = editor
         editor?.notesController = self
         editor?.noteID = id
         editor?.allowsUndo = true
         if let editor, editor.string != state.note.body { editor.string = state.note.body }
+    }
+
+    public func detachEditor(_ editor: NotesTextView, from id: NoteID) {
+        guard loaded[id]?.editor === editor else { return }
+        loaded[id]?.editor = nil
+        if editor.noteID == id {
+            editor.notesController = nil
+            editor.noteID = nil
+        }
     }
 
     /// The NSTextView delegate calls this after ordinary user edits. The
@@ -79,7 +286,9 @@ public final class NotesController {
         state.note.revision &+= 1
         state.note.modifiedAt = .now
         state.isDirty = true
+        state.saveError = nil
         scheduleSave(id: id)
+        changed()
     }
 
     /// Inserts into the captured note, regardless of current focus or selected
@@ -124,20 +333,35 @@ public final class NotesController {
             editor.setSelectedRange(NSRange(location: range.location + (text as NSString).length, length: 0))
         }
         scheduleSave(id: capture.noteID)
+        changed()
         return true
     }
 
-    public func flush(id: NoteID) async {
+    @discardableResult
+    public func flush(id: NoteID) async -> Bool {
+        if let state = loaded[id], state.titleDraft != state.note.title {
+            await commitTitle(id: id, reason: .focusOut)
+            guard let updated = loaded[id], updated.titleDraft == updated.note.title, !updated.externalChangeDetected else { return false }
+        }
+        return await flushBody(id: id)
+    }
+
+    private func flushBody(id: NoteID) async -> Bool {
         saveTasks[id]?.cancel()
         saveTasks[id] = nil
         saveTokens[id] = nil
-        await save(id: id, taskToken: nil)
+        let success = await save(id: id, taskToken: nil)
+        changed()
+        return success
     }
 
-    public func flushAll() async {
+    @discardableResult
+    public func flushAll() async -> Bool {
+        var success = true
         for id in loaded.keys.sorted(by: { $0.rawValue < $1.rawValue }) {
-            await flush(id: id)
+            if !(await flush(id: id)) { success = false }
         }
+        return success
     }
 
     public func hasPendingSave(id: NoteID) -> Bool {
@@ -150,11 +374,12 @@ public final class NotesController {
             let result = try await store.checkExternalChange(
                 id: id,
                 knownVersion: state.note.fileVersion,
-                isDirty: state.isDirty
+                isDirty: state.isDirty || state.titleDraft != state.note.title
             )
             switch result {
             case .unchanged:
                 state.externalChangeDetected = false
+                state.externalVersion = nil
             case .reloaded(let note, let version):
                 var reloaded = note
                 if reloaded.body != state.note.body {
@@ -162,26 +387,40 @@ public final class NotesController {
                 }
                 reloaded.fileVersion = version
                 state.note = reloaded
+                state.titleDraft = reloaded.title
                 state.lastPersistedRevision = reloaded.revision
                 state.isDirty = false
                 state.externalChangeDetected = false
                 state.editor?.string = reloaded.body
-            case .conflict:
+            case .conflict(let version):
                 state.externalChangeDetected = true
+                state.externalVersion = version
+            case .missingConflict:
+                state.externalChangeDetected = true
+                state.externalVersion = nil
             case .saved, .stale, .deleted:
-                break
+                if case .deleted = result {
+                    loaded[id] = nil
+                    if selectedNoteID == id { selectedNoteID = nil }
+                }
             }
-        } catch NotesStoreError.missing {
-            loaded[id] = nil
-            saveTasks[id]?.cancel()
-            saveTasks[id] = nil
         } catch {
             state.externalChangeDetected = true
+            state.saveError = "Could not check note changes: \(error.localizedDescription)"
         }
+        changed()
+    }
+
+    public func refreshAll(trigger: NotesRefreshTrigger) async {
+        for id in loaded.keys.sorted(by: { $0.rawValue < $1.rawValue }) {
+            await refresh(id: id, trigger: trigger)
+        }
+        await reloadList()
     }
 
     public func externalChangeMessage(for id: NoteID) -> String? {
-        loaded[id]?.externalChangeDetected == true ? "Changed outside BugVoice" : nil
+        _ = changeCounter
+        return loaded[id]?.externalChangeDetected == true ? "Changed outside BugVoice" : nil
     }
 
     private func scheduleSave(id: NoteID) {
@@ -191,14 +430,14 @@ public final class NotesController {
         saveTasks[id] = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(NotesAutosavePolicy.bodyDebounceInterval))
             guard !Task.isCancelled, let self, self.saveTokens[id] == token else { return }
-            await self.save(id: id, taskToken: token)
+            _ = await self.save(id: id, taskToken: token)
         }
     }
 
-    private func save(id: NoteID, taskToken: UUID?) async {
+    private func save(id: NoteID, taskToken: UUID?) async -> Bool {
         guard let state = loaded[id], state.isDirty else {
             clearSaveTask(id: id, matching: taskToken)
-            return
+            return true
         }
         let snapshot = state.note
         do {
@@ -215,9 +454,11 @@ public final class NotesController {
                     state.note.needsNormalization = false
                     state.lastPersistedRevision = saved.revision
                 }
+                state.saveError = nil
                 if state.note.revision == saved.revision {
                     state.isDirty = false
                     state.externalChangeDetected = false
+                    state.externalVersion = nil
                 }
             case .reloaded(let note, _):
                 if !state.isDirty {
@@ -225,19 +466,27 @@ public final class NotesController {
                     state.lastPersistedRevision = note.revision
                     state.editor?.string = note.body
                 }
-            case .conflict:
+            case .conflict(let version):
                 state.externalChangeDetected = true
+                state.externalVersion = version
+            case .missingConflict:
+                state.externalChangeDetected = true
+                state.externalVersion = nil
             case .stale:
                 break
-            case .unchanged, .deleted:
+            case .unchanged:
                 break
+            case .deleted:
+                state.externalChangeDetected = true
+                state.externalVersion = nil
             }
-        } catch NotesStoreError.missing {
-            loaded[id] = nil
         } catch {
-            // Keep the dirty buffer so the caller can report and retry the save.
+            state.saveError = "Could not save note: \(error.localizedDescription)"
         }
         clearSaveTask(id: id, matching: taskToken)
+        await reloadList()
+        changed()
+        return !state.isDirty && !state.externalChangeDetected && state.saveError == nil
     }
 
     private func registerUndo(for id: NoteID, body: String, selection: NSRange?) {
@@ -271,6 +520,11 @@ public final class NotesController {
             if let selection { editor.setSelectedRange(selection) }
         }
         scheduleSave(id: id)
+        changed()
+    }
+
+    private func changed() {
+        changeCounter &+= 1
     }
 }
 
@@ -281,10 +535,15 @@ private final class LoadedNote {
     weak var editor: NotesTextView?
     var isDirty = false
     var externalChangeDetected = false
+    var externalVersion: NoteFileVersion?
+    var titleDraft: String
+    var isTitleEditing = false
+    var saveError: String?
     var lastPersistedRevision: UInt64
 
     init(note: NoteDocument) {
         self.note = note
+        self.titleDraft = note.title
         self.lastPersistedRevision = note.revision
     }
 }

@@ -46,6 +46,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    func applicationDidBecomeActive(_ notification: Notification) {
+        Task { @MainActor in
+            await model.notesController.refreshAll(trigger: .appActivation)
+        }
+    }
+
     /// The app has no document scenes, so SwiftUI builds no Edit menu. Without
     /// one, ⌘C / ⌘V / ⌘X / ⌘A do nothing in Settings text fields.
     private func installEditMenu() {
@@ -74,25 +80,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        guard let meetings = model.meetings, meetings.isRecording || meetings.isPaused else {
+        let meetings = model.meetings
+        let meetingIsActive = meetings?.isRecording == true || meetings?.isPaused == true
+        if meetingIsActive {
+            let alert = NSAlert()
+            alert.messageText = "A meeting is recording"
+            alert.informativeText = "Stop the recording and keep the audio before quitting? The transcript can finish later."
+            alert.addButton(withTitle: "Stop and keep")
+            alert.addButton(withTitle: "Cancel")
+            guard alert.runModal() == .alertFirstButtonReturn else { return .terminateCancel }
+        } else if !model.notesController.hasUnsavedChanges {
             return .terminateNow
         }
-        let alert = NSAlert()
-        alert.messageText = "A meeting is recording"
-        alert.informativeText = "Stop the recording and keep the audio before quitting? The transcript can finish later."
-        alert.addButton(withTitle: "Stop and keep")
-        alert.addButton(withTitle: "Cancel")
-        guard alert.runModal() == .alertFirstButtonReturn else { return .terminateCancel }
-        Task { [weak self, weak meetings] in
-            guard let self, let meetings else {
+
+        Task { [weak self] in
+            guard let self else {
                 NSApp.reply(toApplicationShouldTerminate: false)
                 return
             }
             do {
-                try await meetings.stopAndKeepForQuit()
+                guard await model.notesController.flushAll() else {
+                    model.saveError = "Could not save notes before quitting. Resolve the note changes and try again."
+                    NSApp.reply(toApplicationShouldTerminate: false)
+                    return
+                }
+                if meetingIsActive, let meetings { try await meetings.stopAndKeepForQuit() }
                 NSApp.reply(toApplicationShouldTerminate: true)
             } catch {
-                self.model.saveError = "Could not checkpoint the meeting before quitting: \(error.localizedDescription)"
+                model.saveError = meetingIsActive
+                    ? "Could not checkpoint the meeting before quitting: \(error.localizedDescription)"
+                    : "Could not save notes before quitting: \(error.localizedDescription)"
                 NSApp.reply(toApplicationShouldTerminate: false)
             }
         }
