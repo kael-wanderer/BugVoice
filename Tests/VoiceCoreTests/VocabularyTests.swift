@@ -1,0 +1,56 @@
+import Testing
+@testable import VoiceCore
+
+struct VocabularyTests {
+    let sample = """
+    # names and terms
+    BugVoice
+    WhisperKit
+
+    Claude Code
+    BugVoice
+    # replacements
+    bug voice => BugVoice
+    cờ lốt cốt => Claude Code
+    new line => \\n
+    """
+
+    @Test func parsesTermsSkippingCommentsBlanksAndDuplicates() {
+        let v = Vocabulary.parse(sample)
+        #expect(v.terms == ["BugVoice", "WhisperKit", "Claude Code"])
+        #expect(v.replacements.count == 3)
+        #expect(v.replacements[2].written == "\n")
+    }
+
+    @Test func replacementIsCaseInsensitiveAndWholeWord() {
+        let v = Vocabulary.parse(sample)
+        #expect(v.applyReplacements(to: "open Bug Voice now") == "open BugVoice now")
+        #expect(v.applyReplacements(to: "debug voicemail") == "debug voicemail")
+    }
+
+    @Test func replacementWorksWithVietnameseDiacritics() {
+        let v = Vocabulary.parse(sample)
+        #expect(v.applyReplacements(to: "mở cờ lốt cốt lên") == "mở Claude Code lên")
+    }
+
+    @Test func longerSpokenPhraseWinsOverShorter() {
+        let v = Vocabulary.parse("code => CODE\nclaude code => Claude Code")
+        #expect(v.applyReplacements(to: "run claude code") == "run Claude Code")
+    }
+
+    @Test func replacedTextIsNeverRescanned() {
+        let v = Vocabulary.parse("alpha => beta\nbeta => gamma")
+        #expect(v.applyReplacements(to: "alpha beta") == "beta gamma")
+    }
+
+    @Test func templateCharactersInWrittenAreLiteral() {
+        let v = Vocabulary.parse("dollar one => $1")
+        #expect(v.applyReplacements(to: "price dollar one") == "price $1")
+    }
+
+    @Test func whisperPromptListsNewestFirstWithinBudget() {
+        let v = Vocabulary(terms: ["alpha", "beta", "gamma"])
+        #expect(v.whisperPrompt() == "gamma, beta, alpha")
+        #expect(v.whisperPrompt(maxCharacters: 14) == "gamma, beta")
+    }
+}
