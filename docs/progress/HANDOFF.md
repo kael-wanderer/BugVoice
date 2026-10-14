@@ -15,7 +15,7 @@ Last updated: 2026-10-14
 | Automated tests | `swift test` | VoiceCore 127 tests / 14 suites, BugVoiceMac 17 tests / 3 suites — all pass |
 | App | `Scripts/build-app.sh` | Builds, signs with `Bugler Local Dev`, launches and quits cleanly |
 | Manual checklist | `docs/testing/manual-checklist.md` | Written, **not run** (needs permissions and voice) |
-| Benchmark gate (Task 8 step 12) | `bench/clips/`, `docs/bench/` | **Pending maintainer** |
+| Benchmark gate (Task 8 step 12) | `bench/clips/`, `docs/bench/2026-10-14-stt-bench.md` | **Open**: first run found and fixed a decoder bug; clips and references incomplete |
 
 ## Next steps
 
@@ -24,6 +24,12 @@ Last updated: 2026-10-14
    pick the default language (lowest mean WER on `mix-*`) and the cleanup
    model. If `vi` wins, change `SpeechSettings.language` default and
    `defaultsMatchSpec` in `SettingsTests`.
+   - First run (2026-10-14): see `docs/bench/2026-10-14-stt-bench.md`.
+     Re-record `en-1`/`vi-1` (decoder hears music), add `en-2`/`vi-2` and a
+     `.txt` reference for every clip.
+   - Known: WhisperKit 1.1.1 returns empty text for a forced language with
+     timestamp decoding; the transcriber decodes without timestamps.
+     Meetings (sub-project 2) needs timestamps and must revisit this.
    - Known: LM Studio with `qwen3.8-27b-mlx` ignores every request-side
      thinking switch (`chat_template_kwargs.enable_thinking`, `reasoning_effort`).
      Smoke test: English cleanup 6.2 s, Vietnamese empty (reasoning hits the
