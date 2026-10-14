@@ -10,6 +10,24 @@ Tasks 1–13 are complete on branch `feat/meetings`. Task 13 handoff commit: `1d
 - **UNVERIFIED on device:** System Audio Recording prompt/denial behavior, process-tap capture, self-audio exclusion, aggregate input conversion, recorder focus retention, sleep/quit/crash recovery, actual AAC playback, export dialogs, summary cancellation, and an end-to-end dictation interaction. The app launch and model-resource mapping were verified, but visual UI inspection was denied by CUA approval review.
 - **Manual checks needed:** all existing Dictation rows 1–44 remain pending; Meetings rows 45–62 are added with blank Result cells. Run the Task 8a spike steps in this log before relying on system audio capture. The sub-project 1 benchmark and deferred-findings review also remain pending.
 
+## Whole-branch review fixes
+
+### 1. Refresh dictation providers for all factory inputs
+
+- Fix commit: `9c6b970` — `fix(app): refresh transcriber for speech settings and key changes`.
+- Test-first: the new `SpeechTranscriberConfiguration` test first failed to compile because the configuration policy did not exist. It verifies engine, Whisper model, server URL/model, and a non-secret speech-key generation trigger replacement; language, vocabulary hints, and microphone UID do not.
+- `swift test` passed after implementation (182 VoiceCore tests and 26 BugVoiceMac tests; 208 total). Existing router replacement continues to drain queued work before swapping.
+- Decision: track only a monotonically increasing speech-key generation, never the API key or its hash in the configuration. Saving `speech-openai` increments it and refreshes the pair.
+- No item-specific manual test was run.
+
+### 2. Schedule only new meeting chunks off MainActor
+
+- Fix commit: `1ae3a93` — `fix(app): avoid repeated meeting journal reads on main actor`.
+- Test-first: `MeetingLiveChunkCursor` coverage first failed to compile because the cursor was absent; it verifies completed chunks are returned once, partial trailing chunks wait, and tracks advance independently.
+- `swift test` passed after implementation (183 VoiceCore tests and 26 BugVoiceMac tests; 209 total).
+- The MainActor monitor now uses lock-only writer sample counts and a per-track cursor. Journal reads run on the writer queue; checkpoint/fsync remains on the writer's timer.
+- No item-specific manual test was run.
+
 ## Task log
 
 | Task | Implementation commit | Tests |
