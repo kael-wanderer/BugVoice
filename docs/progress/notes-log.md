@@ -56,3 +56,12 @@ Not run. Keep all Notes Result cells blank until the maintainer performs the dev
 - Self-review: Notes routing is computed once and the immutable capture contains the note/editor IDs, selection, revision, and initial body length. Later focus cannot change policy output. Insertion placement uses current body length only for changed-revision append. Notes outcomes have no history entry. Ordinary-path tests continue to pass.
 - Decision left by the plan: in Notes pipeline mode, InsertionTarget.notConsumed maps to the deleted-note outcome because the Notes route injects only a captured-note target and never a paste target. Cost if wrong: a separate target failure may be described as deletion; the Notes adapter should return notConsumed only when the captured note no longer exists.
 - Skipped / UNVERIFIED: app-level route capture and file/buffer integration are Task 5a/5b; no Notes UI, clipboard observation, audio, or manual check has been run.
+
+### Task 3 — Autosave and external-version policy
+
+- Test-first: NotesAutosaveTests first failed to compile because the policy/fingerprint interfaces were missing. Implemented the policy and a stable FNV-1a fingerprint; all focused tests passed.
+- Covered 500 ms deadline/reset, title commit reasons, last-committed title during body save, revision ordering, FNV-1a known vectors, equal-mtime/equal-size content changes, metadata changes, and only the selection/activation/before-save refresh triggers.
+- Tests: NotesAutosaveTests 8 passed; full swift test passed with 222 VoiceCore tests / 27 BugVoiceMac tests (249 total).
+- Self-review: FNV-1a is deterministic and non-cryptographic, used only for change detection. It does not replace file version metadata. Actual file reading and version refresh remain in NotesStore.
+- Decision left by the plan: same-revision saves are permitted as idempotent writes; strictly older revisions are rejected. Cost if wrong: duplicate work for retries, but same-revision data cannot overwrite newer content.
+- Skipped / UNVERIFIED: real debounce task scheduling and file fingerprint checks await NotesStore/controller implementation. No polling was added.
