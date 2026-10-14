@@ -197,7 +197,9 @@ extension StyleSettings {
         self.init()
         let c = try decoder.container(keyedBy: CodingKeys.self)
         cleanupEnabled = c.value(.cleanupEnabled, default: cleanupEnabled)
-        appOverrides = c.value(.appOverrides, default: appOverrides)
+        // Decoded as strings so one unknown style drops only its own entry.
+        let rawOverrides: [String: String] = c.value(.appOverrides, default: [:])
+        appOverrides = rawOverrides.compactMapValues(Style.init(rawValue:))
         customRules = c.value(.customRules, default: customRules)
     }
 }

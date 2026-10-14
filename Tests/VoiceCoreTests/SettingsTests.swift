@@ -49,6 +49,14 @@ struct SettingsTests {
         #expect(SettingsStore(url: url).load().hotkey == .rightOption)
     }
 
+    @Test func unknownStyleInAppOverridesDropsOnlyThatEntry() throws {
+        let url = tempDir().appendingPathComponent("settings.json")
+        let json = #"{"styles":{"appOverrides":{"com.a":"document","com.b":"poem","com.c":"chat"}}}"#
+        try Data(json.utf8).write(to: url)
+        let overrides = SettingsStore(url: url).load().styles.appOverrides
+        #expect(overrides == ["com.a": .document, "com.c": .chat])
+    }
+
     @Test func corruptFileIsSetAsideAndDefaultsLoad() throws {
         let dir = tempDir()
         let url = dir.appendingPathComponent("settings.json")
