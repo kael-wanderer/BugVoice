@@ -17,6 +17,8 @@ final class MeetingController {
     private(set) var youLevel: Float = 0
     private(set) var othersLevel: Float = 0
     private(set) var elapsed: TimeInterval = 0
+    var onRecordingStarted: (() -> Void)?
+    var onRecordingStopped: (() -> Void)?
     @ObservationIgnored private var session: MeetingSession?
     @ObservationIgnored private var capture: MeetingAudioCaptureCoordinator?
     @ObservationIgnored private var writer: MeetingPCMJournalWriter?
@@ -87,6 +89,7 @@ final class MeetingController {
             statusMessage = nil
             model.setSystemAudioCaptureObserved(true)
             startMonitor()
+            onRecordingStarted?()
         } catch {
             isRecording = false
             isPaused = false
@@ -134,6 +137,7 @@ final class MeetingController {
 
     func stop() async {
         guard let session, isRecording || isPaused else { return }
+        onRecordingStopped?()
         monitorTask?.cancel()
         monitorTask = nil
         isRecording = false
@@ -151,6 +155,7 @@ final class MeetingController {
 
     func cancel() async {
         guard let session else { return }
+        onRecordingStopped?()
         monitorTask?.cancel()
         monitorTask = nil
         isRecording = false
@@ -286,10 +291,10 @@ private actor MeetingLiveTranscriptionScheduler: MeetingTranscriptionScheduler {
                     configuredLanguage: language,
                     transcriber: transcriber
                 )
-                if let line = result.segments.last?.text { latestSegmentText = line }
+                latestSegmentText = MeetingRecorderPresentation.latestLine(after: result, previous: latestSegmentText)
                 await persistInterim(result, meetingID: job.meetingID)
             } catch {
-                if !(error is CancellationError) { latestSegmentText = "" }
+                // Keep the latest valid line visible when a later chunk fails.
             }
         }
         isDraining = false

@@ -22,12 +22,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let model = AppModel()
     private lazy var mainWindow = MainWindowController(model: model)
     private lazy var permissionsWindow = PermissionsWindowController(model: model)
+    private var meetingRecorderPanel: MeetingRecorderPanel?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         model.presentMainWindow = { [weak self] in self?.mainWindow.show() }
         model.presentPermissionsWindow = { [weak self] in self?.permissionsWindow.show() }
         installEditMenu()
-        Task { await model.bootstrap() }
+        Task {
+            await model.bootstrap()
+            guard let controller = model.meetings else { return }
+            let panel = MeetingRecorderPanel(controller: controller)
+            meetingRecorderPanel = panel
+            controller.onRecordingStarted = { [weak panel] in panel?.show() }
+            controller.onRecordingStopped = { [weak panel] in panel?.hide() }
+        }
     }
 
     /// The app has no document scenes, so SwiftUI builds no Edit menu. Without
