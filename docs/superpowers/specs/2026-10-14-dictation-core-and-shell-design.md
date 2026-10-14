@@ -100,7 +100,7 @@ without a window, microphone, or Accessibility.
 | `TextInserter` | Delayed-provider clipboard + synthetic ⌘V + restore |
 | `RecordingHUD` | Floating non-activating panel: listening / thinking / done / error |
 | `MenuBarController` | Menu bar extra and menu |
-| `SettingsWindow` | Tabs: General, Speech, Text model, Styles, Vocabulary |
+| `SettingsPage` | Main-window page, tabs: General, Speech, Text model, Styles, Vocabulary, Storage |
 | `PermissionsWindow` | Checklist for Microphone, Accessibility, Input Monitoring |
 | `SecureInputMonitor` | Detects `IsSecureEventInputEnabled()` and the owning app |
 | `MainWindow` | `NavigationSplitView`: sidebar Dictation · Meetings · Notes · Settings; Meetings and Notes hidden until their sub-projects ship |
@@ -282,7 +282,12 @@ Mockup: `docs/design/mockup.html`. Surfaces:
   Speech (engine, model, language, download state), Text model (provider
   preset, base URL, model, key, timeout, Test), Styles (table of apps → style,
   per-style cleanup toggle, prompt preview), Vocabulary (editor for
-  `vocabulary.txt`).
+  `vocabulary.txt`), Storage (data folder with Show in Finder / Change…, disk
+  used, per-category size table — Meetings, Speech models, Dictation history,
+  Notes, `last.wav` — with Manage / Remove unused / Clear actions, retention
+  for meetings and dictation history). The sidebar shows no storage footer;
+  storage lives only in this tab. Sub-projects 2 and 3 add *Meetings* and
+  *Notes* tabs.
 - **Permissions** — three rows with live status and *Open System Settings*.
 
 ## 10. Reserved for later sub-projects
