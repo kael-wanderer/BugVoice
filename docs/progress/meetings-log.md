@@ -71,3 +71,12 @@ Continuous implementation is in progress. Tasks 1–3 and Task 4 are complete. T
 - Permission handling presently fails immediately when Core Audio returns an error. If macOS instead supplies silent buffers after denial, true silence and denial cannot be distinguished reliably from buffers alone; this remains **UNVERIFIED on device** and is an open question for the maintainer's spike run.
 - No audio capture was launched. All process tap behavior, TCC prompt/denial behavior, actual capture, self-audio exclusion, aggregate input format, and physical-device format conversion remain **UNVERIFIED on device**.
 - Open maintainer check: run the exact steps above before release; record actual macOS build, audio-present RMS, excluded Glass sound, and denial result in spec/log.
+
+### Task 8c — AAC finalizer and mix
+
+- Commit: `fd99d5c` — `feat(app): finalize meeting tracks and mixed playback`.
+- Tests: 2 `MeetingAudioFinalizerTests` passed for separate AAC tracks, unequal source lengths, silent-track padding, mixed duration, and journal retention after failure; full suite passed 171 VoiceCore + 24 BugVoiceMac tests. `swift build --product BugVoice` passed.
+- Decision beyond the plan: use AVFoundation's AAC encoder defaults at 16 kHz mono. An explicit 64 kbps setting was rejected by the system converter for this stream; default AAC settings encode successfully. Cost if wrong: encoded file size/quality differs from a fixed bitrate target; the source is speech and output remains AAC.
+- Finalization synchronizes each AAC file and directory, durably saves the finalized manifest, and removes `.capture` only after all outputs and manifest are saved. A failure leaves journals for retry.
+- Skipped/unverified: no actual captured recording was played through speakers; tests used synthetic PCM and decoded AAC duration. On-device audio output and process-tap source capture remain **UNVERIFIED on device**.
+- Open maintainer check: play `audio.m4a`, `mic.m4a`, and `system.m4a` after completing the Task 8a permission/capture run.
