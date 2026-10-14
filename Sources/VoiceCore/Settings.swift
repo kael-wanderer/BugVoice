@@ -28,6 +28,37 @@ public enum Retention: String, Codable, Sendable, CaseIterable {
     }
 }
 
+public enum MeetingRetentionPolicy: String, Codable, Sendable, CaseIterable {
+    case never, days30, days90, year
+
+    public var maxAge: TimeInterval? {
+        switch self {
+        case .never: nil
+        case .days30: 30 * 86_400
+        case .days90: 90 * 86_400
+        case .year: 365 * 86_400
+        }
+    }
+}
+
+public struct MeetingSettings: Codable, Equatable, Sendable {
+    public var deleteAfter: MeetingRetentionPolicy = .never
+    public var generationContextTokens = 8_192
+    public var generationOutputTokens = 2_048
+
+    public init() {}
+}
+
+extension MeetingSettings {
+    public init(from decoder: Decoder) throws {
+        self.init()
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        deleteAfter = c.value(.deleteAfter, default: deleteAfter)
+        generationContextTokens = c.value(.generationContextTokens, default: generationContextTokens)
+        generationOutputTokens = c.value(.generationOutputTokens, default: generationOutputTokens)
+    }
+}
+
 public struct SpeechSettings: Codable, Equatable, Sendable {
     public var engine: SpeechEngine = .whisperKit
     public var whisperModel = "large-v3-v20240930_turbo"
@@ -96,6 +127,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     /// Master switch from the menu bar; per-style switches apply under it.
     public var cleanupEnabled = true
     public var historyRetention: Retention = .forever
+    public var meetings = MeetingSettings()
     public var speech = SpeechSettings()
     public var textModel = TextModelSettings()
     public var styles = StyleSettings()
@@ -161,6 +193,7 @@ extension AppSettings {
         launchAtLogin = c.value(.launchAtLogin, default: launchAtLogin)
         cleanupEnabled = c.value(.cleanupEnabled, default: cleanupEnabled)
         historyRetention = c.value(.historyRetention, default: historyRetention)
+        meetings = c.value(.meetings, default: meetings)
         speech = c.value(.speech, default: speech)
         textModel = c.value(.textModel, default: textModel)
         styles = c.value(.styles, default: styles)

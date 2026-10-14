@@ -216,15 +216,21 @@ public actor MeetingStore {
             throw MeetingStoreError.missingManifest(id)
         }
 
+        let data = try Data(contentsOf: url)
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        let meeting = try decoder.decode(MeetingManifest.self, from: Data(contentsOf: url))
+        let version = try decoder.decode(MeetingSchemaVersion.self, from: data).schemaVersion
+        guard version == MeetingManifest.currentSchemaVersion else {
+            throw MeetingStoreError.unsupportedSchemaVersion(version)
+        }
+        let meeting = try decoder.decode(MeetingManifest.self, from: data)
         guard meeting.id == id else {
             throw MeetingStoreError.manifestIDMismatch(expected: id, actual: meeting.id)
         }
-        guard meeting.schemaVersion == MeetingManifest.currentSchemaVersion else {
-            throw MeetingStoreError.unsupportedSchemaVersion(meeting.schemaVersion)
-        }
         return meeting
     }
+}
+
+private struct MeetingSchemaVersion: Decodable {
+    var schemaVersion: Int
 }

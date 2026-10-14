@@ -46,9 +46,10 @@ struct MeetingTests {
         let meeting = MeetingManifest(schemaVersion: 99, startedAt: Date(timeIntervalSince1970: 10))
         let folder = root.appendingPathComponent(meeting.id.rawValue, isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        try encoder.encode(meeting).write(to: folder.appendingPathComponent("meeting.json"))
+        // A future manifest may have fields this build cannot decode. Check
+        // its schema version before attempting to decode the full model.
+        try Data(#"{"schemaVersion":99}"#.utf8)
+            .write(to: folder.appendingPathComponent("meeting.json"))
 
         do {
             _ = try await MeetingStore(root: root).load(id: meeting.id)
