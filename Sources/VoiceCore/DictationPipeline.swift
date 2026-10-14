@@ -42,6 +42,18 @@ public struct DictationResult: Sendable, Equatable {
     public var errorMessage: String?
     public var timings: StageTimings
 
+    /// What the app may keep in memory for the menu preview and *Paste last*.
+    /// A secure-field result keeps its outcome and app but no text: it is
+    /// likely a secret.
+    public var recallable: DictationResult {
+        guard outcome == .copiedSecureField else { return self }
+        var redacted = self
+        redacted.raw = ""
+        redacted.cleaned = nil
+        redacted.finalText = ""
+        return redacted
+    }
+
     /// Nil when nothing reached the user, and for secure fields: a dictation
     /// into a password field is likely a secret and is never logged.
     public var historyEntry: HistoryEntry? {
