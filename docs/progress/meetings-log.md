@@ -25,3 +25,11 @@ Continuous implementation is in progress. Tasks 1–3 and Task 4 are complete. T
 
 - Task 8a: maintainer must run the spike with audible system audio and approve the macOS System Audio Recording prompt. Verify capture, self-audio exclusion, and denial behavior (error versus silent buffers). Until then mark the process tap, aggregate-device routing, and denial handling **UNVERIFIED on device**.
 - Final manual checklist rows, app launch, dictation initialization, and device-only permission/audio checks are pending.
+
+### Task 5 — long transcript summary and action items
+
+- Commit: `458077b` — `feat(core): generate long meeting summaries in parts`.
+- Tests: 7 `MeetingTextGenerationTests` passed; full suite passed 158 VoiceCore + 17 BugVoiceMac tests.
+- Decisions beyond the plan: no `Settings.swift` edit was needed because `MeetingSettings` already stores independent context/output values; `MeetingTextBudget(settings:)` clamps them at the generation boundary, including older or malformed settings. Part size estimates include timestamp/speaker markers at three characters per token, not only transcript text. If the model returns merge text too large to fit the next context window or does not reduce the number of merge inputs, generation throws `mergeDidNotReduceToFitContext` rather than submitting an over-budget request. Cost if wrong: generation can fail for a model that produces unusually long partial results; the user can retry with a smaller output budget or a model that compresses merge results.
+- No skipped checks. Cancellation is cooperative between model calls; progress reports completed part and merge calls. Persistent saving is intentionally left to app integration tasks.
+- Open questions: none for Task 5.
