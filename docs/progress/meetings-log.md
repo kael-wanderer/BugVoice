@@ -2,13 +2,13 @@
 
 ## Summary
 
-Tasks 1–13 are complete on branch `feat/meetings`. Task 13 handoff commit: `1d76c42` (`docs: record meetings implementation handoff`). The branch is not merged or pushed.
+Tasks 1–13 and whole-branch review items 1–8 are implemented on `feat/meetings`. Review follow-ups `27551bb` and `1cc94d0` close manifest-transition and chunk-retry races. The branch is not merged or pushed.
 
-- **Tests:** final `swift test` passed 181 VoiceCore tests in 26 suites and 26 BugVoiceMac tests in 7 suites. Task commits ran the full suite before committing.
-- **Build and launch:** `Scripts/build-app.sh` passed and signed with `Bugler Local Dev`. Info.plist contains `NSAudioCaptureUsageDescription`. `build/BugVoice.app` launched as PID 68193; Core ML model resources were mapped in the process. No meeting recording was started.
-- **Decisions:** keep one stable transcription router and drain the old priority queue before swapping engines; only retry `vi` on an empty gated auto result; dedupe only across same-track chunk boundaries; persist per-chunk detected language and progress; keep echoed You lines and recommend headphones; retain journals until durable final audio/manifest; use 180 bounded waveform peak buckets; automatically prune ready meetings only.
-- **UNVERIFIED on device:** System Audio Recording prompt/denial behavior, process-tap capture, self-audio exclusion, aggregate input conversion, recorder focus retention, sleep/quit/crash recovery, actual AAC playback, export dialogs, summary cancellation, and an end-to-end dictation interaction. The app launch and model-resource mapping were verified, but visual UI inspection was denied by CUA approval review.
-- **Manual checks needed:** all existing Dictation rows 1–44 remain pending; Meetings rows 45–62 are added with blank Result cells. Run the Task 8a spike steps in this log before relying on system audio capture. The sub-project 1 benchmark and deferred-findings review also remain pending.
+- **Tests:** final `swift test` passed 191 VoiceCore tests in 26 suites and 27 BugVoiceMac tests in 7 suites (218 total).
+- **Build and launch:** final `Scripts/build-app.sh` succeeded with `Bugler Local Dev`; the rebuilt Info.plist contains `NSAudioCaptureUsageDescription`. `build/BugVoice.app` launched as PID 26981, and `lsof` showed mapped Core ML `bnns_program.bnnsir` resources. No meeting recording or dictation interaction was started.
+- **Review decisions:** refresh the provider for every transcriber factory input and speech-key save; read each live chunk once and retry its cursor if reading fails; keep one `MeetingSession` owner for active manifest changes; on sleep pause and stay paused; on quit checkpoint into retryable `.interrupted`; remove empty failed starts; stream AAC and mix in one-second blocks; save `.ready` before removing journals; link to Privacy & Security after capture start fails.
+- **UNVERIFIED on device:** first System Audio Recording prompt and denial behavior; process-tap capture, self-audio exclusion, and aggregate input conversion; System Settings deep link; recorder focus, sleep/wake and quit dialogs; crash recovery; playback/export dialogs; and end-to-end dictation while recording. The spike bundle was rebuilt with `Bugler Local Dev` but not launched because the prompt requires maintainer approval.
+- **Manual checks needed:** Dictation rows 1–44 and Meetings rows 45–62 remain pending with blank Result cells. The spike run steps are below. The sub-project 1 benchmark and deferred-findings review remain outside this work.
 
 ## Whole-branch review fixes
 
@@ -36,6 +36,7 @@ Tasks 1–13 are complete on branch `feat/meetings`. Task 13 handoff commit: `1d
 - The finalizer no longer saves `meeting.json` independently. While finalization is awaiting audio work, the session keeps concurrent title and generated text changes and merges them into the ready manifest.
 - Decision: the same commit also implemented review item 7 because both fixes depend on session ownership of the finalization manifest. Finalizer AAC creation returns without deleting `.capture`; the session durably saves `.ready` first, then asks the finalizer to remove journals. A VoiceCore test observes the saved state at cleanup time.
 - No manual concurrent rename/summary interaction was run.
+- Follow-up commit `27551bb` adds a deterministic blocked-pause/interim test. It first failed because `pause()` overwrote the newer manifest after awaiting audio I/O; pause, resume, stop, and cancel now rebase after awaited work. The full suite passed with 191 VoiceCore + 27 BugVoiceMac tests.
 
 ### 4. Checkpoint before sleep and quit
 
@@ -50,7 +51,7 @@ Tasks 1–13 are complete on branch `feat/meetings`. Task 13 handoff commit: `1d
 
 - Fix commit: `481fea9` — `fix(core): remove empty failed meeting folders`.
 - Test-first: updated the source-start failure test to require an empty store and one deletion; it failed because the failed manifest remained. Added coverage proving a failed start with committed PCM remains available as `.failed`.
-- `swift test` passed (191 VoiceCore tests and 26 BugVoiceMac tests; 217 total).
+- `swift test` passed (190 VoiceCore tests and 26 BugVoiceMac tests; 216 total).
 - The audio coordinator retains its last durable checkpoint after rolling back a partial source start so the session can distinguish a truly empty folder from a partial recording.
 - No item-specific manual test was run.
 
@@ -58,7 +59,7 @@ Tasks 1–13 are complete on branch `feat/meetings`. Task 13 handoff commit: `1d
 
 - Fix commit: `541070e` — `fix(app): stream meeting journals into AAC files`.
 - Test-first: bounded journal-reader coverage first failed to compile because no sequential reader API existed. It verifies 16,000-sample reads, remaining counts, and PCM fidelity within Int16 quantization.
-- `swift test` passed (191 VoiceCore tests and 27 BugVoiceMac tests; 218 total). Existing AAC duration/mix coverage also passed.
+- `swift test` passed (190 VoiceCore tests and 27 BugVoiceMac tests; 217 total). Existing AAC duration/mix coverage also passed.
 - The finalizer streams mic and system AAC separately, then reopens both journals and mixes one-second blocks into the playback AAC. Memory use is bounded by those blocks and AVAudioFile buffers.
 - Long-duration memory profiling was not run.
 
@@ -66,8 +67,14 @@ Tasks 1–13 are complete on branch `feat/meetings`. Task 13 handoff commit: `1d
 
 - Fix commit: `8a104d3` — `fix(app): open system audio recording settings after denial`.
 - The System Audio Recording row now shows “Open System Settings” after process-tap start failure and opens Privacy & Security → Screen & System Audio Recording. The row still describes the initial request timing before a failure.
-- `swift test` passed (191 VoiceCore tests and 27 BugVoiceMac tests; 218 total).
+- `swift test` passed (190 VoiceCore tests and 27 BugVoiceMac tests; 217 total).
 - The settings deep link and prompt were not manually exercised.
+
+### 2. Cursor acknowledgement follow-up
+
+- Fix commit: `1cc94d0` — `fix(core): advance live cursors only after enqueue`.
+- Updated the VoiceCore cursor test to prove the same range remains pending until explicitly marked sent. The controller acknowledges a range only after its background read succeeds and it is enqueued, so a read error retries on the next monitor tick.
+- Full `swift test` passed (191 VoiceCore tests and 27 BugVoiceMac tests; 218 total).
 
 ## Task log
 
