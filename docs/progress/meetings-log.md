@@ -28,6 +28,24 @@ Tasks 1–13 are complete on branch `feat/meetings`. Task 13 handoff commit: `1d
 - The MainActor monitor now uses lock-only writer sample counts and a per-track cursor. Journal reads run on the writer queue; checkpoint/fsync remains on the writer's timer.
 - No item-specific manual test was run.
 
+### 3. Give active meetings one manifest owner
+
+- Fix commit: `fce94cc` — `fix(core): serialize meeting manifest updates and finalization`.
+- Test-first: tests for rename during blocked final transcription, concurrent mark/interim persistence, and pause/mark preserving interim segments first failed to compile because the session mutation APIs were missing. Added all mutations to `MeetingSession`; the live scheduler and AppModel now route active-meeting writes through it.
+- `swift test` passed (187 VoiceCore tests and 26 BugVoiceMac tests; 213 total).
+- The finalizer no longer saves `meeting.json` independently. While finalization is awaiting audio work, the session keeps concurrent title and generated text changes and merges them into the ready manifest.
+- Decision: the same commit also implemented review item 7 because both fixes depend on session ownership of the finalization manifest. Finalizer AAC creation returns without deleting `.capture`; the session durably saves `.ready` first, then asks the finalizer to remove journals. A VoiceCore test observes the saved state at cleanup time.
+- No manual concurrent rename/summary interaction was run.
+
+### 4. Checkpoint before sleep and quit
+
+- Fix commit: `5a1f185` — `fix(app): checkpoint meetings before sleep and quit`.
+- Test-first: VoiceCore tests first failed to compile because the explicit sleep-pause operation did not exist. Tests now verify sleep leaves the session paused without resuming, and quit-stop writes a durable interrupted state.
+- `swift test` passed (189 VoiceCore tests and 26 BugVoiceMac tests; 215 total).
+- `NSWorkspace.willSleepNotification` calls the durable pause path. The quit alert provides “Stop and keep” and “Cancel”; the keep action waits for the in-flight chunk and `cancel()` checkpoints an interrupted manifest before `terminateNow` is replied.
+- During final transcription, stop has already persisted `.transcribing`; quitting leaves the journals and retryable state. No final-pass prompt is shown.
+- Sleep/wake and quit dialogs were not manually exercised. They remain manual checks.
+
 ## Task log
 
 | Task | Implementation commit | Tests |
