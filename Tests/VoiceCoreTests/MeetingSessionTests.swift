@@ -229,6 +229,19 @@ struct MeetingSessionTests {
         #expect(saved?.state == .paused)
     }
 
+    @Test func interimSavedWhilePauseWaitsForAudioIsPreserved() async throws {
+        let rig = SessionRig(blockPause: true)
+        let session = rig.makeSession()
+        try await session.start()
+        let pausing = Task { try await session.pause() }
+        await rig.audio.waitUntilPauseStarted()
+        try await session.persistInterim(interim(id: "mic-during-pause", track: .mic, text: "pause race"))
+        await rig.audio.releasePause()
+        _ = try await pausing.value
+
+        #expect(await session.snapshot()?.segments.map(\.text) == ["pause race"])
+    }
+
     @Test func readyManifestIsDurableBeforeCaptureCleanup() async throws {
         let rig = SessionRig()
         await rig.finalizer.observe(rig.store)
@@ -277,21 +290,41 @@ private actor SessionStoreProbe: MeetingSessionStore {
 
 private actor AudioControlProbe: MeetingAudioSourceControl {
     let failStarting: MeetingTrack?
+    let blockPause: Bool
     private(set) var started: [MeetingTrack] = []
     private(set) var stopCount = 0
     private(set) var pauseCount = 0
     private(set) var resumeCount = 0
     private(set) var recoveredID: MeetingID?
     let committedCheckpoint: MeetingCheckpoint
+    private var pauseStartedContinuation: CheckedContinuation<Void, Never>?
+    private var pauseReleaseContinuation: CheckedContinuation<Void, Never>?
     init(failStarting: MeetingTrack?, checkpoint: MeetingCheckpoint = MeetingCheckpoint()) {
         self.failStarting = failStarting
         committedCheckpoint = checkpoint
+        blockPause = false
+    }
+    init(failStarting: MeetingTrack?, checkpoint: MeetingCheckpoint = MeetingCheckpoint(), blockPause: Bool) {
+        self.failStarting = failStarting
+        committedCheckpoint = checkpoint
+        self.blockPause = blockPause
     }
     func start(track: MeetingTrack) async throws {
         started.append(track)
         if track == failStarting { throw TestFailure.startFailed }
     }
-    func pause() async throws { pauseCount += 1 }
+    func pause() async throws {
+        pauseCount += 1
+        guard blockPause else { return }
+        pauseStartedContinuation?.resume()
+        pauseStartedContinuation = nil
+        await withCheckedContinuation { pauseReleaseContinuation = $0 }
+    }
+    func waitUntilPauseStarted() async {
+        if pauseCount > 0 { return }
+        await withCheckedContinuation { pauseStartedContinuation = $0 }
+    }
+    func releasePause() { pauseReleaseContinuation?.resume(); pauseReleaseContinuation = nil }
     func resume() async throws { resumeCount += 1 }
     func checkpoint() async throws -> MeetingCheckpoint { committedCheckpoint }
     func stop() async throws { stopCount += 1 }
@@ -382,8 +415,8 @@ private struct SessionRig {
     let audio: AudioControlProbe
     let scheduler: SchedulerProbe
     let finalizer = FinalizerProbe()
-    init(failStarting: MeetingTrack? = nil, checkpoint: MeetingCheckpoint = MeetingCheckpoint(), finalChunks: [MeetingChunkProcessingResult] = [], blockTranscription: Bool = false) {
-        audio = AudioControlProbe(failStarting: failStarting, checkpoint: checkpoint)
+    init(failStarting: MeetingTrack? = nil, checkpoint: MeetingCheckpoint = MeetingCheckpoint(), finalChunks: [MeetingChunkProcessingResult] = [], blockTranscription: Bool = false, blockPause: Bool = false) {
+        audio = AudioControlProbe(failStarting: failStarting, checkpoint: checkpoint, blockPause: blockPause)
         scheduler = SchedulerProbe(block: blockTranscription, chunks: finalChunks)
     }
     func makeSession() -> MeetingSession {

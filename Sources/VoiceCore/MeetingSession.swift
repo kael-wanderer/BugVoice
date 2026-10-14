@@ -140,9 +140,12 @@ public actor MeetingSession {
 
     @discardableResult
     public func pause() async throws -> MeetingManifest {
-        guard var meeting = manifest, meeting.state == .recording else { throw MeetingSessionError.invalidState }
+        guard let initial = manifest, initial.state == .recording else { throw MeetingSessionError.invalidState }
         try await audio.pause()
         _ = try await audio.checkpoint()
+        guard var meeting = manifest, meeting.id == initial.id, meeting.state == .recording else {
+            throw MeetingSessionError.invalidState
+        }
         accumulatedActiveTime = elapsed(at: clock.now())
         activeStartedAt = nil
         meeting.duration = accumulatedActiveTime
@@ -161,8 +164,11 @@ public actor MeetingSession {
 
     @discardableResult
     public func resume() async throws -> MeetingManifest {
-        guard var meeting = manifest, meeting.state == .paused else { throw MeetingSessionError.invalidState }
+        guard let initial = manifest, initial.state == .paused else { throw MeetingSessionError.invalidState }
         try await audio.resume()
+        guard var meeting = manifest, meeting.id == initial.id, meeting.state == .paused else {
+            throw MeetingSessionError.invalidState
+        }
         activeStartedAt = clock.now()
         meeting.state = .recording
         manifest = meeting
@@ -184,17 +190,21 @@ public actor MeetingSession {
 
     @discardableResult
     public func stop() async throws -> MeetingManifest {
-        guard var meeting = manifest, meeting.state == .recording || meeting.state == .paused else {
+        guard let initial = manifest, initial.state == .recording || initial.state == .paused else {
             throw MeetingSessionError.invalidState
         }
         accumulatedActiveTime = elapsed(at: clock.now())
         activeStartedAt = nil
         try await audio.stop()
         _ = try await audio.checkpoint()
+        await scheduler.cancelQueued(meetingID: initial.id)
+        await scheduler.waitForInFlight(meetingID: initial.id)
+        guard var meeting = manifest, meeting.id == initial.id,
+              meeting.state == .recording || meeting.state == .paused else {
+            throw MeetingSessionError.invalidState
+        }
         meeting.duration = accumulatedActiveTime
         meeting.endedAt = clock.now()
-        await scheduler.cancelQueued(meetingID: meeting.id)
-        await scheduler.waitForInFlight(meetingID: meeting.id)
         meeting.state = .transcribing
         meeting.transcriptProgress = 0
         manifest = meeting
@@ -237,14 +247,15 @@ public actor MeetingSession {
 
     @discardableResult
     public func cancel() async throws -> MeetingManifest {
-        guard var meeting = manifest, meeting.state.isRecoverable else { throw MeetingSessionError.invalidState }
+        guard let initial = manifest, initial.state.isRecoverable else { throw MeetingSessionError.invalidState }
         cancelRequested = true
         accumulatedActiveTime = elapsed(at: clock.now())
-        await scheduler.cancelQueued(meetingID: meeting.id)
-        await scheduler.waitForInFlight(meetingID: meeting.id)
+        await scheduler.cancelQueued(meetingID: initial.id)
+        await scheduler.waitForInFlight(meetingID: initial.id)
         try await audio.stop()
         _ = try await audio.checkpoint()
         activeStartedAt = nil
+        guard var meeting = manifest, meeting.id == initial.id else { throw MeetingSessionError.invalidState }
         meeting.duration = accumulatedActiveTime
         meeting.endedAt = meeting.endedAt ?? clock.now()
         meeting.state = .interrupted
