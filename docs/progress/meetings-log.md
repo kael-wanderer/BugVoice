@@ -64,8 +64,8 @@ Continuous implementation is in progress. Tasks 1–3 and Task 4 are complete. T
 
 ### Task 8b — PCM journals and capture sources
 
-- Commit: `dec343f` — `feat(app): journal meeting microphone and system audio`.
-- Tests: 4 `MeetingAudioCaptureTests` and 1 `AppBundleUsageDescriptionTests` passed. `swift build --target BugVoiceMac` and `swift build --product BugVoice` passed; `plutil` confirmed the usage description. Full suite passed 171 VoiceCore + 22 BugVoiceMac tests.
+- Commits: `dec343f` — `feat(app): journal meeting microphone and system audio`; `c3e9828` — `fix(app): checkpoint meeting journals during capture`.
+- Tests: 5 `MeetingAudioCaptureTests` and 1 `AppBundleUsageDescriptionTests` passed, including the one-second checkpoint timer. `swift build --target BugVoiceMac` and `swift build --product BugVoice` passed; `plutil` confirmed the usage description. Full suite passed 172 VoiceCore + 25 BugVoiceMac tests.
 - Durability: each journal is synchronized before a durable checkpoint file replacement; checkpoint temporary file and containing directory are fsynced. Manifest writes synchronize the same-directory temporary file before `FileManager.replaceItemAt` / move. Recovery truncates uncheckpointed tails and clamps checkpoint claims to actual even-byte file lengths.
 - Decisions beyond the plan: the engine consumes an aggregate device through `AVAudioEngine`'s input node and converter, rather than maintaining a custom Core Audio IOProc in production. The disposable spike keeps the explicit IOProc. This reuses the app's existing audio conversion path while keeping system tap creation separate. Cost if wrong: the aggregate device may not expose an input format AVAudioEngine accepts; the on-device spike/manual run is still required before trusting this path.
 - Permission handling presently fails immediately when Core Audio returns an error. If macOS instead supplies silent buffers after denial, true silence and denial cannot be distinguished reliably from buffers alone; this remains **UNVERIFIED on device** and is an open question for the maintainer's spike run.
