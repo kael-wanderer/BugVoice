@@ -234,6 +234,12 @@ public final class MeetingPCMJournalWriter: @unchecked Sendable {
         return try JSONDecoder().decode(MeetingCheckpoint.self, from: data)
     }
 
+    public func makeReader(for track: MeetingTrack) throws -> MeetingPCMJournalReader {
+        let checkpoint = try storedCheckpoint()
+        let sampleCount = checkpoint.track(track)?.sampleCount ?? 0
+        return try MeetingPCMJournalReader(url: journalURL(track), sampleCount: sampleCount)
+    }
+
     /// A lock-only snapshot for UI scheduling. It never waits for journal I/O.
     public func sampleCount(for track: MeetingTrack) -> Int {
         sampleCountsLock.lock()
@@ -301,6 +307,34 @@ public final class MeetingPCMJournalWriter: @unchecked Sendable {
     private func journalURL(_ track: MeetingTrack) -> URL {
         directory.appendingPathComponent("\(track.rawValue).pcm")
     }
+}
+
+/// Sequential reader bounded by the durable sample count in the checkpoint.
+public final class MeetingPCMJournalReader: @unchecked Sendable {
+    public let totalSampleCount: Int
+    public private(set) var remainingSampleCount: Int
+    private var handle: FileHandle?
+
+    fileprivate init(url: URL, sampleCount: Int) throws {
+        totalSampleCount = max(0, sampleCount)
+        remainingSampleCount = max(0, sampleCount)
+        if sampleCount > 0 {
+            handle = try FileHandle(forReadingFrom: url)
+        }
+    }
+
+    public func readSamples(maxCount: Int) throws -> [Float] {
+        guard maxCount > 0, remainingSampleCount > 0, let handle else { return [] }
+        let count = min(maxCount, remainingSampleCount)
+        let data = try handle.read(upToCount: count * 2) ?? Data()
+        guard data.count == count * 2 else { throw CocoaError(.fileReadCorruptFile) }
+        remainingSampleCount -= count
+        return data.withUnsafeBytes { bytes in
+            bytes.bindMemory(to: Int16.self).map { Float(Int16(littleEndian: $0)) / 32_768 }
+        }
+    }
+
+    deinit { try? handle?.close() }
 }
 
 private enum DurableMeetingFile {

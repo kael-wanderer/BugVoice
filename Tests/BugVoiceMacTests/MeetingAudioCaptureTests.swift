@@ -41,6 +41,27 @@ struct MeetingAudioCaptureTests {
         #expect(FileManager.default.fileExists(atPath: root.appendingPathComponent("checkpoint.json").path))
     }
 
+    @Test func journalReaderStreamsBoundedBlocksWithoutLoadingWholeTrack() async throws {
+        let root = try testDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let writer = MeetingPCMJournalWriter(directory: root)
+        try writer.start(track: .mic)
+        let samples = (0..<32_000).map { Float($0 % 100) / 100 }
+        writer.append(samples, track: .mic, offset: 0)
+        _ = try writer.checkpoint()
+
+        let reader = try writer.makeReader(for: .mic)
+        #expect(reader.totalSampleCount == 32_000)
+        #expect(try reader.readSamples(maxCount: 16_000).count == 16_000)
+        #expect(reader.remainingSampleCount == 16_000)
+        let secondBlock = try reader.readSamples(maxCount: 16_000)
+        #expect(secondBlock.count == 16_000)
+        #expect(zip(secondBlock, samples.suffix(16_000)).allSatisfy { abs($0 - $1) < 0.0001 })
+        #expect(reader.remainingSampleCount == 0)
+        #expect(try reader.readSamples(maxCount: 16_000).isEmpty)
+        writer.close()
+    }
+
     @Test func recoveryDropsUncheckpointedJournalTail() async throws {
         let root = try testDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
