@@ -4,7 +4,10 @@ import Testing
 
 struct MeetingSessionTests {
     @Test func startRollsBackFirstSourceWhenSecondSourceFails() async throws {
-        let rig = SessionRig(failStarting: .system)
+        let fewMilliseconds = MeetingCheckpoint(tracks: [
+            MeetingTrackCheckpoint(track: .mic, committedByteCount: 320, sampleCount: 160, startOffset: 0, endOffset: 0.01)
+        ])
+        let rig = SessionRig(failStarting: .system, checkpoint: fewMilliseconds)
         let session = rig.makeSession()
         do {
             try await session.start()
@@ -18,7 +21,7 @@ struct MeetingSessionTests {
 
     @Test func failedStartKeepsFolderWhenAudioWasCommitted() async throws {
         let committed = MeetingCheckpoint(tracks: [
-            MeetingTrackCheckpoint(track: .mic, committedByteCount: 320, sampleCount: 160, startOffset: 0, endOffset: 0.01)
+            MeetingTrackCheckpoint(track: .mic, committedByteCount: 32_000, sampleCount: 16_000, startOffset: 0, endOffset: 1)
         ])
         let rig = SessionRig(failStarting: .system, checkpoint: committed)
         let session = rig.makeSession()

@@ -124,7 +124,8 @@ public actor MeetingSession {
         } catch {
             let checkpoint = try? await audio.checkpoint()
             try? await audio.stop()
-            let hasCommittedAudio = checkpoint?.tracks.contains { $0.committedByteCount > 0 || $0.sampleCount > 0 } ?? true
+            let minimumKeepSamples = MeetingPCMJournal.sampleRate
+            let hasCommittedAudio = checkpoint?.tracks.contains { $0.sampleCount >= minimumKeepSamples } ?? true
             guard hasCommittedAudio else {
                 manifest = nil
                 try? await store.delete(id: meeting.id)
