@@ -52,6 +52,25 @@ public struct TextModelSettings: Codable, Equatable, Sendable {
     public init() {}
 }
 
+extension TextModelSettings {
+    /// A short label for the HUD, e.g. *Cleaning (Qwen)*: the model id's
+    /// leading word, capitalized, without an organization prefix. Nil when
+    /// cleanup has no model.
+    public var shortName: String? {
+        switch provider {
+        case .none: return nil
+        case .appleIntelligence: return "Apple Intelligence"
+        case .openAICompatible, .anthropicCompatible: break
+        }
+        let id = model.trimmingCharacters(in: .whitespaces)
+        guard !id.isEmpty else { return nil }
+        let base = id.split(separator: "/").last.map(String.init) ?? id
+        let word = base.prefix { $0.isLetter }
+        guard !word.isEmpty else { return id }
+        return word.prefix(1).uppercased() + word.dropFirst()
+    }
+}
+
 public struct StyleSettings: Codable, Equatable, Sendable {
     /// Keyed by `Style.rawValue`. A missing key means cleanup is on.
     public var cleanupEnabled: [String: Bool] = [Style.terminal.rawValue: false]
