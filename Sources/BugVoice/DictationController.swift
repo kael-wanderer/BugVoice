@@ -41,10 +41,10 @@ final class DictationController {
     func start() {
         applySettings()
         model.hotkeyActive = hotkey.start()
-        GlobalShortcuts.shared.register(keyCode: UInt32(kVK_ANSI_V), modifiers: GlobalShortcuts.controlOption) { [weak self] in
+        model.registerShortcut(kVK_ANSI_V, letter: "V", name: "Paste last") { [weak self] in
             self?.pasteLast()
         }
-        GlobalShortcuts.shared.register(keyCode: UInt32(kVK_ANSI_B), modifiers: GlobalShortcuts.controlOption) { [weak self] in
+        model.registerShortcut(kVK_ANSI_B, letter: "B", name: "Open BugVoice") { [weak self] in
             self?.model.openMainWindow(.dictation)
         }
     }

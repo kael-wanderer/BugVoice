@@ -27,9 +27,11 @@ struct MenuContent: View {
         Divider()
         Button("New note") { model.createNoteAndShow() }
             .keyboardShortcut("n", modifiers: [.control, .option])
-        if !model.newNoteShortcutAvailable { Text("New note shortcut unavailable") }
         Button("Open BugVoice…") { model.openMainWindow(.dictation) }
             .keyboardShortcut("b", modifiers: [.control, .option])
+        ForEach(model.unavailableShortcuts, id: \.self) { shortcut in
+            Text("\(shortcut): used by another app")
+        }
         Divider()
         Toggle("Clean up with language model", isOn: $model.settings.cleanupEnabled)
         Toggle("Hands-free mode (double-tap)", isOn: $model.settings.handsFreeEnabled)

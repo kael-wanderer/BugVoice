@@ -54,7 +54,8 @@ final class AppModel {
     var page: Page = .dictation
     var speechState: WhisperKitTranscriber.LoadState = .notLoaded
     var hotkeyActive = false
-    var newNoteShortcutAvailable = true
+    /// Global shortcuts another app already holds, e.g. "⌃⌥V Paste last".
+    var unavailableShortcuts: [String] = []
     /// True while the microphone is recording a dictation.
     var isListening = false
     var notesIsListening = false
@@ -118,13 +119,10 @@ final class AppModel {
         vocabularyText = (try? String(contentsOf: paths.vocabulary, encoding: .utf8)) ?? ""
         vocabulary = Vocabulary.parse(vocabularyText)
         startDictation()
-        newNoteShortcutAvailable = GlobalShortcuts.shared.register(
-            keyCode: UInt32(kVK_ANSI_N),
-            modifiers: GlobalShortcuts.controlOption
-        ) { [weak self] in
+        registerShortcut(kVK_ANSI_N, letter: "N", name: "New note") { [weak self] in
             self?.createNoteAndShow()
         }
-        GlobalShortcuts.shared.register(keyCode: UInt32(kVK_ANSI_M), modifiers: GlobalShortcuts.controlOption) { [weak self] in
+        registerShortcut(kVK_ANSI_M, letter: "M", name: "Record meeting") { [weak self] in
             Task { @MainActor in self?.meetings?.toggleRecording() }
         }
         meetings = MeetingController(model: self)
@@ -277,6 +275,16 @@ final class AppModel {
             notesPageIsSelected: page == .notes,
             firstResponderEditorID: firstResponderEditorID
         )
+    }
+
+    /// Registers a ⌃⌥ shortcut and records it when another app holds it.
+    func registerShortcut(_ keyCode: Int, letter: String, name: String, action: @escaping @MainActor () -> Void) {
+        let registered = GlobalShortcuts.shared.register(
+            keyCode: UInt32(keyCode),
+            modifiers: GlobalShortcuts.controlOption,
+            action: action
+        )
+        if !registered { unavailableShortcuts.append("⌃⌥\(letter) \(name)") }
     }
 
     func captureSelectedNoteForMic() -> NotesDictationCapture? {
