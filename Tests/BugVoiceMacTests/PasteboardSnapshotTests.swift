@@ -27,6 +27,38 @@ struct PasteboardSnapshotTests {
         #expect(restored?.string(forType: .string) == "caption")
     }
 
+    @Test func restoreSkipsWhenClipboardChangedSincePaste() {
+        let pb = scratch()
+        pb.clearContents()
+        pb.setString("previous", forType: .string)
+        let snapshot = PasteboardSnapshot.capture(pb)
+        pb.clearContents()
+        pb.setString("dictated", forType: .string)
+        let pasteChangeCount = pb.changeCount
+
+        pb.clearContents()
+        pb.setString("user copy", forType: .string)
+        #expect(!snapshot.restore(to: pb, ifChangeCountIs: pasteChangeCount))
+        #expect(pb.string(forType: .string) == "user copy")
+
+        let unchanged = pb.changeCount
+        #expect(snapshot.restore(to: pb, ifChangeCountIs: unchanged))
+        #expect(pb.string(forType: .string) == "previous")
+    }
+
+    @Test func fulfillingDelayedDataKeepsChangeCount() {
+        let pb = scratch()
+        let provider = DelayedTextProvider(text: "dictated")
+        pb.clearContents()
+        let item = NSPasteboardItem()
+        item.setDataProvider(provider, forTypes: [.string])
+        pb.writeObjects([item])
+        let pasteChangeCount = pb.changeCount
+        #expect(pb.string(forType: .string) == "dictated")
+        #expect(provider.wasRequested)
+        #expect(pb.changeCount == pasteChangeCount)
+    }
+
     @Test func emptySnapshotClears() {
         let pb = scratch()
         pb.clearContents()
