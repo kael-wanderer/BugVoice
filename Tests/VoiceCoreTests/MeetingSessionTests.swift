@@ -200,6 +200,31 @@ struct MeetingSessionTests {
         #expect(await rig.store.meetings[ready.id]?.title == "Renamed while transcribing")
     }
 
+    @Test func renameDuringFailedFinalTranscriptionSurvivesErrorSave() async throws {
+        let rig = SessionRig(blockTranscription: true, failTranscription: true)
+        let session = rig.makeSession()
+        try await session.start()
+        let stopping = Task { try await session.stop() }
+        await rig.scheduler.waitUntilStarted()
+        try await session.rename(title: "Renamed during failed pass")
+        await rig.scheduler.release()
+
+        do {
+            _ = try await stopping.value
+            Issue.record("Expected final transcription to fail")
+        } catch TestFailure.transcriptionFailed {
+        }
+
+        let saved = await session.snapshot()
+        guard let saved else {
+            Issue.record("Expected a saved meeting manifest")
+            return
+        }
+        #expect(saved.title == "Renamed during failed pass")
+        #expect(saved.state == .transcribing)
+        #expect(await rig.store.meetings[saved.id]?.title == "Renamed during failed pass")
+    }
+
     @Test func markAndConcurrentInterimSaveBothSurvive() async throws {
         let rig = SessionRig()
         let session = rig.makeSession()
@@ -339,17 +364,23 @@ private actor AudioControlProbe: MeetingAudioSourceControl {
 
 private actor SchedulerProbe: MeetingTranscriptionScheduler {
     let block: Bool
+    let failTranscription: Bool
     let chunks: [MeetingChunkProcessingResult]
     private(set) var finalCallCount = 0
     private(set) var cancelQueuedCount = 0
     private var startedContinuation: CheckedContinuation<Void, Never>?
     private var releaseContinuation: CheckedContinuation<Void, Never>?
+    private var releaseRequested = false
     private var inFlight = false
     private var cancelContinuation: CheckedContinuation<Void, Never>?
     private var progressContinuation: CheckedContinuation<Void, Never>?
     private var didReportProgress = false
     private var waiters: [CheckedContinuation<Void, Never>] = []
-    init(block: Bool, chunks: [MeetingChunkProcessingResult]) { self.block = block; self.chunks = chunks }
+    init(block: Bool, chunks: [MeetingChunkProcessingResult], failTranscription: Bool = false) {
+        self.block = block
+        self.chunks = chunks
+        self.failTranscription = failTranscription
+    }
     func cancelQueued(meetingID: MeetingID) async {
         cancelQueuedCount += 1
         cancelContinuation?.resume()
@@ -368,10 +399,11 @@ private actor SchedulerProbe: MeetingTranscriptionScheduler {
         didReportProgress = true
         progressContinuation?.resume()
         progressContinuation = nil
-        if block { await withCheckedContinuation { releaseContinuation = $0 } }
+        if block && !releaseRequested { await withCheckedContinuation { releaseContinuation = $0 } }
         inFlight = false
         waiters.forEach { $0.resume() }
         waiters.removeAll()
+        if failTranscription { throw TestFailure.transcriptionFailed }
         return chunks
     }
     func waitUntilCancelled() async {
@@ -390,7 +422,11 @@ private actor SchedulerProbe: MeetingTranscriptionScheduler {
         guard inFlight else { return }
         await withCheckedContinuation { waiters.append($0) }
     }
-    func release() { releaseContinuation?.resume(); releaseContinuation = nil }
+    func release() {
+        releaseRequested = true
+        releaseContinuation?.resume()
+        releaseContinuation = nil
+    }
 }
 
 private actor FinalizerProbe: MeetingAudioFinalizerProtocol {
@@ -418,13 +454,13 @@ private struct SessionRig {
     let audio: AudioControlProbe
     let scheduler: SchedulerProbe
     let finalizer = FinalizerProbe()
-    init(failStarting: MeetingTrack? = nil, checkpoint: MeetingCheckpoint = MeetingCheckpoint(), finalChunks: [MeetingChunkProcessingResult] = [], blockTranscription: Bool = false, blockPause: Bool = false) {
+    init(failStarting: MeetingTrack? = nil, checkpoint: MeetingCheckpoint = MeetingCheckpoint(), finalChunks: [MeetingChunkProcessingResult] = [], blockTranscription: Bool = false, blockPause: Bool = false, failTranscription: Bool = false) {
         audio = AudioControlProbe(failStarting: failStarting, checkpoint: checkpoint, blockPause: blockPause)
-        scheduler = SchedulerProbe(block: blockTranscription, chunks: finalChunks)
+        scheduler = SchedulerProbe(block: blockTranscription, chunks: finalChunks, failTranscription: failTranscription)
     }
     func makeSession() -> MeetingSession {
         MeetingSession(clock: clock, store: store, audio: audio, scheduler: scheduler, finalizer: finalizer)
     }
 }
 
-private enum TestFailure: Error { case startFailed }
+private enum TestFailure: Error { case startFailed, transcriptionFailed }

@@ -292,10 +292,11 @@ public actor MeetingSession {
             return current
         } catch {
             if cancelRequested { return manifest ?? meeting }
-            meeting.state = .transcribing
-            meeting.transcriptionError = String(describing: error)
-            manifest = meeting
-            try? await store.save(meeting)
+            var current = manifest ?? meeting
+            current.state = .transcribing
+            current.transcriptionError = String(describing: error)
+            manifest = current
+            try? await store.save(current)
             throw error
         }
     }
