@@ -15,10 +15,10 @@ private enum MeetingGenerationError: LocalizedError {
 
 /// Main-window pages. Notes are reserved for sub-project 3.
 enum Page: String, CaseIterable, Identifiable {
-    case dictation, meetings, settings
+    case dictation, meetings, notes, settings
     var id: String { rawValue }
-    var title: String { switch self { case .dictation: "Dictation"; case .meetings: "Meetings"; case .settings: "Settings" } }
-    var symbol: String { switch self { case .dictation: "mic"; case .meetings: "waveform.path"; case .settings: "gearshape" } }
+    var title: String { switch self { case .dictation: "Dictation"; case .meetings: "Meetings"; case .notes: "Notes"; case .settings: "Settings" } }
+    var symbol: String { switch self { case .dictation: "mic"; case .meetings: "waveform.path"; case .notes: "note.text"; case .settings: "gearshape" } }
 }
 
 @MainActor
@@ -26,6 +26,8 @@ enum Page: String, CaseIterable, Identifiable {
 final class AppModel {
     let paths = AppPaths.standard()
     let keychain = Keychain()
+    @ObservationIgnored let notesStore: NotesStore
+    @ObservationIgnored let notesController: NotesController
     @ObservationIgnored let store = SettingsStore(url: AppPaths.standard().settings)
     @ObservationIgnored let historyLog = HistoryLog(url: AppPaths.standard().history)
     @ObservationIgnored private var meetingStore: MeetingStore { MeetingStore(root: paths.meetings) }
@@ -75,6 +77,9 @@ final class AppModel {
     @ObservationIgnored private var speechAPIKeyGeneration: UInt64 = 0
 
     init() {
+        let notesStore = NotesStore(directory: AppPaths.standard().notes)
+        self.notesStore = notesStore
+        notesController = NotesController(store: notesStore)
         let engine = WhisperKitTranscriber(modelName: AppSettings().speech.whisperModel, downloadBase: AppPaths.standard().models)
         whisper = engine
         let priority = PriorityTranscriber(base: engine)
@@ -235,6 +240,19 @@ final class AppModel {
             focus: FocusInspector(),
             settings: settings,
             vocabulary: vocabulary
+        )
+    }
+
+    func captureNotesDictation(startFocus: FocusSnapshot) -> NotesDictationCapture? {
+        let frontmostPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
+        let bugVoiceIsFrontmost = NSApp.isActive
+            && frontmostPID == ProcessInfo.processInfo.processIdentifier
+            && startFocus.bundleID == Bundle.main.bundleIdentifier
+        let firstResponderEditorID = (NSApp.keyWindow?.firstResponder as? NotesTextView)?.editorID
+        return notesController.captureAtStart(
+            bugVoiceIsFrontmost: bugVoiceIsFrontmost,
+            notesPageIsSelected: page == .notes,
+            firstResponderEditorID: firstResponderEditorID
         )
     }
 

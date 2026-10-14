@@ -2,12 +2,12 @@
 
 ## Summary
 
-Implementation is in progress on feat/notes. Tasks 1–4 are implemented; loaded-note controller and dictation/UI integration remain.
+Implementation is in progress on feat/notes. Tasks 1–5b are implemented; Notes UI, menu, settings, quit, and final packaging remain.
 
 - **Documentation commit:** 035a116 — docs: notes design and implementation plan
 - **Baseline tests:** swift test passed with 192 VoiceCore tests in 26 suites and 27 BugVoiceMac tests in 7 suites (219 total).
 - **Build / launch / manual checks:** final app build, launch, and manual checks have not run.
-- **UNVERIFIED:** Notes UI, editor insertion/undo, app activation/selection refresh wiring, autosave scheduling, quit, shortcut registration, storage size, export, and live app behavior remain until implemented and manually checked.
+- **UNVERIFIED:** live-window editor interaction, app activation refresh wiring, quit, shortcut registration, storage size, export, and live app behavior remain until implemented and manually checked.
 
 ## Approved decisions and costs
 
@@ -29,6 +29,7 @@ Implementation is in progress on feat/notes. Tasks 1–4 are implemented; loaded
 | e48f79e | Task 2: route, insertion, search, export | 214 VoiceCore + 27 BugVoiceMac passed | Notes pipeline mode and VoiceCore operations |
 | a690259 | Task 3: autosave and external-version policy | 222 VoiceCore + 27 BugVoiceMac passed | 500 ms debounce and FNV-1a version checks |
 | 0e53b0d | Task 4: durable NotesStore actor | 222 VoiceCore + 34 BugVoiceMac passed | One actor owns Markdown file operations |
+| 9f769f8 | Pre-Task 5b ordinary dictation regression | 223 VoiceCore + 41 BugVoiceMac passed | Pins exact output and inserted UTF-8 bytes for outside-app dictation |
 
 ## Decisions made during implementation
 
@@ -88,3 +89,15 @@ Not run. Keep all Notes Result cells blank until the maintainer performs the dev
 - Self-review: loaded insertions do not call NotesStore's direct insertion path; pending body edits are kept because dictation mutates the same note buffer before the save snapshot. A successful store write updates the baseline before selection refresh. NotesEditorInsertion has no pasteboard dependency and its `copy` method is a no-op.
 - Decision left by the plan: controller retains every loaded note and its undo manager for the full app run; no unload/eviction policy was added. Cost if wrong: long sessions with many opened notes retain their in-memory buffers and undo histories until app exit.
 - Skipped / UNVERIFIED: an AppKit test that created a real NSWindow passed alone but caused the combined controller test process to exit with signal 11, so it was removed. The visible-window placement and editing behavior remain for manual verification; off-screen buffer insertion and undo are automated. No Notes UI delegate wiring exists yet.
+
+### Task 5b — DictationController route-at-start wiring
+
+- Before touching DictationController, committed `9f769f8` with a regression test that pins the ordinary Safari dictation's exact final UTF-8 bytes, PasteboardInserter payload bytes, insertion count, and no-copy behavior. Full swift test passed before that commit.
+- Added app-owned NotesStore/NotesController, a Notes page route marker, and a NotesController capture method that requires BugVoice frontmost, Notes selected, and the matching NotesTextView as first responder. DictationController stores that immutable capture at recording start and uses it through completion, independent of later focus changes.
+- Notes runs skip all last.wav reads/writes/removal and skip AppModel.record, so they do not alter audio replay, last-result, or history. They pass the captured NotesEditorInsertion and explicit Notes mode into the existing pipeline. Ordinary retry, paste-last, clipboard, secure-field and provider paths are unchanged.
+- A clean external body reload increments the loaded buffer revision when the body changed, causing a captured run to append to the reloaded body instead of using a stale selection.
+- Tests: route-capture start conditions and changed-body append pass in NotesControllerTests; ordinary byte regression remains passing. Full swift test passed with 223 VoiceCore tests / 43 BugVoiceMac tests (266 total).
+- Self-review: DictationController selects the target once in `begin`; `finish` only uses the stored capture. A Notes result does not reach `AppModel.record`. If no Notes capture exists, code follows the existing ordinary pipeline and last.wav branch.
+- Decision left by the plan: only a body-content change during clean external reload increments the insertion revision; title-only or metadata-only changes preserve the captured body selection. Cost if wrong: if title-only changes should count as an edited body, dictation would insert at selection rather than append.
+- Skipped / NOT BUILT: mic button integration, in-editor route availability in a real Notes page, and UI conflict/save-state presentation are Task 6. No outside-BugVoice behavior changes were made.
+- UNVERIFIED: no live microphone, focus-loss recording, last.wav filesystem observation, pasteboard observation, or app launch has been run yet.

@@ -8,6 +8,7 @@ public final class NotesController {
     private var loaded: [NoteID: LoadedNote] = [:]
     private var saveTasks: [NoteID: Task<Void, Never>] = [:]
     private var saveTokens: [NoteID: UUID] = [:]
+    public private(set) var selectedNoteID: NoteID?
 
     public init(store: NotesStore) {
         self.store = store
@@ -17,6 +18,36 @@ public final class NotesController {
         if loaded[id] != nil { return }
         let note = try await store.open(id: id)
         loaded[id] = LoadedNote(note: note)
+    }
+
+    public func select(id: NoteID) async throws {
+        try await load(id: id)
+        selectedNoteID = id
+    }
+
+    public func captureAtStart(
+        bugVoiceIsFrontmost: Bool,
+        notesPageIsSelected: Bool,
+        firstResponderEditorID: UUID?
+    ) -> NotesDictationCapture? {
+        guard let id = selectedNoteID,
+              let state = loaded[id],
+              !state.externalChangeDetected,
+              let editor = state.editor else { return nil }
+        let selection = editor.selectedRange()
+        let bodyLength = (state.note.body as NSString).length
+        let conditions = NotesRouteConditions(
+            bugVoiceIsFrontmost: bugVoiceIsFrontmost,
+            notesPageIsSelected: notesPageIsSelected,
+            selectedNoteID: id,
+            selectedEditorID: editor.editorID,
+            firstResponderEditorID: firstResponderEditorID,
+            selection: NotesTextRange(location: selection.location, length: selection.length),
+            bodyUTF16Length: bodyLength,
+            noteRevision: state.note.revision,
+            editingBlocked: state.externalChangeDetected
+        )
+        return NotesRoutePolicy.capture(atStart: conditions)
     }
 
     public func note(id: NoteID) -> NoteDocument? {
@@ -126,6 +157,9 @@ public final class NotesController {
                 state.externalChangeDetected = false
             case .reloaded(let note, let version):
                 var reloaded = note
+                if reloaded.body != state.note.body {
+                    reloaded.revision = max(reloaded.revision, state.note.revision &+ 1)
+                }
                 reloaded.fileVersion = version
                 state.note = reloaded
                 state.lastPersistedRevision = reloaded.revision

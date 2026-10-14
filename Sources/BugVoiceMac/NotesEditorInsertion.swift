@@ -4,6 +4,7 @@ import VoiceCore
 
 @MainActor
 public final class NotesTextView: NSTextView {
+    public let editorID = UUID()
     weak var notesController: NotesController?
     var noteID: NoteID?
 

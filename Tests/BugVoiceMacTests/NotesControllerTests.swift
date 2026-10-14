@@ -92,6 +92,65 @@ struct NotesControllerTests {
         #expect(try await store.open(id: created.id).body == "body dictated")
     }
 
+    @Test func routeCaptureRequiresBugVoiceNotesPageAndMatchingFirstResponder() async throws {
+        let root = try directory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = NotesStore(directory: root)
+        let created = try await store.create(title: "Route", body: "body")
+        let controller = NotesController(store: store)
+        try await controller.select(id: created.id)
+        let editor = NotesTextView(frame: .zero)
+        controller.attachEditor(editor, to: created.id)
+
+        let valid = controller.captureAtStart(
+            bugVoiceIsFrontmost: true,
+            notesPageIsSelected: true,
+            firstResponderEditorID: editor.editorID
+        )
+        #expect(valid?.noteID == created.id)
+        #expect(valid?.selection == NotesTextRange(location: 4, length: 0))
+        #expect(controller.captureAtStart(
+            bugVoiceIsFrontmost: false,
+            notesPageIsSelected: true,
+            firstResponderEditorID: editor.editorID
+        ) == nil)
+        #expect(controller.captureAtStart(
+            bugVoiceIsFrontmost: true,
+            notesPageIsSelected: false,
+            firstResponderEditorID: editor.editorID
+        ) == nil)
+        #expect(controller.captureAtStart(
+            bugVoiceIsFrontmost: true,
+            notesPageIsSelected: true,
+            firstResponderEditorID: UUID()
+        ) == nil)
+        // The immutable start capture remains bound after focus moves.
+        #expect(valid?.noteID == created.id)
+    }
+
+    @Test func externalBodyChangeAfterCaptureMovesInsertionToLatestBodyEnd() async throws {
+        let root = try directory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = NotesStore(directory: root)
+        let created = try await store.create(title: "External", body: "body")
+        let controller = NotesController(store: store)
+        try await controller.select(id: created.id)
+        let editor = NotesTextView(frame: .zero)
+        controller.attachEditor(editor, to: created.id)
+        editor.setSelectedRange(NSRange(location: 0, length: 0))
+        let capture = controller.captureAtStart(
+            bugVoiceIsFrontmost: true,
+            notesPageIsSelected: true,
+            firstResponderEditorID: editor.editorID
+        )!
+
+        try Data("# External\n\nnew external body".utf8).write(to: root.appendingPathComponent("external.md"))
+        await controller.refresh(id: created.id, trigger: .appActivation)
+        #expect(controller.note(id: created.id)?.revision == capture.bodyRevision + 1)
+        #expect(await controller.insert(capture: capture, text: " dictated"))
+        #expect(controller.note(id: created.id)?.body == "new external body dictated")
+    }
+
     @Test func undoHistoryIsPerControllerAndDoesNotSurviveRecreation() async throws {
         let root = try directory()
         defer { try? FileManager.default.removeItem(at: root) }

@@ -18,6 +18,7 @@ final class DictationController {
     private var detector = HoldGestureDetector()
     private var hotkey: HotkeyMonitor!
     private var startFocus = FocusSnapshot.unknown
+    private var notesCapture: NotesDictationCapture?
     private var startedAt = Date()
     private var limitTask: Task<Void, Never>?
     private var runCounter = 0
@@ -114,10 +115,12 @@ final class DictationController {
             return
         }
         startFocus = FocusInspector.read()
+        notesCapture = model.captureNotesDictation(startFocus: startFocus)
         startedAt = Date()
         do {
             try recorder.start(deviceUID: model.settings.speech.microphoneUID)
         } catch {
+            notesCapture = nil
             detector.reset()
             hud.show(.failure(
                 title: "Microphone unavailable",
@@ -162,6 +165,7 @@ final class DictationController {
         detector.reset()
         _ = recorder.stop()
         model.isListening = false
+        notesCapture = nil
         hud.hide()
     }
 
@@ -173,32 +177,52 @@ final class DictationController {
         model.isListening = false
         detector.reset()
         if model.settings.soundsEnabled { NSSound(named: "Pop")?.play() }
-        if startFocus.isSecure {
-            // Likely a spoken secret: keep no audio of it. An older
-            // last.wav goes too, so Retry last cannot replay another clip.
-            try? FileManager.default.removeItem(at: model.paths.lastRecording)
-        } else if clip.duration >= 0.3 {
-            do {
-                try WAVEncoder.encode(clip).write(to: model.paths.lastRecording, options: .atomic)
-            } catch {
-                model.saveError = "Could not save last.wav: \(error.localizedDescription)"
+        let capturedNotesRun = notesCapture
+        notesCapture = nil
+        if capturedNotesRun == nil {
+            if startFocus.isSecure {
+                // Likely a spoken secret: keep no audio of it. An older
+                // last.wav goes too, so Retry last cannot replay another clip.
+                try? FileManager.default.removeItem(at: model.paths.lastRecording)
+            } else if clip.duration >= 0.3 {
+                do {
+                    try WAVEncoder.encode(clip).write(to: model.paths.lastRecording, options: .atomic)
+                } catch {
+                    model.saveError = "Could not save last.wav: \(error.localizedDescription)"
+                }
             }
         }
-        process(clip, focus: startFocus, startedAt: startedAt)
+        process(clip, focus: startFocus, startedAt: startedAt, notesCapture: capturedNotesRun)
     }
 
     // MARK: Pipeline
 
-    private func process(_ clip: AudioClip, focus: FocusSnapshot, startedAt: Date) {
+    private func process(
+        _ clip: AudioClip,
+        focus: FocusSnapshot,
+        startedAt: Date,
+        notesCapture: NotesDictationCapture? = nil
+    ) {
         isBusy = true
         runCounter += 1
         let run = runCounter
         stagedRun = run
-        let pipeline = model.makePipeline(insertion: inserter)
+        let insertion: any InsertionTarget
+        if let notesCapture {
+            insertion = NotesEditorInsertion(controller: model.notesController, capture: notesCapture)
+        } else {
+            insertion = inserter
+        }
+        let pipeline = model.makePipeline(insertion: insertion)
         let language = Self.languageLabel(model.settings.speech.language)
         let modelName = model.settings.textModel.shortName
         Task { [self] in
-            let result = await pipeline.run(clip: clip, startFocus: focus, startedAt: startedAt) { stage in
+            let result = await pipeline.run(
+                clip: clip,
+                startFocus: focus,
+                startedAt: startedAt,
+                mode: notesCapture == nil ? .ordinary : .notes
+            ) { stage in
                 Task { @MainActor in
                     self.showStage(stage, run: run, language: language, modelName: modelName, app: focus.appName)
                 }
@@ -208,7 +232,7 @@ final class DictationController {
                 hud.hide()
             } else {
                 if let state = HUDState.from(result) { hud.show(state) } else { hud.hide() }
-                await model.record(result)
+                if notesCapture == nil { await model.record(result) }
             }
             isBusy = false
         }
