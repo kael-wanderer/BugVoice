@@ -24,7 +24,7 @@ struct MainWindow: View {
             .navigationSplitViewColumnWidth(200)
         } detail: {
             switch model.page {
-            case .dictation: Text("Dictation history — Task 19")
+            case .dictation: DictationHistoryView(model: model)
             case .settings: SettingsView(model: model)
             }
         }

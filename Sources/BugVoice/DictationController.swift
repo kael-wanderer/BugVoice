@@ -246,7 +246,14 @@ final class DictationController {
     }
 
     func pasteLast() {
-        guard !isBusy, let text = model.lastResult?.finalText, !text.isEmpty else { return }
+        guard let text = model.lastResult?.finalText else { return }
+        paste(text)
+    }
+
+    /// Pastes `text` at the cursor of the app that had focus before BugVoice,
+    /// or copies it only when that field is secure.
+    func paste(_ text: String) {
+        guard !isBusy, !text.isEmpty else { return }
         if FocusInspector.read().isSecure {
             Task {
                 await inserter.copy(text)
@@ -255,5 +262,19 @@ final class DictationController {
             return
         }
         Task { _ = await inserter.insert(text) }
+    }
+
+    /// History row action: hides BugVoice so focus returns to the previous
+    /// app, waits for that activation, then pastes with the secure check.
+    func pasteAgain(_ text: String) {
+        NSApp.hide(nil)
+        Task {
+            try? await Task.sleep(for: .milliseconds(350))
+            paste(text)
+        }
+    }
+
+    func copy(_ text: String) {
+        Task { await inserter.copy(text) }
     }
 }
