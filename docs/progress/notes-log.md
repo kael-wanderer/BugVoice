@@ -148,3 +148,11 @@ Not run. Keep all Notes Result cells blank until the maintainer performs the dev
 - Tests: full `swift test` passed with 224 VoiceCore tests / 31 suites and 54 BugVoiceMac tests / 11 suites (278 total), including concurrent saves, save plus stale-baseline refresh, and rename after Store save.
 - Self-review: ownership is based on the complete mtime/size/content-hash version, not a time window. The actor serializes version-map updates with its filesystem writes.
 - Skipped / UNVERIFIED: no filesystem fault-injection or multi-process stress run was added; the focused actor tests cover overlapping API calls and stale expected versions.
+
+### Review item 4 — Recover dictated text when an unloaded-note save fails
+
+- Test-first: added a VoiceCore pipeline test for failed Notes insertion and a controller test that makes the Notes directory read-only so NotesStore's durable replacement fails. The controller test initially failed to compile because insertion still returned `Bool` and had no recovery state.
+- Implemented distinct `.failed` insertion and `.noteSaveFailed` pipeline outcomes. The unloaded-note path treats only `.saved` as success and only `.deleted` as deletion; store errors, conflicts, stale writes, and other non-save outcomes preserve the dictation as a Notes insertion recovery. Notes shows each saved recovery text with an explicit Copy action. Notes save failures remain absent from history and the ordinary clipboard path is never invoked.
+- Tests: full `swift test` passed with 225 VoiceCore tests / 31 suites and 55 BugVoiceMac tests / 11 suites (280 total). The read-only Store failure test and Notes pipeline failure/privacy test pass.
+- Self-review: ordinary insertion targets continue to return only `.pasted` or `.notConsumed`; the new failure outcome is used by Notes. Deleted captured notes still produce the existing deleted-note message.
+- Skipped / UNVERIFIED: no device-level forced disk failure or live Copy interaction was run; the failure is simulated by removing write permission from a temporary Notes directory.

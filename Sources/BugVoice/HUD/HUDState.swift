@@ -27,6 +27,8 @@ enum HUDState: Equatable {
             return .warning(title: "Copied — press ⌘V", detail: "paste not picked up")
         case .noteDeleted:
             return .warning(title: "Note deleted — dictation was not added", detail: "The note was deleted before insertion")
+        case .noteSaveFailed:
+            return .warning(title: "Could not save dictation", detail: "Open Notes to copy the text")
         case .insertedInNote:
             return .done(
                 style: Style.document.rawValue.capitalized,

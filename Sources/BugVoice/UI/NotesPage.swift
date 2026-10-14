@@ -35,6 +35,17 @@ struct NotesPage: View {
             }
             .padding(12)
 
+            ForEach(controller.insertionRecoveries) { recovery in
+                HStack {
+                    Text(recovery.message)
+                        .foregroundStyle(.red)
+                    Spacer()
+                    Button("Copy") { copyRecovery(recovery) }
+                }
+                .padding(.horizontal, 12)
+                .padding(.bottom, 8)
+            }
+
             Divider()
 
             HStack(spacing: 0) {
@@ -289,6 +300,12 @@ struct NotesPage: View {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(text, forType: .string)
         }
+    }
+
+    private func copyRecovery(_ recovery: NotesInsertionRecovery) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(recovery.text, forType: .string)
+        controller.dismissInsertionRecovery(id: recovery.id)
     }
 
     private func exportMarkdown(_ note: NoteDocument) {

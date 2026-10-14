@@ -221,6 +221,23 @@ struct DictationPipelineTests {
         #expect(result.historyEntry == nil)
     }
 
+    @Test func notesInsertionFailureKeepsTextOutOfHistoryAndClipboard() async {
+        var settings = AppSettings()
+        settings.cleanupEnabled = false
+        let insertion = RecordingInsertion(outcome: .failed)
+        let result = await pipeline(model: nil, insertion: insertion, settings: settings).run(
+            clip: speechClip,
+            startFocus: notionFocus,
+            startedAt: Date(),
+            mode: .notes,
+            onStage: { _ in }
+        )
+        #expect(result.outcome == .noteSaveFailed)
+        #expect(result.finalText == "hello world")
+        #expect(result.historyEntry == nil)
+        #expect(await insertion.copied.isEmpty)
+    }
+
     @Test func notConsumedIsReported() async {
         let r = await pipeline(insertion: RecordingInsertion(outcome: .notConsumed)).run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })
         #expect(r.outcome == .copiedNotConsumed)

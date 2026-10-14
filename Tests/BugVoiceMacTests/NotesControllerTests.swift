@@ -23,7 +23,7 @@ struct NotesControllerTests {
 
         controller.updateBody(id: created.id, body: "typed edit")
         #expect(controller.hasPendingSave(id: created.id))
-        #expect(await controller.insert(capture: capture, text: " dictated"))
+        #expect(await controller.insert(capture: capture, text: " dictated") == .inserted)
         #expect(controller.note(id: created.id)?.body == "typed edit dictated")
         await controller.flush(id: created.id)
         let persisted = try await store.open(id: created.id)
@@ -64,7 +64,7 @@ struct NotesControllerTests {
             bodyRevision: 0
         )
         controller.detachEditor(editor, from: created.id)
-        #expect(await controller.insert(capture: capture, text: " dictation"))
+        #expect(await controller.insert(capture: capture, text: " dictation") == .inserted)
         #expect(controller.undoManager(for: created.id) === manager)
         #expect(controller.note(id: created.id)?.body == "body dictation")
 
@@ -90,9 +90,35 @@ struct NotesControllerTests {
             bodyRevision: 0
         )
 
-        #expect(await controller.insert(capture: capture, text: " dictated"))
+        #expect(await controller.insert(capture: capture, text: " dictated") == .inserted)
         #expect(!controller.isLoaded(id: created.id))
         #expect(try await store.open(id: created.id).body == "body dictated")
+    }
+
+    @Test func unloadedInsertionSaveFailureRetainsDictationForCopy() async throws {
+        let root = try directory()
+        defer {
+            try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: root.path)
+            try? FileManager.default.removeItem(at: root)
+        }
+        let store = NotesStore(directory: root)
+        let created = try await store.create(title: "Read only", body: "body")
+        let controller = NotesController(store: store)
+        let capture = NotesDictationCapture(
+            noteID: created.id,
+            editorID: UUID(),
+            selection: NotesTextRange(location: 4, length: 0),
+            bodyUTF16Length: 4,
+            bodyRevision: 0
+        )
+        try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: root.path)
+
+        let result = await controller.insert(capture: capture, text: " dictated")
+        #expect(result == .saveFailed)
+        let recovery = try #require(controller.insertionRecoveries.last)
+        #expect(recovery.text == " dictated")
+        #expect(recovery.noteID == created.id)
+        #expect(!controller.isLoaded(id: created.id))
     }
 
     @Test func routeCaptureRequiresBugVoiceNotesPageAndMatchingFirstResponder() async throws {
@@ -174,7 +200,7 @@ struct NotesControllerTests {
             notesPageIsSelected: true,
             firstResponderEditorID: editor.editorID
         ))
-        #expect(await controller.insert(capture: capture, text: " dictated"))
+        #expect(await controller.insert(capture: capture, text: " dictated") == .inserted)
         #expect(editor.string == "hello typed dictated")
 
         let undo = try #require(controller.undoManager(for: created.id))
@@ -212,7 +238,7 @@ struct NotesControllerTests {
         try Data("# External\n\nnew external body".utf8).write(to: root.appendingPathComponent("external.md"))
         await controller.refresh(id: created.id, trigger: .appActivation)
         #expect(controller.note(id: created.id)?.revision == capture.bodyRevision + 1)
-        #expect(await controller.insert(capture: capture, text: " dictated"))
+        #expect(await controller.insert(capture: capture, text: " dictated") == .inserted)
         #expect(controller.note(id: created.id)?.body == "new external body dictated")
     }
 
@@ -284,7 +310,7 @@ struct NotesControllerTests {
             bodyUTF16Length: 4,
             bodyRevision: 0
         )
-        #expect(await firstRun.insert(capture: capture, text: " dictation"))
+        #expect(await firstRun.insert(capture: capture, text: " dictation") == .inserted)
         #expect(firstRun.undoManager(for: created.id)?.canUndo == true)
 
         let nextRun = NotesController(store: store)

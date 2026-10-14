@@ -3,6 +3,7 @@ import Foundation
 public enum InsertOutcome: Sendable, Equatable {
     case pasted
     case notConsumed
+    case failed
 }
 
 public enum DictationMode: Sendable, Equatable {
@@ -29,7 +30,7 @@ public enum PipelineStage: Sendable, Equatable {
 }
 
 public enum DictationOutcome: String, Codable, Sendable {
-    case inserted, insertedInNote, noteDeleted, copiedSecureField, copiedNotConsumed, discardedTooShort, nothingHeard, transcriptionFailed, cancelled
+    case inserted, insertedInNote, noteDeleted, noteSaveFailed, copiedSecureField, copiedNotConsumed, discardedTooShort, nothingHeard, transcriptionFailed, cancelled
 }
 
 public struct DictationResult: Sendable, Equatable {
@@ -63,7 +64,7 @@ public struct DictationResult: Sendable, Equatable {
     /// into a password field is likely a secret and is never logged.
     public var historyEntry: HistoryEntry? {
         switch outcome {
-        case .discardedTooShort, .nothingHeard, .transcriptionFailed, .cancelled, .copiedSecureField, .insertedInNote, .noteDeleted:
+        case .discardedTooShort, .nothingHeard, .transcriptionFailed, .cancelled, .copiedSecureField, .insertedInNote, .noteDeleted, .noteSaveFailed:
             return nil
         case .inserted, .copiedNotConsumed:
             return HistoryEntry(
@@ -211,6 +212,7 @@ public struct DictationPipeline: Sendable {
             switch await insertion.insert(text) {
             case .pasted: result.outcome = .insertedInNote
             case .notConsumed: result.outcome = .noteDeleted
+            case .failed: result.outcome = .noteSaveFailed
             }
         } else {
             let current = await focus.snapshot()
@@ -221,6 +223,7 @@ public struct DictationPipeline: Sendable {
                 switch await insertion.insert(text) {
                 case .pasted: result.outcome = .inserted
                 case .notConsumed: result.outcome = .copiedNotConsumed
+                case .failed: result.outcome = .copiedNotConsumed
                 }
             }
         }

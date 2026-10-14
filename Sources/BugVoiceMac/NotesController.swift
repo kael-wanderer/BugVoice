@@ -7,6 +7,26 @@ public enum NotesControllerError: Error {
     case saveFailed(NoteID)
 }
 
+public enum NotesInsertionResult: Equatable, Sendable {
+    case inserted
+    case noteDeleted
+    case saveFailed
+}
+
+public struct NotesInsertionRecovery: Identifiable, Equatable, Sendable {
+    public let id: UUID
+    public let noteID: NoteID
+    public let text: String
+    public let message: String
+
+    public init(id: UUID = UUID(), noteID: NoteID, text: String, message: String) {
+        self.id = id
+        self.noteID = noteID
+        self.text = text
+        self.message = message
+    }
+}
+
 @MainActor
 @Observable
 public final class NotesController {
@@ -18,6 +38,7 @@ public final class NotesController {
     public private(set) var notes: [NoteDocument] = []
     public private(set) var changeCounter: UInt64 = 0
     public private(set) var listError: String?
+    public private(set) var insertionRecoveries: [NotesInsertionRecovery] = []
 
     public init(store: NotesStore) {
         self.store = store
@@ -320,18 +341,27 @@ public final class NotesController {
 
     /// Inserts into the captured note, regardless of current focus or selected
     /// note. The visible editor is updated from the same authoritative buffer.
-    public func insert(capture: NotesDictationCapture, text: String) async -> Bool {
+    public func insert(capture: NotesDictationCapture, text: String) async -> NotesInsertionResult {
         guard loaded[capture.noteID] != nil else {
             do {
                 let outcome = try await store.applyInsertion(capture: capture, text: text)
-                return outcome != .deleted
+                switch outcome {
+                case .saved:
+                    return .inserted
+                case .deleted:
+                    return .noteDeleted
+                case .unchanged, .reloaded, .conflict, .missingConflict, .stale:
+                    retainInsertionRecovery(noteID: capture.noteID, text: text)
+                    return .saveFailed
+                }
             } catch {
-                return false
+                retainInsertionRecovery(noteID: capture.noteID, text: text, detail: error.localizedDescription)
+                return .saveFailed
             }
         }
 
         await refresh(id: capture.noteID, trigger: .beforeSave)
-        guard let latestState = loaded[capture.noteID] else { return false }
+        guard let latestState = loaded[capture.noteID] else { return .noteDeleted }
         let bodyLength = (latestState.note.body as NSString).length
         guard let plan = NotesInsertionPlan.make(
             capture: capture,
@@ -339,7 +369,7 @@ public final class NotesController {
             currentRevision: latestState.note.revision,
             currentBodyUTF16Length: bodyLength,
             editorVisible: latestState.editor != nil
-        ) else { return false }
+        ) else { return .noteDeleted }
 
         let range: NSRange
         switch plan.location {
@@ -351,13 +381,13 @@ public final class NotesController {
         let oldBody = latestState.note.body
         let updatedBody = (oldBody as NSString).replacingCharacters(in: range, with: text)
         if let editor = latestState.editor {
-            guard let textStorage = editor.textStorage else { return false }
+            guard let textStorage = editor.textStorage else { return .saveFailed }
             let undoManager = latestState.undoManager
             editor.breakUndoCoalescing()
             undoManager.beginUndoGrouping()
             guard editor.shouldChangeText(in: range, replacementString: text) else {
                 undoManager.endUndoGrouping()
-                return false
+                return .saveFailed
             }
             textStorage.replaceCharacters(in: range, with: text)
             latestState.note.body = updatedBody
@@ -378,7 +408,18 @@ public final class NotesController {
         }
         scheduleSave(id: capture.noteID)
         changed()
-        return true
+        return .inserted
+    }
+
+    public func dismissInsertionRecovery(id: UUID) {
+        insertionRecoveries.removeAll { $0.id == id }
+        changed()
+    }
+
+    private func retainInsertionRecovery(noteID: NoteID, text: String, detail: String? = nil) {
+        let message = detail.map { "Could not save this dictation: \($0)" } ?? "Could not save this dictation."
+        insertionRecoveries.append(NotesInsertionRecovery(noteID: noteID, text: text, message: message))
+        changed()
     }
 
     @discardableResult

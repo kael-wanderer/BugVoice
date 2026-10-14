@@ -26,7 +26,11 @@ public final class NotesEditorInsertion: InsertionTarget, @unchecked Sendable {
     }
 
     public func insert(_ text: String) async -> InsertOutcome {
-        await controller.insert(capture: capture, text: text) ? .pasted : .notConsumed
+        switch await controller.insert(capture: capture, text: text) {
+        case .inserted: .pasted
+        case .noteDeleted: .notConsumed
+        case .saveFailed: .failed
+        }
     }
 
     public func copy(_ text: String) async {
