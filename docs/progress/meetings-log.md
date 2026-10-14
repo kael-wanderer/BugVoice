@@ -46,6 +46,29 @@ Tasks 1–13 are complete on branch `feat/meetings`. Task 13 handoff commit: `1d
 - During final transcription, stop has already persisted `.transcribing`; quitting leaves the journals and retryable state. No final-pass prompt is shown.
 - Sleep/wake and quit dialogs were not manually exercised. They remain manual checks.
 
+### 5. Remove failed starts with no committed audio
+
+- Fix commit: `481fea9` — `fix(core): remove empty failed meeting folders`.
+- Test-first: updated the source-start failure test to require an empty store and one deletion; it failed because the failed manifest remained. Added coverage proving a failed start with committed PCM remains available as `.failed`.
+- `swift test` passed (191 VoiceCore tests and 26 BugVoiceMac tests; 217 total).
+- The audio coordinator retains its last durable checkpoint after rolling back a partial source start so the session can distinguish a truly empty folder from a partial recording.
+- No item-specific manual test was run.
+
+### 6. Stream AAC finalization in bounded blocks
+
+- Fix commit: `541070e` — `fix(app): stream meeting journals into AAC files`.
+- Test-first: bounded journal-reader coverage first failed to compile because no sequential reader API existed. It verifies 16,000-sample reads, remaining counts, and PCM fidelity within Int16 quantization.
+- `swift test` passed (191 VoiceCore tests and 27 BugVoiceMac tests; 218 total). Existing AAC duration/mix coverage also passed.
+- The finalizer streams mic and system AAC separately, then reopens both journals and mixes one-second blocks into the playback AAC. Memory use is bounded by those blocks and AVAudioFile buffers.
+- Long-duration memory profiling was not run.
+
+### 8. Open System Settings after a System Audio Recording failure
+
+- Fix commit: `8a104d3` — `fix(app): open system audio recording settings after denial`.
+- The System Audio Recording row now shows “Open System Settings” after process-tap start failure and opens Privacy & Security → Screen & System Audio Recording. The row still describes the initial request timing before a failure.
+- `swift test` passed (191 VoiceCore tests and 27 BugVoiceMac tests; 218 total).
+- The settings deep link and prompt were not manually exercised.
+
 ## Task log
 
 | Task | Implementation commit | Tests |
