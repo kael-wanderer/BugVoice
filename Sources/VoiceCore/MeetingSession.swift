@@ -12,6 +12,7 @@ public struct SystemMeetingClock: MeetingClock {
 public protocol MeetingSessionStore: Sendable {
     func save(_ manifest: MeetingManifest) async throws
     func load(id: MeetingID) async throws -> MeetingManifest
+    func delete(id: MeetingID) async throws
 }
 
 public protocol MeetingAudioSourceControl: Sendable {
@@ -113,15 +114,22 @@ public actor MeetingSession {
         guard manifest == nil else { throw MeetingSessionError.invalidState }
         let now = clock.now()
         var meeting = MeetingManifest(id: meetingID, startedAt: now, state: .recording)
-        try await store.save(meeting)
         manifest = meeting
         do {
+            try await store.save(meeting)
             try await audio.start(track: .mic)
             try await audio.start(track: .system)
             activeStartedAt = now
             return meeting
         } catch {
+            let checkpoint = try? await audio.checkpoint()
             try? await audio.stop()
+            let hasCommittedAudio = checkpoint?.tracks.contains { $0.committedByteCount > 0 || $0.sampleCount > 0 } ?? true
+            guard hasCommittedAudio else {
+                manifest = nil
+                try? await store.delete(id: meeting.id)
+                throw error
+            }
             meeting.state = .failed
             meeting.transcriptionError = String(describing: error)
             manifest = meeting

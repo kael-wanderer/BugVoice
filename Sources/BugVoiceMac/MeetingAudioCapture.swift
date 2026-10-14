@@ -21,6 +21,7 @@ public actor MeetingAudioCaptureCoordinator: MeetingAudioSourceControl {
     private let sources: [MeetingTrack: any MeetingAudioSource]
     private let writer: MeetingPCMJournalWriter
     private var started: Set<MeetingTrack> = []
+    private var lastCheckpoint: MeetingCheckpoint?
     private let levelMeter = MeetingCaptureLevelMeter()
 
     public func level(for track: MeetingTrack) -> Float { levelMeter.value(for: track) }
@@ -32,6 +33,7 @@ public actor MeetingAudioCaptureCoordinator: MeetingAudioSourceControl {
 
     public func start(track: MeetingTrack) async throws {
         guard let source = sources[track] else { throw MeetingAudioCaptureError.sourceUnavailable(track) }
+        if started.isEmpty { lastCheckpoint = nil }
         try writer.start(track: track)
         do {
             let meter = levelMeter
@@ -50,7 +52,7 @@ public actor MeetingAudioCaptureCoordinator: MeetingAudioSourceControl {
         for track in MeetingTrack.allCases where started.contains(track) {
             try await sources[track]?.pause()
         }
-        _ = try writer.checkpoint()
+        lastCheckpoint = try writer.checkpoint()
     }
 
     public func resume() async throws {
@@ -59,7 +61,12 @@ public actor MeetingAudioCaptureCoordinator: MeetingAudioSourceControl {
         }
     }
 
-    public func checkpoint() async throws -> MeetingCheckpoint { try writer.checkpoint() }
+    public func checkpoint() async throws -> MeetingCheckpoint {
+        if started.isEmpty, let lastCheckpoint { return lastCheckpoint }
+        let checkpoint = try writer.checkpoint()
+        lastCheckpoint = checkpoint
+        return checkpoint
+    }
 
     public func stop() async throws {
         var firstError: Error?
@@ -67,7 +74,7 @@ public actor MeetingAudioCaptureCoordinator: MeetingAudioSourceControl {
             do { try await sources[track]?.stop() } catch { if firstError == nil { firstError = error } }
         }
         started.removeAll()
-        do { _ = try writer.checkpoint() } catch { if firstError == nil { firstError = error } }
+        do { lastCheckpoint = try writer.checkpoint() } catch { if firstError == nil { firstError = error } }
         writer.close()
         if let firstError { throw firstError }
     }
@@ -79,7 +86,7 @@ public actor MeetingAudioCaptureCoordinator: MeetingAudioSourceControl {
     private func rollbackSources() async {
         for source in sources.values { try? await source.stop() }
         started.removeAll()
-        _ = try? writer.checkpoint()
+        lastCheckpoint = try? writer.checkpoint()
         writer.close()
     }
 }

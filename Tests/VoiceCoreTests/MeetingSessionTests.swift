@@ -12,7 +12,20 @@ struct MeetingSessionTests {
         } catch {}
         #expect(await rig.audio.started == [.mic, .system])
         #expect(await rig.audio.stopCount == 1)
-        #expect(await rig.store.saved.last?.state == .failed)
+        #expect(await rig.store.meetings.isEmpty)
+        #expect(await rig.store.deleted.count == 1)
+    }
+
+    @Test func failedStartKeepsFolderWhenAudioWasCommitted() async throws {
+        let committed = MeetingCheckpoint(tracks: [
+            MeetingTrackCheckpoint(track: .mic, committedByteCount: 320, sampleCount: 160, startOffset: 0, endOffset: 0.01)
+        ])
+        let rig = SessionRig(failStarting: .system, checkpoint: committed)
+        let session = rig.makeSession()
+        do { try await session.start(); Issue.record("Expected source start failure") } catch {}
+
+        #expect(await rig.store.meetings.values.first?.state == .failed)
+        #expect(await rig.store.deleted.isEmpty)
     }
 
     @Test func pauseCheckpointsAndResumeExcludesPausedGap() async throws {
@@ -253,11 +266,13 @@ private final class ManualClock: MeetingClock, @unchecked Sendable {
 private actor SessionStoreProbe: MeetingSessionStore {
     var meetings: [MeetingID: MeetingManifest] = [:]
     private(set) var saved: [MeetingManifest] = []
+    private(set) var deleted: [MeetingID] = []
     func save(_ manifest: MeetingManifest) async throws {
         meetings[manifest.id] = manifest
         saved.append(manifest)
     }
     func load(id: MeetingID) async throws -> MeetingManifest { meetings[id]! }
+    func delete(id: MeetingID) async throws { deleted.append(id); meetings.removeValue(forKey: id) }
 }
 
 private actor AudioControlProbe: MeetingAudioSourceControl {
@@ -267,14 +282,18 @@ private actor AudioControlProbe: MeetingAudioSourceControl {
     private(set) var pauseCount = 0
     private(set) var resumeCount = 0
     private(set) var recoveredID: MeetingID?
-    init(failStarting: MeetingTrack?) { self.failStarting = failStarting }
+    let committedCheckpoint: MeetingCheckpoint
+    init(failStarting: MeetingTrack?, checkpoint: MeetingCheckpoint = MeetingCheckpoint()) {
+        self.failStarting = failStarting
+        committedCheckpoint = checkpoint
+    }
     func start(track: MeetingTrack) async throws {
         started.append(track)
         if track == failStarting { throw TestFailure.startFailed }
     }
     func pause() async throws { pauseCount += 1 }
     func resume() async throws { resumeCount += 1 }
-    func checkpoint() async throws -> MeetingCheckpoint { MeetingCheckpoint() }
+    func checkpoint() async throws -> MeetingCheckpoint { committedCheckpoint }
     func stop() async throws { stopCount += 1 }
     func recover(id: MeetingID, manifest: MeetingManifest) async throws -> MeetingCheckpoint {
         recoveredID = id
@@ -363,8 +382,8 @@ private struct SessionRig {
     let audio: AudioControlProbe
     let scheduler: SchedulerProbe
     let finalizer = FinalizerProbe()
-    init(failStarting: MeetingTrack? = nil, finalChunks: [MeetingChunkProcessingResult] = [], blockTranscription: Bool = false) {
-        audio = AudioControlProbe(failStarting: failStarting)
+    init(failStarting: MeetingTrack? = nil, checkpoint: MeetingCheckpoint = MeetingCheckpoint(), finalChunks: [MeetingChunkProcessingResult] = [], blockTranscription: Bool = false) {
+        audio = AudioControlProbe(failStarting: failStarting, checkpoint: checkpoint)
         scheduler = SchedulerProbe(block: blockTranscription, chunks: finalChunks)
     }
     func makeSession() -> MeetingSession {
