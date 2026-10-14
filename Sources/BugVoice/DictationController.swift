@@ -135,10 +135,14 @@ final class DictationController {
         } catch {
             notesCapture = nil
             detector.reset()
-            hud.show(.failure(
-                title: "Microphone unavailable",
-                detail: Permissions.isGranted(.microphone) ? "check the input device" : "allow Microphone in Permissions"
-            ))
+            let detail: String
+            switch error {
+            case RecorderError.deviceNotFound, RecorderError.deviceSelectionFailed:
+                detail = "the selected microphone is not available; choose one in Settings"
+            default:
+                detail = Permissions.isGranted(.microphone) ? "check the input device" : "allow Microphone in Permissions"
+            }
+            hud.show(.failure(title: "Microphone unavailable", detail: detail))
             return
         }
         model.isListening = true

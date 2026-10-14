@@ -6,6 +6,8 @@ import VoiceCore
 public enum RecorderError: Error {
     case noInputDevice
     case deviceNotFound
+    case deviceSelectionFailed(OSStatus)
+    case alreadyRunning
 }
 
 /// Microphone → 16 kHz mono Float32, with a level meter for the HUD.
@@ -25,6 +27,7 @@ public final class AudioRecorder: @unchecked Sendable {
     public var level: Float { levelValue.withLock { $0 } }
 
     public func start(deviceUID: String? = nil) throws {
+        guard !isRunning else { throw RecorderError.alreadyRunning }
         // A fresh engine each time picks up device changes since the last run.
         engine = AVAudioEngine()
         samples.withLock { $0.removeAll(keepingCapacity: true) }
@@ -34,7 +37,9 @@ public final class AudioRecorder: @unchecked Sendable {
         if let deviceUID {
             guard var deviceID = AudioDevices.deviceID(forUID: deviceUID) else { throw RecorderError.deviceNotFound }
             guard let unit = input.audioUnit else { throw RecorderError.noInputDevice }
-            AudioUnitSetProperty(unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0, &deviceID, UInt32(MemoryLayout<AudioDeviceID>.size))
+            let status = AudioUnitSetProperty(unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0, &deviceID, UInt32(MemoryLayout<AudioDeviceID>.size))
+            // Never fall back to the default mic when the chosen one fails.
+            guard status == noErr else { throw RecorderError.deviceSelectionFailed(status) }
         }
         let format = input.outputFormat(forBus: 0)
         guard format.sampleRate > 0, format.channelCount > 0 else { throw RecorderError.noInputDevice }
