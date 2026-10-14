@@ -80,3 +80,13 @@ Continuous implementation is in progress. Tasks 1–3 and Task 4 are complete. T
 - Finalization synchronizes each AAC file and directory, durably saves the finalized manifest, and removes `.capture` only after all outputs and manifest are saved. A failure leaves journals for retry.
 - Skipped/unverified: no actual captured recording was played through speakers; tests used synthetic PCM and decoded AAC duration. On-device audio output and process-tap source capture remain **UNVERIFIED on device**.
 - Open maintainer check: play `audio.m4a`, `mic.m4a`, and `system.m4a` after completing the Task 8a permission/capture run.
+
+### Task 9 — permission state, app model, and menu controls
+
+- Implementation commit: `2c5ee82` — `feat(app): wire meetings and shared transcription`.
+- Tests: the `TranscriptionRouterTests` replacement test proves the old in-flight and queued requests complete on the old priority transcriber, while a request arriving during replacement is routed to the new pair. `MeetingPermissionTests` proves System Audio Recording has no Screen Recording preflight and does not gate dictation. Full `swift test` passed 172 VoiceCore + 26 BugVoiceMac tests; `swift build --product BugVoice` passed.
+- Decisions beyond the plan: AppModel holds a stable `TranscriptionRouter` because the dictation pipeline and meeting scheduler retain their transcriber reference. A replacement closes the router to new routing, drains the old `PriorityTranscriber`, then installs the new pair and releases held requests. Engine/model fields are published only after this drain. This adds a small buffering layer during model changes; cost if wrong: queued requests wait until all old meeting chunks finish, but no request is stranded or silently sent to a mixed engine/model pair.
+- The System Audio Recording row has no status preflight and says “Requested when the first meeting starts.” Successful capture marks it granted for the current run; a Core Audio tap-start error is reported at meeting start and leaves dictation available. Cost if wrong: if macOS reports denial only as silent buffers, the app cannot distinguish denial from genuine silence.
+- Menu recording controls call the meeting controller while the existing dictation hotkey, HUD and paste pipeline continue through the shared router. Ctrl-Option-M is registered as a global shortcut; the duplicate SwiftUI menu shortcut was removed to avoid dispatching the toggle twice.
+- No test failure remains. Process-tap capture and permission denial behavior remain **UNVERIFIED on device** per Task 8a; the spike was not launched. No dictation-specific manual interaction was run during this task.
+- Open questions: none for Task 9 beyond the Task 8a maintainer run listed above.
