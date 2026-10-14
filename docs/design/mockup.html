@@ -137,14 +137,100 @@ table.t td{padding:7px 8px;border-bottom:1px solid var(--line2);vertical-align:m
 .flow .s small{display:block;color:var(--ink3)}
 .flow .arr{color:var(--ink3)}
 .legend{color:var(--ink3);font-size:11.5px;margin-top:10px}
+
+/* main window */
+.mw{display:grid;grid-template-columns:200px minmax(0,1fr);min-height:620px}
+.side{background:color-mix(in srgb,var(--win) 70%,var(--desk));border-right:1px solid var(--line2);padding:12px 10px;display:flex;flex-direction:column;gap:2px}
+.brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:16px;padding:4px 8px 14px}
+.brand .tag{font-size:10.5px;font-weight:600;color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent);padding:1px 7px;border-radius:999px}
+.nav{display:flex;align-items:center;gap:9px;padding:6px 9px;border-radius:7px;color:var(--ink2);cursor:pointer;border:0;background:none;font:inherit;text-align:left;width:100%}
+.nav svg{width:16px;height:16px;flex:none}
+.nav .n{margin-left:auto;font-size:11px;color:var(--ink3)}
+.nav[aria-selected="true"]{background:var(--line2);color:var(--ink);font-weight:600}
+.side .foot{margin-top:auto;padding:10px 9px 2px;color:var(--ink3);font-size:11px;border-top:1px solid var(--line2)}
+.side .later{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);border:1px solid var(--line);border-radius:4px;padding:0 4px;margin-left:auto}
+.main{min-width:0;display:none;flex-direction:column}
+.main.on{display:flex}
+.mhead{display:flex;align-items:center;gap:10px;padding:16px 22px 12px;flex-wrap:wrap}
+.mhead h3{margin:0;font-size:20px;letter-spacing:-.01em}
+.mhead .sp{flex:1}
+.search{background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:4px 10px;color:var(--ink3);font-size:12px;min-width:160px}
+.stats{display:flex;gap:10px;padding:0 22px 12px;flex-wrap:wrap}
+.stat{background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:10px 14px;min-width:120px}
+.stat b{display:block;font-size:20px;font-variant-numeric:tabular-nums}
+.stat span{color:var(--ink3);font-size:11.5px}
+.list{padding:0 22px 22px;overflow:auto}
+.day{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink3);margin:10px 0 6px;font-weight:600}
+.drow{display:grid;grid-template-columns:70px minmax(0,1fr) auto;gap:12px;padding:10px 12px;border:1px solid var(--line2);background:var(--panel);border-radius:9px;margin-bottom:6px;align-items:start}
+.drow .tm{color:var(--ink2);font-size:12px}.drow .tm small{display:block;color:var(--ink3);font-size:10.5px}
+.drow .acts{display:flex;gap:6px;color:var(--ink3)}
+.drow .acts span{cursor:pointer}
+.split{display:grid;grid-template-columns:250px minmax(0,1fr);flex:1;min-height:0;border-top:1px solid var(--line2)}
+.mlist{border-right:1px solid var(--line2);overflow:auto;padding:8px}
+.mitem{padding:9px 10px;border-radius:8px;cursor:default;margin-bottom:2px}
+.mitem.on{background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.mitem b{display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mitem span{color:var(--ink3);font-size:11.5px}
+.mitem .pill{margin-left:4px}
+.detail{min-width:0;padding:16px 22px 22px;overflow:auto}
+.dtitle{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.dtitle h4{margin:0;font-size:18px}
+.dtitle .sp{flex:1}
+.meta2{color:var(--ink3);font-size:12px;margin:2px 0 12px}
+.player{background:var(--panel);border:1px solid var(--line2);border-radius:12px;padding:12px 14px}
+.prow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pbtn{width:34px;height:34px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;border:0;flex:none}
+.skip{color:var(--ink2);font-size:12px;border:1px solid var(--line);border-radius:6px;padding:2px 7px;background:var(--panel)}
+.wave{flex:1;min-width:160px;height:38px;display:flex;align-items:center;gap:2px;position:relative}
+.wave i{flex:1;border-radius:1px;background:var(--line);display:block}
+.wave i.p{background:var(--accent)}
+.wave .mk{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--ink);border-radius:1px}
+.ptime{font-variant-numeric:tabular-nums;color:var(--ink2);font-size:12px}
+.lanes{display:flex;gap:14px;margin-top:8px;font-size:11px;color:var(--ink3);flex-wrap:wrap}
+.lanes i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.subtabs{display:flex;gap:16px;border-bottom:1px solid var(--line2);margin:16px 0 8px}
+.subtabs span{padding:6px 0;color:var(--ink3);font-size:12.5px}
+.subtabs span.on{color:var(--ink);border-bottom:2px solid var(--accent);font-weight:600}
+.seg2{display:grid;grid-template-columns:96px minmax(0,1fr);gap:12px;padding:9px 10px;border-radius:8px}
+.seg2.now{background:color-mix(in srgb,var(--accent) 10%,transparent)}
+.seg2 .ts{font-family:var(--mono);font-size:11.5px;color:var(--accent);cursor:pointer;padding-top:1px}
+.seg2 .who{font-size:11px;font-weight:700;letter-spacing:.03em;margin-bottom:2px}
+.who.you{color:var(--accent)} .who.oth{color:var(--ok)}
+.noteed{padding:18px 26px 22px;min-width:0;position:relative;display:flex;flex-direction:column}
+.noteed h4{margin:0 0 4px;font-size:22px;letter-spacing:-.01em}
+.noteed .body{font-size:14px;line-height:1.7;color:var(--ink);max-width:640px}
+.noteed .body p{margin:0 0 12px}
+.noteed .body ul{margin:0 0 12px;padding-left:20px}
+.caret{display:inline-block;width:2px;height:1.1em;background:var(--accent);vertical-align:-3px;animation:bl 1s steps(1) infinite}
+@keyframes bl{50%{opacity:0}}
+.ghost{color:var(--ink3);font-style:italic}
+.dictbar{margin-top:auto;align-self:center;display:flex;align-items:center;gap:10px;background:var(--hud);color:var(--hud-ink);border-radius:999px;padding:7px 14px 7px 8px;font-size:12.5px;box-shadow:0 8px 24px rgba(0,0,0,.25);position:sticky;bottom:12px;max-width:100%}
+.mic{width:28px;height:28px;border-radius:50%;background:var(--rec);display:grid;place-items:center;flex:none}
+.recwin{background:var(--hud);color:var(--hud-ink);border-radius:14px;padding:12px 14px;width:280px;max-width:100%;box-shadow:0 12px 34px rgba(0,0,0,.35)}
+.recwin .r1{display:flex;align-items:center;gap:8px;font-weight:600}
+.recwin .r1 .sp{flex:1}
+.recwin .lv{display:grid;grid-template-columns:50px minmax(0,1fr);gap:6px 8px;align-items:center;margin:10px 0;font-size:11px;color:var(--hud-dim)}
+.recwin .meter{height:6px;border-radius:3px;background:rgba(255,255,255,.12);overflow:hidden}
+.recwin .meter b{display:block;height:100%;background:#4ad08a}
+.recwin .live{font-size:12px;color:var(--hud-dim);border-top:1px solid rgba(255,255,255,.1);padding-top:8px}
+.recwin .btns{display:flex;gap:6px;margin-top:10px}
+.recwin .btns span{flex:1;text-align:center;border-radius:7px;padding:5px;background:rgba(255,255,255,.1);font-size:12px}
+.recwin .btns span.stop{background:var(--rec)}
+@media (max-width:760px){
+  .mw{grid-template-columns:minmax(0,1fr)}
+  .side{flex-direction:row;flex-wrap:wrap;border-right:0;border-bottom:1px solid var(--line2)}
+  .brand{width:100%;padding-bottom:6px}.nav{width:auto}.side .foot{display:none}
+  .split{grid-template-columns:minmax(0,1fr)}.mlist{border-right:0;border-bottom:1px solid var(--line2);max-height:180px}
+  .drow{grid-template-columns:minmax(0,1fr)}.seg2{grid-template-columns:minmax(0,1fr)}
+}
 </style>
 </head>
 <body>
 <div class="page">
 <header class="top">
   <div>
-    <h1>BugVoice <span>· Dictation core mockup</span></h1>
-    <p class="sub">Static UI design for sub-project 1. Hold <b>Right&nbsp;Option</b>, speak English or Vietnamese, release, and the text lands at the cursor. Everything runs locally. Spec: <code>docs/superpowers/specs/2026-10-14-dictation-core-design.md</code>.</p>
+    <h1>BugVoice <span>· UI mockup</span></h1>
+    <p class="sub">Static UI design. Sub-project 1 builds dictation, the main window, Dictation history and Settings. Meetings (2) and Notes (3) are designed here so their places exist from day one. Hold <b>Right&nbsp;Option</b>, speak English or Vietnamese, release, and the text lands at the cursor. Everything runs locally. Spec: <code>docs/superpowers/specs/2026-10-14-dictation-core-and-shell-design.md</code>.</p>
   </div>
   <button class="themebtn" id="themeBtn" type="button">Toggle light / dark</button>
 </header>
@@ -160,6 +246,125 @@ table.t td{padding:7px 8px;border-bottom:1px solid var(--line2);vertical-align:m
     <div class="s">Clean (by style)<small>Qwen via LM Studio · skip for terminal</small></div><span class="arr">→</span>
     <div class="s">Paste ⌘V<small>clipboard restored</small></div><span class="arr">→</span>
     <div class="s">history.jsonl<small>local log</small></div>
+  </div>
+</section>
+
+<!-- MAIN WINDOW -->
+<section>
+  <h2>Main window</h2>
+  <p class="note">One window, one sidebar, four pages. Built in sub-project 1 with <b>Dictation</b> and <b>Settings</b> working. <b>Meetings</b> (sub-project 2) and <b>Notes</b> (sub-project 3) have reserved places and are shown here as designed. Click the sidebar.</p>
+  <div class="stage">
+    <div class="window" style="max-width:1080px;margin:0 auto">
+      <div class="titlebar"><div class="lights"><i></i><i></i><i></i></div><div class="t" id="mwTitle">BugVoice</div></div>
+      <div class="mw">
+        <nav class="side" role="tablist" aria-label="Sections">
+          <div class="brand"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 10v4"/></svg>BugVoice<span class="tag">Local</span></div>
+          <button class="nav" data-m="dict" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Dictation<span class="n">1,996</span></button>
+          <button class="nav" data-m="meet" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5" fill="currentColor"/></svg>Meetings<span class="later">2</span></button>
+          <button class="nav" data-m="notes" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg>Notes<span class="later">3</span></button>
+          <button class="nav" data-m="set" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>Settings</button>
+          <div class="foot">Meetings use 2.31 GB<br>~/Library/Application Support/BugVoice</div>
+        </nav>
+
+        <!-- Dictation page -->
+        <div class="main" id="m-dict">
+          <div class="mhead"><h3>Dictation</h3><span class="sp"></span><span class="search">⌕ Search dictations</span></div>
+          <div class="stats">
+            <div class="stat"><b>1,996</b><span>words today</span></div>
+            <div class="stat"><b>142</b><span>words per minute</span></div>
+            <div class="stat"><b>38</b><span>dictations today</span></div>
+            <div class="stat"><b>0.9 s</b><span>median release → text</span></div>
+          </div>
+          <div class="list">
+            <div class="day">Today</div>
+            <div class="drow"><div class="tm">08:51<small>Terminal</small></div><div>refactor the pipeline so the transcriber is injected, then run swift test and show me the failures</div><div class="acts"><span title="Copy">⧉</span><span title="Paste again">↵</span><span title="Delete">🗑</span></div></div>
+            <div class="drow"><div class="tm">08:47<small>Notion</small></div><div>Mình muốn deploy cái API lên staging vào thứ Sáu. Trước đó cần review lại phần auth và chạy load test.</div><div class="acts"><span>⧉</span><span>↵</span><span>🗑</span></div></div>
+            <div class="drow"><div class="tm">08:40<small>Slack · <span class="pill y" style="font-size:10px">raw</span></small></div><div>ok để mình check lại cái PR của Zan rồi báo nha</div><div class="acts"><span>⧉</span><span>↵</span><span>🗑</span></div></div>
+            <div class="day">Yesterday</div>
+            <div class="drow"><div class="tm">17:12<small>VS Code</small></div><div>add a unit test for the output sanitizer that covers an unclosed think tag</div><div class="acts"><span>⧉</span><span>↵</span><span>🗑</span></div></div>
+          </div>
+        </div>
+
+        <!-- Meetings page -->
+        <div class="main on" id="m-meet">
+          <div class="mhead"><h3>Meetings</h3><span class="sp"></span><span class="search">⌕ Search transcripts</span><button class="btn primary">● Start recording</button></div>
+          <div class="split">
+            <div class="mlist">
+              <div class="day" style="margin-top:4px">Today</div>
+              <div class="mitem on"><b>Sprint planning — booking errors</b><span>08:47 · 47:12</span></div>
+              <div class="mitem"><b>Meeting Oct 14, 08:20</b><span>08:20 · 12:03 <span class="pill y">Transcribing 64%</span></span></div>
+              <div class="day">Oct 10</div>
+              <div class="mitem"><b>1:1 with Zan</b><span>16:00 · 31:40</span></div>
+              <div class="mitem"><b>Vendor call — Snipe-IT</b><span>10:15 · 55:02</span></div>
+            </div>
+            <div class="detail">
+              <div class="dtitle"><h4>Sprint planning — booking errors</h4><span class="sp"></span><button class="btn">Export ▾</button><button class="btn">Show in Finder</button><button class="btn">Delete</button></div>
+              <div class="meta2">Tue 14 Oct 2026 · 08:47 · 47:12 · Zoom · 41 MB · large-v3-turbo · Vietnamese</div>
+              <div class="player">
+                <div class="prow">
+                  <span class="skip">−15</span>
+                  <button class="pbtn" aria-label="Play">▶</button>
+                  <span class="skip">+15</span>
+                  <div class="wave" id="wave"></div>
+                  <span class="ptime">12:40 / 47:12</span>
+                  <span class="skip">1×</span>
+                </div>
+                <div class="lanes"><span><i style="background:var(--accent)"></i>You (microphone)</span><span><i style="background:var(--ok)"></i>Others (system audio)</span><span>Click a time to jump there</span></div>
+              </div>
+              <div class="subtabs"><span class="on">Transcript</span><span>Summary</span><span>Action items</span></div>
+              <div class="seg2"><span class="ts">0:00 – 0:15</span><div><div class="who you">YOU</div>Hey Zan, so is it ready? Let's go through the booking errors first, then the release date.</div></div>
+              <div class="seg2"><span class="ts">0:15 – 0:41</span><div><div class="who oth">OTHERS</div>Yeah, these are small non-booking errors. Most of them come from the retry on the payment callback, so maybe four or five issues in total.</div></div>
+              <div class="seg2"><span class="ts">0:41 – 1:02</span><div><div class="who you">YOU</div>Ok, vậy mình fix mấy cái đó trong sprint này luôn. Once it's done, let me know and I'll review.</div></div>
+              <div class="seg2 now"><span class="ts">12:31 – 12:52</span><div><div class="who oth">OTHERS</div>For the release we can target Friday if staging passes the load test on Thursday.</div></div>
+              <div class="seg2"><span class="ts">12:52 – 13:10</span><div><div class="who you">YOU</div>Friday works. I'll write the release note and send it to the channel.</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Notes page -->
+        <div class="main" id="m-notes">
+          <div class="mhead"><h3>Notes</h3><span class="sp"></span><span class="search">⌕ Search notes</span><button class="btn primary">＋ New note</button></div>
+          <div class="split">
+            <div class="mlist">
+              <div class="mitem on"><b>BugVoice — release note draft</b><span>Edited now · 214 words</span></div>
+              <div class="mitem"><b>Spain relocation checklist</b><span>Yesterday · 680 words</span></div>
+              <div class="mitem"><b>Ý tưởng bài blog: dictation local</b><span>Oct 11 · 1,120 words</span></div>
+              <div class="mitem"><b>Peoplebot pitch outline</b><span>Oct 9 · 402 words</span></div>
+            </div>
+            <div class="noteed">
+              <h4>BugVoice — release note draft</h4>
+              <div class="meta2">Markdown · saved to Notes/bugvoice-release-note-draft.md · style: document</div>
+              <div class="body">
+                <p>BugVoice 0.1 is a local dictation app for macOS. Hold Right Option, speak in English or Vietnamese, and the text appears where your cursor is.</p>
+                <ul><li>Speech-to-text runs on device with WhisperKit.</li><li>Cleanup uses any local model through an OpenAI- or Anthropic-compatible server.</li></ul>
+                <p>Nothing you say leaves your Mac. <span class="ghost">Next we will add meeting recording with a searchable timeline</span><span class="caret"></span></p>
+              </div>
+              <div class="dictbar"><span class="mic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/></svg></span><span class="bars"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span>Listening · writes at the cursor · tap ⌥ to stop</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Settings page -->
+        <div class="main" id="m-set">
+          <div class="mhead"><h3>Settings</h3></div>
+          <div class="list"><p class="note" style="margin:0">Same five tabs as the Settings mockup below (General, Speech, Text model, Styles, Vocabulary), shown inside the main window. <b>⌘,</b> opens this page. Sub-project 2 adds a <b>Meetings</b> tab (audio sources, storage folder, auto-delete after N days) and sub-project 3 adds <b>Notes</b> (folder, default style).</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MEETING RECORDER -->
+<section>
+  <h2>Meeting recorder (sub-project 2)</h2>
+  <p class="note">Start from the menu bar, <b>⌃⌥M</b>, or the Meetings page. A small floating window stays on top during the call: two level meters (you and the call), the latest transcribed line, pause and stop. Stopping saves the recording to Meetings and finishes the transcript in the background.</p>
+  <div class="stage" style="display:flex;justify-content:center">
+    <div class="recwin">
+      <div class="r1"><span class="recdot"></span>Recording<span class="sp"></span><span class="ptime" style="color:var(--hud-dim)">23:05</span></div>
+      <div class="lv"><span>You</span><span class="meter"><b style="width:62%"></b></span><span>Others</span><span class="meter"><b style="width:35%"></b></span></div>
+      <div class="live">22:48 · Others — staging passes the load test on Thursday…</div>
+      <div class="btns"><span>❚❚ Pause</span><span>✎ Mark</span><span class="stop">■ Stop</span></div>
+    </div>
   </div>
 </section>
 
@@ -221,6 +426,10 @@ table.t td{padding:7px 8px;border-bottom:1px solid var(--line2);vertical-align:m
         <div class="preview"><b>Last · Terminal · 08:51</b><br>refactor the pipeline so the transcriber is injected, then run swift test and show me the failures</div>
         <div class="mi">Paste last <span class="kbd">⌃⌥V</span></div>
         <div class="mi">Retry last recording</div>
+        <div class="sep"></div>
+        <div class="mi">Start meeting recording <span class="kbd">⌃⌥M</span></div>
+        <div class="mi">New note <span class="kbd">⌃⌥N</span></div>
+        <div class="mi">Open BugVoice… <span class="kbd">⌃⌥B</span></div>
         <div class="sep"></div>
         <div class="mi"><span class="check">Clean up with language model</span></div>
         <div class="mi"><span class="nocheck">Hands-free mode</span> <span class="kbd">double-tap ⌥</span></div>
@@ -389,6 +598,21 @@ Qwen
     var next=cur==='dark'?'light':'dark';
     root.setAttribute('data-theme',next);
     try{localStorage.setItem('bv-theme',next);}catch(e){}
+  });
+  var wave=document.getElementById('wave');
+  if(wave){var seed=7;function r(){seed=(seed*9301+49297)%233280;return seed/233280;}
+    var n=90,pos=Math.round(n*12.67/47.2);
+    for(var i=0;i<n;i++){var b=document.createElement('i');b.style.height=(18+Math.round(r()*78))+'%';if(i<pos)b.className='p';wave.appendChild(b);}
+    var mk=document.createElement('span');mk.className='mk';mk.style.left=(pos/n*100)+'%';wave.appendChild(mk);}
+  var mnames={dict:'Dictation',meet:'Meetings',notes:'Notes',set:'Settings'};
+  document.querySelectorAll('.nav').forEach(function(t){
+    t.addEventListener('click',function(){
+      document.querySelectorAll('.nav').forEach(function(x){x.setAttribute('aria-selected','false');});
+      document.querySelectorAll('.main').forEach(function(p){p.classList.remove('on');});
+      t.setAttribute('aria-selected','true');
+      document.getElementById('m-'+t.dataset.m).classList.add('on');
+      document.getElementById('mwTitle').textContent='BugVoice — '+mnames[t.dataset.m];
+    });
   });
   var names={general:'General',speech:'Speech',model:'Text model',styles:'Styles',vocab:'Vocabulary'};
   document.querySelectorAll('.tab').forEach(function(t){

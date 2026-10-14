@@ -1,9 +1,11 @@
-# BugVoice — Dictation Core design
+# BugVoice — Dictation Core + App Shell design
 
 Date: 2026-10-14
 Status: draft, awaiting maintainer review
-Scope: sub-project 1 of 3 (Dictation core). Notetaker (2) and History window (3)
-get their own specs later.
+Scope: sub-project 1 of 3 — Dictation core **and the app shell** (main window
+with sidebar, Dictation history page, Settings). Meetings (2) and Notes (3) get
+their own specs later; this spec reserves their UI places, storage folders, and
+the code seams they reuse (§10).
 
 ## 1. Purpose
 
@@ -32,8 +34,10 @@ are possible only if the user configures one.
 
 ### Out of scope for this spec
 
-Meeting transcription, system-audio capture, history browsing UI, stats,
-voice commands that edit selected text, iOS/Windows, cloud sync, accounts.
+Building Meetings (recording, system audio, player, timeline) and Notes
+(in-app editor) — designed in the mockup and reserved here, specified later.
+Also out: voice commands that edit selected text, iOS/Windows, cloud sync,
+accounts.
 
 ## 2. Background (from the Wispr Flow 1.6.1147 investigation)
 
@@ -77,7 +81,8 @@ without a window, microphone, or Accessibility.
 | `TextModel` (protocol) | `func clean(_ req: CleanupRequest) async throws -> String` |
 | `OpenAICompatibleModel` | `POST {base}/v1/chat/completions` |
 | `AnthropicCompatibleModel` | `POST {base}/v1/messages` |
-| `Transcriber` (protocol) | `func transcribe(_ audio: AudioClip, options:) async throws -> Transcript` |
+| `Transcriber` (protocol) | `func transcribe(_ audio: AudioClip, options:) async throws -> Transcript`; `Transcript` = `text` + `segments: [Segment(start, end, text)]` + `language` (segments unused by dictation, required by Meetings) |
+| `InsertionTarget` (protocol) | `func insert(_ text: String) async -> InsertOutcome`; dictation uses the paste target, Notes will use an in-app editor target |
 | `OpenAICompatibleTranscriber` | `POST {base}/v1/audio/transcriptions` (multipart WAV) |
 | `WAVEncoder` | Float32 16 kHz mono → 16-bit PCM WAV `Data` |
 | `DictationPipeline` | State machine; all collaborators injected |
@@ -98,6 +103,8 @@ without a window, microphone, or Accessibility.
 | `SettingsWindow` | Tabs: General, Speech, Text model, Styles, Vocabulary |
 | `PermissionsWindow` | Checklist for Microphone, Accessibility, Input Monitoring |
 | `SecureInputMonitor` | Detects `IsSecureEventInputEnabled()` and the owning app |
+| `MainWindow` | `NavigationSplitView`: sidebar Dictation · Meetings · Notes · Settings; Meetings and Notes hidden until their sub-projects ship |
+| `DictationHistoryPage` | Stats row (words today, wpm, count, median latency); search; day-grouped rows with app, text, Copy / Paste again / Delete; reads `history.jsonl` |
 
 ### 3.2 Dependencies
 
@@ -117,6 +124,8 @@ No hotkey library: a modifier-only hold needs a raw event tap.
 | `history.jsonl` | `{id, startedAt, app, bundleID, style, language, raw, cleaned, inserted, outcome, timings}` |
 | `last.wav` | Most recent recording, overwritten each time (for *Retry last*) |
 | `models/` | WhisperKit model cache |
+| `Meetings/<id>/` | **Reserved for sub-project 2**: `audio.m4a`, `mic.m4a`, `system.m4a`, `meeting.json` (title, times, segments with speaker) |
+| `Notes/` | **Reserved for sub-project 3**: one Markdown file per note |
 
 API keys (only for providers that need one) live in the Keychain, service
 `BugVoice`, account = provider id. Never in `settings.json`.
@@ -258,28 +267,66 @@ image, file URL), hands-free 2-minute document dictation.
 
 Mockup: `docs/design/mockup.html`. Surfaces:
 
+- **Main window** — sidebar *Dictation*, *Meetings*, *Notes*, *Settings*, storage
+  footer. Sub-project 1 ships *Dictation* and *Settings*; the other two items
+  appear when their sub-projects land. Opened from the menu (⌃⌥B) or Dock.
 - **Menu bar menu** — status line (Ready / Listening / Model loading / warning),
-  last dictation preview with *Paste last* (⌃⌥V) and *Retry last*, toggles for cleanup
-  and hands-free, current language, Settings…, Permissions…, Quit.
+  last dictation preview with *Paste last* (⌃⌥V) and *Retry last*,
+  *Open BugVoice…* (⌃⌥B), toggles for cleanup and hands-free, current language,
+  Settings…, Permissions…, Quit. *Start meeting recording* (⌃⌥M) and
+  *New note* (⌃⌥N) are added by sub-projects 2 and 3.
 - **HUD** — small pill at bottom-center of the active screen: *Listening*
   (level bars + timer), *Transcribing*, *Cleaning (Qwen)*, *Done (style)*,
   error variants. Non-activating, never steals focus.
-- **Settings** — tabs General (hotkey, hands-free, sounds, launch at login),
+- **Settings** — a page in the main window (⌘,), tabs General (hotkey, hands-free, sounds, launch at login),
   Speech (engine, model, language, download state), Text model (provider
   preset, base URL, model, key, timeout, Test), Styles (table of apps → style,
   per-style cleanup toggle, prompt preview), Vocabulary (editor for
   `vocabulary.txt`).
 - **Permissions** — three rows with live status and *Open System Settings*.
 
-## 10. Build order
+## 10. Reserved for later sub-projects
+
+Recorded here so the shell and core are built with the right seams. Each gets
+its own spec.
+
+### 10.1 Meetings (sub-project 2)
+
+- Start from menu (⌃⌥M), Meetings page, or later auto-detect of a call.
+- Floating recorder window: timer, You/Others level meters, latest line, Pause,
+  Mark, Stop.
+- Capture mic and system audio as two tracks (system audio via a Core Audio
+  process tap); playback file is the mix.
+- Transcription in ~30 s chunks during the call, final pass after Stop, using
+  the same `Transcriber`; segments keep timestamps; speaker = which track
+  (You = mic, Others = system), not diarization.
+- Meeting page: list grouped by day with status (*Transcribing 64%*); detail
+  with player (±15 s, scrub waveform, speed), timeline rows `0:00 – 0:15`
+  clickable to seek, current row highlighted during playback; tabs Transcript /
+  Summary / Action items (summary via the configured `TextModel`); Export
+  (Markdown, SRT, audio), Show in Finder, Rename, Delete.
+- Recordings are kept until the user deletes them; optional auto-delete in
+  Settings → Meetings.
+
+### 10.2 Notes (sub-project 3)
+
+- Notes page: list + editor (Markdown, saved to `Notes/<slug>.md`).
+- Dictating while the editor is focused inserts at the caret through an
+  in-app `InsertionTarget` (no clipboard), style `document`, no timeline, no
+  audio kept.
+- Mic button / hotkey, live *Listening* bar at the bottom of the editor; New
+  note (⌃⌥N), search, export, copy as Markdown, delete.
+
+## 11. Build order
 
 1. Repo skeleton, `VoiceCore` providers + `stt-bench.sh` → run benchmark.
 2. `VoiceCore` pipeline + unit tests.
 3. App: hotkey, recorder, WhisperKit, inserter, HUD — end-to-end with raw text.
-4. Cleanup providers wired, styles, settings UI, permissions window.
-5. Manual checklist pass; `build-app.sh` produces a signed-locally `.app`.
+4. Cleanup providers wired, styles, permissions window.
+5. Main window shell: sidebar, Dictation history page, Settings page.
+6. Manual checklist pass; `build-app.sh` produces a signed-locally `.app`.
 
-## 11. Open questions
+## 12. Open questions
 
 - Default language (`auto` vs `vi`) — answered by step 1.
 - Cleanup model size for the document path — answered by step 1.
