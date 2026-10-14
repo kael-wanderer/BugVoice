@@ -42,6 +42,39 @@ public enum MeetingChunkState: String, Codable, Sendable {
     case failed
 }
 
+public enum MeetingTranscriptionMode: String, Codable, Sendable {
+    case timestamped
+    case forcedVAD
+}
+
+public struct MeetingChunkAttempt: Codable, Equatable, Sendable {
+    public var mode: MeetingTranscriptionMode
+    public var requestedLanguage: SpeechLanguage
+    public var detectedLanguage: String?
+    public var state: MeetingChunkState
+    public var text: String
+    public var segments: [TranscriptSegment]
+    public var errorMessage: String?
+
+    public init(
+        mode: MeetingTranscriptionMode,
+        requestedLanguage: SpeechLanguage,
+        detectedLanguage: String? = nil,
+        state: MeetingChunkState,
+        text: String = "",
+        segments: [TranscriptSegment] = [],
+        errorMessage: String? = nil
+    ) {
+        self.mode = mode
+        self.requestedLanguage = requestedLanguage
+        self.detectedLanguage = detectedLanguage
+        self.state = state
+        self.text = text
+        self.segments = segments
+        self.errorMessage = errorMessage
+    }
+}
+
 public struct MeetingChunkRecord: Codable, Equatable, Sendable, Identifiable {
     public var id: String
     public var track: MeetingTrack
@@ -51,6 +84,8 @@ public struct MeetingChunkRecord: Codable, Equatable, Sendable, Identifiable {
     public var detectedLanguage: String?
     public var state: MeetingChunkState
     public var errorMessage: String?
+    public var attempts: [MeetingChunkAttempt]
+    public var chosenAttempt: Int?
 
     public init(
         id: String,
@@ -60,7 +95,9 @@ public struct MeetingChunkRecord: Codable, Equatable, Sendable, Identifiable {
         requestedLanguage: SpeechLanguage,
         detectedLanguage: String? = nil,
         state: MeetingChunkState,
-        errorMessage: String? = nil
+        errorMessage: String? = nil,
+        attempts: [MeetingChunkAttempt] = [],
+        chosenAttempt: Int? = nil
     ) {
         self.id = id
         self.track = track
@@ -70,6 +107,29 @@ public struct MeetingChunkRecord: Codable, Equatable, Sendable, Identifiable {
         self.detectedLanguage = detectedLanguage
         self.state = state
         self.errorMessage = errorMessage
+        self.attempts = attempts
+        self.chosenAttempt = chosenAttempt
+    }
+}
+
+extension MeetingChunkRecord {
+    private enum CodingKeys: String, CodingKey {
+        case id, track, offset, duration, requestedLanguage, detectedLanguage, state, errorMessage
+        case attempts, chosenAttempt
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        track = try c.decode(MeetingTrack.self, forKey: .track)
+        offset = try c.decode(TimeInterval.self, forKey: .offset)
+        duration = try c.decode(TimeInterval.self, forKey: .duration)
+        requestedLanguage = try c.decode(SpeechLanguage.self, forKey: .requestedLanguage)
+        detectedLanguage = try c.decodeIfPresent(String.self, forKey: .detectedLanguage)
+        state = try c.decode(MeetingChunkState.self, forKey: .state)
+        errorMessage = try c.decodeIfPresent(String.self, forKey: .errorMessage)
+        attempts = (try? c.decode([MeetingChunkAttempt].self, forKey: .attempts)) ?? []
+        chosenAttempt = try c.decodeIfPresent(Int.self, forKey: .chosenAttempt)
     }
 }
 
