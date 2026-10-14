@@ -2,12 +2,12 @@
 
 ## Summary
 
-Tasks 1–13 and whole-branch review items 1–8 are implemented on `feat/meetings`. Review follow-ups `27551bb` and `1cc94d0` close manifest-transition and chunk-retry races. The branch is not merged or pushed.
+Tasks 1–13 and whole-branch review items 1–8 are implemented on `feat/meetings`. Follow-ups `4a50d61`, `9adf72f`, and `570b31c` address short failed starts, failed-pass manifest rebasing, and inactive provider reloads. The branch is not merged or pushed.
 
-- **Tests:** final `swift test` passed 191 VoiceCore tests in 26 suites and 27 BugVoiceMac tests in 7 suites (218 total).
+- **Tests:** final `swift test` passed 192 VoiceCore tests in 26 suites and 27 BugVoiceMac tests in 7 suites (219 total).
 - **Build and launch:** final `Scripts/build-app.sh` succeeded with `Bugler Local Dev`; the rebuilt Info.plist contains `NSAudioCaptureUsageDescription`. `build/BugVoice.app` launched as PID 26981, and `lsof` showed mapped Core ML `bnns_program.bnnsir` resources. No meeting recording or dictation interaction was started.
-- **Review decisions:** refresh the provider for every transcriber factory input and speech-key save; read each live chunk once and retry its cursor if reading fails; keep one `MeetingSession` owner for active manifest changes; on sleep pause and stay paused; on quit checkpoint into retryable `.interrupted`; remove empty failed starts; stream AAC and mix in one-second blocks; save `.ready` before removing journals; link to Privacy & Security after capture start fails.
-- **UNVERIFIED on device:** first System Audio Recording prompt and denial behavior; process-tap capture, self-audio exclusion, and aggregate input conversion; System Settings deep link; recorder focus, sleep/wake and quit dialogs; crash recovery; playback/export dialogs; and end-to-end dictation while recording. The spike bundle was rebuilt with `Bugler Local Dev` but not launched because the prompt requires maintainer approval.
+- **Review decisions:** refresh the provider when selected-engine factory inputs change; read each live chunk once and retry its cursor if reading fails; keep one `MeetingSession` owner for active manifest changes; on sleep pause and stay paused; on quit checkpoint into retryable `.interrupted`; remove failed starts with less than one second of committed audio; stream AAC and mix in one-second blocks; save `.ready` before removing journals; link to Privacy & Security after capture start fails.
+- **UNVERIFIED on device:** first System Audio Recording prompt and denial behavior; process-tap capture, self-audio exclusion, and aggregate input conversion; the `Privacy_ScreenCapture` System Settings anchor; recorder focus, sleep/wake and quit dialogs; crash recovery; playback/export dialogs; and end-to-end dictation while recording. The spike bundle was rebuilt with `Bugler Local Dev` but not launched because the prompt requires maintainer approval.
 - **Manual checks needed:** Dictation rows 1–44 and Meetings rows 45–62 remain pending with blank Result cells. The spike run steps are below. The sub-project 1 benchmark and deferred-findings review remain outside this work.
 
 ## Whole-branch review fixes
@@ -75,6 +75,13 @@ Tasks 1–13 and whole-branch review items 1–8 are implemented on `feat/meetin
 - Fix commit: `1cc94d0` — `fix(core): advance live cursors only after enqueue`.
 - Updated the VoiceCore cursor test to prove the same range remains pending until explicitly marked sent. The controller acknowledges a range only after its background read succeeds and it is enqueued, so a read error retries on the next monitor tick.
 - Full `swift test` passed (191 VoiceCore tests and 27 BugVoiceMac tests; 218 total).
+
+### Review follow-ups
+
+- **a — Commit `4a50d61` (`fix(core): discard subsecond failed meeting starts`).** The system-start-failure test now represents the real ordering: mic commits 10 ms of PCM before the system tap fails. It first failed because the session retained a failed folder. Startup rollback now deletes folders when neither track has one second of committed samples, and keeps a failed meeting with at least one second. Full `swift test` passed with 191 VoiceCore + 27 BugVoiceMac tests (218 total).
+- **b — Commit `9adf72f` (`fix(core): preserve meeting edits after transcription failure`).** A test renames the meeting during a blocked final pass and then makes that pass fail. The test first failed because the catch path restored the original title. The catch now rebases the `.transcribing` error state on the latest in-memory manifest. Full `swift test` passed with 192 VoiceCore + 27 BugVoiceMac tests (219 total).
+- **c — Commit `570b31c` (`fix(app): skip inactive speech provider reloads`).** The configuration test first failed when inactive server fields and a credential-generation change modified a WhisperKit configuration. Configuration now compares only the selected engine's model/server/key-generation inputs; saving `speech-openai` only rebuilds when `.openAICompatible` is selected. The test also checks OpenAI mode ignores the inactive Whisper model. Full `swift test` passed with 192 VoiceCore + 27 BugVoiceMac tests (219 total).
+- **d — Log update.** The System Settings `Privacy_ScreenCapture` anchor remains **UNVERIFIED on device**; it has not been opened on the maintainer's Mac.
 
 ## Task log
 
