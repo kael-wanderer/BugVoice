@@ -72,9 +72,9 @@ public struct SpeechSettings: Codable, Equatable, Sendable {
     public init() {}
 }
 
-/// The settings and credential version that determine the live speech
-/// transcriber. Language, vocabulary hints, and microphone selection are
-/// consumed elsewhere and do not change the provider instance.
+/// The selected provider settings and credential version that determine the
+/// live speech transcriber. Inactive provider settings, language, vocabulary
+/// hints, and microphone selection do not change the provider instance.
 public struct SpeechTranscriberConfiguration: Equatable, Sendable {
     public let engine: SpeechEngine
     public let whisperModel: String
@@ -84,10 +84,12 @@ public struct SpeechTranscriberConfiguration: Equatable, Sendable {
 
     public init(settings: SpeechSettings, speechAPIKeyGeneration: UInt64) {
         engine = settings.engine
-        whisperModel = settings.whisperModel
-        serverBaseURL = settings.serverBaseURL
-        serverModel = settings.serverModel
-        self.speechAPIKeyGeneration = speechAPIKeyGeneration
+        let usesWhisperKit = settings.engine == .whisperKit
+        let usesOpenAICompatible = settings.engine == .openAICompatible
+        whisperModel = usesWhisperKit ? settings.whisperModel : ""
+        serverBaseURL = usesOpenAICompatible ? settings.serverBaseURL : ""
+        serverModel = usesOpenAICompatible ? settings.serverModel : ""
+        self.speechAPIKeyGeneration = usesOpenAICompatible ? speechAPIKeyGeneration : 0
     }
 }
 

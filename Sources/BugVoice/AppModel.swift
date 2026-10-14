@@ -408,7 +408,7 @@ final class AppModel {
     func saveKey(_ value: String, account: String) -> Bool {
         do {
             try keychain.write(value, account: account)
-            if account == "speech-openai" {
+            if account == "speech-openai", settings.speech.engine == .openAICompatible {
                 speechAPIKeyGeneration &+= 1
                 rebuildSpeechTranscriber()
             }

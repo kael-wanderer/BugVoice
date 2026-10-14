@@ -81,17 +81,28 @@ struct SettingsTests {
 
         var changed = initialSettings
         changed.serverBaseURL = "http://127.0.0.1:9000"
-        #expect(SpeechTranscriberConfiguration(settings: changed, speechAPIKeyGeneration: 0) != initial)
-        changed = initialSettings
         changed.serverModel = "other-model"
-        #expect(SpeechTranscriberConfiguration(settings: changed, speechAPIKeyGeneration: 0) != initial)
+        #expect(SpeechTranscriberConfiguration(settings: changed, speechAPIKeyGeneration: 0) == initial)
+        #expect(SpeechTranscriberConfiguration(settings: initialSettings, speechAPIKeyGeneration: 1) == initial)
+
         changed = initialSettings
         changed.whisperModel = "other-whisper"
         #expect(SpeechTranscriberConfiguration(settings: changed, speechAPIKeyGeneration: 0) != initial)
         changed = initialSettings
         changed.engine = .openAICompatible
         #expect(SpeechTranscriberConfiguration(settings: changed, speechAPIKeyGeneration: 0) != initial)
-        #expect(SpeechTranscriberConfiguration(settings: initialSettings, speechAPIKeyGeneration: 1) != initial)
+
+        var openAISettings = changed
+        let openAIInitial = SpeechTranscriberConfiguration(settings: openAISettings, speechAPIKeyGeneration: 0)
+        openAISettings.whisperModel = "inactive-whisper-model"
+        #expect(SpeechTranscriberConfiguration(settings: openAISettings, speechAPIKeyGeneration: 0) == openAIInitial)
+        openAISettings = changed
+        openAISettings.serverBaseURL = "http://127.0.0.1:9000"
+        #expect(SpeechTranscriberConfiguration(settings: openAISettings, speechAPIKeyGeneration: 0) != openAIInitial)
+        openAISettings = changed
+        openAISettings.serverModel = "other-model"
+        #expect(SpeechTranscriberConfiguration(settings: openAISettings, speechAPIKeyGeneration: 0) != openAIInitial)
+        #expect(SpeechTranscriberConfiguration(settings: changed, speechAPIKeyGeneration: 1) != openAIInitial)
 
         changed = initialSettings
         changed.language = .vi
