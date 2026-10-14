@@ -50,3 +50,13 @@ Continuous implementation is in progress. Tasks 1–3 and Task 4 are complete. T
 - Cancellation removes queued meeting work and waits on scheduler in-flight completion before stopping capture and persisting `.interrupted`. A racing Stop observes cancellation and skips finalization.
 - No skipped checks. Audio-source, scheduler, and finalizer production adapters are intentionally left to app tasks.
 - Open questions: none for Task 7.
+
+### Task 8a — process-tap spike
+
+- Commit: pending this task commit.
+- Verification: `swiftc -typecheck Scripts/meeting-audio-tap-spike.swift` passed; `Scripts/build-meeting-audio-tap-spike.sh` built and verified a signed app bundle with `Bugler Local Dev`; it was not launched. `swift test` passed 171 VoiceCore + 17 BugVoiceMac tests.
+- Apple documentation supports creating a tap with `AudioHardwareCreateProcessTap`, attaching its UID to a private aggregate device tap list, and expecting the System Audio Recording prompt on first recording start. The spike excludes its own Core Audio process object and plays a BugVoice-owned Glass sound during the capture window.
+- Maintainer run steps: (1) from the repo root run `Scripts/build-meeting-audio-tap-spike.sh`; (2) run `./.build/MeetingAudioTapSpike.app/Contents/MacOS/MeetingAudioTapSpike` in Terminal; (3) approve the System Audio Recording prompt; (4) observe the automatic Glass sound and confirm it produces no RMS output; (5) play audio from another app and confirm positive RMS lines; (6) quit with Return; (7) revoke the app's System Audio Recording permission in System Settings → Privacy & Security → System Audio Recording, rerun, deny access, and record whether tap/device start returns an OSStatus error or yields silent buffers. Record macOS build, each result, and any API adjustment in the spec.
+- **UNVERIFIED on device:** System audio capture, exclusion of BugVoice's own sound, permission prompt behavior, and denial behavior were not exercised. The aggregate tap dictionary shape and Float32 mono interpretation are compile-checked but runtime-unverified.
+- Decision: compile and sign the spike without launching it; this avoids consuming the maintainer's one-time OS permission decision. Cost if wrong: the first runtime attempt could reveal a compile-clean Core Audio setup error; the spike can be adjusted and rerun before production integration review.
+- Open question for maintainer's later run: does permission denial return an error at tap start or produce silent buffers?

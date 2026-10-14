@@ -125,6 +125,12 @@ Add a **Meetings** category to Settings → Storage. Display its total size, inc
 
 Add System Audio Recording to the Permissions window. There is no public preflight API for audio capture. Show **Requested when the first meeting starts**; detect denial at meeting start by observing process-tap creation/start and capture behavior, and show the user how to grant access in System Settings. Do not use Screen Recording APIs such as `CGPreflightScreenCaptureAccess()` or `CGRequestScreenCaptureAccess()` for this permission. Keep microphone permission separate. System audio denial blocks meeting start with an explanation; dictation remains usable.
 
+### 5.4 Process-tap spike status
+
+Apple's Core Audio documentation confirms that `AudioHardwareCreateProcessTap` creates a tap from `CATapDescription`, that a tap is attached to a HAL aggregate device, and that the first recording start prompts for System Audio Recording access. The spike is implemented at `Scripts/meeting-audio-tap-spike.swift`; `Scripts/build-meeting-audio-tap-spike.sh` builds and signs a standalone `.app` with `NSAudioCaptureUsageDescription` using `Bugler Local Dev`. The spike creates a mono global tap excluding its own Core Audio process object ID, attaches the tap to a private aggregate device, starts an IOProc, plays a BugVoice-owned Glass sound, and reports non-silent buffer RMS.
+
+**UNVERIFIED on device:** This session did not launch the spike or approve the macOS System Audio Recording prompt. System output capture, self-audio exclusion, and denied-permission behavior (OSStatus failure versus silent buffers) remain unverified. The aggregate-device tap dictionary shape, mono float buffer interpretation, and start-time permission behavior are also **UNVERIFIED on device**. Maintainer run steps are in `docs/progress/meetings-log.md`. Continue Tasks 8b/8c against Apple's documented API; do not treat these runtime properties as verified until the spike observations are recorded.
+
 ## 6. Error handling and interruption safety
 
 | Condition | Behavior |
