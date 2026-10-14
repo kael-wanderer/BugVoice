@@ -2,7 +2,13 @@
 
 ## Summary
 
-Continuous implementation is in progress. Tasks 1–3 and Task 4 are complete. Tasks 5–13 remain. No on-device system audio permission or process-tap capture has been tested; Task 8a instructions and all related assumptions will be recorded as **UNVERIFIED on device**. Final `swift test`, app build, launch, and dictation initialization check remain pending.
+Tasks 1–13 are complete on branch `feat/meetings`. Task 13 handoff commit: `1d76c42` (`docs: record meetings implementation handoff`). The branch is not merged or pushed.
+
+- **Tests:** final `swift test` passed 181 VoiceCore tests in 26 suites and 26 BugVoiceMac tests in 7 suites. Task commits ran the full suite before committing.
+- **Build and launch:** `Scripts/build-app.sh` passed and signed with `Bugler Local Dev`. Info.plist contains `NSAudioCaptureUsageDescription`. `build/BugVoice.app` launched as PID 68193; Core ML model resources were mapped in the process. No meeting recording was started.
+- **Decisions:** keep one stable transcription router and drain the old priority queue before swapping engines; only retry `vi` on an empty gated auto result; dedupe only across same-track chunk boundaries; persist per-chunk detected language and progress; keep echoed You lines and recommend headphones; retain journals until durable final audio/manifest; use 180 bounded waveform peak buckets; automatically prune ready meetings only.
+- **UNVERIFIED on device:** System Audio Recording prompt/denial behavior, process-tap capture, self-audio exclusion, aggregate input conversion, recorder focus retention, sleep/quit/crash recovery, actual AAC playback, export dialogs, summary cancellation, and an end-to-end dictation interaction. The app launch and model-resource mapping were verified, but visual UI inspection was denied by CUA approval review.
+- **Manual checks needed:** all existing Dictation rows 1–44 remain pending; Meetings rows 45–62 are added with blank Result cells. Run the Task 8a spike steps in this log before relying on system audio capture. The sub-project 1 benchmark and deferred-findings review also remain pending.
 
 ## Task log
 
@@ -22,7 +28,7 @@ Continuous implementation is in progress. Tasks 1–3 and Task 4 are complete. T
 | 10 | `cada987` — `feat(app): add floating meeting recorder`; log `8a1dbd9` | 174 VoiceCore + 26 BugVoiceMac passed |
 | 11 | `a53003d` — `feat(app): add meetings library and playback`; log `fe96bb0` | 177 VoiceCore + 26 BugVoiceMac passed |
 | 12 | `d404ecf` — `feat(app): add meeting settings and recovery`; log `92577b7` | 181 VoiceCore + 26 BugVoiceMac passed |
-| 13 | Documentation commit pending; final log commit follows | 181 VoiceCore + 26 BugVoiceMac passed; signed app built and launched |
+| 13 | `1d76c42` — `docs: record meetings implementation handoff`; final log entry in follow-up | 181 VoiceCore + 26 BugVoiceMac passed; signed app built and launched |
 
 ### Task 4 fixes
 
@@ -132,7 +138,7 @@ Continuous implementation is in progress. Tasks 1–3 and Task 4 are complete. T
 
 ### Task 13 — manual checklist, handoff, and final build
 
-- Documentation commit: to be recorded after commit; final summary follows.
+- Documentation commit: `1d76c42` — `docs: record meetings implementation handoff`; final summary is recorded above.
 - Added Meetings manual rows 45–62 with blank Result cells, updated Handoff and `AGENTS.md` status for merged sub-project 1 and the unmerged `feat/meetings` branch.
 - Final verification: `swift test` passed 181 VoiceCore tests in 26 suites and 26 BugVoiceMac tests in 7 suites. `Scripts/build-app.sh` succeeded and signed the app with `Bugler Local Dev`. The built Info.plist contains `NSAudioCaptureUsageDescription` and retains `LSUIElement`.
 - Launched `build/BugVoice.app` once. PID 68193 remained running. Unified logs showed Core ML runtime activity and `lsof` showed mapped `bnns_program.bnnsir` model resources in BugVoice, confirming speech-model initialization reached model loading. No meeting recording was started.
