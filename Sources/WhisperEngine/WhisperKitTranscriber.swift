@@ -77,7 +77,10 @@ public actor WhisperKitTranscriber: Transcriber {
         decode.task = .transcribe
         decode.temperature = 0
         decode.skipSpecialTokens = true
-        decode.withoutTimestamps = false
+        // WhisperKit 1.1.1 returns empty text when a forced language
+        // (prefill prompt) is combined with timestamp decoding. Dictation
+        // only needs the text, so decode without timestamps.
+        decode.withoutTimestamps = true
         decode.chunkingStrategy = .vad
         if options.language == .auto {
             decode.language = nil
