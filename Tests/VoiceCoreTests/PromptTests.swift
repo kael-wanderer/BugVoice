@@ -36,6 +36,8 @@ struct PromptTests {
         #expect(r.user == "<dictation>\nhello\n</dictation>\n\n/no_think")
         let r2 = PromptBuilder().request(raw: "hello", style: .chat, focus: .unknown, vocabulary: Vocabulary(), modelID: "llama-3", disableThinking: true)
         #expect(r2.user == "<dictation>\nhello\n</dictation>")
+        #expect(r.disableThinking)
+        #expect(!r2.disableThinking)
     }
 
     // Sanitizer

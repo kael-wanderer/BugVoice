@@ -33,6 +33,19 @@ struct ProviderTests {
         #expect(try await model.clean(request) == "OK")
     }
 
+    @Test func openAISendsEnableThinkingFalseOnlyWhenDisabled() async throws {
+        var seen: [[String: Any]] = []
+        StubURLProtocol.handler = { _, body in
+            seen.append(self.json(body))
+            return (200, Data(#"{"choices":[{"message":{"content":"x"}}]}"#.utf8))
+        }
+        let model = OpenAICompatibleModel(baseURL: URL(string: "http://h")!, model: "qwen", session: StubURLProtocol.session())
+        _ = try await model.clean(CleanupRequest(system: "S", user: "U", disableThinking: true))
+        _ = try await model.clean(CleanupRequest(system: "S", user: "U"))
+        #expect((seen[0]["chat_template_kwargs"] as? [String: Bool]) == ["enable_thinking": false])
+        #expect(seen[1]["chat_template_kwargs"] == nil)
+    }
+
     @Test func openAIOmitsAuthorizationWithoutKey() async throws {
         StubURLProtocol.handler = { req, _ in
             #expect(req.value(forHTTPHeaderField: "Authorization") == nil)

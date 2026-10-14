@@ -22,6 +22,8 @@ public struct OpenAICompatibleModel: TextModel {
         let temperature: Double
         let max_tokens: Int
         let stream = false
+        /// Present only when thinking is disabled (Qwen3 chat templates).
+        let chat_template_kwargs: [String: Bool]?
     }
 
     struct Reply: Decodable {
@@ -39,7 +41,8 @@ public struct OpenAICompatibleModel: TextModel {
             model: model,
             messages: [.init(role: "system", content: request.system), .init(role: "user", content: request.user)],
             temperature: request.temperature,
-            max_tokens: request.maxTokens
+            max_tokens: request.maxTokens,
+            chat_template_kwargs: request.disableThinking ? ["enable_thinking": false] : nil
         )
         let urlRequest = try HTTP.jsonRequest(url: Endpoint.join(baseURL, "chat/completions"), body: body, headers: headers)
         let reply = try HTTP.decode(Reply.self, from: try await HTTP.send(urlRequest, session: session))

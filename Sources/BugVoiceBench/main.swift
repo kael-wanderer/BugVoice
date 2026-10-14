@@ -75,9 +75,12 @@ for clip in clips {
 
 if useLLM {
     print("\n## Cleanup — \(llmModel) at \(llmBase.absoluteString), style document, input language \(cleanupLanguage.rawValue)\n")
-    print("| Clip | LLM s | Result | Output |")
-    print("|---|---|---|---|")
+    print("| Clip | LLM s | Raw chars | Result | Output |")
+    print("|---|---|---|---|---|")
     let model = OpenAICompatibleModel(baseURL: llmBase, model: llmModel)
+    // Discarded warm-up so the first timed row excludes model load.
+    log("Warming up \(llmModel)")
+    _ = try? await model.clean(PromptBuilder().request(raw: "hello", style: .document, focus: .unknown, vocabulary: vocabulary, modelID: llmModel, disableThinking: true))
     for clip in clips {
         guard let raw = cleanupInput[clip.lastPathComponent], !raw.isEmpty else { continue }
         log("Cleaning \(clip.lastPathComponent)")
@@ -92,9 +95,9 @@ if useLLM {
             case .accepted(let cleaned): verdict = "ok"; text = cleaned
             case .rejected(let reason): verdict = "rejected: \(reason.rawValue)"; text = output
             }
-            print("| \(clip.lastPathComponent) | \(String(format: "%.2f", seconds)) | \(verdict) | \(text.replacingOccurrences(of: "\n", with: " ⏎ ").replacingOccurrences(of: "|", with: "/")) |")
+            print("| \(clip.lastPathComponent) | \(String(format: "%.2f", seconds)) | \(output.count) | \(verdict) | \(text.replacingOccurrences(of: "\n", with: " ⏎ ").replacingOccurrences(of: "|", with: "/")) |")
         } catch {
-            print("| \(clip.lastPathComponent) | – | error | \(error) |")
+            print("| \(clip.lastPathComponent) | – | – | error | \(error) |")
         }
     }
 }

@@ -53,9 +53,14 @@ public struct PromptBuilder: Sendable {
         disableThinking: Bool
     ) -> CleanupRequest {
         var user = "<dictation>\n\(raw)\n</dictation>"
-        if disableThinking, modelID.lowercased().contains("qwen") {
+        let suppressThinking = disableThinking && modelID.lowercased().contains("qwen")
+        if suppressThinking {
             user += "\n\n/no_think"
         }
-        return CleanupRequest(system: systemPrompt(style: style, vocabulary: vocabulary, focus: focus), user: user)
+        return CleanupRequest(
+            system: systemPrompt(style: style, vocabulary: vocabulary, focus: focus),
+            user: user,
+            disableThinking: suppressThinking
+        )
     }
 }

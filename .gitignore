@@ -4,6 +4,8 @@ build/
 *.xcodeproj
 bench/clips/*.wav
 bench/clips/*.m4a
+bench/clips/*.aiff
+bench/clips/*.txt
 AGENTS.local.md
 CLAUDE.local.md
 .DS_Store
