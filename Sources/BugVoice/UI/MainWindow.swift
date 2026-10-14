@@ -25,7 +25,7 @@ struct MainWindow: View {
         } detail: {
             switch model.page {
             case .dictation: DictationHistoryView(model: model)
-            case .meetings: MeetingsLandingView(model: model)
+            case .meetings: MeetingsPage(model: model)
             case .settings: SettingsView(model: model)
             }
         }

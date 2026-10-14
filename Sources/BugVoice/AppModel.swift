@@ -8,7 +8,12 @@ import SwiftUI
 import VoiceCore
 import WhisperEngine
 
-/// Main-window pages. Meetings and Notes are added by sub-projects 2 and 3.
+private enum MeetingGenerationError: LocalizedError {
+    case noTextModel
+    var errorDescription: String? { "Choose a text model in Settings before generating meeting notes." }
+}
+
+/// Main-window pages. Notes are reserved for sub-project 3.
 enum Page: String, CaseIterable, Identifiable {
     case dictation, meetings, settings
     var id: String { rawValue }
@@ -23,6 +28,7 @@ final class AppModel {
     let keychain = Keychain()
     @ObservationIgnored let store = SettingsStore(url: AppPaths.standard().settings)
     @ObservationIgnored let historyLog = HistoryLog(url: AppPaths.standard().history)
+    @ObservationIgnored private var meetingStore: MeetingStore { MeetingStore(root: paths.meetings) }
     @ObservationIgnored private(set) var whisper: WhisperKitTranscriber
     @ObservationIgnored private(set) var priorityTranscriber: PriorityTranscriber
     @ObservationIgnored let transcriptionRouter: TranscriptionRouter
@@ -37,6 +43,9 @@ final class AppModel {
     var vocabularyText = ""
     var vocabulary = Vocabulary()
     var history: [HistoryEntry] = []
+    var meetingManifests: [MeetingManifest] = []
+    var selectedMeetingID: MeetingID?
+    var meetingSearchQuery = ""
     /// The latest dictation, for the menu preview and *Paste last*. A
     /// secure-field result is stored without its text.
     var lastResult: DictationResult?
@@ -251,6 +260,68 @@ final class AppModel {
             saveError = "Could not clear history: \(error.localizedDescription)"
         }
         await reloadHistory()
+    }
+
+    // MARK: Meetings
+
+    var selectedMeeting: MeetingManifest? {
+        meetingManifests.first { $0.id == selectedMeetingID }
+    }
+
+    func reloadMeetings() async {
+        do {
+            meetingManifests = try await meetingStore.list()
+            if let selectedMeetingID, !meetingManifests.contains(where: { $0.id == selectedMeetingID }) {
+                self.selectedMeetingID = nil
+            }
+        } catch {
+            saveError = "Could not load meetings: \(error.localizedDescription)"
+        }
+    }
+
+    func renameMeeting(id: MeetingID, title: String) async {
+        let cleaned = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty, var meeting = meetingManifests.first(where: { $0.id == id }) else { return }
+        meeting.title = cleaned
+        do {
+            try await meetingStore.save(meeting)
+            await reloadMeetings()
+        } catch {
+            saveError = "Could not rename meeting: \(error.localizedDescription)"
+        }
+    }
+
+    func deleteMeeting(id: MeetingID) async {
+        do {
+            try await meetingStore.delete(id: id)
+            if selectedMeetingID == id { selectedMeetingID = nil }
+            await reloadMeetings()
+        } catch {
+            saveError = "Could not delete meeting: \(error.localizedDescription)"
+        }
+    }
+
+    func generateMeetingText(
+        id: MeetingID,
+        kind: MeetingTextKind,
+        progress: @escaping @Sendable (MeetingTextProgress) -> Void
+    ) async throws -> String {
+        var meeting = try await meetingStore.load(id: id)
+        guard let textModel = ProviderFactory.textModel(settings.textModel, keychain: keychain) else {
+            throw MeetingGenerationError.noTextModel
+        }
+        let text = try await MeetingTextGenerator().generate(
+            transcript: meeting.segments,
+            kind: kind,
+            budget: MeetingTextBudget(settings: settings.meetings),
+            model: textModel,
+            progress: progress
+        )
+        if kind == .summary { meeting.summary = text }
+        else { meeting.actionItems = text }
+        try await meetingStore.save(meeting)
+        await reloadMeetings()
+        return text
     }
 
     /// Drops entries older than the retention window, then reloads.

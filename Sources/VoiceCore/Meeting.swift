@@ -258,6 +258,49 @@ public enum MeetingStoreError: Error, Equatable, Sendable {
     case manifestIDMismatch(expected: MeetingID, actual: MeetingID)
 }
 
+public struct MeetingDayGroup: Sendable, Identifiable {
+    public var day: Date
+    public var label: String
+    public var meetings: [MeetingManifest]
+
+    public var id: Date { day }
+}
+
+public enum MeetingListProjection {
+    public static func groups(
+        meetings: [MeetingManifest],
+        now: Date = Date(),
+        calendar: Calendar = .current,
+        query: String = ""
+    ) -> [MeetingDayGroup] {
+        let filtered = meetings.filter { matches($0, query: query) }
+        let grouped = Dictionary(grouping: filtered) { calendar.startOfDay(for: $0.startedAt) }
+        let today = calendar.startOfDay(for: now)
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: today)
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = "MMM d, yyyy"
+
+        return grouped.keys.sorted(by: >).compactMap { day in
+            guard let items = grouped[day], !items.isEmpty else { return nil }
+            let label: String
+            if day == today { label = "Today" }
+            else if day == yesterday { label = "Yesterday" }
+            else { label = formatter.string(from: day) }
+            return MeetingDayGroup(day: day, label: label, meetings: items.sorted { $0.startedAt > $1.startedAt })
+        }
+    }
+
+    public static func matches(_ meeting: MeetingManifest, query: String) -> Bool {
+        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !needle.isEmpty else { return true }
+        return meeting.title.localizedCaseInsensitiveContains(needle)
+            || meeting.segments.contains { $0.text.localizedCaseInsensitiveContains(needle) }
+    }
+}
+
 /// Persists each meeting manifest by atomic replacement inside its meeting folder.
 public actor MeetingStore {
     private let root: URL
@@ -312,6 +355,29 @@ public actor MeetingStore {
             throw MeetingStoreError.manifestIDMismatch(expected: id, actual: meeting.id)
         }
         return meeting
+    }
+
+    public func list() throws -> [MeetingManifest] {
+        guard FileManager.default.fileExists(atPath: root.path) else { return [] }
+        let children = try FileManager.default.contentsOfDirectory(
+            at: root,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        )
+        return try children.compactMap { child in
+            guard (try? child.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true,
+                  FileManager.default.fileExists(atPath: child.appendingPathComponent("meeting.json").path)
+            else { return nil }
+            return try load(id: MeetingID(rawValue: child.lastPathComponent))
+        }.sorted { $0.startedAt > $1.startedAt }
+    }
+
+    public func delete(id: MeetingID) throws {
+        let rootURL = root.standardizedFileURL
+        let directory = rootURL.appendingPathComponent(id.rawValue, isDirectory: true).standardizedFileURL
+        guard directory.deletingLastPathComponent() == rootURL else { return }
+        guard FileManager.default.fileExists(atPath: directory.path) else { return }
+        try FileManager.default.removeItem(at: directory)
     }
 }
 
