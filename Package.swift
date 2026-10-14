@@ -37,6 +37,13 @@ let package = Package(
             path: "Sources/WhisperEngine",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
+        // macOS integrations: event tap, Accessibility, pasteboard, audio,
+        // Keychain. A library so its non-UI parts can be unit-tested.
+        .target(
+            name: "BugVoiceMac",
+            dependencies: ["VoiceCore"],
+            path: "Sources/BugVoiceMac"
+        ),
         .executableTarget(
             name: "BugVoiceBench",
             dependencies: ["VoiceCore", "WhisperEngine"],
@@ -46,6 +53,11 @@ let package = Package(
             name: "VoiceCoreTests",
             dependencies: ["VoiceCore"],
             path: "Tests/VoiceCoreTests"
+        ),
+        .testTarget(
+            name: "BugVoiceMacTests",
+            dependencies: ["BugVoiceMac"],
+            path: "Tests/BugVoiceMacTests"
         ),
     ]
 )
