@@ -140,3 +140,11 @@ Not run. Keep all Notes Result cells blank until the maintainer performs the dev
 - Tests: full `swift test` passed with 224 VoiceCore tests / 31 suites and 51 BugVoiceMac tests / 11 suites (275 total).
 - Self-review: SwiftUI's `updateNSView` reuses the controller-attached body; normal dictation edits no longer assign `editor.string`. Full-string replacement remains only on attach/snapshot restore/external reload, with undo registration suppressed or cleared first.
 - Skipped / UNVERIFIED: no real NSWindow was created per the regression requirement; visible window focus/caret behavior remains on the Notes device checklist.
+
+### Review item 3 — Store-owned file versions across overlapping operations
+
+- Test-first: added overlapping shared-baseline saves and stale-baseline refresh tests. The refresh test failed because a clean refresh treated the Store's just-written bytes as external. Added a rename-after-save test; temporarily restoring the prior rename guard made it fail with `.externalChange`, confirming the rename regression.
+- Implemented `lastWrittenVersions` in NotesStore. Create, save, and rename record their resulting fingerprint; delete clears it. Save, rename, and external refresh now recognize the exact current Store-owned fingerprint even when a caller still holds an earlier expected version. A later file with a different fingerprint remains an external change.
+- Tests: full `swift test` passed with 224 VoiceCore tests / 31 suites and 54 BugVoiceMac tests / 11 suites (278 total), including concurrent saves, save plus stale-baseline refresh, and rename after Store save.
+- Self-review: ownership is based on the complete mtime/size/content-hash version, not a time window. The actor serializes version-map updates with its filesystem writes.
+- Skipped / UNVERIFIED: no filesystem fault-injection or multi-process stress run was added; the focused actor tests cover overlapping API calls and stale expected versions.

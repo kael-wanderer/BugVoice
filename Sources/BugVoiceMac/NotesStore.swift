@@ -23,6 +23,7 @@ public actor NotesStore {
     private let directory: URL
     private var pathsByID: [NoteID: String] = [:]
     private var highestSavedRevision: [NoteID: UInt64] = [:]
+    private var lastWrittenVersions: [NoteID: NoteFileVersion] = [:]
 
     public init(directory: URL) {
         self.directory = directory
@@ -75,6 +76,7 @@ public actor NotesStore {
         let version = try fingerprint(at: url)
         pathsByID[id] = url.lastPathComponent
         highestSavedRevision[id] = 0
+        lastWrittenVersions[id] = version
         return NoteDocument(id: id, title: title, body: body, modifiedAt: version.modifiedAt, fileVersion: version, slug: slug)
     }
 
@@ -93,7 +95,8 @@ public actor NotesStore {
         }
         if FileManager.default.fileExists(atPath: url.path) {
             let currentVersion = try fingerprint(at: url)
-            if NotesAutosavePolicy.fileVersionChanged(from: expectedVersion, to: currentVersion) {
+            let isStoreOwnedWrite = currentVersion == lastWrittenVersions[note.id]
+            if !isStoreOwnedWrite && NotesAutosavePolicy.fileVersionChanged(from: expectedVersion, to: currentVersion) {
                 guard isDirty else {
                     let external = try read(id: note.id, url: url)
                     return .reloaded(external, currentVersion)
@@ -109,6 +112,7 @@ public actor NotesStore {
         try durableReplace(data, at: url)
         let version = try fingerprint(at: url)
         highestSavedRevision[note.id] = note.revision
+        lastWrittenVersions[note.id] = version
         var result = note
         result.modifiedAt = version.modifiedAt
         result.fileVersion = version
@@ -119,7 +123,7 @@ public actor NotesStore {
     public func rename(id: NoteID, title: String, revision: UInt64, expectedVersion: NoteFileVersion) throws -> NoteDocument {
         let source = try url(for: id)
         let currentVersion = try fingerprint(at: source)
-        guard currentVersion == expectedVersion else {
+        guard currentVersion == expectedVersion || currentVersion == lastWrittenVersions[id] else {
             throw NotesStoreError.externalChange
         }
         let previous = try read(id: id, url: source)
@@ -142,6 +146,7 @@ public actor NotesStore {
         result.fileVersion = version
         result.needsNormalization = false
         highestSavedRevision[id] = result.revision
+        lastWrittenVersions[id] = version
         return result
     }
 
@@ -155,6 +160,9 @@ public actor NotesStore {
             return isDirty ? .missingConflict : .deleted
         }
         let version = try fingerprint(at: url)
+        if version == lastWrittenVersions[id] {
+            return .unchanged(version)
+        }
         guard NotesAutosavePolicy.fileVersionChanged(from: knownVersion, to: version) else {
             return .unchanged(version)
         }
@@ -199,6 +207,7 @@ public actor NotesStore {
         try FileManager.default.trashItem(at: url, resultingItemURL: &trashedURL)
         pathsByID[id] = nil
         highestSavedRevision[id] = nil
+        lastWrittenVersions[id] = nil
     }
 
     private func read(id: NoteID, url: URL) throws -> NoteDocument {

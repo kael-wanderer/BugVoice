@@ -197,6 +197,81 @@ struct NotesStoreTests {
         #expect(try await store.open(id: original.id).body == "newest")
     }
 
+    @Test func overlappingSavesWithSharedBaselineAcceptOwnWriteAndKeepNewestRevision() async throws {
+        let root = try directory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = NotesStore(directory: root)
+        let original = try await store.create(title: "Overlap", body: "start")
+        var first = original
+        first.body = "first"
+        first.revision += 1
+        var second = original
+        second.body = "second"
+        second.revision += 2
+
+        async let firstSave = store.save(first, expectedVersion: original.fileVersion, isDirty: true)
+        async let secondSave = store.save(second, expectedVersion: original.fileVersion, isDirty: true)
+        let outcomes = try await [firstSave, secondSave]
+        #expect(!outcomes.contains { if case .conflict = $0 { true } else { false } })
+        #expect(!outcomes.contains { if case .reloaded = $0 { true } else { false } })
+        #expect(try await store.open(id: original.id).body == "second")
+    }
+
+    @Test func refreshAfterOwnSaveWithStaleBaselineIsUnchanged() async throws {
+        let root = try directory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = NotesStore(directory: root)
+        let original = try await store.create(title: "Refresh", body: "start")
+        var edited = original
+        edited.body = "saved by BugVoice"
+        edited.revision += 1
+        guard case .saved = try await store.save(
+            edited,
+            expectedVersion: original.fileVersion,
+            isDirty: true
+        ) else {
+            Issue.record("Expected note save")
+            return
+        }
+
+        let refresh = try await store.checkExternalChange(
+            id: original.id,
+            knownVersion: original.fileVersion,
+            isDirty: false
+        )
+        guard case .unchanged = refresh else {
+            Issue.record("A Store-owned write must not look external to a stale refresh")
+            return
+        }
+    }
+
+    @Test func renameAfterOwnSaveWithStaleBaselineIsAccepted() async throws {
+        let root = try directory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = NotesStore(directory: root)
+        let original = try await store.create(title: "Before save", body: "start")
+        var edited = original
+        edited.body = "saved body"
+        edited.revision += 1
+        guard case .saved = try await store.save(
+            edited,
+            expectedVersion: original.fileVersion,
+            isDirty: true
+        ) else {
+            Issue.record("Expected note save")
+            return
+        }
+
+        let renamed = try await store.rename(
+            id: original.id,
+            title: "After save",
+            revision: edited.revision + 1,
+            expectedVersion: original.fileVersion
+        )
+        #expect(renamed.title == "After save")
+        #expect(renamed.body == "saved body")
+    }
+
     @Test func deletionRequiresConfirmationAndMovesNoteOutOfNotesDirectory() async throws {
         let root = try directory()
         defer { try? FileManager.default.removeItem(at: root) }
