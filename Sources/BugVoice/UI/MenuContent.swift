@@ -5,7 +5,7 @@ struct MenuContent: View {
     @Bindable var model: AppModel
 
     var body: some View {
-        Text(model.hotkeyActive ? "Ready · hold Right ⌥ to talk" : "Hotkey not active")
+        Text(model.hotkeyActive ? "Ready · hold \(model.settings.hotkey.displayName) to talk" : "Hotkey not active")
         Divider()
         Button("Open BugVoice…") { model.openMainWindow(.dictation) }
         Button("Settings…") { model.openMainWindow(.settings) }.keyboardShortcut(",")

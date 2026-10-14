@@ -25,7 +25,7 @@ struct MainWindow: View {
         } detail: {
             switch model.page {
             case .dictation: Text("Dictation history — Task 19")
-            case .settings: Text("Settings — Task 18")
+            case .settings: SettingsView(model: model)
             }
         }
         .frame(minWidth: 820, minHeight: 560)
