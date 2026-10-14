@@ -6,7 +6,21 @@ Last updated: 2026-10-14
 
 **Sub-project 1 (Dictation core + app shell): merged on `main`. Its manual checklist, benchmark gate, and final deferred-findings review remain pending.**
 
-**Sub-project 2 (Meetings): implemented on branch `feat/meetings`, not merged.**
+**Sub-project 2 (Meetings): merged on `main` (2026-10-14) after whole-branch review and two fix rounds. Device checks pending.**
+
+### Pending maintainer checks (deferred by the maintainer, 2026-10-14)
+
+1. **System audio spike** (Task 8a): `Scripts/build-meeting-audio-tap-spike.sh`,
+   run `./.build/MeetingAudioTapSpike.app/Contents/MacOS/MeetingAudioTapSpike`,
+   approve the prompt, confirm other apps' audio is captured and the spike's
+   own Glass sound is excluded, then revoke the permission and record whether
+   denial is an error or silent buffers. Steps in `docs/progress/meetings-log.md`.
+2. **Manual checklist**: Meetings rows 45–62 and a dictation regression pass
+   (rows 1, 6, 14) in `docs/testing/manual-checklist.md`.
+
+Until both pass, system-audio capture, self-exclusion, denial handling, the
+`Privacy_ScreenCapture` settings link, recorder focus, sleep/quit/crash
+recovery and playback are **UNVERIFIED on device**.
 
 | Item | Path | Status |
 |---|---|---|
@@ -16,8 +30,8 @@ Last updated: 2026-10-14
 | Code | `feat/dictation-core` | Built subagent-driven: each task implemented, reviewed, fixed until clean |
 | Meetings spec | `docs/superpowers/specs/2026-10-14-meetings-design.md` | Approved with maintainer amendments |
 | Meetings plan | `docs/superpowers/plans/2026-10-14-meetings.md` | Tasks 1–13 implemented and committed on `feat/meetings` |
-| Meetings code | `feat/meetings` | Recorder, dual-track journals/finalization, transcription, library, player, exports, settings, recovery |
-| Automated tests | `swift test` | VoiceCore 181 tests / 26 suites, BugVoiceMac 26 tests / 7 suites — all pass |
+| Meetings code | `main` (merged from `feat/meetings`) | Recorder, dual-track journals/finalization, transcription, library, player, exports, settings, recovery |
+| Automated tests | `swift test` | VoiceCore 192 tests / 26 suites, BugVoiceMac 27 tests / 7 suites — all pass |
 | App | `Scripts/build-app.sh` | Final build passed and signed with `Bugler Local Dev`; launched once; process remained running and Core ML model resources were mapped |
 | Manual checklist | `docs/testing/manual-checklist.md` | Dictation rows 1–44 and Meetings rows 45–62 written; **not run** (needs permissions and voice) |
 | Benchmark gate (Task 8 step 12) | `bench/clips/`, `docs/bench/2026-10-14-stt-bench.md` | **Open**: first run found and fixed a decoder bug; clips and references incomplete |

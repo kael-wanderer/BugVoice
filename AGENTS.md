@@ -17,13 +17,14 @@ Apple Intelligence.
 
 Status: sub-project 1 is merged on `main`; its manual checklist, benchmark gate,
 and deferred-findings review remain pending. Sub-project 2 (Meetings) is
-implemented on branch `feat/meetings` and awaits maintainer review. See
+merged on `main`; its device checks (system audio spike, checklist rows 45–62)
+remain pending. See
 `docs/progress/HANDOFF.md` and `docs/progress/meetings-log.md`.
 
 Built in three sub-projects, each with its own spec → plan → implementation:
 
 1. **Dictation core + app shell** — merged on `main`; maintainer gates remain.
-2. **Meetings** — implemented on `feat/meetings`; maintainer review pending.
+2. **Meetings** — merged on `main`; device checks pending.
 3. **Notes** — speak into an in-app note editor (no timeline).
 
 Notes remains reserved in the UI, storage layout and code seams (spec §10).
