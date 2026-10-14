@@ -30,13 +30,13 @@ public struct MeetingLiveChunkCursor: Sendable {
 
     public init() {}
 
-    public mutating func takeReadyRanges(
+    public func nextReadyRange(
         track: MeetingTrack,
         sampleCount: Int,
         chunkSeconds: TimeInterval = 30,
         overlapSeconds: TimeInterval = 1,
         sampleRate: Int = MeetingPCMJournal.sampleRate
-    ) -> [Range<Int>] {
+    ) -> Range<Int>? {
         let ranges = MeetingChunkPlanner.plan(
             sampleCount: sampleCount,
             chunkSeconds: chunkSeconds,
@@ -44,16 +44,15 @@ public struct MeetingLiveChunkCursor: Sendable {
             sampleRate: sampleRate
         )
         let chunkSize = max(1, Int((chunkSeconds * Double(sampleRate)).rounded()))
-        var index = nextIndex[track, default: 0]
-        var ready: [Range<Int>] = []
-        while index < ranges.count {
-            let range = ranges[index]
-            guard range.count == chunkSize, range.upperBound <= sampleCount else { break }
-            ready.append(range)
-            index += 1
-        }
-        nextIndex[track] = index
-        return ready
+        let index = nextIndex[track, default: 0]
+        guard ranges.indices.contains(index) else { return nil }
+        let range = ranges[index]
+        guard range.count == chunkSize, range.upperBound <= sampleCount else { return nil }
+        return range
+    }
+
+    public mutating func markSent(track: MeetingTrack) {
+        nextIndex[track, default: 0] += 1
     }
 }
 

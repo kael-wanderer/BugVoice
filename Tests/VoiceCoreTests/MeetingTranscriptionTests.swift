@@ -16,11 +16,13 @@ struct MeetingTranscriptionTests {
         let thirtySeconds = 30 * 16_000
         let fiftyNineSeconds = 59 * 16_000
 
-        #expect(cursor.takeReadyRanges(track: .mic, sampleCount: thirtySeconds) == [0..<thirtySeconds])
-        #expect(cursor.takeReadyRanges(track: .mic, sampleCount: thirtySeconds).isEmpty)
-        #expect(cursor.takeReadyRanges(track: .system, sampleCount: thirtySeconds) == [0..<thirtySeconds])
-        #expect(cursor.takeReadyRanges(track: .mic, sampleCount: fiftyNineSeconds) == [29 * 16_000..<fiftyNineSeconds])
-        #expect(cursor.takeReadyRanges(track: .mic, sampleCount: 60 * 16_000).isEmpty)
+        #expect(cursor.nextReadyRange(track: .mic, sampleCount: thirtySeconds) == 0..<thirtySeconds)
+        #expect(cursor.nextReadyRange(track: .mic, sampleCount: thirtySeconds) == 0..<thirtySeconds)
+        cursor.markSent(track: .mic)
+        #expect(cursor.nextReadyRange(track: .system, sampleCount: thirtySeconds) == 0..<thirtySeconds)
+        #expect(cursor.nextReadyRange(track: .mic, sampleCount: fiftyNineSeconds) == 29 * 16_000..<fiftyNineSeconds)
+        cursor.markSent(track: .mic)
+        #expect(cursor.nextReadyRange(track: .mic, sampleCount: 60 * 16_000) == nil)
     }
 
     @Test func shortSpeechInsideThirtySecondsOfSilencePassesGateAndReachesTranscriber() async throws {

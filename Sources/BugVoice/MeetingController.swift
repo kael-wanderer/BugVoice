@@ -256,12 +256,12 @@ final class MeetingController {
                 self.elapsed = self.elapsedBeforePause + max(0, Date().timeIntervalSince(self.startedAt))
                 do {
                     for track in MeetingTrack.allCases {
-                        let count = writer.sampleCount(for: track)
-                        guard count > 0 else { continue }
-                        let ranges = self.liveChunkCursor.takeReadyRanges(track: track, sampleCount: count)
-                        for range in ranges {
+                        while let range = self.liveChunkCursor.nextReadyRange(
+                            track: track,
+                            sampleCount: writer.sampleCount(for: track)
+                        ) {
                             let samples = try await writer.committedSamplesAsync(for: track, range: range)
-                            guard !samples.isEmpty else { continue }
+                            guard !samples.isEmpty else { break }
                             await scheduler.enqueueInterim(
                                 meetingID: meetingID,
                                 id: "\(track.rawValue)-\(range.lowerBound)",
@@ -269,6 +269,7 @@ final class MeetingController {
                                 offset: Double(range.lowerBound) / Double(MeetingPCMJournal.sampleRate),
                                 clip: AudioClip(samples: samples)
                             )
+                            self.liveChunkCursor.markSent(track: track)
                         }
                     }
                     let line = await scheduler.latestLine
