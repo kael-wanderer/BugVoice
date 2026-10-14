@@ -12,6 +12,17 @@ Continuous implementation is in progress. Tasks 1–3 and Task 4 are complete. T
 | 2 | `0c003cc` — `feat(core): add durable meeting journal rules` | 136 VoiceCore + 17 BugVoiceMac passed |
 | 3 | `f58b374` — `feat(core): prioritize dictation transcription` | 141 VoiceCore + 17 BugVoiceMac passed |
 | 4 | `b100d8e` — `feat(core): process meeting transcript chunks`; `b01f719` — `fix(core): constrain meeting overlap deduplication` | 149 VoiceCore + 17 BugVoiceMac before requested fixes; 151 VoiceCore + 17 BugVoiceMac after fixes |
+| 5 | `458077b` — `feat(core): generate long meeting summaries in parts` | 158 VoiceCore + 17 BugVoiceMac passed |
+| 6 | `b303bd0` — `feat(core): export meeting transcripts and map timeline seeks` | 163 VoiceCore + 17 BugVoiceMac passed |
+| 7 | `aa9f45d` — `feat(core): model meeting lifecycle and recovery` | 171 VoiceCore + 17 BugVoiceMac passed |
+| 8a | `d8aa190` — `docs: add system audio tap spike and maintainer steps` | 171 VoiceCore + 17 BugVoiceMac passed; spike built but not launched |
+| 8b | `dec343f`, `c3e9828` — audio journals and periodic durable checkpoints | 172 VoiceCore + 25 BugVoiceMac passed |
+| 8c | `fd99d5c` — `feat(app): finalize meeting tracks and mixed playback` | 171 VoiceCore + 24 BugVoiceMac passed |
+| 9 | `2c5ee82` — `feat(app): wire meetings and shared transcription`; log `618ba55` | 172 VoiceCore + 26 BugVoiceMac passed |
+| 10 | `cada987` — `feat(app): add floating meeting recorder`; log `8a1dbd9` | 174 VoiceCore + 26 BugVoiceMac passed |
+| 11 | `a53003d` — `feat(app): add meetings library and playback`; log `fe96bb0` | 177 VoiceCore + 26 BugVoiceMac passed |
+| 12 | `d404ecf` — `feat(app): add meeting settings and recovery`; log `92577b7` | 181 VoiceCore + 26 BugVoiceMac passed |
+| 13 | Documentation commit pending; final log commit follows | 181 VoiceCore + 26 BugVoiceMac passed; signed app built and launched |
 
 ### Task 4 fixes
 
@@ -112,9 +123,19 @@ Continuous implementation is in progress. Tasks 1–3 and Task 4 are complete. T
 ### Task 12 — settings, storage, recovery, and retention
 
 - Implementation commit: `d404ecf` — `feat(app): add meeting settings and recovery`.
-- Test-first evidence: `MeetingRecoveryPolicyTests` initially failed to compile because the recovery policy was missing. It now covers old settings default decoding, meeting settings round-trip, and the available recovery action for each lifecycle state. `MeetingSessionTests` covers retrying an interrupted recording and persisting in-progress transcript percent. Full `swift test` passed 180 VoiceCore + 26 BugVoiceMac tests; `swift build --product BugVoice` passed.
+- Test-first evidence: `MeetingRecoveryPolicyTests` initially failed to compile because the recovery policy was missing. It now covers old settings default decoding, meeting settings round-trip, and the available recovery action for each lifecycle state. `MeetingSessionTests` covers retrying an interrupted recording and persisting in-progress transcript percent. Full `swift test` passed 181 VoiceCore + 26 BugVoiceMac tests; `swift build --product BugVoice` passed.
 - Startup marks stale recording/paused manifests interrupted without deleting journals. Recover truncates uncheckpointed tails, transcribes bounded chunks, finalizes AAC, and preserves source journals on failure. Incomplete transcription can retry; an active retry can cancel and wait for the in-flight chunk. Progress is durably written after each final chunk so the library can show a percentage.
 - Settings include Never/30/90/365 day deletion and separate context/output token controls. Retention uses `MeetingRetention.pruneCandidates`, which selects ready meetings only. Storage shows meeting count, allocated size, and Finder access; the recursive directory size includes `.capture` journals.
 - Decision beyond the plan: persist transcript progress after every final chunk rather than only in memory. Cost if wrong: this adds one durable manifest replacement per roughly 30-second chunk, trading small metadata I/O for accurate restartable list status.
 - No manual settings persistence, storage-size, sleep, quit, or crash recovery run was performed. Those remain checklist checks. A future-schema or corrupt manifest can make `MeetingStore.list()` fail as noted in Task 11, leaving all meetings visible only after the manifest is repaired.
 - Open questions: complete the storage/recovery manual checks and the Task 8a device checks.
+
+### Task 13 — manual checklist, handoff, and final build
+
+- Documentation commit: to be recorded after commit; final summary follows.
+- Added Meetings manual rows 45–62 with blank Result cells, updated Handoff and `AGENTS.md` status for merged sub-project 1 and the unmerged `feat/meetings` branch.
+- Final verification: `swift test` passed 181 VoiceCore tests in 26 suites and 26 BugVoiceMac tests in 7 suites. `Scripts/build-app.sh` succeeded and signed the app with `Bugler Local Dev`. The built Info.plist contains `NSAudioCaptureUsageDescription` and retains `LSUIElement`.
+- Launched `build/BugVoice.app` once. PID 68193 remained running. Unified logs showed Core ML runtime activity and `lsof` showed mapped `bnns_program.bnnsir` model resources in BugVoice, confirming speech-model initialization reached model loading. No meeting recording was started.
+- UI inspection via CUA was denied with “Computer Use was not approved to use BugVoice.” The process and model resources were verified through read-only process/log inspection, but no visual UI state or dictation interaction was confirmed. Do not report the manual checklist as run.
+- Unverified on device: System Audio Recording prompt/denial behavior, process-tap capture and self-audio exclusion, aggregate input conversion, recorder focus retention, sleep/quit/crash recovery, actual AAC playback, export dialogs, and end-to-end dictation interaction. Exact spike run steps remain above in Task 8a.
+- No other skipped automated checks. The app process remains open after the required launch check.

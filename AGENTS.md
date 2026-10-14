@@ -15,18 +15,19 @@ runs on device (WhisperKit); cleanup uses any local model through an
 OpenAI-compatible or Anthropic-compatible API (LM Studio, Ollama, MLX…) or
 Apple Intelligence.
 
-Status: sub-project 1 implemented on branch `feat/dictation-core` (plan Tasks
-1–20 done and reviewed); manual checklist, benchmark gate and final branch
-review pending — see `docs/progress/HANDOFF.md`.
+Status: sub-project 1 is merged on `main`; its manual checklist, benchmark gate,
+and deferred-findings review remain pending. Sub-project 2 (Meetings) is
+implemented on branch `feat/meetings` and awaits maintainer review. See
+`docs/progress/HANDOFF.md` and `docs/progress/meetings-log.md`.
 
 Built in three sub-projects, each with its own spec → plan → implementation:
 
-1. **Dictation core + app shell** — current. Spec and plan below.
-2. **Meetings** — record mic + system audio, timeline transcript, player, file list.
+1. **Dictation core + app shell** — merged on `main`; maintainer gates remain.
+2. **Meetings** — implemented on `feat/meetings`; maintainer review pending.
 3. **Notes** — speak into an in-app note editor (no timeline).
 
-Space for 2 and 3 is reserved in the UI, storage layout and code seams
-(spec §10). Do not build them inside sub-project 1.
+Notes remains reserved in the UI, storage layout and code seams (spec §10).
+Do not build Notes as part of the Meetings branch.
 
 ## Key documents
 
@@ -34,6 +35,9 @@ Space for 2 and 3 is reserved in the UI, storage layout and code seams
 - Plan: `docs/superpowers/plans/2026-10-14-dictation-core-and-shell.md`
 - UI mockup: `docs/design/mockup.html` (open in a browser; light/dark toggle)
 - Handoff / status: `docs/progress/HANDOFF.md`
+- Meetings spec: `docs/superpowers/specs/2026-10-14-meetings-design.md`
+- Meetings plan: `docs/superpowers/plans/2026-10-14-meetings.md`
+- Meetings execution log: `docs/progress/meetings-log.md`
 
 ## Rules
 

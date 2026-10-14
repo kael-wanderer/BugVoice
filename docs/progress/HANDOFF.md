@@ -4,7 +4,9 @@ Last updated: 2026-10-14
 
 ## Current state
 
-**Sub-project 1 (Dictation core + app shell): implemented on branch `feat/dictation-core`, not merged.**
+**Sub-project 1 (Dictation core + app shell): merged on `main`. Its manual checklist, benchmark gate, and final deferred-findings review remain pending.**
+
+**Sub-project 2 (Meetings): implemented on branch `feat/meetings`, not merged.**
 
 | Item | Path | Status |
 |---|---|---|
@@ -12,9 +14,12 @@ Last updated: 2026-10-14
 | UI mockup | `docs/design/mockup.html` | Approved |
 | Implementation plan | `docs/superpowers/plans/2026-10-14-dictation-core-and-shell.md` | Approved; Tasks 1–20 done |
 | Code | `feat/dictation-core` | Built subagent-driven: each task implemented, reviewed, fixed until clean |
-| Automated tests | `swift test` | VoiceCore 127 tests / 14 suites, BugVoiceMac 17 tests / 3 suites — all pass |
-| App | `Scripts/build-app.sh` | Builds, signs with `Bugler Local Dev`, launches and quits cleanly |
-| Manual checklist | `docs/testing/manual-checklist.md` | Written, **not run** (needs permissions and voice) |
+| Meetings spec | `docs/superpowers/specs/2026-10-14-meetings-design.md` | Approved with maintainer amendments |
+| Meetings plan | `docs/superpowers/plans/2026-10-14-meetings.md` | Tasks 1–13 implemented and committed on `feat/meetings` |
+| Meetings code | `feat/meetings` | Recorder, dual-track journals/finalization, transcription, library, player, exports, settings, recovery |
+| Automated tests | `swift test` | VoiceCore 181 tests / 26 suites, BugVoiceMac 26 tests / 7 suites — all pass |
+| App | `Scripts/build-app.sh` | Final build passed and signed with `Bugler Local Dev`; launched once; process remained running and Core ML model resources were mapped |
+| Manual checklist | `docs/testing/manual-checklist.md` | Dictation rows 1–44 and Meetings rows 45–62 written; **not run** (needs permissions and voice) |
 | Benchmark gate (Task 8 step 12) | `bench/clips/`, `docs/bench/2026-10-14-stt-bench.md` | **Open**: first run found and fixed a decoder bug; clips and references incomplete |
 
 ## Next steps
@@ -36,7 +41,10 @@ Last updated: 2026-10-14
      token cap). Turn thinking off in LM Studio's model settings, or choose a
      non-thinking or smaller model.
 2. **Maintainer: manual checklist.** Run `docs/testing/manual-checklist.md`,
-   fill in results. Failures in decisions that live in `VoiceCore` get a test.
+   fill in results. Meetings rows 45–62 cover OS audio permission, track
+   separation, echo/headphones, focus, dictation concurrency, sleep/crash
+   recovery, language fallback, summaries, player, exports, retention, and
+   storage. Failures in decisions that live in `VoiceCore` get a test.
 3. **Final whole-branch review** (most capable model), including triage of the
    deferred minor findings below; one fix round; then merge or PR.
 
@@ -81,6 +89,14 @@ The most relevant (full list in the controller's ledger, local only):
 
 ## Known risks
 
+- Meetings system audio capture, self-audio exclusion, aggregate-device input
+  behavior, and denied-permission behavior are **UNVERIFIED on device**. Run
+  the spike steps in `docs/progress/meetings-log.md` before relying on capture.
+- Auto language detection can render Vietnamese clauses as English. Forced
+  `vi` retry only runs when the timestamped auto result is empty; the manual
+  checklist includes mixed-language review.
+- Without headphones, the microphone can capture Others as You. The app keeps
+  those lines; compare with headphones during the Meetings checklist.
 - ⌘V is posted as key code 9; non-QWERTY layouts are untested.
 - Clipboard managers may request pasteboard data and make a failed paste look consumed.
 - `com.vng.zalo` bundle id unverified (Zalo not installed on the dev Mac).

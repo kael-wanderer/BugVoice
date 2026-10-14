@@ -6,8 +6,8 @@ Before you start: grant Microphone, Accessibility and Input Monitoring, quit and
 relaunch once, and wait for the speech model to be ready. Until then a press
 shows *Model loading · downloading N%* or *Model loading · try again in a moment*.
 
-Automated suite at the time of writing: `swift test` — VoiceCore 127 tests in
-14 suites, BugVoiceMac 17 tests in 3 suites, all passing.
+Automated suite at the time of writing: `swift test` — VoiceCore 181 tests,
+BugVoiceMac 26 tests, all passing.
 
 ## Dictation
 
@@ -82,3 +82,29 @@ Automated suite at the time of writing: `swift test` — VoiceCore 127 tests in
 | 42 | Settings → Text model → Send test sentence / Refresh | Works against LM Studio; model list loads | |
 | 43 | Dictation page | Renders history; search filters; Copy copies; Delete removes the row; Paste again pastes into a text field | |
 | 44 | Quit and reopen | No permission prompts (stable signature) | |
+
+## Meetings
+
+Run these after building with `Scripts/build-app.sh`. Keep the Result column
+blank until the maintainer runs each check.
+
+| # | Where | Do | Expect | Result |
+|---|---|---|---|---|
+| 45 | Permissions | Open Permissions and inspect System Audio Recording | Row says “Requested when the first meeting starts”; no Screen Recording prompt or preflight | |
+| 46 | First meeting | Start a meeting and approve System Audio Recording | OS permission prompt appears; mic and system tracks start; dictation permissions are unchanged | |
+| 47 | Meeting audio | Speak, then play audio in another app; compare You and Others meters and tracks | Mic appears on You, app playback appears on Others, and BugVoice's own sounds stay out of Others | |
+| 48 | Meeting audio | Run once without headphones, then repeat with headphones | Note any Others speech repeated on You; headphones reduce mic echo. Echo is a known risk. | |
+| 49 | Recorder panel | Start from the menu, press ⌃⌥M, then click Pause/Mark/Resume/Stop | Panel floats above apps and never takes typing focus; timer and meters update; marks follow active meeting time | |
+| 50 | Meetings page | Start and stop a meeting from the Meetings page | Recording begins and the final transcript appears in the selected meeting | |
+| 51 | Concurrent dictation | Dictate while a meeting is recording | Dictation hotkey, HUD, transcription and paste work; dictation waits for at most one meeting chunk | |
+| 52 | Pause and resume | Pause, wait 30 seconds, mark, resume, then stop | Paused gap is excluded from duration and timeline; marks remain at active meeting offsets | |
+| 53 | Sleep and quit | Record, pause or sleep the Mac, then quit BugVoice during a meeting | Committed audio remains in `.capture`; next launch marks the meeting Interrupted and offers Recover recording | |
+| 54 | Crash recovery | Force quit BugVoice during recording, relaunch, recover the meeting | Checkpointed mic/system audio is retained; recovery transcribes and finalizes; failed finalization keeps journals | |
+| 55 | Transcription | Record English, Vietnamese, and mixed speech; inspect per-chunk language | Auto timestamps remain usable; empty Vietnamese auto chunks retry with `vi` and VAD window times; no prompt appears mid-meeting | |
+| 56 | Transcription | Stop a long meeting and watch the library status | Status advances as “Transcribing N%”; final pass uses bounded chunks and replaces interim text | |
+| 57 | Summary and action items | Generate both tabs with the configured text model, then cancel a long generation | Parts and merge progress are visible; cancel stops between model calls; generated text is saved | |
+| 58 | Timeline and player | Play audio, scrub waveform, click rows, skip ±15 seconds, change speed | Playback seeks accurately; current row highlights only during playback | |
+| 59 | Export | Export Markdown, SRT, and audio to a chosen folder | Each file opens and contains the meeting's title, timestamps, transcript, or mixed audio | |
+| 60 | Meeting actions | Rename, delete one meeting, and inspect a second meeting | Rename persists; confirmed deletion removes only the selected meeting and its files | |
+| 61 | Settings → Meetings | Set Never, then 30/90/365 day deletion and change summary budgets | Values persist after relaunch; only expired Ready meetings are removed; generation limits clamp safely | |
+| 62 | Settings → Storage | Inspect Meetings size during a recording and after finalization; Show in Finder | Allocated size includes `.capture` journals while recording and final audio after finalization | |
