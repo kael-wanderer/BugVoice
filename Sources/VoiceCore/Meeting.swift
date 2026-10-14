@@ -139,15 +139,24 @@ public struct MeetingSegment: Codable, Equatable, Sendable, Identifiable {
     public var end: TimeInterval
     public var text: String
     public var track: MeetingTrack
+    public var sourceChunkID: String?
 
     public var speaker: String { track == .mic ? "You" : "Others" }
 
-    public init(id: String = UUID().uuidString, start: TimeInterval, end: TimeInterval, text: String, track: MeetingTrack) {
+    public init(
+        id: String = UUID().uuidString,
+        start: TimeInterval,
+        end: TimeInterval,
+        text: String,
+        track: MeetingTrack,
+        sourceChunkID: String? = nil
+    ) {
         self.id = id
         self.start = start
         self.end = end
         self.text = text
         self.track = track
+        self.sourceChunkID = sourceChunkID
     }
 }
 

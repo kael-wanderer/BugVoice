@@ -65,6 +65,7 @@ public struct MeetingChunkProcessor: Sendable {
         track: MeetingTrack,
         offset: TimeInterval,
         clip: AudioClip,
+        configuredLanguage: SpeechLanguage = .auto,
         transcriber: any Transcriber
     ) async throws -> MeetingChunkProcessingResult {
         guard MeetingSilenceGate.hasSpeech(clip.samples) else {
@@ -108,12 +109,13 @@ public struct MeetingChunkProcessor: Sendable {
             return result(id: id, track: track, offset: offset, clip: clip, attempts: [autoAttempt], chosen: nil)
         }
 
+        let retryLanguage: SpeechLanguage = configuredLanguage == .auto ? .vi : configuredLanguage
         do {
             let transcript = try await transcriber.transcribe(
                 clip,
-                options: TranscriptionOptions(language: .vi, timestamps: false, priority: .meeting)
+                options: TranscriptionOptions(language: retryLanguage, timestamps: false, priority: .meeting)
             )
-            let retry = makeAttempt(transcript, mode: .forcedVAD, requestedLanguage: .vi, clip: clip)
+            let retry = makeAttempt(transcript, mode: .forcedVAD, requestedLanguage: retryLanguage, clip: clip)
             let attempts = [autoAttempt, retry]
             return result(
                 id: id,
@@ -127,7 +129,7 @@ public struct MeetingChunkProcessor: Sendable {
             if error is CancellationError { throw error }
             let retry = MeetingChunkAttempt(
                 mode: .forcedVAD,
-                requestedLanguage: .vi,
+                requestedLanguage: retryLanguage,
                 state: .failed,
                 errorMessage: String(describing: error)
             )
@@ -216,44 +218,72 @@ public struct MeetingChunkProcessor: Sendable {
             chosenAttempt: chosen
         )
         let segments = chosenAttempt?.segments.map {
-            MeetingSegment(start: offset + $0.start, end: offset + $0.end, text: $0.text, track: track)
+            MeetingSegment(start: offset + $0.start, end: offset + $0.end, text: $0.text, track: track, sourceChunkID: id)
         } ?? []
         return MeetingChunkProcessingResult(record: record, segments: segments)
     }
 }
 
 public enum MeetingTranscriptMerger {
-    public static func merge(_ segments: [MeetingSegment], overlapWindow: TimeInterval = 2) -> [MeetingSegment] {
-        let ordered = segments.sorted {
+    public static func merge(
+        _ chunks: [MeetingChunkProcessingResult],
+        overlapWindow: TimeInterval = 2
+    ) -> [MeetingSegment] {
+        let orderedChunks = chunks.sorted {
+            if $0.record.track != $1.record.track {
+                return trackOrder($0.record.track) < trackOrder($1.record.track)
+            }
+            if $0.record.offset != $1.record.offset { return $0.record.offset < $1.record.offset }
+            return $0.record.id < $1.record.id
+        }
+        var previousChunkByTrack: [MeetingTrack: MeetingChunkProcessingResult] = [:]
+        var merged: [MeetingSegment] = []
+
+        for chunk in orderedChunks {
+            let previousChunk = previousChunkByTrack[chunk.record.track]
+            let orderedSegments = chunk.segments.sorted {
+                if $0.start != $1.start { return $0.start < $1.start }
+                if $0.end != $1.end { return $0.end < $1.end }
+                return $0.id < $1.id
+            }
+            for var segment in orderedSegments {
+                guard let previousChunk,
+                      let previousIndex = orderedChunks.firstIndex(where: { $0.record.id == previousChunk.record.id }),
+                      let currentIndex = orderedChunks.firstIndex(where: { $0.record.id == chunk.record.id }),
+                      currentIndex == previousIndex + 1 else {
+                    merged.append(segment)
+                    continue
+                }
+                let candidates = previousChunk.segments.filter {
+                    $0.track == segment.track
+                        && $0.sourceChunkID != segment.sourceChunkID
+                        && segment.start <= $0.end + overlapWindow
+                        && $0.start <= segment.end + overlapWindow
+                }.sorted { $0.start > $1.start }
+                guard let previous = candidates.first else {
+                    merged.append(segment)
+                    continue
+                }
+                let currentWords = words(segment.text)
+                let overlap = sharedBoundaryWordCount(words(previous.text), currentWords)
+                guard overlap > 0, overlap >= 2 || overlap == currentWords.count else {
+                    merged.append(segment)
+                    continue
+                }
+                if overlap == currentWords.count { continue }
+                let pieces = segment.text.split(whereSeparator: \.isWhitespace)
+                segment.text = pieces.dropFirst(overlap).joined(separator: " ")
+                if !segment.text.isEmpty { merged.append(segment) }
+            }
+            previousChunkByTrack[chunk.record.track] = chunk
+        }
+
+        return merged.sorted {
             if $0.start != $1.start { return $0.start < $1.start }
             if $0.track != $1.track { return trackOrder($0.track) < trackOrder($1.track) }
             if $0.end != $1.end { return $0.end < $1.end }
             return $0.id < $1.id
         }
-
-        var merged: [MeetingSegment] = []
-        for var segment in ordered {
-            guard let previousIndex = merged.indices.reversed().first(where: {
-                merged[$0].track == segment.track
-                    && segment.start <= merged[$0].end + overlapWindow
-            }) else {
-                merged.append(segment)
-                continue
-            }
-
-            let previousWords = words(merged[previousIndex].text)
-            let currentWords = words(segment.text)
-            let overlap = sharedBoundaryWordCount(previousWords, currentWords)
-            guard overlap > 0, overlap >= 2 || overlap == currentWords.count else {
-                merged.append(segment)
-                continue
-            }
-            if overlap == currentWords.count { continue }
-            let pieces = segment.text.split(whereSeparator: \.isWhitespace)
-            segment.text = pieces.dropFirst(overlap).joined(separator: " ")
-            if !segment.text.isEmpty { merged.append(segment) }
-        }
-        return merged
     }
 
     private static func trackOrder(_ track: MeetingTrack) -> Int {

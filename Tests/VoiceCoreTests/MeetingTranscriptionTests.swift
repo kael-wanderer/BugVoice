@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import VoiceCore
 
@@ -120,20 +121,65 @@ struct MeetingTranscriptionTests {
         #expect(result.segments.first?.track == .system)
     }
 
-    @Test func mergerOffsetsSortsAndRemovesRepeatedOverlapPhrase() {
-        let segments = [
-            MeetingSegment(start: 12, end: 14, text: "ship it tomorrow after review", track: .mic),
-            MeetingSegment(start: 10, end: 13, text: "we need to ship it tomorrow", track: .mic),
-            MeetingSegment(start: 10, end: 11, text: "status update", track: .system)
-        ]
+    @Test func configuredEnglishRetriesWithEnglish() async throws {
+        let probe = MeetingTranscriberProbe(replies: [
+            .init(text: "", language: "vi"),
+            .init(text: "hello there", language: "en")
+        ])
 
-        let merged = MeetingTranscriptMerger.merge(segments, overlapWindow: 2)
+        let result = try await MeetingChunkProcessor().process(
+            id: "english-retry", track: .mic, offset: 0,
+            clip: speechClip, configuredLanguage: .en, transcriber: probe
+        )
 
-        #expect(merged.map(\.start) == [10, 10, 12])
-        #expect(merged[0].track == .mic)
-        #expect(merged[0].speaker == "You")
-        #expect(merged[1].speaker == "Others")
-        #expect(merged[2].text == "after review")
+        #expect(await probe.receivedOptions.map(\.language) == [.auto, .en])
+        #expect(result.record.attempts.map(\.requestedLanguage) == [.auto, .en])
+        #expect(result.record.detectedLanguage == "en")
+    }
+
+    @Test func repeatedTextWithinOneChunkIsKept() {
+        let chunk = chunkResult("mic-0", track: .mic, offset: 0, duration: 30, segments: [
+            .init(start: 1, end: 2, text: "Okay.", track: .mic, sourceChunkID: "mic-0"),
+            .init(start: 2.3, end: 2.8, text: "Okay.", track: .mic, sourceChunkID: "mic-0")
+        ])
+
+        let merged = MeetingTranscriptMerger.merge([chunk], overlapWindow: 2)
+
+        #expect(merged.map(\.text) == ["Okay.", "Okay."])
+    }
+
+    @Test func repeatedPhraseAcrossAdjacentSameTrackChunksIsKeptOnce() {
+        let first = chunkResult("mic-0", track: .mic, offset: 0, duration: 30, segments: [
+            .init(start: 28, end: 29.5, text: "we should ship Friday", track: .mic, sourceChunkID: "mic-0")
+        ])
+        let second = chunkResult("mic-1", track: .mic, offset: 29, duration: 30, segments: [
+            .init(start: 29, end: 30, text: "ship Friday after review", track: .mic, sourceChunkID: "mic-1")
+        ])
+        let otherTrack = chunkResult("system-0", track: .system, offset: 0, duration: 30, segments: [
+            .init(start: 28, end: 29, text: "ship Friday", track: .system, sourceChunkID: "system-0")
+        ])
+
+        let merged = MeetingTranscriptMerger.merge([second, otherTrack, first], overlapWindow: 2)
+
+        #expect(merged.filter { $0.track == .mic }.map(\.text) == ["we should ship Friday", "after review"])
+        #expect(merged.first(where: { $0.track == .system })?.text == "ship Friday")
+        #expect(merged.map(\.start) == [28, 28, 29])
+    }
+
+    private func chunkResult(
+        _ id: String,
+        track: MeetingTrack,
+        offset: TimeInterval,
+        duration: TimeInterval,
+        segments: [MeetingSegment]
+    ) -> MeetingChunkProcessingResult {
+        MeetingChunkProcessingResult(
+            record: MeetingChunkRecord(
+                id: id, track: track, offset: offset, duration: duration,
+                requestedLanguage: .auto, state: .complete
+            ),
+            segments: segments
+        )
     }
 }
 
