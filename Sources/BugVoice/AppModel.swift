@@ -1,4 +1,5 @@
 import AppKit
+import Carbon
 import BugVoiceMac
 import Foundation
 import Observation
@@ -9,10 +10,10 @@ import WhisperEngine
 
 /// Main-window pages. Meetings and Notes are added by sub-projects 2 and 3.
 enum Page: String, CaseIterable, Identifiable {
-    case dictation, settings
+    case dictation, meetings, settings
     var id: String { rawValue }
-    var title: String { self == .dictation ? "Dictation" : "Settings" }
-    var symbol: String { self == .dictation ? "mic" : "gearshape" }
+    var title: String { switch self { case .dictation: "Dictation"; case .meetings: "Meetings"; case .settings: "Settings" } }
+    var symbol: String { switch self { case .dictation: "mic"; case .meetings: "waveform.path"; case .settings: "gearshape" } }
 }
 
 @MainActor
@@ -23,6 +24,9 @@ final class AppModel {
     @ObservationIgnored let store = SettingsStore(url: AppPaths.standard().settings)
     @ObservationIgnored let historyLog = HistoryLog(url: AppPaths.standard().history)
     @ObservationIgnored private(set) var whisper: WhisperKitTranscriber
+    @ObservationIgnored private(set) var priorityTranscriber: PriorityTranscriber
+    @ObservationIgnored let transcriptionRouter: TranscriptionRouter
+    @ObservationIgnored private var systemAudioGrantedThisRun = false
 
     var settings = AppSettings() {
         didSet {
@@ -55,11 +59,16 @@ final class AppModel {
     @ObservationIgnored var presentPermissionsWindow: (() -> Void)?
     /// Created by `bootstrap()` once settings are loaded.
     @ObservationIgnored private(set) var dictation: DictationController?
+    @ObservationIgnored private(set) var meetings: MeetingController?
     @ObservationIgnored private var isLoadingSettings = false
     @ObservationIgnored private var preparingEngine: WhisperKitTranscriber?
 
     init() {
-        whisper = WhisperKitTranscriber(modelName: AppSettings().speech.whisperModel, downloadBase: AppPaths.standard().models)
+        let engine = WhisperKitTranscriber(modelName: AppSettings().speech.whisperModel, downloadBase: AppPaths.standard().models)
+        whisper = engine
+        let priority = PriorityTranscriber(base: engine)
+        priorityTranscriber = priority
+        transcriptionRouter = TranscriptionRouter(initial: priority)
     }
 
     func bootstrap() async {
@@ -70,6 +79,8 @@ final class AppModel {
         }
         let loaded = store.load()
         whisper = WhisperKitTranscriber(modelName: loaded.speech.whisperModel, downloadBase: paths.models)
+        priorityTranscriber = PriorityTranscriber(base: ProviderFactory.transcriber(loaded.speech, whisper: whisper, keychain: keychain))
+        await transcriptionRouter.replace(with: priorityTranscriber)
         // Loading is not a change: no save, no model reload, no login-item call.
         isLoadingSettings = true
         settings = loaded
@@ -86,6 +97,10 @@ final class AppModel {
         vocabularyText = (try? String(contentsOf: paths.vocabulary, encoding: .utf8)) ?? ""
         vocabulary = Vocabulary.parse(vocabularyText)
         startDictation()
+        GlobalShortcuts.shared.register(keyCode: UInt32(kVK_ANSI_M), modifiers: GlobalShortcuts.controlOption) { [weak self] in
+            Task { @MainActor in self?.meetings?.toggleRecording() }
+        }
+        meetings = MeetingController(model: self)
         refreshPermissions()
         if !permissionsGranted { openPermissionsWindow() }
         await applyRetention()
@@ -119,10 +134,17 @@ final class AppModel {
         } catch {
             saveError = "Could not save settings: \(error.localizedDescription)"
         }
-        if settings.speech.whisperModel != old.speech.whisperModel {
-            whisper = WhisperKitTranscriber(modelName: settings.speech.whisperModel, downloadBase: paths.models)
-            speechState = .notLoaded
-            Task { await prepareSpeech() }
+        if settings.speech.whisperModel != old.speech.whisperModel || settings.speech.engine != old.speech.engine {
+            let replacementWhisper = WhisperKitTranscriber(modelName: settings.speech.whisperModel, downloadBase: paths.models)
+            let replacement = PriorityTranscriber(base: ProviderFactory.transcriber(settings.speech, whisper: replacementWhisper, keychain: keychain))
+            speechState = settings.speech.engine == .whisperKit ? .notLoaded : .ready
+            Task { [weak self] in
+                guard let self else { return }
+                await transcriptionRouter.replace(with: replacement)
+                whisper = replacementWhisper
+                priorityTranscriber = replacement
+                if settings.speech.engine == .whisperKit { Task { await prepareSpeech() } }
+            }
         }
         if settings.launchAtLogin != old.launchAtLogin { applyLaunchAtLogin() }
         if settings.historyRetention != old.historyRetention {
@@ -185,7 +207,7 @@ final class AppModel {
 
     func makePipeline(insertion: any InsertionTarget) -> DictationPipeline {
         DictationPipeline(
-            transcriber: ProviderFactory.transcriber(settings.speech, whisper: whisper, keychain: keychain),
+            transcriber: transcriptionRouter,
             textModel: ProviderFactory.textModel(settings.textModel, keychain: keychain),
             insertion: insertion,
             focus: FocusInspector(),
@@ -276,9 +298,16 @@ final class AppModel {
 
     func refreshPermissions() {
         var status: [PermissionKind: Bool] = [:]
-        for kind in PermissionKind.allCases { status[kind] = Permissions.isGranted(kind) }
+        for kind in PermissionKind.allCases {
+            status[kind] = kind == .systemAudioRecording ? systemAudioGrantedThisRun : Permissions.isGranted(kind)
+        }
         if permissionStatus != status { permissionStatus = status }
-        let granted = status.values.allSatisfy { $0 }
+        let granted = Permissions.allGranted
         if permissionsGranted != granted { permissionsGranted = granted }
+    }
+
+    func setSystemAudioCaptureObserved(_ granted: Bool) {
+        systemAudioGrantedThisRun = granted
+        permissionStatus[.systemAudioRecording] = granted
     }
 }

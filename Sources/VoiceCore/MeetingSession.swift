@@ -133,6 +133,8 @@ public actor MeetingSession {
         _ = try await audio.checkpoint()
         meeting.duration = accumulatedActiveTime
         meeting.endedAt = clock.now()
+        await scheduler.cancelQueued(meetingID: meeting.id)
+        await scheduler.waitForInFlight(meetingID: meeting.id)
         meeting.state = .transcribing
         meeting.transcriptProgress = 0
         manifest = meeting

@@ -213,6 +213,31 @@ public final class MeetingPCMJournalWriter: @unchecked Sendable {
         }
     }
 
+    public func storedCheckpoint() throws -> MeetingCheckpoint {
+        let url = directory.appendingPathComponent("checkpoint.json")
+        let data = try Data(contentsOf: url)
+        return try JSONDecoder().decode(MeetingCheckpoint.self, from: data)
+    }
+
+    public func committedSamples(for track: MeetingTrack, range: Range<Int>) throws -> [Float] {
+        try queue.sync {
+            if let appendFailure { throw appendFailure }
+            let checkpoint = try storedCheckpoint()
+            let count = checkpoint.track(track)?.sampleCount ?? 0
+            let lower = min(count, max(0, range.lowerBound))
+            let upper = min(count, max(lower, range.upperBound))
+            guard upper > lower else { return [] }
+            let handle = try FileHandle(forReadingFrom: journalURL(track))
+            defer { try? handle.close() }
+            try handle.seek(toOffset: UInt64(lower * 2))
+            let data = try handle.read(upToCount: (upper - lower) * 2) ?? Data()
+            guard data.count.isMultiple(of: 2) else { throw CocoaError(.fileReadCorruptFile) }
+            return data.withUnsafeBytes { bytes in
+                bytes.bindMemory(to: Int16.self).map { Float(Int16(littleEndian: $0)) / 32_768 }
+            }
+        }
+    }
+
     public func committedData(for track: MeetingTrack) throws -> Data {
         let checkpoint = try queue.sync { try Data(contentsOf: directory.appendingPathComponent("checkpoint.json")) }
         let model = try JSONDecoder().decode(MeetingCheckpoint.self, from: checkpoint)
