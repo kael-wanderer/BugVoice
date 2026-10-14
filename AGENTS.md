@@ -17,8 +17,7 @@ Apple Intelligence.
 
 Status: all three sub-projects (dictation, Meetings, Notes) are merged on
 `main`. Pending maintainer gates: manual checklist (dictation 1–44, Meetings
-45–62, Notes 63–72), benchmark, system-audio spike, and the sub-project 1
-deferred-findings review. See `docs/progress/HANDOFF.md`, `docs/progress/meetings-log.md`, and
+45–62, Notes 63–72), benchmark, and system-audio spike. See `docs/progress/HANDOFF.md`, `docs/progress/meetings-log.md`, and
 `docs/progress/notes-log.md`.
 
 Built in three sub-projects, each with its own spec → plan → implementation:
