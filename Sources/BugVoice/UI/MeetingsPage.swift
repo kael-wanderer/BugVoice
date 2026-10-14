@@ -207,6 +207,17 @@ private struct MeetingDetails: View {
         HStack(alignment: .firstTextBaseline) {
             Text(meeting.title).font(.title2.weight(.semibold)).lineLimit(2)
             Spacer()
+            if recoveryAction == .recoverCapture, meeting.state == .interrupted {
+                Button("Recover recording") { Task { await model.meetings?.recover(id: meeting.id) } }
+                    .buttonStyle(.borderedProminent)
+            } else if recoveryAction == .retryTranscription {
+                if model.meetings?.isTranscribing == true {
+                    Button("Cancel") { Task { await model.meetings?.cancel() } }
+                } else {
+                    Button("Retry transcript") { Task { await model.meetings?.recover(id: meeting.id) } }
+                        .buttonStyle(.borderedProminent)
+                }
+            }
             Menu("More") {
                 Button("Rename…") { renameTitle = meeting.title; showRename = true }
                 Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([meetingDirectory]) }
@@ -219,6 +230,10 @@ private struct MeetingDetails: View {
                 Button("Delete…", role: .destructive) { showDelete = true }
             }
         }
+    }
+
+    private var recoveryAction: MeetingRecoveryAction? {
+        MeetingRecoveryPolicy.action(for: meeting.state)
     }
 
     private var transcript: some View {

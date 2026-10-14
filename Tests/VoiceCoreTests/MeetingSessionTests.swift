@@ -79,11 +79,28 @@ struct MeetingSessionTests {
         #expect(await rig.scheduler.finalCallCount == 1)
     }
 
+    @Test func interruptedCaptureCanRetryTranscriptionFromCommittedAudio() async throws {
+        let meeting = MeetingManifest(id: MeetingID(rawValue: "interrupted-retry"), startedAt: Date(), state: .interrupted)
+        let expected = MeetingSegment(start: 0, end: 1, text: "saved audio", track: .mic)
+        let rig = SessionRig(finalChunks: [chunk("retry-mic-0", track: .mic, segments: [expected])])
+        try await rig.store.save(meeting)
+        let session = rig.makeSession()
+
+        _ = try await session.recover(id: meeting.id)
+        let finished = try await session.retryTranscription()
+
+        #expect(finished.state == .ready)
+        #expect(finished.segments.map(\.text) == ["saved audio"])
+        #expect(await rig.scheduler.finalCallCount == 1)
+    }
+
     @Test func cancelRemovesQueuedWorkAndWaitsForInFlightChunk() async throws {
         let rig = SessionRig(blockTranscription: true)
         let session = rig.makeSession()
         let started = try await session.start()
-        let inFlightChunk = Task { try await rig.scheduler.transcribeFinal(started, chunkSeconds: 30) }
+        let inFlightChunk = Task {
+            try await rig.scheduler.transcribeFinal(started, chunkSeconds: 30) { _ in }
+        }
         await rig.scheduler.waitUntilStarted()
         let completion = CompletionProbe()
         let cancellation = Task {
@@ -116,6 +133,18 @@ struct MeetingSessionTests {
         _ = try await stopping.value
         #expect(completion.isFinished)
         #expect(await rig.finalizer.callCount == 1)
+    }
+
+    @Test func finalTranscriptionProgressIsSavedForTheMeetingList() async throws {
+        let rig = SessionRig(blockTranscription: true)
+        let session = rig.makeSession()
+        try await session.start()
+        let stopping = Task { try await session.stop() }
+        await rig.scheduler.waitUntilProgressReported()
+        let saved = await rig.store.saved
+        #expect(saved.contains { $0.state == .transcribing && $0.transcriptProgress == 0.5 })
+        await rig.scheduler.release()
+        _ = try await stopping.value
     }
 
     private func chunk(_ id: String, track: MeetingTrack, segments: [MeetingSegment]) -> MeetingChunkProcessingResult {
@@ -175,6 +204,8 @@ private actor SchedulerProbe: MeetingTranscriptionScheduler {
     private var releaseContinuation: CheckedContinuation<Void, Never>?
     private var inFlight = false
     private var cancelContinuation: CheckedContinuation<Void, Never>?
+    private var progressContinuation: CheckedContinuation<Void, Never>?
+    private var didReportProgress = false
     private var waiters: [CheckedContinuation<Void, Never>] = []
     init(block: Bool, chunks: [MeetingChunkProcessingResult]) { self.block = block; self.chunks = chunks }
     func cancelQueued(meetingID: MeetingID) async {
@@ -182,11 +213,19 @@ private actor SchedulerProbe: MeetingTranscriptionScheduler {
         cancelContinuation?.resume()
         cancelContinuation = nil
     }
-    func transcribeFinal(_ manifest: MeetingManifest, chunkSeconds: TimeInterval) async throws -> [MeetingChunkProcessingResult] {
+    func transcribeFinal(
+        _ manifest: MeetingManifest,
+        chunkSeconds: TimeInterval,
+        progress: @escaping @Sendable (Double) async -> Void
+    ) async throws -> [MeetingChunkProcessingResult] {
         finalCallCount += 1
         inFlight = true
         startedContinuation?.resume()
         startedContinuation = nil
+        await progress(0.5)
+        didReportProgress = true
+        progressContinuation?.resume()
+        progressContinuation = nil
         if block { await withCheckedContinuation { releaseContinuation = $0 } }
         inFlight = false
         waiters.forEach { $0.resume() }
@@ -200,6 +239,10 @@ private actor SchedulerProbe: MeetingTranscriptionScheduler {
     func waitUntilStarted() async {
         if finalCallCount > 0 { return }
         await withCheckedContinuation { startedContinuation = $0 }
+    }
+    func waitUntilProgressReported() async {
+        if didReportProgress { return }
+        await withCheckedContinuation { progressContinuation = $0 }
     }
     func waitForInFlight(meetingID: MeetingID) async {
         guard inFlight else { return }

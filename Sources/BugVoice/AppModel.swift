@@ -113,6 +113,8 @@ final class AppModel {
         refreshPermissions()
         if !permissionsGranted { openPermissionsWindow() }
         await applyRetention()
+        await recoverUnfinishedMeetings()
+        await applyMeetingRetention()
         Task { await prepareSpeech() }
     }
 
@@ -158,6 +160,9 @@ final class AppModel {
         if settings.launchAtLogin != old.launchAtLogin { applyLaunchAtLogin() }
         if settings.historyRetention != old.historyRetention {
             Task { await applyRetention() }
+        }
+        if settings.meetings.deleteAfter != old.meetings.deleteAfter {
+            Task { await applyMeetingRetention() }
         }
         onSettingsChanged?()
     }
@@ -334,6 +339,30 @@ final class AppModel {
             }
         }
         await reloadHistory()
+    }
+
+    private func recoverUnfinishedMeetings() async {
+        do {
+            for var meeting in try await meetingStore.list() where meeting.state == .recording || meeting.state == .paused {
+                meeting.state = .interrupted
+                meeting.endedAt = meeting.endedAt ?? Date()
+                try await meetingStore.save(meeting)
+            }
+            await reloadMeetings()
+        } catch {
+            saveError = "Could not recover meetings: \(error.localizedDescription)"
+        }
+    }
+
+    private func applyMeetingRetention() async {
+        do {
+            let meetings = try await meetingStore.list()
+            let expired = MeetingRetention.pruneCandidates(meetings, policy: settings.meetings.deleteAfter, now: Date())
+            for id in expired { try await meetingStore.delete(id: id) }
+            await reloadMeetings()
+        } catch {
+            saveError = "Could not remove old meetings: \(error.localizedDescription)"
+        }
     }
 
     // MARK: Vocabulary

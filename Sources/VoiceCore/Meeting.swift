@@ -30,6 +30,21 @@ public enum MeetingState: String, Codable, Sendable, CaseIterable {
     }
 }
 
+public enum MeetingRecoveryAction: Sendable, Equatable {
+    case recoverCapture
+    case retryTranscription
+}
+
+public enum MeetingRecoveryPolicy {
+    public static func action(for state: MeetingState) -> MeetingRecoveryAction? {
+        switch state {
+        case .recording, .paused, .interrupted: .recoverCapture
+        case .transcribing: .retryTranscription
+        case .ready, .failed: nil
+        }
+    }
+}
+
 public enum MeetingTrack: String, Codable, Sendable, CaseIterable {
     case mic
     case system

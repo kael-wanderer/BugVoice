@@ -105,6 +105,47 @@ final class MeetingController {
         }
     }
 
+    func recover(id: MeetingID) async {
+        guard !isActive else { return }
+        let directory = model.paths.meetings.appendingPathComponent(id.rawValue, isDirectory: true)
+        let writer = MeetingPCMJournalWriter(directory: directory.appendingPathComponent(".capture", isDirectory: true))
+        let microphoneID = model.settings.speech.microphoneUID.flatMap(AudioDevices.deviceID(forUID:))
+        let sources: [MeetingTrack: any MeetingAudioSource] = [
+            .mic: MeetingAudioEngineSource(track: .mic, deviceID: microphoneID),
+            .system: CoreAudioProcessTapSource()
+        ]
+        let capture = MeetingAudioCaptureCoordinator(sources: sources, writer: writer)
+        let store = MeetingStore(root: model.paths.meetings)
+        let scheduler = MeetingLiveTranscriptionScheduler(
+            writer: writer,
+            store: store,
+            transcriber: model.transcriptionRouter,
+            language: model.settings.speech.language
+        )
+        let finalizer = MeetingAudioFinalizer(meetingDirectory: directory, store: store)
+        let session = MeetingSession(store: store, audio: capture, scheduler: scheduler, finalizer: finalizer, meetingID: id)
+        self.session = session
+        self.capture = capture
+        self.writer = writer
+        self.scheduler = scheduler
+        self.meetingID = id
+        isTranscribing = true
+        statusMessage = nil
+        do {
+            var recovered = try await session.recover(id: id)
+            if recovered.state == .interrupted {
+                recovered = try await session.retryTranscription()
+            }
+            isTranscribing = false
+            statusMessage = nil
+            await model.reloadMeetings()
+        } catch {
+            isTranscribing = false
+            statusMessage = "Transcript could not be completed. Your meeting audio is saved. \(error.localizedDescription)"
+            await model.reloadMeetings()
+        }
+    }
+
     func pause() async {
         guard let session, isRecording else { return }
         do {
@@ -151,6 +192,7 @@ final class MeetingController {
             isTranscribing = false
             statusMessage = "Transcript could not be completed. Your meeting audio is saved. \(error.localizedDescription)"
         }
+        await model.reloadMeetings()
     }
 
     func cancel() async {
@@ -163,6 +205,7 @@ final class MeetingController {
         isTranscribing = false
         do { _ = try await session.cancel() }
         catch { statusMessage = "Could not stop meeting audio: \(error.localizedDescription)" }
+        await model.reloadMeetings()
     }
 
     private func startMonitor() {
@@ -250,7 +293,11 @@ private actor MeetingLiveTranscriptionScheduler: MeetingTranscriptionScheduler {
         await withCheckedContinuation { waiters.append($0) }
     }
 
-    func transcribeFinal(_ manifest: MeetingManifest, chunkSeconds: TimeInterval) async throws -> [MeetingChunkProcessingResult] {
+    func transcribeFinal(
+        _ manifest: MeetingManifest,
+        chunkSeconds: TimeInterval,
+        progress: @escaping @Sendable (Double) async -> Void
+    ) async throws -> [MeetingChunkProcessingResult] {
         await cancelQueued(meetingID: manifest.id)
         await waitForInFlight(meetingID: manifest.id)
         cancelled = false
@@ -258,10 +305,17 @@ private actor MeetingLiveTranscriptionScheduler: MeetingTranscriptionScheduler {
         defer { isFinalTranscribing = false; resumeWaiters() }
 
         let checkpoint = try writer.storedCheckpoint()
+        let planned = MeetingTrack.allCases.map { track in
+            MeetingChunkPlanner.plan(
+                sampleCount: checkpoint.track(track)?.sampleCount ?? 0,
+                chunkSeconds: chunkSeconds
+            )
+        }
+        let total = max(1, planned.reduce(0) { $0 + $1.count })
         var results: [MeetingChunkProcessingResult] = []
-        for track in MeetingTrack.allCases {
-            guard let sampleCount = checkpoint.track(track)?.sampleCount else { continue }
-            for (index, range) in MeetingChunkPlanner.plan(sampleCount: sampleCount, chunkSeconds: chunkSeconds).enumerated() {
+        var completed = 0
+        for (trackIndex, track) in MeetingTrack.allCases.enumerated() {
+            for (index, range) in planned[trackIndex].enumerated() {
                 if cancelled { break }
                 let samples = try writer.committedSamples(for: track, range: range)
                 let result = try await processor.process(
@@ -273,9 +327,12 @@ private actor MeetingLiveTranscriptionScheduler: MeetingTranscriptionScheduler {
                     transcriber: transcriber
                 )
                 results.append(result)
+                completed += 1
+                await progress(Double(completed) / Double(total))
                 if cancelled { break }
             }
         }
+        if !cancelled { await progress(1) }
         return results
     }
 

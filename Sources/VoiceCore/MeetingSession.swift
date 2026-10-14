@@ -25,7 +25,11 @@ public protocol MeetingAudioSourceControl: Sendable {
 
 public protocol MeetingTranscriptionScheduler: Sendable {
     func cancelQueued(meetingID: MeetingID) async
-    func transcribeFinal(_ manifest: MeetingManifest, chunkSeconds: TimeInterval) async throws -> [MeetingChunkProcessingResult]
+    func transcribeFinal(
+        _ manifest: MeetingManifest,
+        chunkSeconds: TimeInterval,
+        progress: @escaping @Sendable (Double) async -> Void
+    ) async throws -> [MeetingChunkProcessingResult]
     func waitForInFlight(meetingID: MeetingID) async
 }
 
@@ -162,6 +166,20 @@ public actor MeetingSession {
     }
 
     @discardableResult
+    public func retryTranscription() async throws -> MeetingManifest {
+        guard var meeting = manifest,
+              meeting.state == .interrupted || meeting.state == .transcribing
+        else { throw MeetingSessionError.invalidState }
+        meeting.state = .transcribing
+        meeting.endedAt = meeting.endedAt ?? clock.now()
+        meeting.transcriptionError = nil
+        cancelRequested = false
+        manifest = meeting
+        try await store.save(meeting)
+        return try await finishTranscription(meeting)
+    }
+
+    @discardableResult
     public func cancel() async throws -> MeetingManifest {
         guard var meeting = manifest, meeting.state.isRecoverable else { throw MeetingSessionError.invalidState }
         cancelRequested = true
@@ -182,7 +200,10 @@ public actor MeetingSession {
     private func finishTranscription(_ initial: MeetingManifest) async throws -> MeetingManifest {
         var meeting = initial
         do {
-            let chunks = try await scheduler.transcribeFinal(meeting, chunkSeconds: 30)
+            let meetingID = meeting.id
+            let chunks = try await scheduler.transcribeFinal(meeting, chunkSeconds: 30) { [weak self] progress in
+                await self?.setTranscriptProgress(progress, meetingID: meetingID)
+            }
             guard !cancelRequested else { return manifest ?? meeting }
             meeting.chunks = chunks.map(\.record)
             meeting.segments = MeetingTranscriptMerger.merge(chunks)
@@ -201,6 +222,13 @@ public actor MeetingSession {
             try? await store.save(meeting)
             throw error
         }
+    }
+
+    private func setTranscriptProgress(_ progress: Double, meetingID: MeetingID) async {
+        guard var meeting = manifest, meeting.id == meetingID, meeting.state == .transcribing else { return }
+        meeting.transcriptProgress = min(1, max(0, progress))
+        manifest = meeting
+        try? await store.save(meeting)
     }
 
     private func elapsed(at now: Date) -> TimeInterval {
