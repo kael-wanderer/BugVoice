@@ -112,6 +112,24 @@ struct DictationPipelineTests {
         #expect(r.errorMessage != nil)
     }
 
+    @Test func urlSessionCancellationIsQuietCancellation() async {
+        let r = await pipeline(transcriber: FakeTranscriber(error: URLError(.cancelled))).run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })
+        #expect(r.outcome == .cancelled)
+        #expect(r.errorMessage == nil)
+    }
+
+    @Test func anyErrorAfterTaskCancellationIsQuietCancellation() async {
+        struct EngineStopped: Error {}
+        let pipeline = pipeline(transcriber: FakeTranscriber(error: EngineStopped()))
+        let task = Task {
+            withUnsafeCurrentTask { $0?.cancel() }
+            return await pipeline.run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })
+        }
+        let result = await task.value
+        #expect(result.outcome == .cancelled)
+        #expect(result.errorMessage == nil)
+    }
+
     @Test func cancelledPriorityRequestIsQuietCancellation() async {
         let stages = StageRecorder()
         let pipeline = pipeline(transcriber: PriorityTranscriber(base: FakeTranscriber()))
