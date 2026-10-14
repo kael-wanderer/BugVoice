@@ -315,8 +315,19 @@ final class DictationController {
     func pasteAgain(_ text: String) {
         NSApp.hide(nil)
         Task {
-            try? await Task.sleep(for: .milliseconds(350))
+            await Self.waitUntilAnotherAppIsFrontmost(timeout: .seconds(1))
+            // Activation lands before the target's key window restores focus.
+            try? await Task.sleep(for: .milliseconds(60))
             paste(text)
+        }
+    }
+
+    private static func waitUntilAnotherAppIsFrontmost(timeout: Duration) async {
+        let ownPID = ProcessInfo.processInfo.processIdentifier
+        let deadline = ContinuousClock.now + timeout
+        while NSWorkspace.shared.frontmostApplication?.processIdentifier == ownPID,
+              ContinuousClock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(20))
         }
     }
 
