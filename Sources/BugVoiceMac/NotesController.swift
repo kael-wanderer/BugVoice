@@ -384,12 +384,16 @@ public final class NotesController {
         let oldBody = latestState.note.body
         let updatedBody = (oldBody as NSString).replacingCharacters(in: range, with: text)
         if let editor = latestState.editor {
-            guard let textStorage = editor.textStorage else { return .saveFailed }
+            guard let textStorage = editor.textStorage else {
+                retainInsertionRecovery(noteID: capture.noteID, text: text)
+                return .saveFailed
+            }
             let undoManager = latestState.undoManager
             editor.breakUndoCoalescing()
             undoManager.beginUndoGrouping()
             guard editor.shouldChangeText(in: range, replacementString: text) else {
                 undoManager.endUndoGrouping()
+                retainInsertionRecovery(noteID: capture.noteID, text: text)
                 return .saveFailed
             }
             textStorage.replaceCharacters(in: range, with: text)
