@@ -274,7 +274,22 @@ public actor MeetingStore {
         encoder.outputFormatting = [.sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
         let data = try encoder.encode(meeting)
-        try data.write(to: directory.appendingPathComponent("meeting.json"), options: .atomic)
+        let destination = directory.appendingPathComponent("meeting.json")
+        let temporary = directory.appendingPathComponent(".meeting.json.\(UUID().uuidString).tmp")
+        do {
+            try data.write(to: temporary, options: [])
+            let handle = try FileHandle(forWritingTo: temporary)
+            try handle.synchronize()
+            try handle.close()
+            if FileManager.default.fileExists(atPath: destination.path) {
+                _ = try FileManager.default.replaceItemAt(destination, withItemAt: temporary)
+            } else {
+                try FileManager.default.moveItem(at: temporary, to: destination)
+            }
+        } catch {
+            try? FileManager.default.removeItem(at: temporary)
+            throw error
+        }
     }
 
     public func load(id: MeetingID) throws -> MeetingManifest {
