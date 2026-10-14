@@ -66,6 +66,7 @@ struct SettingsTests {
         #expect(paths.lastRecording.lastPathComponent == "last.wav")
         #expect(FileManager.default.fileExists(atPath: paths.models.path))
         #expect(paths.meetings.lastPathComponent == "Meetings")
+        #expect(FileManager.default.fileExists(atPath: paths.meetings.path))
         #expect(paths.notes.lastPathComponent == "Notes")
     }
 
