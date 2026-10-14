@@ -110,8 +110,10 @@ public actor HistoryLog {
         try rewrite(load().filter { $0.id != id })
     }
 
+    /// Clearing a missing file is a no-op. Any other failure is thrown, so the UI never reports history gone when it is not.
     public func clear() throws {
-        try? FileManager.default.removeItem(at: url)
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        try FileManager.default.removeItem(at: url)
     }
 
     public func prune(olderThan cutoff: Date) throws {

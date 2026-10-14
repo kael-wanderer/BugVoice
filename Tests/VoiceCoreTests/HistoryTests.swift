@@ -68,6 +68,37 @@ struct HistoryTests {
         #expect(stats.medianReleaseToText == 0.8)  // releaseToText 0.7 and 0.9
     }
 
+    @Test func deleteMiddleKeepsOrderOnDisk() async throws {
+        let log = HistoryLog(url: tempURL())
+        let first = entry("first", at: Date(timeIntervalSince1970: 100))
+        let second = entry("second", at: Date(timeIntervalSince1970: 200))
+        let third = entry("third", at: Date(timeIntervalSince1970: 300))
+        try await log.append(first)
+        try await log.append(second)
+        try await log.append(third)
+        try await log.delete(id: second.id)
+        #expect(await log.load() == [third, first])
+    }
+
+    @Test func clearOnMissingFileIsNoOp() async throws {
+        let log = HistoryLog(url: tempURL())
+        try await log.clear()
+        #expect(await log.load().isEmpty)
+    }
+
+    @Test func clearThrowsWhenFileCannotBeRemoved() async throws {
+        let url = tempURL()
+        let directory = url.deletingLastPathComponent()
+        let log = HistoryLog(url: url)
+        try await log.append(entry("kept", at: Date()))
+        try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: directory.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: directory.path) }
+        await #expect(throws: (any Error).self) {
+            try await log.clear()
+        }
+        #expect(FileManager.default.fileExists(atPath: url.path))
+    }
+
     @Test func encodedKeysUseSpecNames() throws {
         let data = try JSONEncoder().encode(entry("hi", at: Date(timeIntervalSince1970: 0)))
         let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
