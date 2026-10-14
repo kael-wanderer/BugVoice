@@ -50,13 +50,25 @@ public struct NoteDocument: Equatable, Sendable, Identifiable {
     public var body: String
     public var revision: UInt64
     public var modifiedAt: Date
+    public var fileVersion: NoteFileVersion
+    public var needsNormalization: Bool
 
-    public init(id: NoteID = NoteID(), title: String, body: String, revision: UInt64 = 0, modifiedAt: Date = .now) {
+    public init(
+        id: NoteID = NoteID(),
+        title: String,
+        body: String,
+        revision: UInt64 = 0,
+        modifiedAt: Date = .now,
+        fileVersion: NoteFileVersion = NoteFileVersion(modifiedAt: .distantPast, byteCount: 0, contentHash: 0),
+        needsNormalization: Bool = false
+    ) {
         self.id = id
         self.title = title
         self.body = body
         self.revision = revision
         self.modifiedAt = modifiedAt
+        self.fileVersion = fileVersion
+        self.needsNormalization = needsNormalization
     }
 }
 

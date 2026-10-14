@@ -2,12 +2,12 @@
 
 ## Summary
 
-Implementation is beginning on feat/notes after spec and plan approval. No Notes code has been implemented yet.
+Implementation is in progress on feat/notes. Tasks 1–4 are implemented; loaded-note controller and dictation/UI integration remain.
 
 - **Documentation commit:** 035a116 — docs: notes design and implementation plan
 - **Baseline tests:** swift test passed with 192 VoiceCore tests in 26 suites and 27 BugVoiceMac tests in 7 suites (219 total).
-- **Build / launch / manual checks:** not run for Notes.
-- **UNVERIFIED:** all Notes UI, editor insertion/undo, external-edit, autosave, quit, shortcut registration, storage size, export, and deletion behavior until implemented and manually checked.
+- **Build / launch / manual checks:** final app build, launch, and manual checks have not run.
+- **UNVERIFIED:** Notes UI, editor insertion/undo, app activation/selection refresh wiring, autosave scheduling, quit, shortcut registration, storage size, export, and live app behavior remain until implemented and manually checked.
 
 ## Approved decisions and costs
 
@@ -25,6 +25,9 @@ Implementation is beginning on feat/notes after spec and plan approval. No Notes
 | Commit | Task | Tests | Notes |
 |---|---|---|---|
 | 035a116 | Approved spec, plan, and scratch ignore | Baseline: 192 VoiceCore + 27 BugVoiceMac passed | Documentation only |
+| a8d8a82 | Task 1: VoiceCore note model, parsing, slug policy | 203 VoiceCore + 27 BugVoiceMac passed | Foundation-only policy and Notes directory |
+| e48f79e | Task 2: route, insertion, search, export | 214 VoiceCore + 27 BugVoiceMac passed | Notes pipeline mode and VoiceCore operations |
+| a690259 | Task 3: autosave and external-version policy | 222 VoiceCore + 27 BugVoiceMac passed | 500 ms debounce and FNV-1a version checks |
 
 ## Decisions made during implementation
 
@@ -65,3 +68,13 @@ Not run. Keep all Notes Result cells blank until the maintainer performs the dev
 - Self-review: FNV-1a is deterministic and non-cryptographic, used only for change detection. It does not replace file version metadata. Actual file reading and version refresh remain in NotesStore.
 - Decision left by the plan: same-revision saves are permitted as idempotent writes; strictly older revisions are rejected. Cost if wrong: duplicate work for retries, but same-revision data cannot overwrite newer content.
 - Skipped / UNVERIFIED: real debounce task scheduling and file fingerprint checks await NotesStore/controller implementation. No polling was added.
+
+### Task 4 — Single-owner durable NotesStore actor
+
+- Test-first: NotesStoreTests first failed to compile because NotesStore did not exist. Initial tests then exposed that decoded revisions must come from the actor's saved-revision map, older revisions must be rejected before comparing the version changed by a newer in-app write, and URL resource-value timestamps were not stable on immediate reread. The store now reads modification time from file attributes and compares the whole mtime/size/FNV fingerprint before every save.
+- Implemented one NotesStore actor for listing, opening, creating, saving, committed-title rename, external-change checks, and confirmed move-to-Trash. Durable writes use unique same-directory temp files, write all bytes, fsync file, atomic POSIX rename, then fsync directory. Successful writes return a version for the controller baseline. External clean changes reload; dirty changes return conflict; confirmed Keep mine replaces after the pre-save fingerprint check.
+- Tests: NotesStoreTests 7 passed, covering canonical create/save/open, non-H1 open without rewrite, case-insensitive collisions and rename identity, clean reload and dirty conflict, explicit Keep mine, newer-revision preservation, and confirmation-gated Trash. Full swift test passed with 222 VoiceCore tests / 34 BugVoiceMac tests (256 total).
+- Self-review: Note reads and writes are actor-isolated and no UI thread performs file I/O. The store retains NoteID-to-path identity across a rename during the app run. If a filename is reused while the old renamed note remains loaded, the new note receives a distinct in-memory UUID. All saved files remain `Notes/<slug>.md`; IDs are not serialized in Markdown.
+- Decision left by the plan: the durability call order is implemented directly with POSIX calls rather than an injectable filesystem abstraction. Cost if wrong: tests do not fault-inject each fsync/rename boundary, so failure recovery for hardware/filesystem errors relies on code review and returned errors.
+- Skipped / NOT BUILT: direct insertion into unloaded notes is deferred to Task 5a because loaded-buffer authority must be coordinated there. No watcher or polling loop was added.
+- UNVERIFIED: crash/power-loss durability and system Trash behavior outside the temporary-directory test are not manually checked.
