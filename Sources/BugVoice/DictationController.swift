@@ -41,10 +41,10 @@ final class DictationController {
     func start() {
         applySettings()
         model.hotkeyActive = hotkey.start()
-        GlobalShortcuts.shared.register(keyCode: UInt32(kVK_ANSI_V), modifiers: GlobalShortcuts.controlOption) { [weak self] in
+        model.registerShortcut(kVK_ANSI_V, letter: "V", name: "Paste last") { [weak self] in
             self?.pasteLast()
         }
-        GlobalShortcuts.shared.register(keyCode: UInt32(kVK_ANSI_B), modifiers: GlobalShortcuts.controlOption) { [weak self] in
+        model.registerShortcut(kVK_ANSI_B, letter: "B", name: "Open BugVoice") { [weak self] in
             self?.model.openMainWindow(.dictation)
         }
     }
@@ -135,10 +135,14 @@ final class DictationController {
         } catch {
             notesCapture = nil
             detector.reset()
-            hud.show(.failure(
-                title: "Microphone unavailable",
-                detail: Permissions.isGranted(.microphone) ? "check the input device" : "allow Microphone in Permissions"
-            ))
+            let detail: String
+            switch error {
+            case RecorderError.deviceNotFound, RecorderError.deviceSelectionFailed:
+                detail = "the selected microphone is not available; choose one in Settings"
+            default:
+                detail = Permissions.isGranted(.microphone) ? "check the input device" : "allow Microphone in Permissions"
+            }
+            hud.show(.failure(title: "Microphone unavailable", detail: detail))
             return
         }
         model.isListening = true
@@ -311,8 +315,19 @@ final class DictationController {
     func pasteAgain(_ text: String) {
         NSApp.hide(nil)
         Task {
-            try? await Task.sleep(for: .milliseconds(350))
+            await Self.waitUntilAnotherAppIsFrontmost(timeout: .seconds(1))
+            // Activation lands before the target's key window restores focus.
+            try? await Task.sleep(for: .milliseconds(60))
             paste(text)
+        }
+    }
+
+    private static func waitUntilAnotherAppIsFrontmost(timeout: Duration) async {
+        let ownPID = ProcessInfo.processInfo.processIdentifier
+        let deadline = ContinuousClock.now + timeout
+        while NSWorkspace.shared.frontmostApplication?.processIdentifier == ownPID,
+              ContinuousClock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(20))
         }
     }
 

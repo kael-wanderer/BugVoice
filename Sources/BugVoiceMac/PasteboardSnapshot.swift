@@ -15,6 +15,16 @@ public struct PasteboardSnapshot: @unchecked Sendable {
         return PasteboardSnapshot(items: items.filter { !$0.isEmpty })
     }
 
+    /// Restores only if nothing wrote to the pasteboard since `changeCount`,
+    /// so a copy the user made right after the paste is kept.
+    @MainActor
+    @discardableResult
+    public func restore(to pasteboard: NSPasteboard, ifChangeCountIs changeCount: Int) -> Bool {
+        guard pasteboard.changeCount == changeCount else { return false }
+        restore(to: pasteboard)
+        return true
+    }
+
     @MainActor
     public func restore(to pasteboard: NSPasteboard) {
         pasteboard.clearContents()

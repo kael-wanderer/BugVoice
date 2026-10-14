@@ -33,6 +33,17 @@ struct VocabularyTests {
         #expect(v.applyReplacements(to: "mở cờ lốt cốt lên") == "mở Claude Code lên")
     }
 
+    @Test func replacementMatchesAcrossUnicodeNormalizationForms() {
+        let decomposedRule = "cờ lốt cốt".decomposedStringWithCanonicalMapping + " => Claude Code"
+        let v = Vocabulary.parse(decomposedRule)
+        let precomposedText = "mở cờ lốt cốt lên".precomposedStringWithCanonicalMapping
+        #expect(v.applyReplacements(to: precomposedText) == "mở Claude Code lên")
+
+        let w = Vocabulary.parse("cờ lốt cốt => Claude Code".precomposedStringWithCanonicalMapping)
+        let decomposedText = "mở cờ lốt cốt lên".decomposedStringWithCanonicalMapping
+        #expect(w.applyReplacements(to: decomposedText) == "mở Claude Code lên")
+    }
+
     @Test func longerSpokenPhraseWinsOverShorter() {
         let v = Vocabulary.parse("code => CODE\nclaude code => Claude Code")
         #expect(v.applyReplacements(to: "run claude code") == "run Claude Code")

@@ -4,7 +4,7 @@ Last updated: 2026-10-14
 
 ## Current state
 
-**Sub-project 1 (Dictation core + app shell): merged on `main`. Its manual checklist, benchmark gate, and final deferred-findings review remain pending.**
+**Sub-project 1 (Dictation core + app shell): merged on `main`. Its manual checklist and benchmark gate remain pending; deferred findings are fixed.**
 
 **Sub-project 2 (Meetings): merged on `main` (2026-10-14) after whole-branch review and two fix rounds. Device checks pending.**
 
@@ -38,7 +38,7 @@ recovery and playback are **UNVERIFIED on device**.
 | Notes spec | `docs/superpowers/specs/2026-10-14-notes-design.md` | Approved with maintainer amendments |
 | Notes plan | `docs/superpowers/plans/2026-10-14-notes.md` | Approved with maintainer amendments; Tasks 1–7 implemented; merged on `main` |
 | Notes code | `main` (merged from `feat/notes`) | Markdown store, authoritative edit buffers, captured-note dictation, Notes page, settings, menu, lifecycle |
-| Automated tests | `swift test` on `main` | VoiceCore 225 tests / 31 suites, BugVoiceMac 56 tests / 11 suites — all pass |
+| Automated tests | `swift test` on `main` | VoiceCore 229 tests / 31 suites, BugVoiceMac 58 tests / 11 suites — all pass |
 | App | `Scripts/build-app.sh` on `main` | Build passed, signed with `Bugler Local Dev`, launched once and remained running; see `docs/progress/notes-log.md` |
 | Manual checklist | `docs/testing/manual-checklist.md` | Dictation rows 1–44, Meetings rows 45–62, Notes rows 63–72 written; **not run** (needs maintainer checks) |
 | Benchmark gate (Task 8 step 12) | `bench/clips/`, `docs/bench/2026-10-14-stt-bench.md` | **Open**: first run found and fixed a decoder bug; clips and references incomplete |
@@ -67,8 +67,8 @@ recovery and playback are **UNVERIFIED on device**.
    separation, echo/headphones, focus, dictation concurrency, sleep/crash
    recovery, language fallback, summaries, player, exports, retention, and
    storage. Failures in decisions that live in `VoiceCore` get a test.
-3. **Final whole-branch review** (most capable model), including triage of the
-   deferred minor findings below; one fix round; then merge or PR.
+3. **Final whole-branch review**: done; the deferred minor findings are fixed
+   (see below).
 
 ## Deviations from the plan (all decided during execution)
 
@@ -97,17 +97,18 @@ recovery and playback are **UNVERIFIED on device**.
   asks before clearing history; save failures show a *Could not save* alert.
 - `build-app.sh` refuses to sign ad hoc unless `ALLOW_ADHOC=1`.
 
-## Deferred minor findings to triage before merge
+## Deferred minor findings (fixed 2026-10-14)
 
-The most relevant (full list in the controller's ledger, local only):
-- Vocabulary matching does no Unicode normalization (NFC/NFD Vietnamese).
-- One unknown `Style` in `appOverrides` resets all overrides.
-- Clipboard restore can overwrite a copy made within 300 ms of a paste.
-- Paste again waits a fixed 350 ms after hiding the app.
-- `AudioRecorder.start` does not guard a double start; device selection
-  failure silently falls back to the default mic.
-- Global shortcut registration failure (e.g. ⌃⌥V taken) is silent.
-- Cancellation of a transcription is detected by error string.
+The seven deferred sub-project 1 findings are fixed on `main`:
+- Vocabulary replacements match in NFC (precomposed and decomposed Vietnamese).
+- An unknown style in `appOverrides` drops only that entry.
+- Clipboard restore is skipped when the pasteboard changed after the paste.
+- Paste again waits for the previous app to become frontmost (1 s cap).
+- `AudioRecorder.start` refuses a double start and a failed device selection
+  (no silent fallback to the default mic); the HUD names the cause.
+- Every taken ⌃⌥ shortcut (V, B, N, M) is listed in the menu.
+- Transcription cancellation is detected by type (`CancellationError`,
+  `URLError.cancelled`, or any error after task cancellation).
 
 ## Known risks
 

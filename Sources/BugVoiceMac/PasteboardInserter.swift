@@ -4,7 +4,8 @@ import VoiceCore
 
 /// Pastes by publishing the text as *delayed* pasteboard data and posting ⌘V.
 /// The paste counts as consumed only if the target app actually asks for the
-/// data. On success the previous clipboard is restored; on failure the text
+/// data. On success the previous clipboard is restored unless something else
+/// wrote to it in the meantime; on failure the text
 /// stays on the clipboard so the user can press ⌘V.
 @MainActor
 public final class PasteboardInserter: InsertionTarget {
@@ -24,6 +25,7 @@ public final class PasteboardInserter: InsertionTarget {
         let item = NSPasteboardItem()
         item.setDataProvider(provider, forTypes: [.string])
         pasteboard.writeObjects([item])
+        let pasteChangeCount = pasteboard.changeCount
 
         Self.postCommandV()
 
@@ -39,7 +41,7 @@ public final class PasteboardInserter: InsertionTarget {
         }
         if restoreClipboard {
             try? await Task.sleep(for: .seconds(restoreDelay))
-            saved.restore(to: pasteboard)
+            saved.restore(to: pasteboard, ifChangeCountIs: pasteChangeCount)
         }
         return .pasted
     }

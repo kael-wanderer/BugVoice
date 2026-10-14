@@ -147,7 +147,7 @@ public struct DictationPipeline: Sendable {
         let transcript: Transcript
         do {
             transcript = try await transcriber.transcribe(clip, options: options)
-        } catch is CancellationError {
+        } catch where Self.isCancellation(error) {
             result.outcome = .cancelled
             result.timings.transcribe = Date().timeIntervalSince(mark)
             return result
@@ -229,5 +229,14 @@ public struct DictationPipeline: Sendable {
         }
         result.timings.insert = Date().timeIntervalSince(mark)
         return result
+    }
+
+    /// Cancellation by type, never by error text: Swift's `CancellationError`,
+    /// URLSession's `.cancelled`, or any error thrown after the task was
+    /// cancelled (engines that report a stop as their own error).
+    static func isCancellation(_ error: Error) -> Bool {
+        if Task.isCancelled || error is CancellationError { return true }
+        if let urlError = error as? URLError, urlError.code == .cancelled { return true }
+        return false
     }
 }
