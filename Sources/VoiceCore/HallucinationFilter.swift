@@ -17,9 +17,12 @@ public enum HallucinationFilter {
     ]
 
     public static func isHallucination(_ text: String) -> Bool {
-        let normalized = text.lowercased()
+        // Whisper annotations such as `[BLANK_AUDIO]`, `[ Silence ]` or `(breathing)`
+        // describe the audio, not speech.
+        let withoutAnnotations = text.replacing(/\[[^\]]*\]|\([^)]*\)/, with: " ")
+        let normalized = withoutAnnotations.lowercased()
             .components(separatedBy: CharacterSet.punctuationCharacters.union(.symbols))
-            .joined()
+            .joined(separator: " ")
             .split(whereSeparator: \.isWhitespace)
             .joined(separator: " ")
         return normalized.isEmpty || phrases.contains(normalized)

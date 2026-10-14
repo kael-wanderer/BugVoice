@@ -72,12 +72,18 @@ struct PromptTests {
         "Thank you.", "thank you", "Thanks for watching!",
         "Hãy subscribe cho kênh Ghiền Mì Gõ Để không bỏ lỡ những video hấp dẫn",
         "Cảm ơn các bạn đã theo dõi.", "...", " ",
+        "[BLANK_AUDIO]", " [ Silence ] ", "(breathing)", "[Music] (upbeat music)",
+        "[BLANK_AUDIO] Thank you.", "thank.you", "[MUSIC PLAYING]", "(silence)", "[inaudible]",
     ])
     func knownHallucinations(text: String) {
         #expect(HallucinationFilter.isHallucination(text))
     }
 
-    @Test func realSpeechIsNotHallucination() {
-        #expect(!HallucinationFilter.isHallucination("Thank you for the review, merge it."))
+    @Test(arguments: [
+        "Thank you for the review, merge it.",
+        "[BLANK_AUDIO] merge the branch",
+    ])
+    func realSpeechIsNotHallucination(text: String) {
+        #expect(!HallucinationFilter.isHallucination(text))
     }
 }
