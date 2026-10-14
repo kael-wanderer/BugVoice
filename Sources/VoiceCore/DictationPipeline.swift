@@ -5,6 +5,11 @@ public enum InsertOutcome: Sendable, Equatable {
     case notConsumed
 }
 
+public enum DictationMode: Sendable, Equatable {
+    case ordinary
+    case notes
+}
+
 /// Where finished text goes. Dictation pastes into the focused app; Notes
 /// (sub-project 3) will write into its own editor.
 public protocol InsertionTarget: Sendable {
@@ -24,7 +29,7 @@ public enum PipelineStage: Sendable, Equatable {
 }
 
 public enum DictationOutcome: String, Codable, Sendable {
-    case inserted, copiedSecureField, copiedNotConsumed, discardedTooShort, nothingHeard, transcriptionFailed, cancelled
+    case inserted, insertedInNote, noteDeleted, copiedSecureField, copiedNotConsumed, discardedTooShort, nothingHeard, transcriptionFailed, cancelled
 }
 
 public struct DictationResult: Sendable, Equatable {
@@ -58,7 +63,7 @@ public struct DictationResult: Sendable, Equatable {
     /// into a password field is likely a secret and is never logged.
     public var historyEntry: HistoryEntry? {
         switch outcome {
-        case .discardedTooShort, .nothingHeard, .transcriptionFailed, .cancelled, .copiedSecureField:
+        case .discardedTooShort, .nothingHeard, .transcriptionFailed, .cancelled, .copiedSecureField, .insertedInNote, .noteDeleted:
             return nil
         case .inserted, .copiedNotConsumed:
             return HistoryEntry(
@@ -109,9 +114,12 @@ public struct DictationPipeline: Sendable {
         clip: AudioClip,
         startFocus: FocusSnapshot,
         startedAt: Date,
+        mode: DictationMode = .ordinary,
         onStage: @escaping @Sendable (PipelineStage) -> Void
     ) async -> DictationResult {
-        let style = StyleRouter(overrides: settings.styles.appOverrides).style(for: startFocus)
+        let style = mode == .notes
+            ? Style.document
+            : StyleRouter(overrides: settings.styles.appOverrides).style(for: startFocus)
         var result = DictationResult(
             startedAt: startedAt, appName: startFocus.appName, bundleID: startFocus.bundleID,
             style: style, language: nil, raw: "", cleaned: nil, finalText: "",
@@ -199,14 +207,21 @@ public struct DictationPipeline: Sendable {
         // Insert
         onStage(.inserting)
         mark = Date()
-        let current = await focus.snapshot()
-        if current.isSecure {
-            await insertion.copy(text)
-            result.outcome = .copiedSecureField
-        } else {
+        if mode == .notes {
             switch await insertion.insert(text) {
-            case .pasted: result.outcome = .inserted
-            case .notConsumed: result.outcome = .copiedNotConsumed
+            case .pasted: result.outcome = .insertedInNote
+            case .notConsumed: result.outcome = .noteDeleted
+            }
+        } else {
+            let current = await focus.snapshot()
+            if current.isSecure {
+                await insertion.copy(text)
+                result.outcome = .copiedSecureField
+            } else {
+                switch await insertion.insert(text) {
+                case .pasted: result.outcome = .inserted
+                case .notConsumed: result.outcome = .copiedNotConsumed
+                }
             }
         }
         result.timings.insert = Date().timeIntervalSince(mark)

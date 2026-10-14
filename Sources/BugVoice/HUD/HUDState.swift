@@ -25,6 +25,14 @@ enum HUDState: Equatable {
             return .secureFieldCopied
         case .copiedNotConsumed:
             return .warning(title: "Copied — press ⌘V", detail: "paste not picked up")
+        case .noteDeleted:
+            return .warning(title: "Note deleted — dictation was not added", detail: "The note was deleted before insertion")
+        case .insertedInNote:
+            return .done(
+                style: Style.document.rawValue.capitalized,
+                words: r.finalText.split(whereSeparator: \.isWhitespace).count,
+                seconds: (r.timings.releaseToText * 10).rounded() / 10
+            )
         case .inserted:
             switch r.rawReason {
             case .modelError, .modelTimeout:

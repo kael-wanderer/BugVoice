@@ -152,6 +152,49 @@ struct DictationPipelineTests {
         #expect(r.historyEntry == nil)
     }
 
+    @Test func notesModeForcesDocumentStyleAndNeverCopiesAfterFocusChanges() async {
+        var settings = AppSettings()
+        settings.cleanupEnabled = false
+        let insertion = RecordingInsertion()
+        let result = await pipeline(
+            model: nil,
+            insertion: insertion,
+            focusAtInsert: FocusSnapshot(bundleID: "com.apple.Safari", isSecure: true),
+            settings: settings
+        ).run(
+            clip: speechClip,
+            startFocus: terminalFocus,
+            startedAt: Date(),
+            mode: .notes,
+            onStage: { _ in }
+        )
+
+        #expect(result.style == .document)
+        #expect(result.finalText == "hello world")
+        #expect(result.outcome == .insertedInNote)
+        #expect(result.historyEntry == nil)
+        #expect(await insertion.inserted == ["hello world"])
+        #expect(await insertion.copied.isEmpty)
+    }
+
+    @Test func notesTargetNotConsumedMeansCapturedNoteWasDeleted() async {
+        var settings = AppSettings()
+        settings.cleanupEnabled = false
+        let result = await pipeline(
+            model: nil,
+            insertion: RecordingInsertion(outcome: .notConsumed),
+            settings: settings
+        ).run(
+            clip: speechClip,
+            startFocus: notionFocus,
+            startedAt: Date(),
+            mode: .notes,
+            onStage: { _ in }
+        )
+        #expect(result.outcome == .noteDeleted)
+        #expect(result.historyEntry == nil)
+    }
+
     @Test func notConsumedIsReported() async {
         let r = await pipeline(insertion: RecordingInsertion(outcome: .notConsumed)).run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })
         #expect(r.outcome == .copiedNotConsumed)

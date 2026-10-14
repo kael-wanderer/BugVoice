@@ -46,3 +46,13 @@ Not run. Keep all Notes Result cells blank until the maintainer performs the dev
 - Self-review: parsing and slug/collision policy remain Foundation-only; opening a non-H1 file returns a parsed value and performs no write; AppPaths creates Notes with existing app directories.
 - Decision left by the plan: invalid UTF-8 note files surface a parse error rather than lossy decoding, preserving the no-silent-content-change rule. Cost if wrong: externally created invalid files need an explicit user-facing recovery flow; no lossy conversion is attempted.
 - Skipped / UNVERIFIED: none for Task 1. Notes UI and real filesystem durability remain for later tasks.
+
+### Task 2 — VoiceCore route, insertion, search, export, and Notes pipeline mode
+
+- Test-first: new policy/list/export/pipeline tests first failed to compile because the Notes policy/export interfaces did not exist. The first route test run then exposed two test-fixture cases where nil optional arguments meant “keep the existing value”; the fixture now explicitly supplies optional nil for missing note/selection. The policy tests pass.
+- Implemented immutable start captures, insertion placement (captured selection for unchanged revisions, body end for changed revisions, discard only for a deleted note), literal case/diacritic-insensitive search, deterministic sorting, canonical Markdown export, and Notes-specific pipeline outcomes.
+- The Notes pipeline forces document style and directly invokes its injected insertion target without checking end focus or calling copy. Ordinary mode retains the existing secure-field and paste path.
+- Tests: NotesPolicyTests 5, NotesListProjectionTests 2, NotesExportTests 2, DictationPipelineTests 27 all pass. Full swift test passed with 214 VoiceCore tests / 27 BugVoiceMac tests (241 total).
+- Self-review: Notes routing is computed once and the immutable capture contains the note/editor IDs, selection, revision, and initial body length. Later focus cannot change policy output. Insertion placement uses current body length only for changed-revision append. Notes outcomes have no history entry. Ordinary-path tests continue to pass.
+- Decision left by the plan: in Notes pipeline mode, InsertionTarget.notConsumed maps to the deleted-note outcome because the Notes route injects only a captured-note target and never a paste target. Cost if wrong: a separate target failure may be described as deletion; the Notes adapter should return notConsumed only when the captured note no longer exists.
+- Skipped / UNVERIFIED: app-level route capture and file/buffer integration are Task 5a/5b; no Notes UI, clipboard observation, audio, or manual check has been run.
