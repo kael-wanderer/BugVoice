@@ -12,6 +12,7 @@ let package = Package(
         .macOS(.v15),
     ],
     products: [
+        .executable(name: "BugVoice", targets: ["BugVoice"]),
         .executable(name: "bugvoice-bench", targets: ["BugVoiceBench"]),
     ],
     dependencies: [
@@ -43,6 +44,13 @@ let package = Package(
             name: "BugVoiceMac",
             dependencies: ["VoiceCore"],
             path: "Sources/BugVoiceMac"
+        ),
+        // The menu-bar app: SwiftUI and AppKit glue only. Bundled and signed
+        // by Scripts/build-app.sh.
+        .executableTarget(
+            name: "BugVoice",
+            dependencies: ["VoiceCore", "WhisperEngine", "BugVoiceMac"],
+            path: "Sources/BugVoice"
         ),
         .executableTarget(
             name: "BugVoiceBench",
