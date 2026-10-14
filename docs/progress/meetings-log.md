@@ -41,3 +41,12 @@ Continuous implementation is in progress. Tasks 1–3 and Task 4 are complete. T
 - Decisions beyond the plan: Markdown dates use a stable UTC timestamp; transcript line breaks are flattened to spaces in Markdown and SRT so each cue remains one readable line. Cost if wrong: users in other time zones may prefer local time; the stored date remains authoritative and export formatting can be changed without data migration.
 - No skipped checks; SRT uses millisecond rounding and timeline intervals are start-inclusive/end-exclusive.
 - Open questions: none for Task 6.
+
+### Task 7 — meeting lifecycle and retention
+
+- Commit: `aa9f45d` — `feat(core): model meeting lifecycle and recovery`.
+- Tests: 8 `MeetingSessionTests` passed, including capture rollback, pause-gap timing, marks, final chunks, checkpoint-based recovery, transcribing retry, and Stop/Cancel waiting for the active chunk; full suite passed 171 VoiceCore + 17 BugVoiceMac tests. Existing `MeetingJournalTests` continue to cover retention cutoffs and active-state exclusions.
+- Decisions beyond the plan: `MeetingSession` awaits a `MeetingTranscriptionScheduler.transcribeFinal(..., chunkSeconds: 30)` operation; its adapter is responsible for queuing bounded chunks and returning only after submitted work completes. Recovery duration uses the greatest per-track committed checkpoint end offset. The session clock is an injected wall clock, with pause intervals excluded from elapsed duration. Cost if wrong: wall-clock changes during one active recording can skew duration; a monotonic clock adapter can replace the injected implementation without changing the session API.
+- Cancellation removes queued meeting work and waits on scheduler in-flight completion before stopping capture and persisting `.interrupted`. A racing Stop observes cancellation and skips finalization.
+- No skipped checks. Audio-source, scheduler, and finalizer production adapters are intentionally left to app tasks.
+- Open questions: none for Task 7.
