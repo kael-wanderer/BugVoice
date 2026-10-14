@@ -124,6 +124,7 @@ final class DictationController {
             ))
             return
         }
+        model.isListening = true
         if model.settings.soundsEnabled { NSSound(named: "Tink")?.play() }
         // The cap applies to holds too, so no recording runs unbounded even
         // if a key-up never arrives. The HUD shows it only in hands-free.
@@ -159,6 +160,7 @@ final class DictationController {
         limitTask?.cancel()
         detector.reset()
         _ = recorder.stop()
+        model.isListening = false
         hud.hide()
     }
 
@@ -166,6 +168,7 @@ final class DictationController {
         limitTask?.cancel()
         guard recorder.isRunning else { return }
         let clip = recorder.stop()
+        model.isListening = false
         detector.reset()
         if model.settings.soundsEnabled { NSSound(named: "Pop")?.play() }
         if startFocus.isSecure {

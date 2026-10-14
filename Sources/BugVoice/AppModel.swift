@@ -39,6 +39,8 @@ final class AppModel {
     var page: Page = .dictation
     var speechState: WhisperKitTranscriber.LoadState = .notLoaded
     var hotkeyActive = false
+    /// True while the microphone is recording a dictation.
+    var isListening = false
     var permissionsGranted = Permissions.allGranted
     /// The latest failure to save something (settings, vocabulary, history,
     /// Keychain, login item). The UI shows it and sets it back to nil once
@@ -48,6 +50,8 @@ final class AppModel {
     @ObservationIgnored var onSettingsChanged: (() -> Void)?
     /// Brings up the main window. Set by the app delegate, which owns it.
     @ObservationIgnored var presentMainWindow: (() -> Void)?
+    /// Brings up the Permissions window. Set by the app delegate.
+    @ObservationIgnored var presentPermissionsWindow: (() -> Void)?
     /// Created by `bootstrap()` once settings are loaded.
     @ObservationIgnored private(set) var dictation: DictationController?
     @ObservationIgnored private var isLoadingSettings = false
@@ -81,6 +85,8 @@ final class AppModel {
         vocabularyText = (try? String(contentsOf: paths.vocabulary, encoding: .utf8)) ?? ""
         vocabulary = Vocabulary.parse(vocabularyText)
         startDictation()
+        refreshPermissions()
+        if !permissionsGranted { openPermissionsWindow() }
         await applyRetention()
         Task { await prepareSpeech() }
     }
@@ -98,6 +104,10 @@ final class AppModel {
     func openMainWindow(_ page: Page? = nil) {
         if let page { self.page = page }
         presentMainWindow?()
+    }
+
+    func openPermissionsWindow() {
+        presentPermissionsWindow?()
     }
 
     // MARK: Settings

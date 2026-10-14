@@ -21,9 +21,11 @@ struct BugVoiceApp: App {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let model = AppModel()
     private lazy var mainWindow = MainWindowController(model: model)
+    private lazy var permissionsWindow = PermissionsWindowController(model: model)
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         model.presentMainWindow = { [weak self] in self?.mainWindow.show() }
+        model.presentPermissionsWindow = { [weak self] in self?.permissionsWindow.show() }
         installEditMenu()
         Task { await model.bootstrap() }
     }

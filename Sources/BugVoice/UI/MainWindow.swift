@@ -72,6 +72,7 @@ final class MainWindowController: NSObject, NSWindowDelegate {
             defer: false
         )
         window.title = "BugVoice"
+        window.identifier = AppWindow.main
         window.contentViewController = NSHostingController(rootView: MainWindow(model: model))
         window.isReleasedWhenClosed = false
         window.delegate = self
@@ -84,6 +85,23 @@ final class MainWindowController: NSObject, NSWindowDelegate {
     }
 
     func windowWillClose(_ notification: Notification) {
-        NSApp.setActivationPolicy(.accessory)
+        AppWindow.didClose(notification.object as? NSWindow)
+    }
+}
+
+/// Identifiers for BugVoice's own windows, and the shared rule for the
+/// activation policy: regular while any of them is visible, accessory after
+/// the last one closes.
+@MainActor
+enum AppWindow {
+    static let main = NSUserInterfaceItemIdentifier("BugVoiceMain")
+    static let permissions = NSUserInterfaceItemIdentifier("BugVoicePermissions")
+
+    static func didClose(_ closing: NSWindow?) {
+        let ours: Set<NSUserInterfaceItemIdentifier> = [main, permissions]
+        let otherVisible = NSApp.windows.contains {
+            $0 !== closing && $0.isVisible && ($0.identifier.map(ours.contains) ?? false)
+        }
+        if !otherVisible { NSApp.setActivationPolicy(.accessory) }
     }
 }

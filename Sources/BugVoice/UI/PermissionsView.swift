@@ -1,0 +1,112 @@
+import AppKit
+import BugVoiceMac
+import SwiftUI
+
+struct PermissionsView: View {
+    @Bindable var model: AppModel
+    @State private var granted: [PermissionKind: Bool] = [:]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            row(.microphone, "Microphone", "To hear what you say.", "mic")
+            Divider()
+            row(.accessibility, "Accessibility", "To find the focused text field and paste into it.", "accessibility")
+            Divider()
+            row(.inputMonitoring, "Input Monitoring", "To notice when you hold the hotkey. Keys are watched, never recorded.", "keyboard")
+            Text("Nothing you say leaves this Mac unless you set a remote server in Settings → Text model.")
+                .font(.caption).foregroundStyle(.secondary).padding(.top, 12)
+        }
+        .padding(22)
+        .frame(width: 540)
+        .task {
+            // Re-checks once a second while the window is open; the task is
+            // cancelled when the window's content goes away.
+            while !Task.isCancelled {
+                refresh()
+                try? await Task.sleep(for: .seconds(1))
+            }
+        }
+    }
+
+    func refresh() {
+        for kind in PermissionKind.allCases { granted[kind] = Permissions.isGranted(kind) }
+        model.refreshPermissions()
+    }
+
+    @ViewBuilder
+    func row(_ kind: PermissionKind, _ title: String, _ detail: String, _ symbol: String) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: symbol)
+                .frame(width: 34, height: 34)
+                .background(.quaternary, in: RoundedRectangle(cornerRadius: 9))
+            VStack(alignment: .leading) {
+                Text(title).fontWeight(.semibold)
+                Text(detail).font(.callout).foregroundStyle(.secondary)
+            }
+            Spacer()
+            if granted[kind] == true {
+                if kind == .inputMonitoring, !model.hotkeyActive {
+                    // The event tap cannot be created until the app restarts
+                    // after the grant.
+                    Button("Restart BugVoice") { relaunch() }
+                } else {
+                    Text("Granted").foregroundStyle(.green)
+                }
+            } else {
+                Button("Open System Settings") {
+                    Task { await Permissions.request(kind) }
+                    Permissions.openSettings(kind)
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(.vertical, 12)
+    }
+
+    func relaunch() {
+        let config = NSWorkspace.OpenConfiguration()
+        config.createsNewApplicationInstance = true
+        NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: config) { _, _ in
+            DispatchQueue.main.async { NSApp.terminate(nil) }
+        }
+    }
+}
+
+/// Owns the Permissions window. Same shape as `MainWindowController`.
+@MainActor
+final class PermissionsWindowController: NSObject, NSWindowDelegate {
+    private let model: AppModel
+    private var window: NSWindow?
+
+    init(model: AppModel) {
+        self.model = model
+    }
+
+    func show() {
+        let window = self.window ?? makeWindow()
+        self.window = window
+        NSApp.setActivationPolicy(.regular)
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate()
+    }
+
+    private func makeWindow() -> NSWindow {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 540, height: 300),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "Permissions"
+        window.identifier = AppWindow.permissions
+        window.contentViewController = NSHostingController(rootView: PermissionsView(model: model))
+        window.isReleasedWhenClosed = false
+        window.delegate = self
+        window.center()
+        return window
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        AppWindow.didClose(notification.object as? NSWindow)
+    }
+}
