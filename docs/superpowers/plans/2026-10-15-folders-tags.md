@@ -104,7 +104,9 @@ struct LibraryLabelsTests {
         let id = FolderID(rawValue: "abc")
         let data = try JSONEncoder().encode(["id": id])
         #expect(String(decoding: data, as: UTF8.self) == #"{"id":"abc"}"#)
-        #expect(FolderID.new().rawValue == FolderID.new().rawValue.lowercased())
+        let fresh = FolderID.new()
+        #expect(fresh.rawValue == fresh.rawValue.lowercased())
+        #expect(fresh != FolderID.new())
     }
 
     @Test func addTagNormalizesDedupesAndKeepsOrder() {
