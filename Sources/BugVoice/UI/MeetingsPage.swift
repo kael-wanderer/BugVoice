@@ -19,9 +19,20 @@ struct MeetingsPage: View {
     @State private var pendingDelete: MeetingManifest?
     @State private var pendingRename: MeetingManifest?
     @State private var renameTitle = ""
+    @State private var managingFolders = false
+    @State private var tagEditMeetingID: MeetingID?
+
+    private var visibleMeetings: [MeetingManifest] {
+        LibraryProjection.filter(
+            model.meetingManifests,
+            folder: model.meetingsFolderFilter,
+            tags: model.meetingTagFilter,
+            known: model.library.knownIDs
+        )
+    }
 
     private var groups: [MeetingDayGroup] {
-        MeetingListProjection.groups(meetings: model.meetingManifests, query: model.meetingSearchQuery)
+        MeetingListProjection.groups(meetings: visibleMeetings, query: model.meetingSearchQuery)
     }
 
     var body: some View {
@@ -60,6 +71,17 @@ struct MeetingsPage: View {
                         .help("Start meeting recording")
                 }
             }
+            HStack(spacing: 6) {
+                FolderFilterMenu(
+                    model: model,
+                    filter: Binding(get: { model.meetingsFolderFilter }, set: { model.meetingsFolderFilter = $0 }),
+                    counts: LibraryProjection.counts(model.meetingManifests, known: model.library.knownIDs),
+                    allTitle: "All meetings",
+                    onManage: { managingFolders = true }
+                )
+                TagFilterBar(catalog: model.meetingTagCatalog, selected: $model.meetingTagFilter)
+                Spacer(minLength: 0)
+            }
             TextField("Search meetings", text: $model.meetingSearchQuery)
                 .textFieldStyle(.roundedBorder)
             if model.meetingManifests.isEmpty {
@@ -75,6 +97,7 @@ struct MeetingsPage: View {
                                 ForEach(group.meetings) { meeting in
                                     MeetingListRow(
                                         meeting: meeting,
+                                        folderName: model.meetingsFolderFilter == .all ? model.folderName(meeting.folderID) : nil,
                                         selected: meeting.id == model.selectedMeetingID
                                     ) {
                                         model.selectedMeetingID = meeting.id
@@ -84,7 +107,22 @@ struct MeetingsPage: View {
                                             renameTitle = meeting.title
                                             pendingRename = meeting
                                         }
+                                        Menu("Move to folder") {
+                                            Button("Unfiled") {
+                                                Task { await model.setMeetingLabels(id: meeting.id, folderID: nil, tags: meeting.tags) }
+                                            }
+                                            Divider()
+                                            ForEach(model.sortedFolders) { folder in
+                                                Button {
+                                                    Task { await model.setMeetingLabels(id: meeting.id, folderID: folder.id, tags: meeting.tags) }
+                                                } label: {
+                                                    if folder.id == meeting.folderID { Label(folder.name, systemImage: "checkmark") } else { Text(folder.name) }
+                                                }
+                                            }
+                                        }
+                                        Button("Tags…") { model.selectedMeetingID = meeting.id }
                                         if meeting.state != .recording, meeting.state != .paused {
+                                            Divider()
                                             Button("Delete…", role: .destructive) { pendingDelete = meeting }
                                         }
                                     }
@@ -107,6 +145,7 @@ struct MeetingsPage: View {
         } message: { _ in
             Text("The transcript and audio files will be deleted.")
         }
+        .sheet(isPresented: $managingFolders) { ManageFoldersSheet(model: model) }
         .sheet(item: $pendingRename) { meeting in
             MeetingRenameSheet(model: model, id: meeting.id, title: $renameTitle) { pendingRename = nil }
         }
@@ -139,6 +178,7 @@ private struct MeetingRenameSheet: View {
 
 private struct MeetingListRow: View {
     let meeting: MeetingManifest
+    let folderName: String?
     let selected: Bool
     let action: () -> Void
 
@@ -159,6 +199,17 @@ private struct MeetingListRow: View {
                 }
                 Text(meeting.startedAt.formatted(date: .omitted, time: .shortened) + " · " + clock(meeting.duration))
                     .font(.caption).foregroundStyle(.secondary)
+                if folderName != nil || !meeting.tags.isEmpty {
+                    HStack(spacing: 4) {
+                        if let folderName {
+                            Label(folderName, systemImage: "folder").font(.caption).foregroundStyle(.secondary)
+                        }
+                        ForEach(meeting.tags.prefix(3), id: \.self) { TagChip(name: $0) }
+                        if meeting.tags.count > 3 {
+                            Text("+\(meeting.tags.count - 3)").font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                }
                 if let line = meeting.segments.last?.text, !line.isEmpty {
                     Text(line).font(.caption).foregroundStyle(.secondary).lineLimit(2)
                 }
@@ -217,6 +268,29 @@ private struct MeetingDetails: View {
             )
             .font(.callout)
             .foregroundStyle(.secondary)
+            LabelsBox(
+                model: model,
+                labels: ItemLabels(folderID: meeting.folderID, tags: meeting.tags),
+                catalog: model.allTagCatalog,
+                noun: "meeting",
+                suggested: meeting.suggestedTags,
+                suggestionSource: model.plan(for: .meetings).shortName ?? "Meetings model",
+                onChange: { labels in
+                    Task { await model.setMeetingLabels(id: meeting.id, folderID: labels.folderID, tags: labels.tags) }
+                },
+                onAcceptSuggestion: { tag in
+                    var labels = ItemLabels(folderID: meeting.folderID, tags: meeting.tags)
+                    labels.addTag(tag)
+                    Task {
+                        await model.setMeetingLabels(
+                            id: meeting.id, folderID: labels.folderID, tags: labels.tags,
+                            suggestedTags: meeting.suggestedTags.filter { $0 != tag })
+                    }
+                },
+                onDismissSuggestions: {
+                    Task { await model.setMeetingLabels(id: meeting.id, folderID: meeting.folderID, tags: meeting.tags, suggestedTags: []) }
+                }
+            )
             if let audioURL {
                 MeetingPlayer(audioURL: audioURL, model: player)
                     .padding(.vertical, 4)
