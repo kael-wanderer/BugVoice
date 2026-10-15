@@ -20,10 +20,12 @@ implementation, like Dictation, Meetings and Notes before it.
 | 1 | Insights | New page: words, words per minute, dictations, notes, meetings, streak, activity heatmap, per-app and per-style use | Small; uses data already recorded |
 | 2 | Snippets + Styles | Snippets: spoken trigger → saved text (acronyms, links, prompts). Styles: tone per app group (personal message, work message, email, other) | Improves every dictation |
 | 3 | Models per feature | Pick a model for dictation, meetings and notes separately; cloud API keys (OpenAI, Anthropic, OpenRouter…); coding CLIs (claude, codex, gemini, pi) as providers for slow tasks | Groundwork for 4–6 |
-| 4 | Upload audio/video | Import a file, extract audio, transcribe with the meeting transcript pipeline | Reuses existing code |
+| 4 | Upload audio/video | Upload page (drop or browse → file card → Transcribe → progress), as in OpenWhispr. AVFoundation formats (MP3, WAV, M4A, AIFF, CAF, MP4, MOV, M4V). Result is a meeting with an "Uploaded" badge: timestamped transcript labelled "Speaker", click a line to play, Summary, Action items, export. Keeps `audio.m4a` only | Reuses the meeting pipeline; keeps timestamps so item 6 can cite audio |
 | 5 | Meetings v2 | Live meeting window with My thoughts / Transcript / Summary tabs and "Ask anything" | Needs the system-audio spike to pass first |
-| 6 | Ask AI + MCP server | Chat that answers from notes, dictations and meetings; an MCP server so coding agents read the same data | One retrieval layer serves both |
+| 6 | Ask AI + MCP server | Chat that answers from notes, dictations and meetings; an MCP server so coding agents read the same data. Answers cite their proof as recording + time range ("Standup, 0:20–0:50"); clicking a citation opens the recording and plays that range. Citations are checked against real segments | One retrieval layer serves both |
 | 7 | Calendar + export | Calendar via EventKit (Google and Microsoft accounts already added to macOS Calendar, no sign-in); export to Apple Notes and Notion | Polish |
+| 8 | Scratchpad (Notes v2) | Note window with tabs for several open notes, formatting toolbar, Transforms (Polish, More concise, More professional, ask a question) using the Notes model; uploaded and dictated text can land here. As in Wispr Flow | Needs item 0 (Notes fixed) first |
+| 9 | Folders | One folder tree shared by meetings, uploads and notes | Cross-cutting; better done once than per feature |
 
 ## Notes on scope
 
@@ -48,4 +50,5 @@ implementation, like Dictation, Meetings and Notes before it.
 
 | Idea | Reason |
 |---|---|
+| Import from a URL (YouTube, audio link) | Needs yt-dlp, a second dependency, and a network fetch. |
 | Per-person speaker labels (diarization) | Needs a second dependency besides WhisperKit (maintainer decision). Revisit after You/Others is tested on real meetings. |

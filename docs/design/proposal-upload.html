@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BugVoice Upload Page</title>
+<style>
+/* Layout: macOS window mock. Full-height sidebar (Upload is new, after Meetings). The Upload page walks through
+   empty → file chosen → reading → transcribing → ready, plus a queue and an error state. The last screen shows
+   the result in Meetings with the Uploaded badge. A state switcher above the window jumps between screens. */
+:root {
+  --page: #e9ebf0; --win: #ffffff; --side: #f2f3f6; --card: #ffffff; --line: #e1e4ea; --chip: #eceef2;
+  --fg: #1c1f26; --muted: #6a7080; --accent: #3a6ff0; --accent-soft: #e4ebfd; --ok: #1f8a4c; --warn: #b7791f; --bad: #c2412d;
+  --red: #ff5f57; --yellow: #febc2e; --green: #28c840;
+  --app: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --page: #0d0e11; --win: #1b1d22; --side: #16181c; --card: #212329; --line: #2d3037; --chip: #272a31;
+  --fg: #e9ebf0; --muted: #9298a6; --accent: #6e93ff; --accent-soft: #23304f; --ok: #4cc27f; --warn: #e0a84a; --bad: #ff7a66;
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --page: #0d0e11; --win: #1b1d22; --side: #16181c; --card: #212329; --line: #2d3037; --chip: #272a31;
+  --fg: #e9ebf0; --muted: #9298a6; --accent: #6e93ff; --accent-soft: #23304f; --ok: #4cc27f; --warn: #e0a84a; --bad: #ff7a66;
+  color-scheme: dark }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--fg); font-family: var(--app); font-size: 13px; line-height: 1.45;
+  padding: 28px 16px 48px; }
+.frame { max-width: 1180px; margin: 0 auto; display: grid; gap: 14px; }
+.caption { color: var(--muted); font-size: 12.5px; max-width: 90ch; margin: 0; }
+.caption b { color: var(--fg); }
+.bar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+
+.pills { display: inline-flex; flex-wrap: wrap; background: var(--chip); border-radius: 999px; padding: 3px; gap: 2px; }
+.pills button { font: inherit; border: 0; background: transparent; color: var(--muted); padding: 5px 13px; border-radius: 999px; cursor: pointer; }
+.pills button[aria-pressed="true"] { background: var(--card); color: var(--fg); font-weight: 600; box-shadow: 0 1px 2px rgb(0 0 0 / .14); }
+.pills button:focus-visible, .btn:focus-visible, .drop:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.win { display: grid; grid-template-columns: 210px 1fr; background: var(--win); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; box-shadow: 0 20px 50px rgb(0 0 0 / .14); min-height: 640px; }
+.side { background: var(--side); border-right: 1px solid var(--line); padding: 14px 10px; display: flex; flex-direction: column; gap: 2px; }
+.lights { display: flex; gap: 8px; padding: 0 6px 18px; }
+.lights i { width: 12px; height: 12px; border-radius: 50%; }
+.lights i:nth-child(1) { background: var(--red); } .lights i:nth-child(2) { background: var(--yellow); } .lights i:nth-child(3) { background: var(--green); }
+.nav { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 7px; color: var(--fg); cursor: pointer; }
+.nav svg { width: 16px; height: 16px; stroke: var(--muted); fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.nav.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.nav.on svg { stroke: var(--accent); }
+.nav .ring { margin-left: auto; width: 14px; height: 14px; border-radius: 50%; background: conic-gradient(var(--accent) calc(var(--p) * 1%), var(--line) 0); display: none; }
+.nav .ring.show { display: block; }
+.nav .new { margin-left: auto; font-size: 9.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); border: 1px solid var(--accent); border-radius: 4px; padding: 0 4px; }
+.side .spacer { flex: 1; }
+
+.main { display: grid; grid-template-rows: auto 1fr; min-width: 0; }
+.toolbar { display: flex; align-items: center; gap: 10px; padding: 12px 22px; border-bottom: 1px solid var(--line); min-height: 26px; }
+.toolbar h1 { margin: 0; font-size: 15px; font-weight: 650; }
+.toolbar .sp { flex: 1; }
+.content { padding: 28px 22px; min-width: 0; display: grid; align-content: start; justify-items: center; gap: 18px; }
+.screen { display: none; width: 100%; }
+.screen.on { display: grid; gap: 16px; justify-items: center; align-content: start; }
+
+.head { text-align: center; display: grid; gap: 4px; margin-top: 18px; }
+.head h2 { margin: 0; font-size: 22px; letter-spacing: -.01em; }
+.using { color: var(--muted); font-size: 12.5px; }
+.using a { color: var(--muted); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+
+.drop { width: min(760px, 100%); border: 1.5px dashed var(--line); border-radius: 14px; padding: 44px 20px; display: grid; justify-items: center; gap: 8px; text-align: center; background: var(--card); cursor: pointer; }
+.drop.over { border-color: var(--accent); background: var(--accent-soft); }
+.drop .ico { width: 52px; height: 52px; border-radius: 12px; background: var(--chip); display: grid; place-items: center; margin-bottom: 6px; }
+.drop .ico svg, .fcard .ico svg { width: 22px; height: 22px; stroke: var(--accent); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.drop b { font-size: 14px; }
+.drop span { color: var(--muted); font-size: 12px; }
+
+.fcard { width: min(560px, 100%); background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; }
+.fcard .ico { width: 44px; height: 44px; border-radius: 10px; background: var(--accent-soft); display: grid; place-items: center; }
+.fcard b { display: block; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fcard .m { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.fcard .st { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.fcard .st.ok { color: var(--ok); font-weight: 600; }
+.fcard .st.bad { color: var(--bad); font-weight: 600; }
+.fcard .prog { grid-column: 2 / 4; height: 4px; background: var(--chip); border-radius: 2px; overflow: hidden; }
+.fcard .prog span { display: block; height: 100%; background: var(--accent); }
+
+.btns { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.btn { font: inherit; border: 1px solid var(--line); background: var(--card); color: var(--fg); padding: 6px 14px; border-radius: 7px; cursor: pointer; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; padding: 7px 22px; }
+.btn.link { border: 0; background: transparent; color: var(--accent); padding: 4px 6px; }
+
+.pcard { width: min(560px, 100%); background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 28px 26px; display: grid; justify-items: center; gap: 12px; text-align: center; }
+.bars { display: flex; gap: 3px; align-items: flex-end; height: 26px; }
+.bars i { width: 4px; background: var(--accent); border-radius: 2px; animation: b 1s ease-in-out infinite; }
+.bars i:nth-child(2) { animation-delay: .1s } .bars i:nth-child(3) { animation-delay: .2s } .bars i:nth-child(4) { animation-delay: .3s }
+.bars i:nth-child(5) { animation-delay: .4s } .bars i:nth-child(6) { animation-delay: .5s } .bars i:nth-child(7) { animation-delay: .6s }
+@keyframes b { 0%, 100% { height: 6px } 50% { height: 24px } }
+@media (prefers-reduced-motion: reduce) { .bars i { animation: none; height: 14px; } }
+.track { width: 100%; height: 5px; background: var(--chip); border-radius: 3px; overflow: hidden; }
+.track span { display: block; height: 100%; background: var(--accent); width: 0; transition: width .25s; }
+.pcard h3 { margin: 0; font-size: 15px; }
+.pcard .m { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.phase { display: flex; gap: 14px; font-size: 11.5px; color: var(--muted); }
+.phase .on { color: var(--fg); font-weight: 600; }
+.phase .done { color: var(--ok); }
+.hint { color: var(--muted); font-size: 12px; text-align: center; max-width: 60ch; }
+.check { width: 44px; height: 44px; border-radius: 50%; background: color-mix(in srgb, var(--ok) 16%, transparent); display: grid; place-items: center; }
+.check svg { width: 22px; height: 22px; stroke: var(--ok); fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.xmark { background: color-mix(in srgb, var(--bad) 14%, transparent); }
+.xmark svg { stroke: var(--bad); }
+.qhead { width: min(560px, 100%); display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; }
+
+/* Meetings result screen */
+.mpage { width: 100%; display: grid; grid-template-columns: 250px minmax(0, 1fr); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; min-height: 520px; justify-self: stretch; }
+.mlist { border-right: 1px solid var(--line); padding: 8px; background: var(--win); }
+.day { font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 10px 6px 6px; font-weight: 600; }
+.mitem { padding: 9px 10px; border-radius: 8px; margin-bottom: 2px; }
+.mitem.on { background: var(--accent-soft); }
+.mitem b { display: block; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mitem span { color: var(--muted); font-size: 11.5px; }
+.tag { display: inline-block; font-size: 10px; font-weight: 600; padding: 0 6px; border-radius: 4px; margin-left: 4px; background: var(--chip); color: var(--muted); vertical-align: 1px; }
+.tag.up { background: var(--accent-soft); color: var(--accent); }
+.detail { padding: 16px 22px 22px; min-width: 0; }
+.dtitle { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.dtitle h4 { margin: 0; font-size: 18px; }
+.dtitle .sp { flex: 1; }
+.meta2 { color: var(--muted); font-size: 12px; margin: 2px 0 12px; }
+.player { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.prow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pbtn { width: 34px; height: 34px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; border: 0; flex: none; }
+.skip { color: var(--muted); font-size: 12px; border: 1px solid var(--line); border-radius: 6px; padding: 2px 7px; }
+.wave { flex: 1; min-width: 160px; height: 38px; display: flex; align-items: center; gap: 2px; }
+.wave i { flex: 1; border-radius: 1px; background: var(--line); display: block; }
+.wave i.p { background: var(--accent); }
+.ptime { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 12px; }
+.subtabs { display: flex; gap: 16px; border-bottom: 1px solid var(--line); margin: 16px 0 8px; }
+.subtabs span { padding: 6px 0; color: var(--muted); font-size: 12.5px; }
+.subtabs span.on { color: var(--fg); border-bottom: 2px solid var(--accent); font-weight: 600; }
+.seg2 { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 12px; padding: 9px 10px; border-radius: 8px; }
+.seg2.now { background: var(--accent-soft); }
+.seg2 .ts { font-family: var(--mono); font-size: 11.5px; color: var(--accent); cursor: pointer; padding-top: 1px; }
+.seg2 .who { font-size: 11px; font-weight: 700; letter-spacing: .03em; margin-bottom: 2px; color: var(--muted); }
+
+@media (max-width: 860px) {
+  .win { grid-template-columns: 1fr; }
+  .side { flex-direction: row; flex-wrap: wrap; border-right: 0; border-bottom: 1px solid var(--line); padding: 10px; }
+  .side .spacer { display: none; }
+  .mpage { grid-template-columns: 1fr; }
+  .mlist { border-right: 0; border-bottom: 1px solid var(--line); }
+}
+</style>
+</head>
+<body>
+<div class="frame">
+  <p class="caption"><b>Upload (roadmap item 4).</b> A new sidebar page for transcribing an audio or video file on this Mac.
+    Use the switcher, or click through the window: drop zone, Transcribe, Open in Meetings. The result is an ordinary meeting with an
+    <b>Uploaded</b> badge: the same transcript, player, Summary, Action items and export as a recorded meeting.
+    Transcript rows are labelled <b>Speaker</b>. Only <code>audio.m4a</code> is kept; the original file is never changed. All names and figures are examples.</p>
+
+  <div class="bar">
+    <div class="pills" role="group" aria-label="Screen" id="states">
+      <button data-s="empty" aria-pressed="true">Empty</button>
+      <button data-s="chosen" aria-pressed="false">File chosen</button>
+      <button data-s="running" aria-pressed="false">Transcribing</button>
+      <button data-s="queue" aria-pressed="false">Queue</button>
+      <button data-s="ready" aria-pressed="false">Ready</button>
+      <button data-s="error" aria-pressed="false">Error</button>
+      <button data-s="meetings" aria-pressed="false">Result in Meetings</button>
+    </div>
+    <div class="pills" role="group" aria-label="Theme" id="theme">
+      <button data-t="light" aria-pressed="false">Light</button>
+      <button data-t="dark" aria-pressed="false">Dark</button>
+    </div>
+  </div>
+
+  <div class="win">
+    <nav class="side" aria-label="Pages">
+      <div class="lights" aria-hidden="true"><i></i><i></i><i></i></div>
+      <div class="nav"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Dictation</div>
+      <div class="nav"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Insights</div>
+      <div class="nav"><svg viewBox="0 0 24 24"><path d="M6 3h11a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6z"/><path d="M4 7h3M4 12h3M4 17h3"/></svg>Dictionary</div>
+      <div class="nav"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h7"/></svg>Style</div>
+      <div class="nav" id="nav-meet" data-s="meetings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5"/></svg>Meetings</div>
+      <div class="nav on" id="nav-up" data-s="empty"><svg viewBox="0 0 24 24"><path d="M12 15V4M7 9l5-5 5 5M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></svg>Upload<span class="ring" id="ring" style="--p:0"></span><span class="new" id="newtag">New</span></div>
+      <div class="nav"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg>Notes</div>
+      <div class="spacer"></div>
+      <div class="nav"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>Settings</div>
+    </nav>
+
+    <div class="main">
+      <div class="toolbar"><h1 id="ttl">Upload</h1><span class="sp"></span></div>
+      <div class="content">
+
+        <!-- Empty -->
+        <section class="screen on" id="s-empty">
+          <div class="head"><h2>Upload a recording</h2>
+            <div class="using">Transcribed on this Mac with <a title="Opens Settings › Speech">large-v3-turbo</a></div></div>
+          <div class="drop" id="drop" tabindex="0" role="button" aria-label="Choose a file">
+            <div class="ico"><svg viewBox="0 0 24 24"><path d="M12 15V4M7 9l5-5 5 5M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></svg></div>
+            <b>Drop an audio or video file, or click to browse</b>
+            <span>MP3, WAV, M4A, AIFF, CAF, MP4, MOV, M4V</span>
+          </div>
+          <p class="hint">You can drop several files; they are transcribed one at a time. Uploads appear in Meetings when they are ready.</p>
+        </section>
+
+        <!-- File chosen -->
+        <section class="screen" id="s-chosen">
+          <div class="head"><h2>Upload a recording</h2>
+            <div class="using">Transcribed on this Mac with <a>large-v3-turbo</a></div></div>
+          <div class="fcard">
+            <div class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 5v14M17 5v14M3 9.5h4M3 14.5h4M17 9.5h4M17 14.5h4"/></svg></div>
+            <div><b>sprint-review-2026-10-13.mp4</b><span class="m">Video · 48:12 · 412 MB</span></div>
+            <span></span>
+          </div>
+          <div class="btns"><button class="btn" data-go="empty">Cancel</button><button class="btn primary" data-go="running">Transcribe</button></div>
+          <p class="hint">Only the audio is kept, as a small <code>audio.m4a</code> in the meeting folder. The video stays where it is.</p>
+        </section>
+
+        <!-- Running -->
+        <section class="screen" id="s-running">
+          <div class="pcard">
+            <div class="bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            <div class="track"><span id="track"></span></div>
+            <h3 id="phase-title">Reading file…</h3>
+            <div class="m">sprint-review-2026-10-13.mp4 · <span id="pct">0%</span></div>
+            <div class="phase"><span id="ph1" class="on">1 Reading file</span><span id="ph2">2 Transcribing locally</span></div>
+            <button class="btn" data-go="chosen">Cancel</button>
+          </div>
+          <p class="hint">You can leave this page; the Upload item in the sidebar shows progress. If a meeting starts, the upload pauses and continues when the meeting stops.
+            If BugVoice quits while transcribing, it continues on next launch.</p>
+        </section>
+
+        <!-- Queue -->
+        <section class="screen" id="s-queue">
+          <div class="drop" style="padding:20px" tabindex="0" role="button" aria-label="Add more files">
+            <b>Drop more files, or click to browse</b><span>MP3, WAV, M4A, AIFF, CAF, MP4, MOV, M4V</span>
+          </div>
+          <div class="qhead"><span>3 files</span><button class="btn link">Clear finished</button></div>
+          <div class="fcard">
+            <div class="ico"><svg viewBox="0 0 24 24"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg></div>
+            <div><b>standup-oct-14.m4a</b><span class="m">Audio · 14:05 · 13 MB</span></div>
+            <button class="btn link" data-go="meetings">Open in Meetings</button>
+          </div>
+          <div class="fcard">
+            <div class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 5v14M17 5v14M3 9.5h4M3 14.5h4M17 9.5h4M17 14.5h4"/></svg></div>
+            <div><b>sprint-review-2026-10-13.mp4</b><span class="m">Video · 48:12 · 412 MB</span></div>
+            <span class="st">Transcribing 42%</span>
+            <div class="prog"><span style="width:42%"></span></div>
+          </div>
+          <div class="fcard">
+            <div class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 5v14M17 5v14M3 9.5h4M3 14.5h4M17 9.5h4M17 14.5h4"/></svg></div>
+            <div><b>vendor-call.mov</b><span class="m">Video · 55:02 · 1.1 GB</span></div>
+            <span class="st">Waiting</span>
+          </div>
+        </section>
+
+        <!-- Ready -->
+        <section class="screen" id="s-ready">
+          <div class="pcard">
+            <div class="check"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+            <h3>Ready</h3>
+            <div class="m">sprint-review-2026-10-13 · 48:12 · 612 lines</div>
+            <div class="btns"><button class="btn" data-go="empty">Upload another</button><button class="btn primary" data-go="meetings">Open in Meetings</button></div>
+          </div>
+        </section>
+
+        <!-- Error -->
+        <section class="screen" id="s-error">
+          <div class="pcard">
+            <div class="check xmark"><svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7 7 17"/></svg></div>
+            <h3>This file has no audio.</h3>
+            <div class="m">screen-recording.mov</div>
+            <div class="btns"><button class="btn" data-go="empty">Choose another file</button></div>
+          </div>
+          <div class="pcard" style="padding:18px 22px;gap:6px">
+            <b>Other messages</b>
+            <div class="m">BugVoice can't read this file. Use MP3, WAV, M4A, AIFF, CAF, MP4, MOV or M4V.</div>
+            <div class="m">Not enough disk space to transcribe this file.</div>
+            <div class="m">Transcript could not be completed. The audio is saved; use Retry transcript in Meetings.</div>
+          </div>
+        </section>
+
+        <!-- Result in Meetings -->
+        <section class="screen" id="s-meetings">
+          <div class="mpage">
+            <div class="mlist">
+              <div class="day">Today</div>
+              <div class="mitem"><b>Sprint planning — booking errors</b><span>08:47 · 47:12</span></div>
+              <div class="mitem"><b>standup-oct-14</b><span>09:00 · 14:05 <span class="tag up">Uploaded</span></span></div>
+              <div class="day">Oct 13</div>
+              <div class="mitem on"><b>sprint-review-2026-10-13</b><span>15:30 · 48:12 <span class="tag up">Uploaded</span></span></div>
+              <div class="mitem"><b>1:1 with Zan</b><span>16:00 · 31:40</span></div>
+            </div>
+            <div class="detail">
+              <div class="dtitle"><h4>sprint-review-2026-10-13</h4><span class="tag up">Uploaded</span><span class="sp"></span>
+                <button class="btn">Export ▾</button><button class="btn" title="Rename, Show in Finder, Delete">More ▾</button></div>
+              <div class="meta2">Mon 13 Oct 2026 · 15:30 · 48:12 · from sprint-review-2026-10-13.mp4 · large-v3-turbo</div>
+              <div class="player">
+                <div class="prow">
+                  <span class="skip">−15</span><button class="pbtn" aria-label="Play">▶</button><span class="skip">+15</span>
+                  <div class="wave" id="wave"></div>
+                  <span class="ptime">3:02 / 48:12</span>
+                </div>
+              </div>
+              <div class="subtabs"><span class="on">Transcript</span><span>Summary</span><span>Action items</span></div>
+              <div class="seg2"><span class="ts">0:00 – 0:18</span><div><div class="who">SPEAKER</div>Okay, let's start the sprint review. First the booking flow, then the release checklist.</div></div>
+              <div class="seg2"><span class="ts">0:18 – 0:47</span><div><div class="who">SPEAKER</div>The retry on the payment callback is fixed; error rate went from two percent to almost zero on staging.</div></div>
+              <div class="seg2 now"><span class="ts">3:02 – 3:25</span><div><div class="who">SPEAKER</div>Ok, vậy release thứ Sáu nếu load test hôm thứ Năm pass. I'll send the note to the channel.</div></div>
+              <div class="seg2"><span class="ts">3:25 – 3:51</span><div><div class="who">SPEAKER</div>Last thing: the dashboard export still times out for large ranges, so that moves to next sprint.</div></div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const screens = ['empty', 'chosen', 'running', 'queue', 'ready', 'error', 'meetings'];
+let timer = null;
+function show(s) {
+  screens.forEach(n => document.getElementById('s-' + n).classList.toggle('on', n === s));
+  document.querySelectorAll('#states button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.s === s)));
+  const meet = s === 'meetings';
+  document.getElementById('nav-meet').classList.toggle('on', meet);
+  document.getElementById('nav-up').classList.toggle('on', !meet);
+  document.getElementById('ttl').textContent = meet ? 'Meetings' : 'Upload';
+  const ring = document.getElementById('ring');
+  ring.classList.toggle('show', s === 'running' || s === 'queue');
+  document.getElementById('newtag').style.display = (s === 'running' || s === 'queue') ? 'none' : '';
+  if (s === 'queue') ring.style.setProperty('--p', 42);
+  clearInterval(timer);
+  if (s === 'running') run();
+}
+function run() {
+  let p = 0;
+  const track = document.getElementById('track'), pct = document.getElementById('pct');
+  const title = document.getElementById('phase-title'), ph1 = document.getElementById('ph1'), ph2 = document.getElementById('ph2');
+  const ring = document.getElementById('ring');
+  timer = setInterval(() => {
+    p += 2;
+    const reading = p <= 100;
+    const local = reading ? p : p - 100;
+    track.style.width = local + '%';
+    pct.textContent = local + '%';
+    title.textContent = reading ? 'Reading file…' : 'Transcribing locally…';
+    ph1.className = reading ? 'on' : 'done';
+    ph2.className = reading ? '' : 'on';
+    ring.style.setProperty('--p', Math.round(p / 2));
+    if (p >= 200) { clearInterval(timer); show('ready'); }
+  }, 90);
+}
+document.querySelectorAll('#states button').forEach(b => b.addEventListener('click', () => show(b.dataset.s)));
+document.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => show(b.dataset.go)));
+document.getElementById('nav-meet').addEventListener('click', () => show('meetings'));
+document.getElementById('nav-up').addEventListener('click', () => show('empty'));
+const drop = document.getElementById('drop');
+drop.addEventListener('click', () => show('chosen'));
+drop.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); show('chosen'); } });
+drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+drop.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('over'); show('chosen'); });
+
+const wave = document.getElementById('wave');
+for (let i = 0; i < 90; i++) {
+  const el = document.createElement('i');
+  el.style.height = (8 + Math.abs(Math.sin(i * 1.7) * 24) + (i % 5) * 1.5) + 'px';
+  if (i < 6) el.className = 'p';
+  wave.appendChild(el);
+}
+document.querySelectorAll('#theme button').forEach(b => b.addEventListener('click', () => {
+  document.documentElement.dataset.theme = b.dataset.t;
+  document.querySelectorAll('#theme button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+}));
+</script>
+</body>
+</html>
