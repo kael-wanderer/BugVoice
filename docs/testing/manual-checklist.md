@@ -163,3 +163,22 @@ blank until the maintainer runs each check.
 | 89 | Migration | Quit; put a term and a `=>` line in `vocabulary.txt`; delete `dictionary.json`; launch | Word and snippet appear; file renamed `vocabulary.migrated.txt` | |
 | 90 | Settings | Open Settings | No Vocabulary or Styles tab; Speech reads "Use Dictionary words as hints" | |
 | 91 | Bundle IDs | For WhatsApp, Messenger, Teams, Lark, run `osascript -e 'id of app "Name"'` | IDs match `StyleRouter.defaultApps`; fix any that differ | |
+
+
+## Models
+
+Run these after building with `Scripts/build-app.sh`. Keep the Result column
+blank until the maintainer runs each check.
+
+| # | Where | Do | Expect | Result |
+|---|---|---|---|---|
+| 92 | Upgrade | Launch the new build over the old settings; dictate in TextEdit | Still cleaned by LM Studio Qwen; Models tab shows one "LM Studio" connection used by every row | |
+| 93 | Anthropic | Add Anthropic with a key; Test connection; set Meeting notes to it; generate a summary | Models listed; summary generated | |
+| 94 | OpenAI | Add OpenAI with a key; set Dictation cleanup to a gpt model; dictate | Cleaned text, no `max_tokens` error | |
+| 95 | OpenRouter | Add OpenRouter with a key; Test connection | Models listed | |
+| 96 | Ollama | Add Ollama with Ollama not running; set Dictation to it; dictate | Orange dot; raw text pasted | |
+| 97 | Custom address | Add an OpenAI-compatible server at `http://192.168.1.5:8000` | "Use https:// for a server that is not on this Mac."; Save disabled | |
+| 98 | claude | Set Meeting notes to Claude Code; generate a summary | Summary generated; no `claude` process left in Activity Monitor | |
+| 99 | codex and pi | Repeat 98 with Codex, then Pi | Summary generated each time | |
+| 100 | Cancel | Start a CLI-backed summary and cancel it | The process ends within 2 s | |
+| 101 | Menu bar | Switch "Dictation model" in the menu | The Dictation row in Settings → Models changes to match | |
