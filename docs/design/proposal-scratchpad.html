@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BugVoice Scratchpad</title>
+<style>
+/* Roadmap item 8: Scratchpad (Notes v2). Two placements to choose from:
+   A upgrades the Notes page (tabs, formatting toolbar, Transforms) inside the main window;
+   B is a small floating window over other apps, with the same editor.
+   Each option shows four states: editing, the Transforms menu, a transform preview, and Ask. */
+:root {
+  --page: #e9ebf0; --win: #ffffff; --side: #f2f3f6; --card: #ffffff; --line: #e1e4ea; --chip: #eceef2;
+  --fg: #1c1f26; --muted: #6a7080; --accent: #3a6ff0; --accent-soft: #e4ebfd; --ok: #1f8a4c; --bad: #c2412d;
+  --add: #dff3e6; --del: #fbe3df; --desk1: #c9d3e6; --desk2: #e6d9ea;
+  --red: #ff5f57; --yellow: #febc2e; --green: #28c840;
+  --app: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --page: #0d0e11; --win: #1b1d22; --side: #16181c; --card: #212329; --line: #2d3037; --chip: #272a31;
+  --fg: #e9ebf0; --muted: #9298a6; --accent: #6e93ff; --accent-soft: #23304f; --ok: #4cc27f; --bad: #ff7a66;
+  --add: #1d3a2a; --del: #45241f; --desk1: #1f2a3d; --desk2: #2e2338;
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --page: #0d0e11; --win: #1b1d22; --side: #16181c; --card: #212329; --line: #2d3037; --chip: #272a31;
+  --fg: #e9ebf0; --muted: #9298a6; --accent: #6e93ff; --accent-soft: #23304f; --ok: #4cc27f; --bad: #ff7a66;
+  --add: #1d3a2a; --del: #45241f; --desk1: #1f2a3d; --desk2: #2e2338;
+  color-scheme: dark }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--fg); font-family: var(--app); font-size: 13px; line-height: 1.45; padding: 28px 16px 48px; }
+.frame { max-width: 1180px; margin: 0 auto; display: grid; gap: 14px; }
+.caption { color: var(--muted); font-size: 12.5px; max-width: 95ch; margin: 0; }
+.caption b { color: var(--fg); }
+.bar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+.pills { display: inline-flex; flex-wrap: wrap; background: var(--chip); border-radius: 999px; padding: 3px; gap: 2px; }
+.pills button { font: inherit; border: 0; background: transparent; color: var(--muted); padding: 5px 13px; border-radius: 999px; cursor: pointer; }
+.pills button[aria-pressed="true"] { background: var(--card); color: var(--fg); font-weight: 600; box-shadow: 0 1px 2px rgb(0 0 0 / .14); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.scroll { overflow-x: auto; border-radius: 12px; }
+
+/* Shared editor pieces */
+.tabs { display: flex; align-items: flex-end; gap: 2px; padding: 8px 12px 0; border-bottom: 1px solid var(--line); background: var(--side); }
+.tab { display: flex; align-items: center; gap: 8px; padding: 6px 10px 7px 12px; border: 1px solid transparent; border-bottom: 0; border-radius: 8px 8px 0 0; color: var(--muted); font-size: 12.5px; max-width: 170px; white-space: nowrap; }
+.tab span { overflow: hidden; text-overflow: ellipsis; }
+.tab.on { background: var(--win); border-color: var(--line); color: var(--fg); font-weight: 600; margin-bottom: -1px; }
+.tab .x { color: var(--muted); font-size: 11px; opacity: .7; }
+.tab .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.tabs .plus { padding: 4px 10px 8px; color: var(--muted); font-size: 15px; }
+.fmt { display: flex; align-items: center; gap: 2px; padding: 6px 12px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.fmt .b { min-width: 28px; height: 26px; padding: 0 6px; border-radius: 6px; display: grid; place-items: center; color: var(--fg); font-size: 12.5px; }
+.fmt .b.on { background: var(--chip); }
+.fmt .b svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.fmt .sep { width: 1px; height: 18px; background: var(--line); margin: 0 6px; }
+.fmt .sp { flex: 1; }
+.btn { font: inherit; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--card); color: var(--fg); padding: 4px 10px; border-radius: 7px; font-size: 12.5px; white-space: nowrap; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.btn.mic { color: var(--accent); }
+.editor { padding: 22px 34px 40px; position: relative; min-height: 360px; }
+.editor h1 { font-size: 22px; margin: 0 0 12px; letter-spacing: -.01em; }
+.editor h2 { font-size: 15px; margin: 18px 0 6px; }
+.editor p { margin: 0 0 10px; max-width: 70ch; }
+.editor ul { margin: 0 0 10px; padding-left: 20px; }
+.editor li { margin: 2px 0; }
+.editor .task { list-style: none; margin-left: -20px; display: flex; gap: 8px; align-items: baseline; }
+.editor .task i { width: 12px; height: 12px; border: 1.5px solid var(--muted); border-radius: 3px; flex: none; transform: translateY(1px); }
+.editor .task.done i { background: var(--accent); border-color: var(--accent); }
+.editor .task.done span { color: var(--muted); text-decoration: line-through; }
+.sel { background: var(--accent-soft); border-radius: 2px; box-shadow: 0 0 0 2px var(--accent-soft); }
+.caret { display: inline-block; width: 2px; height: 1.1em; background: var(--accent); vertical-align: -2px; animation: blink 1s steps(2) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.status { display: flex; gap: 14px; align-items: center; padding: 7px 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11.5px; }
+.status .sp { flex: 1; }
+.status .ok { color: var(--ok); }
+
+.menu { position: absolute; z-index: 3; background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 12px 30px rgb(0 0 0 / .18); padding: 5px; min-width: 230px; }
+.menu .h { padding: 5px 10px 3px; color: var(--muted); font-size: 11px; }
+.menu .i { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 6px; }
+.menu .i.hl { background: var(--accent); color: #fff; }
+.menu .i.hl kbd { color: #fff; opacity: .8; }
+.menu .i kbd { margin-left: auto; font-family: var(--app); color: var(--muted); font-size: 11.5px; }
+.menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 2px; }
+.menu .foot { padding: 5px 10px 3px; color: var(--muted); font-size: 11px; }
+
+.preview { position: absolute; z-index: 3; background: var(--card); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 14px 34px rgb(0 0 0 / .2); padding: 12px 14px; display: grid; gap: 10px; }
+.preview .t { display: flex; gap: 8px; align-items: center; font-weight: 600; }
+.preview .t small { font-weight: 400; color: var(--muted); }
+.preview .t .sp { flex: 1; }
+.diff { font-size: 12.5px; line-height: 1.6; }
+.diff del { background: var(--del); text-decoration: line-through; color: var(--muted); border-radius: 2px; }
+.diff ins { background: var(--add); text-decoration: none; border-radius: 2px; }
+.preview .acts { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.ask { display: flex; gap: 8px; align-items: center; border: 1px solid var(--accent); border-radius: 8px; padding: 6px 10px; background: var(--win); }
+.ask input { flex: 1; border: 0; background: transparent; font: inherit; color: var(--fg); outline: none; min-width: 0; }
+.answer { font-size: 12.5px; line-height: 1.55; }
+.answer ol { margin: 4px 0 0; padding-left: 18px; }
+
+/* Option A: main window */
+.win { display: grid; grid-template-columns: 200px 230px minmax(560px, 1fr); background: var(--win); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; box-shadow: 0 20px 50px rgb(0 0 0 / .14); min-height: 640px; min-width: 1000px; }
+.side { background: var(--side); border-right: 1px solid var(--line); padding: 14px 10px; display: flex; flex-direction: column; gap: 2px; }
+.lights { display: flex; gap: 8px; padding: 0 6px 18px; }
+.lights i { width: 12px; height: 12px; border-radius: 50%; }
+.lights i:nth-child(1) { background: var(--red); } .lights i:nth-child(2) { background: var(--yellow); } .lights i:nth-child(3) { background: var(--green); }
+.nav { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 7px; }
+.nav svg { width: 16px; height: 16px; stroke: var(--muted); fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.nav.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.nav.on svg { stroke: var(--accent); }
+.side .spacer { flex: 1; }
+.list { border-right: 1px solid var(--line); padding: 14px 10px; display: grid; align-content: start; gap: 4px; }
+.list .top { display: flex; align-items: center; justify-content: space-between; padding: 0 4px 6px; }
+.list .top b { font-size: 15px; }
+.list .search { border: 1px solid var(--line); border-radius: 7px; padding: 5px 9px; color: var(--muted); margin-bottom: 6px; background: var(--card); }
+.row { padding: 8px 10px; border-radius: 8px; display: grid; gap: 2px; }
+.row b { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row span { color: var(--muted); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row.on { background: var(--accent-soft); }
+.row.open b::after { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--muted); margin-left: 6px; vertical-align: 2px; opacity: .6; }
+.pane { display: grid; grid-template-rows: auto auto 1fr auto; min-width: 0; position: relative; }
+
+/* Option B: floating window over a desktop */
+.desk { position: relative; min-height: 680px; min-width: 1000px; border-radius: 12px; overflow: hidden; border: 1px solid var(--line);
+  background: linear-gradient(135deg, var(--desk1), var(--desk2)); }
+.bgapp { position: absolute; left: 40px; top: 40px; width: 640px; height: 560px; background: var(--win); border-radius: 12px; opacity: .55; border: 1px solid var(--line); padding: 46px 30px; display: grid; gap: 12px; align-content: start; }
+.bgapp i { display: block; height: 10px; border-radius: 5px; background: var(--chip); }
+.bgapp .ttl { position: absolute; top: 14px; left: 74px; color: var(--muted); font-size: 12px; }
+.bgapp .lights { position: absolute; top: 14px; left: 14px; padding: 0; }
+.menubar { position: absolute; top: 0; left: 0; right: 0; height: 26px; background: rgb(255 255 255 / .35); display: flex; align-items: center; justify-content: flex-end; gap: 14px; padding: 0 14px; font-size: 12px; }
+:root[data-theme="dark"] .menubar { background: rgb(0 0 0 / .35); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .menubar { background: rgb(0 0 0 / .35); } }
+.menubar .bv { display: inline-flex; align-items: center; gap: 4px; padding: 1px 6px; border-radius: 4px; background: rgb(0 0 0 / .12); }
+.menubar svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; }
+.float { position: absolute; right: 44px; top: 52px; width: 470px; height: 600px; background: var(--win); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 26px 60px rgb(0 0 0 / .3); display: grid; grid-template-rows: auto auto auto 1fr auto; overflow: hidden; }
+.float .titlebar { display: flex; align-items: center; gap: 10px; padding: 10px 12px 0; background: var(--side); }
+.float .titlebar .lights { padding: 0; }
+.float .titlebar b { font-size: 12.5px; }
+.float .titlebar .sp { flex: 1; }
+.float .titlebar .pin { color: var(--accent); font-size: 11.5px; display: inline-flex; gap: 4px; align-items: center; }
+.float .titlebar .pin svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; }
+.float .tabs { padding-top: 6px; }
+.float .tab { max-width: 120px; }
+.float .editor { padding: 16px 20px 30px; min-height: 0; overflow: hidden; }
+.float .editor h1 { font-size: 18px; }
+.float .fmt .b { min-width: 24px; }
+.screen { display: none; }
+.screen.on { display: block; }
+.notes-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.note { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; font-size: 12.5px; }
+.note b { display: block; margin-bottom: 4px; }
+.note ul { margin: 4px 0 0; padding-left: 18px; color: var(--muted); }
+.note.pro b { color: var(--ok); } .note.con b { color: var(--bad); }
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="bar">
+    <div class="pills" role="group" aria-label="Option" id="opts">
+      <button data-o="a" aria-pressed="true">A · Notes page</button>
+      <button data-o="b" aria-pressed="false">B · Floating window</button>
+    </div>
+    <div class="pills" role="group" aria-label="State" id="states">
+      <button data-s="edit" aria-pressed="true">Editing</button>
+      <button data-s="menu" aria-pressed="false">Transforms menu</button>
+      <button data-s="preview" aria-pressed="false">Transform preview</button>
+      <button data-s="ask" aria-pressed="false">Ask a question</button>
+    </div>
+    <div class="pills" role="group" aria-label="Theme" id="theme">
+      <button data-t="light" aria-pressed="false">Light</button>
+      <button data-t="dark" aria-pressed="false">Dark</button>
+    </div>
+  </div>
+  <p class="caption" id="cap"></p>
+
+  <!-- Option A -->
+  <div class="scroll screen on" id="opt-a">
+    <div class="win">
+      <div class="side">
+        <div class="lights"><i></i><i></i><i></i></div>
+        <div class="nav"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Dictation</div>
+        <div class="nav"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Insights</div>
+        <div class="nav"><svg viewBox="0 0 24 24"><path d="M6 3h11a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6z"/><path d="M4 7h3M4 12h3M4 17h3"/></svg>Dictionary</div>
+        <div class="nav"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h7"/></svg>Style</div>
+        <div class="nav"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5"/></svg>Meetings</div>
+        <div class="nav"><svg viewBox="0 0 24 24"><path d="M12 15V4M7 9l5-5 5 5M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></svg>Upload</div>
+        <div class="nav on"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg>Scratchpad</div>
+        <div class="spacer"></div>
+        <div class="nav"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>Settings</div>
+      </div>
+      <div class="list">
+        <div class="top"><b>Notes</b><button class="btn" tabindex="-1">New</button></div>
+        <div class="search">Search notes</div>
+        <div class="row on open"><b>Sprint ideas</b><span>Today 19:30 · We need to improve the…</span></div>
+        <div class="row open"><b>Standup notes</b><span>Today 09:12 · Ship upload paging…</span></div>
+        <div class="row open"><b>Release checklist</b><span>Yesterday · Bump build number…</span></div>
+        <div class="row"><b>Untitled</b><span>Oct 14 · today I want to write…</span></div>
+        <div class="row"><b>Reading list</b><span>Oct 12 · Granola, Wispr Flow…</span></div>
+      </div>
+      <div class="pane">
+        <div class="tabs">
+          <div class="tab on"><span>Sprint ideas</span><span class="x">✕</span></div>
+          <div class="tab"><span>Standup notes</span><span class="x">✕</span></div>
+          <div class="tab"><span>Release checklist</span><span class="dot" title="Unsaved"></span></div>
+          <div class="plus">+</div>
+        </div>
+        <div class="fmt" data-fmt></div>
+        <div class="editor" data-editor></div>
+        <div class="status"><span class="ok">Saved</span><span>96 words</span><span class="sp"></span><span>Transforms use the Notes model: Qwen3.8 27B (local)</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Option B -->
+  <div class="scroll screen" id="opt-b">
+    <div class="desk">
+      <div class="menubar"><span class="bv"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/></svg>BugVoice</span><span>Wed 19:32</span></div>
+      <div class="bgapp"><div class="lights"><i></i><i></i><i></i></div><span class="ttl">Linear — BugVoice project</span>
+        <i style="width:60%"></i><i style="width:90%"></i><i style="width:80%"></i><i style="width:40%"></i><i style="width:85%"></i><i style="width:70%"></i><i style="width:55%"></i>
+      </div>
+      <div class="float">
+        <div class="titlebar"><div class="lights"><i></i><i></i><i></i></div><b>Scratchpad</b><span class="sp"></span>
+          <span class="pin"><svg viewBox="0 0 24 24"><path d="M12 17v5M5 17h14l-2-7V4H7v6z"/></svg>On top</span>
+          <button class="btn" tabindex="-1">Open in BugVoice</button></div>
+        <div class="tabs">
+          <div class="tab on"><span>Sprint ideas</span><span class="x">✕</span></div>
+          <div class="tab"><span>Standup notes</span><span class="x">✕</span></div>
+          <div class="plus">+</div>
+        </div>
+        <div class="fmt" data-fmt data-compact></div>
+        <div class="editor" data-editor></div>
+        <div class="status"><span class="ok">Saved</span><span>96 words</span><span class="sp"></span><span>⌥⇧Space shows or hides</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="notes-grid">
+    <div class="note"><b>Shared by both options</b>
+      <ul>
+        <li>Each tab is an ordinary note file (Markdown, as today); closing a tab never deletes the note.</li>
+        <li>Toolbar writes Markdown: heading, bold, italic, lists, checklist, quote, code, link. The editor shows it styled.</li>
+        <li>Transforms work on the selection, or the whole note when nothing is selected. Result is a preview; Replace is one undo step.</li>
+        <li>Dictation lands at the cursor of the active tab, cleaned by the Notes model.</li>
+        <li>Meetings and Upload get "Send to Scratchpad": the transcript or summary opens as a new tab.</li>
+      </ul>
+    </div>
+    <div class="note pro"><b>A · Notes page: for</b>
+      <ul><li>One editor, one place; reuses the list, autosave and dictation routing that exist.</li><li>Room for a wide editor and the note list.</li><li>Least new code.</li></ul>
+    </div>
+    <div class="note con"><b>A · Notes page: against</b>
+      <ul><li>Must switch to the BugVoice window to jot something.</li></ul>
+    </div>
+    <div class="note pro"><b>B · Floating window: for</b>
+      <ul><li>Open over any app with a shortcut, jot or dictate, hide again.</li><li>Stays on top while you work in Linear, a browser or a call.</li></ul>
+    </div>
+    <div class="note con"><b>B · Floating window: against</b>
+      <ul><li>A second editor for the same files: both must stay in sync.</li><li>Dictation must learn a second destination; a new global shortcut.</li><li>Narrow: formatting toolbar is compact.</li></ul>
+    </div>
+  </div>
+</div>
+
+<template id="fmt-full">
+  <span class="b on" title="Heading">H1</span><span class="b" title="Subheading">H2</span><span class="sep"></span>
+  <span class="b" title="Bold"><b>B</b></span><span class="b" title="Italic"><i>I</i></span><span class="b" title="Strikethrough"><s>S</s></span><span class="sep"></span>
+  <span class="b" title="Bulleted list"><svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg></span>
+  <span class="b" title="Numbered list"><svg viewBox="0 0 24 24"><path d="M10 6h10M10 12h10M10 18h10M4 4v4M3 18h3l-3 3h3"/></svg></span>
+  <span class="b" title="Checklist"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="6" height="6" rx="1"/><path d="M12 7h9M12 17h9M3 17l2 2 4-4"/></svg></span>
+  <span class="b" title="Quote"><svg viewBox="0 0 24 24"><path d="M5 6v12M10 8h10M10 12h10M10 16h6"/></svg></span>
+  <span class="b" title="Code"><svg viewBox="0 0 24 24"><path d="m8 8-4 4 4 4M16 8l4 4-4 4"/></svg></span>
+  <span class="b" title="Link"><svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 6 0l3-3a4 4 0 0 0-6-6l-1 1M14 10a4 4 0 0 0-6 0l-3 3a4 4 0 0 0 6 6l1-1"/></svg></span>
+  <span class="sp"></span>
+  <button class="btn mic" tabindex="-1"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Dictate</button>
+  <button class="btn" tabindex="-1" data-tx><svg viewBox="0 0 24 24"><path d="M12 3l1.8 4.6L18 9l-4.2 1.4L12 15l-1.8-4.6L6 9l4.2-1.4zM19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>Transforms ▾</button>
+</template>
+
+<template id="ed-edit">
+  <h1>Sprint ideas</h1>
+  <p>Today I want to write down the idea that we need to improve the Power UI for the app. <span class="sel">Also add the menu bar and the huddle so I think we need to rearrange everything, and also I need to have more features like a quick note you can open anywhere.</span></p>
+  <h2>Next</h2>
+  <ul>
+    <li class="task done"><i></i><span>Upload paging and Clear history</span></li>
+    <li class="task"><i></i><span>Notes spacing between dictations</span></li>
+    <li class="task"><i></i><span>Scratchpad mockup</span><span class="caret"></span></li>
+  </ul>
+</template>
+
+<template id="menu">
+  <div class="menu" data-menu>
+    <div class="h">Selection · 31 words</div>
+    <div class="i hl">Polish<kbd>⌘1</kbd></div>
+    <div class="i">More concise<kbd>⌘2</kbd></div>
+    <div class="i">More professional<kbd>⌘3</kbd></div>
+    <div class="i">Bullet points<kbd>⌘4</kbd></div>
+    <hr>
+    <div class="i">Ask a question…<kbd>⌘J</kbd></div>
+    <div class="foot">Notes model · Qwen3.8 27B (local)</div>
+  </div>
+</template>
+
+<template id="preview">
+  <div class="preview" data-pv>
+    <div class="t">Polish <small>· 31 words → 24</small><span class="sp"></span><small>Qwen3.8 27B · 2.4 s</small></div>
+    <div class="diff"><del>Also add the menu bar and the huddle so I think we need to rearrange everything, and also I need to have more features like</del><ins>We should also add the menu bar and the huddle, which means rearranging the layout. I also want more features, such as</ins> a quick note you can open anywhere.</div>
+    <div class="acts"><button class="btn" tabindex="-1">Discard</button><button class="btn" tabindex="-1">Insert below</button><button class="btn primary" tabindex="-1">Replace</button></div>
+  </div>
+</template>
+
+<template id="ask">
+  <div class="preview" data-pv>
+    <div class="ask"><svg viewBox="0 0 24 24" width="15" height="15" style="stroke:var(--accent);fill:none;stroke-width:1.8"><path d="M12 3l1.8 4.6L18 9l-4.2 1.4L12 15l-1.8-4.6L6 9l4.2-1.4z"/></svg><input value="What are the open tasks, in priority order?" aria-label="Question" tabindex="-1"></div>
+    <div class="answer"><b>From this note:</b>
+      <ol><li>Notes spacing between dictations</li><li>Scratchpad mockup</li></ol>
+      Upload paging is already done.</div>
+    <div class="acts"><button class="btn" tabindex="-1">Copy</button><button class="btn" tabindex="-1">Insert below</button><button class="btn primary" tabindex="-1">Done</button></div>
+  </div>
+</template>
+
+<script>
+const caps = {
+  a: '<b>Option A · Notes page.</b> The sidebar item is renamed Scratchpad. The note list stays on the left; notes you open become tabs across the top (a dot on a list row means it is open in a tab). Formatting toolbar, Dictate and Transforms sit above the editor.',
+  b: '<b>Option B · Floating window.</b> A small window that stays on top of other apps. Open or hide it with a shortcut or from the menu bar icon; the BugVoice window does not need to be open. Same tabs, toolbar and Transforms in a narrow layout; "Open in BugVoice" jumps to the full Notes page.'
+};
+let opt = 'a', state = 'edit';
+function render() {
+  document.querySelectorAll('#opts button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.o === opt)));
+  document.querySelectorAll('#states button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.s === state)));
+  document.getElementById('opt-a').classList.toggle('on', opt === 'a');
+  document.getElementById('opt-b').classList.toggle('on', opt === 'b');
+  document.getElementById('cap').innerHTML = caps[opt];
+  const root = document.getElementById('opt-' + opt);
+  const fmt = root.querySelector('[data-fmt]');
+  fmt.innerHTML = document.getElementById('fmt-full').innerHTML;
+  if (fmt.hasAttribute('data-compact')) {
+    fmt.querySelectorAll('[title="Strikethrough"],[title="Quote"],[title="Code"],[title="Numbered list"]').forEach(n => n.remove());
+    fmt.querySelector('.mic').lastChild.textContent = '';
+  }
+  const ed = root.querySelector('[data-editor]');
+  ed.innerHTML = document.getElementById('ed-edit').innerHTML;
+  const narrow = opt === 'b';
+  if (state === 'menu') {
+    ed.insertAdjacentHTML('beforeend', document.getElementById('menu').innerHTML);
+    const m = ed.querySelector('[data-menu]');
+    m.style.top = '-4px'; m.style.right = '12px';
+  }
+  if (state === 'preview' || state === 'ask') {
+    ed.insertAdjacentHTML('beforeend', document.getElementById(state).innerHTML);
+    const p = ed.querySelector('[data-pv]');
+    p.style.left = narrow ? '14px' : '34px'; p.style.right = narrow ? '14px' : '34px';
+    p.style.top = narrow ? '150px' : '128px';
+  }
+}
+document.querySelectorAll('#opts button').forEach(b => b.addEventListener('click', () => { opt = b.dataset.o; render(); }));
+document.querySelectorAll('#states button').forEach(b => b.addEventListener('click', () => { state = b.dataset.s; render(); }));
+document.querySelectorAll('#theme button').forEach(b => b.addEventListener('click', () => {
+  document.documentElement.dataset.theme = b.dataset.t;
+  document.querySelectorAll('#theme button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+}));
+// Deep link for screenshots: #b-preview-dark
+const [ho, hs, ht] = location.hash.slice(1).split('-');
+if (caps[ho]) opt = ho;
+if (['edit', 'menu', 'preview', 'ask'].includes(hs)) state = hs;
+if (ht) document.documentElement.dataset.theme = ht;
+render();
+</script>
+</body>
+</html>
