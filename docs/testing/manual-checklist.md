@@ -213,6 +213,16 @@ Run after building with `Scripts/build-app.sh`. Results stay blank until run on 
 | 124 | Notes | Dictate twice at the end of a note | The second dictation starts after a space, never glued to the last word | |
 | 125 | Notes / Dictation | With a local 27B model and a 3 s limit, dictate about 45 words into a note and into Notion | Both are cleaned (punctuation, no fillers), not raw; short dictations stay as fast as before | |
 
+| 126 | Meetings / Notes | Folder menu → New folder… "Project A"; Manage folders… rename it "Project Atlas"; try "unfiled" and a duplicate | Folder appears on both pages; rename keeps its items; reserved and duplicate names show the message | |
+| 127 | Meetings | Filter by a folder, then add a tag chip; search "#tag" | List shows only matching meetings; counts in the menu match | |
+| 128 | Meetings / Notes | Right-click a row → Move to folder › another folder | Row leaves the filtered list and appears under the new folder | |
+| 129 | Meetings / Notes | In the labels box type "#onb", pick an existing tag, then create a new one; add an 11th tag | Autocomplete lists existing tags first; 11th tag shows the limit message | |
+| 130 | Upload | Drop 2 files; set Save to and tags on the first; Apply to all; Transcribe | Both meetings are in that folder with those tags; next upload defaults to it with "Last used" | |
+| 131 | Meetings | With some tags in use, generate a Summary | Up to 3 purple suggested chips; clicking adds the tag; ✕ clears them; nothing added without a click | |
+| 132 | Meetings / Notes | Delete a folder that has items | Items show under Unfiled; no files deleted; page filter falls back to All | |
+| 133 | Notes | Tag and file a note, then open its .md file in TextEdit or Obsidian | File starts with --- folder/tags --- then # Title; other apps' keys kept after an edit | |
+| 134 | Meetings | While recording, change the meeting's folder and tags; stop | Labels kept after transcription finishes | |
+
 Review-focus inputs: zero-length file; 48 kHz stereo or 5.1; video track only;
 source removed/moved while reading; three-hour-or-longer file. A reader already
 holding an open file may complete after its pathname disappears; a read failure
