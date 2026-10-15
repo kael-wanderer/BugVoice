@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Published copy: https://claude.ai/artifact/8nVfmHGYWwcmNmHBwVPyPt -->
+<!-- Decision 2026-10-15: option A (separate daily totals) chosen. -->
+<title>Insights Storage Options</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: page explainer on top, scenario switch, then two app-window mockups side by side (stack on phone), then data files + verdict. */
+:root {
+  --bg: #f3f4f7; --surface: #ffffff; --surface-2: #eceef3; --line: #d9dce4;
+  --fg: #1b1e26; --muted: #646a78; --accent: #3a6ff0; --accent-soft: #e3ebff;
+  --good: #1f8a4c; --bad: #c2412d; --warn-bg: #fdf0e8;
+  --cell0: #e2e5ec; --cell1: #b9cbf7; --cell2: #8aa9f2; --cell3: #5a86ee; --cell4: #2f62e3;
+  --display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  --app: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #111318; --surface: #1a1d24; --surface-2: #22262f; --line: #2e333d;
+  --fg: #e8eaf0; --muted: #9aa0ad; --accent: #6f95ff; --accent-soft: #1f2a46;
+  --good: #4cc27f; --bad: #ff7a63; --warn-bg: #3a2620;
+  --cell0: #262a33; --cell1: #253a6e; --cell2: #2f4f9c; --cell3: #4570d6; --cell4: #6f95ff;
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #111318; --surface: #1a1d24; --surface-2: #22262f; --line: #2e333d;
+  --fg: #e8eaf0; --muted: #9aa0ad; --accent: #6f95ff; --accent-soft: #1f2a46;
+  --good: #4cc27f; --bad: #ff7a63; --warn-bg: #3a2620;
+  --cell0: #262a33; --cell1: #253a6e; --cell2: #2f4f9c; --cell3: #4570d6; --cell4: #6f95ff;
+  color-scheme: dark }
+body { background: var(--bg); color: var(--fg); font-family: var(--app); line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 32px 56px; }
+.wrap { max-width: 1120px; margin: 0 auto; display: grid; gap: 28px; }
+h1, h2 { font-family: var(--display); text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(1.7rem, 3.5vw, 2.4rem); font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 1.25rem; font-weight: 700; }
+p { margin: 0; max-width: 68ch; }
+.lede { color: var(--muted); font-size: 1.02rem; }
+.eyebrow { font-size: .72rem; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+header { display: grid; gap: 10px; }
+
+.switch { display: grid; gap: 10px; }
+.seg { display: flex; flex-wrap: wrap; gap: 6px; background: var(--surface-2); padding: 5px; border-radius: 12px; width: fit-content; max-width: 100%; }
+.seg button { font: inherit; font-size: .9rem; border: 0; background: transparent; color: var(--muted); padding: 8px 14px; border-radius: 8px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--fg); box-shadow: 0 1px 2px rgb(0 0 0 / .12); font-weight: 600; }
+.seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.scenario-note { color: var(--muted); font-size: .92rem; min-height: 1.5em; }
+
+.compare { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 500px), 1fr)); gap: 20px; }
+.option { display: grid; gap: 10px; min-width: 0; align-content: start; }
+.option-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.tag { font-family: var(--mono); font-weight: 600; font-size: .8rem; padding: 2px 8px; border-radius: 6px; background: var(--accent-soft); color: var(--accent); }
+.tag.b { background: var(--surface-2); color: var(--muted); }
+.option-head h2 { font-size: 1.1rem; }
+.option-sub { color: var(--muted); font-size: .9rem; }
+
+/* App window mockup */
+.win { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; box-shadow: 0 8px 28px rgb(0 0 0 / .08); }
+.titlebar { display: flex; align-items: center; gap: 7px; padding: 10px 12px; border-bottom: 1px solid var(--line); background: var(--surface-2); }
+.dot { width: 11px; height: 11px; border-radius: 50%; background: var(--line); }
+.titlebar span { margin-left: 8px; font-size: .8rem; color: var(--muted); font-weight: 600; }
+.win-body { display: grid; grid-template-columns: 112px 1fr; min-height: 0; }
+.side { border-right: 1px solid var(--line); padding: 10px 8px; display: grid; gap: 2px; align-content: start; font-size: .78rem; color: var(--muted); }
+.side div { padding: 5px 8px; border-radius: 6px; }
+.side .on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.page { padding: 14px; display: grid; gap: 12px; min-width: 0; }
+.page-title { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.page-title b { font-size: 1rem; }
+.page-title small { font-size: .72rem; color: var(--muted); }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.stat { border: 1px solid var(--line); border-radius: 9px; padding: 9px 10px; display: grid; gap: 2px; min-width: 0; transition: background .3s; }
+.stat .k { font-size: .68rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stat .v { font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stat .s { font-size: .66rem; color: var(--muted); }
+.stat.lost { background: var(--warn-bg); }
+.stat.lost .v { color: var(--bad); }
+.heat { border: 1px solid var(--line); border-radius: 9px; padding: 10px; display: grid; gap: 6px; min-width: 0; }
+.heat-head { display: flex; justify-content: space-between; font-size: .74rem; gap: 8px; flex-wrap: wrap; }
+.heat-head b { font-size: .8rem; }
+.grid-scroll { overflow-x: auto; }
+.cells { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 9px); gap: 3px; width: max-content; }
+.cells i { width: 9px; height: 9px; border-radius: 2px; background: var(--cell0); transition: background .35s; }
+.legend { display: flex; align-items: center; gap: 4px; font-size: .66rem; color: var(--muted); }
+.legend i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+.apps { display: grid; gap: 5px; font-size: .74rem; }
+.app-row { display: grid; grid-template-columns: 74px 1fr 46px; gap: 8px; align-items: center; }
+.bar { height: 7px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
+.bar span { display: block; height: 100%; background: var(--accent); border-radius: 4px; transition: width .4s; }
+.app-row em { font-style: normal; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+.verdict-line { font-size: .88rem; padding: 8px 12px; border-radius: 8px; background: var(--surface); border: 1px solid var(--line); }
+.verdict-line strong.ok { color: var(--good); }
+.verdict-line strong.no { color: var(--bad); }
+
+/* Data files */
+.files { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 500px), 1fr)); gap: 20px; }
+.file-card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: grid; gap: 10px; min-width: 0; align-content: start; }
+pre { margin: 0; font-family: var(--mono); font-size: .74rem; line-height: 1.55; background: var(--surface-2); border-radius: 8px; padding: 12px; overflow-x: auto; }
+.fname { font-family: var(--mono); font-size: .8rem; font-weight: 600; }
+.fname span { color: var(--muted); font-weight: 400; }
+ul.pc { margin: 0; padding-left: 1.1em; display: grid; gap: 4px; font-size: .9rem; }
+ul.pc li::marker { color: var(--muted); }
+.plus { color: var(--good); font-weight: 700; }
+.minus { color: var(--bad); font-weight: 700; }
+
+.rec { border: 1.5px solid var(--accent); background: var(--surface); border-radius: 12px; padding: 18px 20px; display: grid; gap: 8px; }
+.rec h2 { color: var(--accent); }
+
+@media (max-width: 560px) {
+  .win-body { grid-template-columns: 1fr; }
+  .side { display: none; }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">BugVoice · Insights · storage decision</div>
+    <h1>Where should Insights get its numbers?</h1>
+    <p class="lede">Both options show the same Insights page. They differ in what happens when dictation history gets deleted, by the retention setting or by Clear. Pick a situation below and compare the two pages. The figures are examples, not your data.</p>
+  </header>
+
+  <section class="switch" aria-label="Situation">
+    <div class="eyebrow">Situation</div>
+    <div class="seg" role="group">
+      <button id="sc-forever" data-s="forever" aria-pressed="true">Keep history forever</button>
+      <button id="sc-days7" data-s="days7" aria-pressed="false">Keep history 7 days</button>
+      <button id="sc-clear" data-s="clear" aria-pressed="false">After Clear history</button>
+    </div>
+    <p class="scenario-note" id="note"></p>
+  </section>
+
+  <section class="compare">
+    <article class="option" id="optA">
+      <div class="option-head"><span class="tag">A</span><h2>Separate daily totals</h2></div>
+      <p class="option-sub">Each dictation also adds to <code>insights.json</code>: counts per day, no text.</p>
+    </article>
+    <article class="option" id="optB">
+      <div class="option-head"><span class="tag b">B</span><h2>Calculate from history only</h2></div>
+      <p class="option-sub">Insights reads <code>history.jsonl</code> each time the page opens.</p>
+    </article>
+  </section>
+
+  <section class="files">
+    <div class="file-card">
+      <div class="eyebrow">Option A stores</div>
+      <div class="fname">history.jsonl <span>· unchanged, full text, follows retention</span></div>
+      <div class="fname">insights.json <span>· new, numbers only, kept until Reset insights</span></div>
+<pre>{
+  "days": {
+    "2026-10-15": {
+      "words": 412, "dictations": 23, "seconds": 291,
+      "notes": 1, "meetings": 0, "meetingMinutes": 0,
+      "apps":   { "Ghostty": 210, "Code": 120, "Notion": 82 },
+      "styles": { "terminal": 210, "other": 120, "document": 82 },
+      "wordsFixed": 37
+    }
+  }
+}</pre>
+      <ul class="pc">
+        <li><span class="plus">+</span> Streak, heatmap and all-time totals survive retention and Clear.</li>
+        <li><span class="plus">+</span> Fast: one small file, about 300 bytes per day.</li>
+        <li><span class="plus">+</span> Holds no words you said, only counts and app names.</li>
+        <li><span class="minus">−</span> One more file to keep in step. Settings → Storage gets a <b>Reset insights</b> button.</li>
+        <li><span class="minus">−</span> Starts today. Days before it existed come from history once, at first launch.</li>
+      </ul>
+    </div>
+    <div class="file-card">
+      <div class="eyebrow">Option B stores</div>
+      <div class="fname">history.jsonl <span>· unchanged, the only source</span></div>
+<pre>{"app":"Ghostty","startedAt":"2026-10-15T03:19:32Z",
+ "style":"terminal","raw":"Can you do something for me?",
+ "inserted":"Can you do something for me?",
+ "timings":{"recording":1.49,"transcribe":3.24}}
+… one line per dictation, read in full on every open</pre>
+      <ul class="pc">
+        <li><span class="plus">+</span> No new file and nothing new to reset.</li>
+        <li><span class="plus">+</span> Numbers always match the history list exactly.</li>
+        <li><span class="minus">−</span> With 7- or 30-day retention, Insights shows only those days.</li>
+        <li><span class="minus">−</span> Clear history resets the streak and every total to zero.</li>
+        <li><span class="minus">−</span> With retention set to Don't save, Insights is always empty.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="rec">
+    <div class="eyebrow">Recommendation</div>
+    <h2>Option A</h2>
+    <p>Insights exists to show long-term habits: streak, months of activity, all-time words. Option B loses exactly those whenever you trim history for privacy. Option A keeps the habit numbers and still drops the text. Your history is set to Forever today, so both look the same now; they differ the first time you change retention or press Clear.</p>
+  </section>
+</div>
+
+<script>
+(function () {
+  const WEEKS = 26;
+  const NOTES = {
+    forever: "History kept forever. Both options read the same data, so both pages match.",
+    days7: "Retention set to 7 days, three months after you started. Older dictations are pruned from history.jsonl.",
+    clear: "You pressed Clear history in Settings. history.jsonl is deleted."
+  };
+  // Deterministic example activity: 26 weeks, more use on weekdays, ramping up.
+  function seeded(i) { const x = Math.sin(i * 12.9898) * 43758.5453; return x - Math.floor(x); }
+  const days = [];
+  for (let d = 0; d < WEEKS * 7; d++) {
+    const dow = d % 7, ramp = d / (WEEKS * 7);
+    let words = 0;
+    if (seeded(d) < 0.25 + ramp * 0.6 && dow !== 0) words = Math.round(80 + seeded(d + 999) * 520 * (0.4 + ramp));
+    if (d > WEEKS * 7 - 13) words = Math.max(words, 120 + Math.round(seeded(d + 7) * 300));
+    days.push(words);
+  }
+  const level = w => w === 0 ? 0 : w < 150 ? 1 : w < 300 ? 2 : w < 450 ? 3 : 4;
+  const apps = [["Ghostty", 0.46], ["Code", 0.27], ["Notion", 0.18], ["Chrome", 0.09]];
+
+  function stats(slice, longestOverride) {
+    const words = slice.reduce((a, b) => a + b, 0);
+    const dictations = slice.reduce((a, w) => a + Math.round(w / 18), 0);
+    let streak = 0; for (let i = slice.length - 1; i >= 0 && slice[i] > 0; i--) streak++;
+    let longest = 0, run = 0; for (const w of slice) { run = w > 0 ? run + 1 : 0; longest = Math.max(longest, run); }
+    return { words, dictations, wpm: words ? 92 : 0, streak, longest: longestOverride ?? longest };
+  }
+
+  function view(kind, scenario) {
+    let visible = days.slice(), lostAll = false, lostSome = false;
+    if (kind === "B" && scenario === "days7") { visible = days.map((w, i) => i >= days.length - 7 ? w : 0); lostSome = true; }
+    if (kind === "B" && scenario === "clear") { visible = days.map(() => 0); lostAll = true; }
+    const s = stats(visible);
+    return { visible, s, lostAll, lostSome };
+  }
+
+  const fmt = n => n.toLocaleString("en-US");
+
+  function render(kind, scenario) {
+    const host = document.getElementById(kind === "A" ? "optA" : "optB");
+    const { visible, s, lostAll, lostSome } = view(kind, scenario);
+    const lost = lostAll || lostSome;
+    const cls = lost ? "stat lost" : "stat";
+    const cells = visible.map(w => `<i style="background:var(--cell${level(w)})"></i>`).join("");
+    const total = s.words || 1;
+    const appRows = apps.map(([n, p]) => {
+      const w = Math.round(s.words * p);
+      return `<div class="app-row"><span>${n}</span><div class="bar"><span style="width:${s.words ? p * 100 / apps[0][1] : 0}%"></span></div><em>${fmt(w)}</em></div>`;
+    }).join("");
+    let verdict;
+    if (!lost) verdict = `<strong class="ok">Full picture.</strong> ${WEEKS} weeks of activity, streak intact.`;
+    else if (lostSome) verdict = `<strong class="no">Only 7 days left.</strong> Heatmap, totals and longest streak shrink to the retention window.`;
+    else verdict = `<strong class="no">Everything reset to zero.</strong> Streak and all-time totals are gone.`;
+
+    let win = host.querySelector(".win");
+    const html = `
+      <div class="titlebar"><i class="dot"></i><i class="dot"></i><i class="dot"></i><span>BugVoice</span></div>
+      <div class="win-body">
+        <nav class="side" aria-hidden="true"><div>Dictation</div><div class="on">Insights</div><div>Meetings</div><div>Notes</div><div>Settings</div></nav>
+        <div class="page">
+          <div class="page-title"><b>Insights</b><small>Calculated on this Mac</small></div>
+          <div class="stats">
+            <div class="${cls}"><span class="k">Words spoken</span><span class="v">${fmt(s.words)}</span><span class="s">All time</span></div>
+            <div class="stat"><span class="k">Words per minute</span><span class="v">${s.wpm}</span><span class="s">Average</span></div>
+            <div class="${cls}"><span class="k">Dictations</span><span class="v">${fmt(s.dictations)}</span><span class="s">All time</span></div>
+            <div class="${lostAll ? "stat lost" : "stat"}"><span class="k">Current streak</span><span class="v">${s.streak} d</span><span class="s">Longest ${s.longest} d</span></div>
+          </div>
+          <div class="heat">
+            <div class="heat-head"><b>Speaking activity</b><span class="legend">Less <i style="background:var(--cell1)"></i><i style="background:var(--cell2)"></i><i style="background:var(--cell3)"></i><i style="background:var(--cell4)"></i> More</span></div>
+            <div class="grid-scroll"><div class="cells">${cells}</div></div>
+          </div>
+          <div class="apps">${appRows}</div>
+        </div>
+      </div>`;
+    if (!win) { win = document.createElement("div"); win.className = "win"; host.appendChild(win);
+      const v = document.createElement("div"); v.className = "verdict-line"; host.appendChild(v); }
+    win.innerHTML = html;
+    host.querySelector(".verdict-line").innerHTML = verdict;
+  }
+
+  function set(scenario) {
+    document.querySelectorAll(".seg button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.s === scenario)));
+    document.getElementById("note").textContent = NOTES[scenario];
+    render("A", scenario); render("B", scenario);
+  }
+  document.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => set(b.dataset.s)));
+  set("forever");
+})();
+</script>
+</body>
+</html>
