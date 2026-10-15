@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Published copy: https://claude.ai/artifact/PkEwjV1b7tPyZ1rAPRLM4j -->
+<title>BugVoice Insights Page</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: a macOS window mock. Full-height sidebar with traffic lights on it; content pane with header row (pill tabs, period switch, Local badge), two card rows, heatmap, app/style breakdown. */
+:root {
+  --page: #e9ebf0; --win: #ffffff; --side: #f2f3f6; --card: #ffffff; --line: #e1e4ea; --chip: #eceef2;
+  --fg: #1c1f26; --muted: #6a7080; --accent: #3a6ff0; --accent-soft: #e4ebfd;
+  --cell0: #e7e9ee; --cell1: #c3d3fa; --cell2: #94b0f4; --cell3: #6088ee; --cell4: #3a6ff0;
+  --red: #ff5f57; --yellow: #febc2e; --green: #28c840;
+  --app: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --page: #0d0e11; --win: #1b1d22; --side: #16181c; --card: #212329; --line: #2d3037; --chip: #272a31;
+  --fg: #e9ebf0; --muted: #9298a6; --accent: #6e93ff; --accent-soft: #23304f;
+  --cell0: #2a2d34; --cell1: #283a68; --cell2: #34519a; --cell3: #4a71d8; --cell4: #6e93ff;
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --page: #0d0e11; --win: #1b1d22; --side: #16181c; --card: #212329; --line: #2d3037; --chip: #272a31;
+  --fg: #e9ebf0; --muted: #9298a6; --accent: #6e93ff; --accent-soft: #23304f;
+  --cell0: #2a2d34; --cell1: #283a68; --cell2: #34519a; --cell3: #4a71d8; --cell4: #6e93ff;
+  color-scheme: dark }
+body { background: var(--page); color: var(--fg); font-family: var(--app); font-size: 13px; line-height: 1.45;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 28px 48px; }
+.frame { max-width: 1180px; margin: 0 auto; display: grid; gap: 14px; }
+.caption { color: var(--muted); font-size: 12.5px; max-width: 80ch; }
+.caption b { color: var(--fg); }
+
+.win { display: grid; grid-template-columns: 210px 1fr; background: var(--win); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; box-shadow: 0 20px 50px rgb(0 0 0 / .14); min-height: 640px; }
+/* Sidebar runs full height: traffic lights sit on it, no title text */
+.side { background: var(--side); border-right: 1px solid var(--line); padding: 14px 10px; display: flex; flex-direction: column; gap: 2px; }
+.lights { display: flex; gap: 8px; padding: 0 6px 18px; }
+.lights i { width: 12px; height: 12px; border-radius: 50%; }
+.lights i:nth-child(1) { background: var(--red); } .lights i:nth-child(2) { background: var(--yellow); } .lights i:nth-child(3) { background: var(--green); }
+.nav { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 7px; color: var(--fg); }
+.nav svg { width: 16px; height: 16px; stroke: var(--muted); fill: none; stroke-width: 1.6; }
+.nav.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.nav.on svg { stroke: var(--accent); }
+.side .spacer { flex: 1; }
+
+.main { display: grid; grid-template-rows: auto 1fr; min-width: 0; }
+.toolbar { display: flex; align-items: center; gap: 10px; padding: 12px 22px; border-bottom: 1px solid var(--line); min-height: 26px; }
+.toolbar h1 { margin: 0; font-size: 15px; font-weight: 650; }
+.content { padding: 20px 22px 26px; display: grid; gap: 16px; align-content: start; min-width: 0; }
+
+.head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.head-left { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.pills { display: inline-flex; background: var(--chip); border-radius: 999px; padding: 3px; gap: 2px; }
+.pills button { font: inherit; border: 0; background: transparent; color: var(--muted); padding: 6px 16px; border-radius: 999px; cursor: pointer; }
+.pills button[aria-pressed="true"] { background: var(--card); color: var(--fg); font-weight: 600; box-shadow: 0 1px 2px rgb(0 0 0 / .14); }
+.pills button:disabled { cursor: not-allowed; opacity: .55; }
+.pills button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.pills.small button { padding: 4px 12px; font-size: 12px; }
+.soon { font-size: 10px; margin-left: 4px; padding: 1px 5px; border-radius: 4px; background: var(--line); color: var(--muted); font-weight: 600; }
+.badge { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+.badge svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.6; }
+
+.cards { display: grid; gap: 12px; }
+.cards.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.cards.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: grid; gap: 4px; min-width: 0; align-content: start; }
+.card .k { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12px; }
+.card .k svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.6; flex: none; }
+.card .v { font-size: 26px; font-weight: 700; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+.card .s { color: var(--muted); font-size: 11.5px; }
+.cards.three .v { font-size: 20px; }
+
+.panel { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: grid; gap: 10px; min-width: 0; }
+.panel h2 { margin: 0; font-size: 14px; font-weight: 650; }
+.panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.panel-head span { color: var(--muted); font-size: 12px; }
+.heat-scroll { overflow-x: auto; }
+.heat { display: grid; grid-template-columns: 28px auto; gap: 4px 6px; width: max-content; }
+.months { grid-column: 2; display: grid; grid-auto-flow: column; grid-auto-columns: 12px; gap: 3px; color: var(--muted); font-size: 10.5px; height: 14px; }
+.months span { white-space: nowrap; }
+.days { display: grid; grid-template-rows: repeat(7, 12px); gap: 3px; color: var(--muted); font-size: 10px; }
+.days span { line-height: 12px; }
+.cells { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 12px); grid-auto-columns: 12px; gap: 3px; }
+.cells i { border-radius: 3px; background: var(--cell0); }
+.cells i.out { background: var(--cell0); opacity: .4; }
+.cells i.empty { background: transparent; }
+.cells i:hover { outline: 1.5px solid var(--fg); outline-offset: 0; }
+.legend { display: flex; align-items: center; gap: 4px; color: var(--muted); font-size: 11px; }
+.legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.tip { color: var(--muted); font-size: 11.5px; min-height: 1.4em; font-variant-numeric: tabular-nums; }
+
+.split { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 12px; }
+.rows { display: grid; gap: 8px; }
+.row { display: grid; grid-template-columns: 90px 1fr 70px; gap: 10px; align-items: center; }
+.row b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar { height: 8px; background: var(--chip); border-radius: 4px; overflow: hidden; }
+.bar span { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
+.row em { font-style: normal; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12px; }
+.example { font-size: 11px; color: var(--muted); text-align: center; }
+
+@media (max-width: 860px) {
+  .win { grid-template-columns: 1fr; }
+  .side { flex-direction: row; flex-wrap: wrap; border-right: 0; border-bottom: 1px solid var(--line); padding: 10px; }
+  .lights { padding: 6px 8px 6px 4px; }
+  .side .spacer { display: none; }
+  .cards.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cards.three, .split { grid-template-columns: 1fr; }
+}
+</style>
+
+</head>
+<body>
+<div class="frame">
+  <p class="caption"><b>Insights, Usage tab.</b> The sidebar runs full height with the window buttons on it, and the title bar has no app name. Switch the period to see the cards change. Details is a placeholder tab for later. All figures are examples.</p>
+
+  <div class="win">
+    <nav class="side" aria-label="Pages">
+      <div class="lights" aria-hidden="true"><i></i><i></i><i></i></div>
+      <div class="nav"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Dictation</div>
+      <div class="nav on"><svg viewBox="0 0 24 24"><path d="M5 20V12M10 20V6M15 20v-9M20 20V4"/></svg>Insights</div>
+      <div class="nav"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5M15 15c3 0 6 1.5 6 4"/></svg>Meetings</div>
+      <div class="nav"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 12h7M9 16h5"/></svg>Notes</div>
+      <div class="spacer"></div>
+      <div class="nav"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>Settings</div>
+    </nav>
+
+    <div class="main">
+      <div class="toolbar"><h1>Insights</h1></div>
+      <div class="content">
+        <div class="head">
+          <div class="head-left">
+            <div class="pills" role="group" aria-label="Insights tab">
+              <button id="tab-usage" aria-pressed="true">Usage</button>
+              <button id="tab-details" aria-pressed="false" disabled>Details<span class="soon">Later</span></button>
+            </div>
+            <div class="pills small" role="group" aria-label="Period">
+              <button id="p-all" data-p="all" aria-pressed="true">All time</button>
+              <button id="p-30" data-p="30" aria-pressed="false">30 days</button>
+              <button id="p-7" data-p="7" aria-pressed="false">7 days</button>
+            </div>
+          </div>
+          <span class="badge"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>Local</span>
+        </div>
+
+        <div class="cards four">
+          <div class="card"><span class="k"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/></svg>Words spoken</span><span class="v" id="v-words"></span><span class="s" id="s-words"></span></div>
+          <div class="card"><span class="k"><svg viewBox="0 0 24 24"><path d="M4 17a8 8 0 1 1 16 0"/><path d="M12 17l4-5"/></svg>Words per minute</span><span class="v" id="v-wpm"></span><span class="s">Words ÷ time speaking</span></div>
+          <div class="card"><span class="k"><svg viewBox="0 0 24 24"><path d="M5 20V12M10 20V6M15 20v-9M20 20V4"/></svg>Dictations</span><span class="v" id="v-dict"></span><span class="s" id="s-dict"></span></div>
+          <div class="card"><span class="k"><svg viewBox="0 0 24 24"><path d="M12 3c1 4 6 6 6 11a6 6 0 0 1-12 0c0-3 2-4 2-7 2 1 3 3 4 4 0-3 0-6 0-8z"/></svg>Current streak</span><span class="v" id="v-streak"></span><span class="s" id="s-streak"></span></div>
+        </div>
+
+        <div class="cards three">
+          <div class="card"><span class="k"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h5"/></svg>Notes</span><span class="v" id="v-notes"></span><span class="s" id="s-notes"></span></div>
+          <div class="card"><span class="k"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5"/></svg>Meetings</span><span class="v" id="v-meet"></span><span class="s" id="s-meet"></span></div>
+          <div class="card"><span class="k"><svg viewBox="0 0 24 24"><path d="M4 20l4-1L19 8l-3-3L5 16z"/></svg>Cleanup fixes</span><span class="v" id="v-fix"></span><span class="s">Words changed by the text model</span></div>
+        </div>
+
+        <section class="panel" aria-label="Speaking activity">
+          <div class="panel-head"><h2>Speaking activity</h2><span>Last 52 weeks</span></div>
+          <div class="heat-scroll"><div class="heat" id="heat"></div></div>
+          <div class="panel-head">
+            <div class="tip" id="tip">Hover a day to see its words and dictations.</div>
+            <div class="legend">Less <i style="background:var(--cell1)"></i><i style="background:var(--cell2)"></i><i style="background:var(--cell3)"></i><i style="background:var(--cell4)"></i> More</div>
+          </div>
+        </section>
+
+        <div class="split">
+          <section class="panel"><div class="panel-head"><h2>Where you dictate</h2><span id="apps-count"></span></div><div class="rows" id="apps"></div></section>
+          <section class="panel"><div class="panel-head"><h2>By style</h2></div><div class="rows" id="styles"></div></section>
+        </div>
+        <p class="example">Example figures for this mockup.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const TODAY = new Date(2026, 9, 15);
+  const DAY = 86400000;
+  function rnd(i) { const x = Math.sin(i * 91.17) * 43758.5453; return x - Math.floor(x); }
+  // 364 days of example activity, oldest first; heavier recently, last 9 days all active
+  const N = 364, data = [];
+  for (let i = 0; i < N; i++) {
+    const date = new Date(TODAY.getTime() - (N - 1 - i) * DAY);
+    const ramp = i / N, dow = date.getDay();
+    let w = 0;
+    if (rnd(i) < 0.18 + ramp * 0.55 && dow !== 0) w = Math.round(60 + rnd(i + 500) * 700 * (0.3 + ramp));
+    if (i >= N - 9) w = Math.max(w, 140 + Math.round(rnd(i + 3) * 420));
+    data.push({ date, words: w, dict: w ? Math.max(1, Math.round(w / 17)) : 0, notes: w && rnd(i + 77) < 0.12 ? 1 : 0, meet: w && rnd(i + 31) < 0.06 ? 1 : 0 });
+  }
+  const level = w => !w ? 0 : w < 150 ? 1 : w < 300 ? 2 : w < 480 ? 3 : 4;
+  const fmt = n => n.toLocaleString("en-US");
+  const md = d => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+  function streaks(arr) {
+    let cur = 0; for (let i = arr.length - 1; i >= 0 && arr[i].words > 0; i--) cur++;
+    let best = 0, run = 0; for (const d of arr) { run = d.words ? run + 1 : 0; best = Math.max(best, run); }
+    return { cur, best };
+  }
+
+  function render(period) {
+    const slice = period === "all" ? data : data.slice(-Number(period));
+    const sum = k => slice.reduce((a, d) => a + d[k], 0);
+    const words = sum("words"), dict = sum("dict"), notes = sum("notes"), meet = sum("meet");
+    const label = period === "all" ? "All time" : `Last ${period} days`;
+    const today = data[data.length - 1];
+    const st = streaks(data);
+    document.getElementById("v-words").textContent = fmt(words);
+    document.getElementById("s-words").textContent = `${label} · ${fmt(today.words)} today`;
+    document.getElementById("v-wpm").textContent = words ? 94 : 0;
+    document.getElementById("v-dict").textContent = fmt(dict);
+    document.getElementById("s-dict").textContent = label;
+    document.getElementById("v-streak").textContent = `${st.cur} days`;
+    document.getElementById("s-streak").textContent = `Longest: ${st.best} days`;
+    document.getElementById("v-notes").textContent = fmt(notes);
+    document.getElementById("s-notes").textContent = `${fmt(Math.round(notes * 140))} words spoken into notes`;
+    document.getElementById("v-meet").textContent = fmt(meet);
+    document.getElementById("s-meet").textContent = `${(meet * 0.7).toFixed(1)} hours recorded`;
+    document.getElementById("v-fix").textContent = fmt(Math.round(words * 0.06));
+
+    const apps = [["Ghostty", .41], ["Code", .24], ["Notion", .15], ["Chrome", .1], ["Slack", .06], ["Other", .04]];
+    document.getElementById("apps-count").textContent = "11 apps";
+    document.getElementById("apps").innerHTML = apps.map(([n, p]) =>
+      `<div class="row"><b>${n}</b><div class="bar"><span style="width:${(p / apps[0][1]) * 100}%"></span></div><em>${fmt(Math.round(words * p))}</em></div>`).join("");
+    const styles = [["Terminal", .46], ["Other", .34], ["Document", .2]];
+    document.getElementById("styles").innerHTML = styles.map(([n, p]) =>
+      `<div class="row"><b>${n}</b><div class="bar"><span style="width:${(p / styles[0][1]) * 100}%"></span></div><em>${Math.round(p * 100)}%</em></div>`).join("");
+
+    // Heatmap: columns are weeks starting Sunday; cells outside the period are dimmed
+    const start = data[0].date, lead = start.getDay();
+    const cut = period === "all" ? 0 : N - Number(period);
+    const cells = [];
+    for (let k = 0; k < lead; k++) cells.push('<i class="empty"></i>');
+    data.forEach((d, i) => {
+      const inside = i >= cut;
+      const bg = inside ? `background:var(--cell${level(d.words)})` : "";
+      cells.push(`<i class="${inside ? "" : "out"}" style="${bg}" data-i="${i}"></i>`);
+    });
+    const weeks = Math.ceil((lead + N) / 7);
+    const months = [];
+    let last = -1;
+    for (let w = 0; w < weeks; w++) {
+      const d = new Date(start.getTime() + (w * 7 - lead) * DAY);
+      const m = d.getMonth();
+      months.push(m !== last && w > 0 ? `<span>${d.toLocaleDateString("en-US", { month: "short" })}</span>` : "<span></span>");
+      last = m;
+    }
+    document.getElementById("heat").innerHTML =
+      `<div class="months" style="grid-template-columns:repeat(${weeks},12px)">${months.join("")}</div>` +
+      `<div class="days"><span></span><span>Mon</span><span></span><span>Wed</span><span></span><span>Fri</span><span></span></div>` +
+      `<div class="cells">${cells.join("")}</div>`;
+  }
+
+  const tip = document.getElementById("tip");
+  document.getElementById("heat").addEventListener("mouseover", e => {
+    const i = e.target.dataset && e.target.dataset.i;
+    if (i === undefined) return;
+    const d = data[Number(i)];
+    tip.textContent = d.words ? `${md(d.date)}: ${fmt(d.words)} words · ${d.dict} dictations` : `${md(d.date)}: no dictation`;
+  });
+
+  document.querySelectorAll("[data-p]").forEach(b => b.addEventListener("click", () => {
+    document.querySelectorAll("[data-p]").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+    render(b.dataset.p);
+  }));
+  render("all");
+})();
+</script>
+</body>
+</html>
