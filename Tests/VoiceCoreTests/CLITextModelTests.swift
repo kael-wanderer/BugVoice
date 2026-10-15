@@ -14,6 +14,10 @@ struct CLITextModelTests {
     @Test(arguments:CLITool.allCases) func flagLikeModelAndUnknownEffortAreDropped(tool:CLITool) { let a=CLIArguments.arguments(for:tool,model:"--dangerous",effort:"turbo",workingDirectory:dir); #expect(!a.contains("--dangerous") && !a.contains("turbo") && !a.contains(#"model_reasoning_effort="turbo""#)); #expect(!a.contains("--model") && !a.contains("-m")) }
     @Test func claudeOutput() throws { #expect(try CLIOutput.answer(tool:.claude,result:.init(exitCode:0,stdout:#"{"result":"  Summary.  ","is_error":false}"#,stderr:""),codexAnswer:nil) == "Summary."); #expect(throws:CLIOutputError.toolFailed(.claude)){try CLIOutput.answer(tool:.claude,result:.init(exitCode:0,stdout:#"{"result":"x","is_error":true}"#,stderr:""),codexAnswer:nil)} }
     @Test func codexOutput() throws { #expect(try CLIOutput.answer(tool:.codex,result:.init(exitCode:0,stdout:"log noise",stderr:""),codexAnswer:"Answer\n") == "Answer"); #expect(throws:CLIOutputError.self){try CLIOutput.answer(tool:.codex,result:.init(exitCode:1,stdout:"",stderr:"boom"),codexAnswer:nil)} }
+    @Test func nonZeroExitCannotReturnAnAnswer() {
+        #expect(throws:CLIOutputError.noAnswer(.claude,detail:"boom")) { try CLIOutput.answer(tool:.claude,result:.init(exitCode:1,stdout:#"{"result":"Should not be used"}"#,stderr:"boom"),codexAnswer:nil) }
+        #expect(throws:CLIOutputError.noAnswer(.pi,detail:"boom")) { try CLIOutput.answer(tool:.pi,result:.init(exitCode:1,stdout:#"{"type":"message_end","message":{"role":"assistant","content":[{"type":"text","text":"Should not be used"}]}}"#,stderr:"boom"),codexAnswer:nil) }
+    }
     @Test func piOutputTakesLastAssistantNotThePrompt() throws { let stdout="""
     {"type":"message_end","message":{"role":"user","content":[{"type":"text","text":"the prompt"}]}}
     not json

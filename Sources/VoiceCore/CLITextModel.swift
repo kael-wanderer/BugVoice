@@ -20,12 +20,16 @@ public enum CLIOutputError:Error,Equatable,LocalizedError {
 }
 public enum CLIOutput {
     public static func answer(tool:CLITool,result:ProcessResult,codexAnswer:String?) throws -> String {
+        let said=(result.stdout+" "+result.stderr).lowercased()
+        if ["/login","not logged in","please log in","codex login","unauthorized"].contains(where:said.contains) { throw CLIOutputError.signedOut(tool) }
+        guard result.exitCode == 0 else {
+            throw CLIOutputError.noAnswer(tool,detail:String(result.stderr.trimmingCharacters(in:.whitespacesAndNewlines).suffix(300)))
+        }
         switch tool {
         case .claude:if let object=json(result.stdout){if object["is_error"] as? Bool == true{throw CLIOutputError.toolFailed(.claude)};if let text=(object["result"] as? String)?.trimmingCharacters(in:.whitespacesAndNewlines),!text.isEmpty{return text}}
         case .codex:if result.exitCode == 0,let text=codexAnswer?.trimmingCharacters(in:.whitespacesAndNewlines),!text.isEmpty{return text}
         case .pi:var answer:String?;for line in result.stdout.split(whereSeparator:\.isNewline){guard let event=json(String(line)),let message=event["message"] as? [String:Any],message["role"] as? String == "assistant",message["stopReason"] as? String != "error" else{continue};let text=((message["content"] as? [[String:Any]]) ?? []).compactMap{$0["text"] as? String}.joined().trimmingCharacters(in:.whitespacesAndNewlines);if !text.isEmpty{answer=text}};if let answer{return answer}
         }
-        let said=(result.stdout+" "+result.stderr).lowercased();if ["/login","not logged in","please log in","codex login","unauthorized"].contains(where:said.contains){throw CLIOutputError.signedOut(tool)}
         throw CLIOutputError.noAnswer(tool,detail:String(result.stderr.trimmingCharacters(in:.whitespacesAndNewlines).suffix(300)))
     }
     static func json(_ text:String)->[String:Any]?{(try? JSONSerialization.jsonObject(with:Data(text.trimmingCharacters(in:.whitespacesAndNewlines).utf8))) as? [String:Any]}
