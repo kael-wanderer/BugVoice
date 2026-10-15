@@ -68,6 +68,12 @@ public struct BreakdownRow: Equatable, Sendable, Identifiable {
     /// Fraction of all words in the period, 0...1.
     public var share: Double
     public var id: String { name }
+
+    public init(name: String, words: Int, share: Double) {
+        self.name = name
+        self.words = words
+        self.share = share
+    }
 }
 
 /// Everything the Insights Usage tab shows.

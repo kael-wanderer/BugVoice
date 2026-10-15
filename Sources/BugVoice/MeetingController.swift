@@ -239,6 +239,7 @@ final class MeetingController {
 
     func stopAndKeepForQuit() async throws {
         guard let session, isRecording || isPaused else { return }
+        let recordedSeconds = elapsed
         onRecordingStopped?()
         monitorTask?.cancel()
         monitorTask = nil
@@ -247,6 +248,8 @@ final class MeetingController {
         isTranscribing = false
         _ = try await session.cancel()
         await model.reloadMeetings()
+        // The audio is kept and finished on next launch, so it counts now.
+        await model.recordMeetingInsights(seconds: recordedSeconds)
     }
 
     private func startMonitor() {

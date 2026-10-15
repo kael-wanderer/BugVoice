@@ -35,7 +35,7 @@ struct InsightsUsageView: View {
                               trailing: summary.appCount == 1 ? "1 app" : "\(summary.appCount) apps",
                               rows: summary.apps) { $0.words.formatted() }
                 BreakdownBars(title: "By style",
-                              rows: summary.styles) {
+                              rows: summary.styles.map { BreakdownRow(name: $0.name.capitalized, words: $0.words, share: $0.share) }) {
                     "\(Int(($0.share * 100).rounded()))%"
                 }
             }
