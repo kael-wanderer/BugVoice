@@ -21,7 +21,7 @@ enum ConnectionStatus: Equatable {
 
 /// Main-window pages, in sidebar order.
 enum Page: String, CaseIterable, Identifiable {
-    case dictation, insights, dictionary, style, meetings, notes, settings
+    case dictation, insights, dictionary, style, meetings, upload, notes, settings
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -30,6 +30,7 @@ enum Page: String, CaseIterable, Identifiable {
         case .dictionary: "Dictionary"
         case .style: "Style"
         case .meetings: "Meetings"
+        case .upload: "Upload"
         case .notes: "Notes"
         case .settings: "Settings"
         }
@@ -41,6 +42,7 @@ enum Page: String, CaseIterable, Identifiable {
         case .dictionary: "character.book.closed"
         case .style: "paintbrush.pointed"
         case .meetings: "waveform.path"
+        case .upload: "square.and.arrow.up"
         case .notes: "note.text"
         case .settings: "gearshape"
         }
@@ -72,6 +74,7 @@ final class AppModel {
             settingsDidChange(from: oldValue)
         }
     }
+    var settingsTab: SettingsTab = .general
     var dictionary = DictionaryFile()
     var dictionaryReadOnly = false
     var vocabulary = Vocabulary()
@@ -186,6 +189,11 @@ final class AppModel {
     func openMainWindow(_ page: Page? = nil) {
         if let page { self.page = page }
         presentMainWindow?()
+    }
+
+    func openSpeechSettings() {
+        settingsTab = .speech
+        openMainWindow(.settings)
     }
 
     func createNoteAndShow() {

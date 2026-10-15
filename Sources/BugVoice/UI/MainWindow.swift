@@ -7,7 +7,14 @@ struct MainWindow: View {
     var body: some View {
         NavigationSplitView {
             List(Page.allCases, selection: $model.page) { page in
-                Label(page.title, systemImage: page.symbol).tag(page)
+                HStack {
+                    Label(page.title, systemImage: page.symbol)
+                    Spacer()
+                    if page == .upload, let job = model.uploads?.active {
+                        UploadRing(progress: job.progress)
+                    }
+                }
+                .tag(page)
             }
             .navigationSplitViewColumnWidth(200)
         } detail: {
@@ -17,15 +24,19 @@ struct MainWindow: View {
             case .dictionary: DictionaryPage(model: model)
             case .style: StylePage(model: model)
             case .meetings: MeetingsPage(model: model)
+            case .upload: UploadPage(model: model)
             case .notes: NotesPage(model: model)
             case .settings: SettingsView(model: model)
             }
         }
         .frame(minWidth: 820, minHeight: 560)
-        .alert("Could not save", isPresented: Binding(
-            get: { model.saveError != nil },
-            set: { if !$0 { model.saveError = nil } }
-        )) {
+        .alert(
+            "Could not save",
+            isPresented: Binding(
+                get: { model.saveError != nil },
+                set: { if !$0 { model.saveError = nil } }
+            )
+        ) {
             Button("OK") { model.saveError = nil }
         } message: {
             Text(model.saveError ?? "")
@@ -97,7 +108,8 @@ enum AppWindow {
     static func didClose(_ closing: NSWindow?) {
         let ours: Set<NSUserInterfaceItemIdentifier> = [main, permissions]
         let otherVisible = NSApp.windows.contains {
-            $0 !== closing && ($0.isVisible || $0.isMiniaturized) && ($0.identifier.map(ours.contains) ?? false)
+            $0 !== closing && ($0.isVisible || $0.isMiniaturized)
+                && ($0.identifier.map(ours.contains) ?? false)
         }
         if !otherVisible { NSApp.setActivationPolicy(.accessory) }
     }
