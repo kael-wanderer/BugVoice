@@ -164,7 +164,6 @@ blank until the maintainer runs each check.
 | 90 | Settings | Open Settings | No Vocabulary or Styles tab; Speech reads "Use Dictionary words as hints" | |
 | 91 | Bundle IDs | For WhatsApp, Messenger, Teams, Lark, run `osascript -e 'id of app "Name"'` | IDs match `StyleRouter.defaultApps`; fix any that differ | |
 
-
 ## Models
 
 Run these after building with `Scripts/build-app.sh`. Keep the Result column
@@ -172,7 +171,7 @@ blank until the maintainer runs each check.
 
 | # | Where | Do | Expect | Result |
 |---|---|---|---|---|
-| 92 | Upgrade | Launch the new build over the old settings; dictate in TextEdit | Still cleaned by LM Studio Qwen; Models tab shows one "LM Studio" connection used by every row | |
+| 92 | Upgrade | Launch the new build over the old settings; dictate in TextEdit | Still cleaned by the same model; Models tab shows one connection, named after the old address, used by every row; the old key works without re-entering it | |
 | 93 | Anthropic | Add Anthropic with a key; Test connection; set Meeting notes to it; generate a summary | Models listed; summary generated | |
 | 94 | OpenAI | Add OpenAI with a key; set Dictation cleanup to a gpt model; dictate | Cleaned text, no `max_tokens` error | |
 | 95 | OpenRouter | Add OpenRouter with a key; Test connection | Models listed | |
