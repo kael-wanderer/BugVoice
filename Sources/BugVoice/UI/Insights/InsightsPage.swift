@@ -37,12 +37,12 @@ struct InsightsPage: View {
                 ],
                 selection: $tab
             )
+            Spacer()
             PillTabs(
                 items: InsightsPeriod.allCases.map { .init(value: $0, title: $0.title) },
                 selection: $period,
                 size: .small
             )
-            Spacer()
             Label("Local", systemImage: "desktopcomputer")
                 .font(.callout)
                 .foregroundStyle(.secondary)
