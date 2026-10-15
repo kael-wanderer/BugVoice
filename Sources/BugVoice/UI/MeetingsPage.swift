@@ -98,6 +98,13 @@ private struct MeetingListRow: View {
             VStack(alignment: .leading, spacing: 5) {
                 HStack {
                     Text(meeting.title).font(.body.weight(.medium)).lineLimit(1)
+                    if meeting.source == .upload {
+                        Text("Uploaded")
+                            .font(.caption2.weight(.semibold))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 4))
+                    }
                     Spacer(minLength: 3)
                     Text(status).font(.caption).foregroundStyle(meeting.state == .failed ? .orange : .secondary)
                 }
@@ -152,8 +159,13 @@ private struct MeetingDetails: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
-            Text(meeting.startedAt.formatted(date: .long, time: .shortened) + " · " + clock(meeting.duration))
-                .font(.callout).foregroundStyle(.secondary)
+            Text(
+                meeting.startedAt.formatted(date: .long, time: .shortened)
+                    + " · " + clock(meeting.duration)
+                    + (meeting.sourceFileName.map { " · from \($0)" } ?? "")
+            )
+            .font(.callout)
+            .foregroundStyle(.secondary)
             if let audioURL {
                 MeetingPlayer(audioURL: audioURL, model: player)
                     .padding(.vertical, 4)
@@ -206,15 +218,29 @@ private struct MeetingDetails: View {
     private var header: some View {
         HStack(alignment: .firstTextBaseline) {
             Text(meeting.title).font(.title2.weight(.semibold)).lineLimit(2)
+            if meeting.source == .upload {
+                Text("Uploaded")
+                    .font(.caption2.weight(.semibold))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 4))
+            }
             Spacer()
             if recoveryAction == .recoverCapture, meeting.state == .interrupted {
                 Button("Recover recording") { Task { await model.meetings?.recover(id: meeting.id) } }
                     .buttonStyle(.borderedProminent)
             } else if recoveryAction == .retryTranscription {
-                if model.meetings?.isTranscribing == true {
+                if meeting.source == .upload {
+                    if let job = model.uploads?.queue.jobs.first(where: { $0.meetingID == meeting.id && !$0.state.isTerminal }) {
+                        Button("Cancel") { Task { await model.uploads?.cancel(job.id) } }
+                    } else {
+                        Button("Retry transcript") { model.retryMeeting(meeting) }
+                            .buttonStyle(.borderedProminent)
+                    }
+                } else if model.meetings?.isTranscribing == true {
                     Button("Cancel") { Task { await model.meetings?.cancel() } }
                 } else {
-                    Button("Retry transcript") { Task { await model.meetings?.recover(id: meeting.id) } }
+                    Button("Retry transcript") { model.retryMeeting(meeting) }
                         .buttonStyle(.borderedProminent)
                 }
             }
@@ -233,7 +259,7 @@ private struct MeetingDetails: View {
     }
 
     private var recoveryAction: MeetingRecoveryAction? {
-        MeetingRecoveryPolicy.action(for: meeting.state)
+        MeetingRecoveryPolicy.action(for: meeting)
     }
 
     private var transcript: some View {
@@ -249,7 +275,7 @@ private struct MeetingDetails: View {
                         HStack(alignment: .top, spacing: 12) {
                             Text("\(clock(segment.start)) – \(clock(segment.end))")
                                 .font(.caption.monospacedDigit()).foregroundStyle(.secondary).frame(width: 108, alignment: .leading)
-                            Text(segment.speaker).font(.caption.weight(.semibold)).frame(width: 48, alignment: .leading)
+                            Text(segment.speaker).font(.caption.weight(.semibold)).frame(width: 60, alignment: .leading)
                             Text(segment.text).font(.body).frame(maxWidth: .infinity, alignment: .leading)
                         }
                         .padding(.horizontal, 9).padding(.vertical, 7)

@@ -14,6 +14,7 @@ final class MeetingPlayerModel {
     @ObservationIgnored private var observer: Any?
     @ObservationIgnored private var endObserver: NSObjectProtocol?
     @ObservationIgnored private var loadedURL: URL?
+    @ObservationIgnored private var waveformTask: Task<[Float], Never>?
 
     init() {
         observer = player.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.1, preferredTimescale: 600), queue: .main) { [weak self] time in
@@ -42,7 +43,11 @@ final class MeetingPlayerModel {
         } catch {
             duration = 0
         }
-        waveform = await Task.detached(priority: .utility) { Self.readWaveform(url) }.value
+        waveformTask?.cancel()
+        let task = Task.detached(priority: .utility) { Self.readWaveform(url) }
+        waveformTask = task
+        let bars = await task.value
+        if loadedURL == url, !Task.isCancelled { waveform = bars }
     }
 
     func togglePlayback() {
@@ -66,6 +71,8 @@ final class MeetingPlayerModel {
     func stopAndDetach() {
         player.pause()
         isPlaying = false
+        waveformTask?.cancel()
+        waveformTask = nil
     }
 
     private nonisolated static func readWaveform(_ url: URL) -> [Float] {
@@ -74,21 +81,29 @@ final class MeetingPlayerModel {
         guard frames > 0 else { return [] }
         let bucketCount = 180
         var bars: [Float] = []
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: 16_000) else { return [] }
         for bucket in 0..<bucketCount {
             let start = bucket * frames / bucketCount
             let end = (bucket + 1) * frames / bucketCount
-            let count = max(0, end - start)
-            guard count > 0,
-                  let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(count)),
-                  (try? file.read(into: buffer, frameCount: AVAudioFrameCount(count))) != nil
-            else { bars.append(0); continue }
-            let samples = Int(buffer.frameLength)
-            guard samples > 0 else { bars.append(0); continue }
+            file.framePosition = AVAudioFramePosition(start)
+            var remaining = end - start
             var peak: Float = 0
-            if let channel = buffer.floatChannelData?[0] {
-                for index in 0..<samples { peak = max(peak, abs(channel[index])) }
-            } else if let channel = buffer.int16ChannelData?[0] {
-                for index in 0..<samples { peak = max(peak, abs(Float(channel[index]) / 32_768)) }
+            while remaining > 0 {
+                if Task.isCancelled { return [] }
+                let count = min(16_000, remaining)
+                do {
+                    try file.read(into: buffer, frameCount: AVAudioFrameCount(count))
+                } catch {
+                    return []
+                }
+                let samples = Int(buffer.frameLength)
+                guard samples > 0 else { return [] }
+                if let channel = buffer.floatChannelData?[0] {
+                    for index in 0..<samples { peak = max(peak, abs(channel[index])) }
+                } else if let channel = buffer.int16ChannelData?[0] {
+                    for index in 0..<samples { peak = max(peak, abs(Float(channel[index]) / 32_768)) }
+                }
+                remaining -= samples
             }
             bars.append(min(1, peak))
         }
