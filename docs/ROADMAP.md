@@ -25,8 +25,8 @@ implementation, like Dictation, Meetings and Notes before it.
 | 5 | Meetings v2 | Live meeting window with My thoughts / Transcript / Summary tabs and "Ask anything" | Needs the system-audio spike to pass first |
 | 6 | Ask AI + MCP server | Chat that answers from notes, dictations and meetings; an MCP server so coding agents read the same data. Answers cite their proof as recording + time range ("Standup, 0:20–0:50"); clicking a citation opens the recording and plays that range. Citations are checked against real segments | One retrieval layer serves both |
 | 7 | Calendar + export | Calendar via EventKit (Google and Microsoft accounts already added to macOS Calendar, no sign-in); export to Apple Notes and Notion | Polish |
-| 8 | Scratchpad (Notes v2) | Note window with tabs for several open notes, formatting toolbar, Transforms (Polish, More concise, More professional, ask a question) using the Notes model; uploaded and dictated text can land here. As in Wispr Flow | Needs item 0 (Notes fixed) first |
-| 9 | Folders | One folder tree shared by meetings, uploads and notes | Cross-cutting; better done once than per feature |
+| 8 | Scratchpad (Notes v2) | Note window with tabs for several open notes, formatting toolbar, Transforms (Polish, More concise, More professional, ask a question) using the Notes model; uploaded and dictated text can land here. As in Wispr Flow | Needs item 0 (Notes fixed) and item 9 (Folders) first. Notes page is the home; a floating quick-capture window comes after, saving into the same notes |
+| 9 | Folders and tags | One level of folders plus tags, shared by meetings, uploads and notes; AI suggests existing tags after a summary. Spec: `docs/superpowers/specs/2026-10-15-folders-tags-design.md` | Built before item 8 |
 
 ## Notes on scope
 
