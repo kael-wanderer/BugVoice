@@ -12,6 +12,7 @@ final class UploadController {
         let url: URL
         let metadata: UploadMediaMetadata
         let scoped: Bool
+        var labels = ItemLabels()
     }
 
     private unowned let model: AppModel
@@ -68,7 +69,9 @@ final class UploadController {
                     for item in selected { release(item) }
                     return
                 }
-                selected.append(Draft(url: url, metadata: metadata, scoped: scoped))
+                var draft = Draft(url: url, metadata: metadata, scoped: scoped)
+                draft.labels.folderID = model.library.folder(model.library.lastUploadFolderID)?.id
+                selected.append(draft)
             } catch {
                 if scoped { url.stopAccessingSecurityScopedResource() }
                 for item in selected { release(item) }
@@ -90,6 +93,17 @@ final class UploadController {
         probing = false
     }
 
+    func setDraftLabels(_ id: UUID, _ labels: ItemLabels) {
+        guard let index = drafts.firstIndex(where: { $0.id == id }) else { return }
+        drafts[index].labels = labels
+    }
+
+    /// Copies the first card's folder and tags to every card.
+    func applyFirstLabelsToAll() {
+        guard let first = drafts.first?.labels else { return }
+        for index in drafts.indices { drafts[index].labels = first }
+    }
+
     func submit() {
         guard accepting, !probing else { return }
         let jobs = drafts.map { draft in
@@ -99,6 +113,8 @@ final class UploadController {
             inputs[job.id] = draft
             return job
         }
+        let lastFolder = drafts.last?.labels.folderID
+        Task { await model.setLastUploadFolder(lastFolder) }
         drafts.removeAll()
         queue.append(jobs)
         pump()
@@ -145,6 +161,12 @@ final class UploadController {
     func renameSession(id: MeetingID, title: String) async throws -> Bool {
         guard activeDirectory?.lastPathComponent == id.rawValue, let session else { return false }
         try await session.rename(title: title)
+        return true
+    }
+
+    func setLabelsInSession(id: MeetingID, folderID: FolderID?, tags: [String], suggestedTags: [String]?) async throws -> Bool {
+        guard activeDirectory?.lastPathComponent == id.rawValue, let session else { return false }
+        try await session.setLabels(folderID: folderID, tags: tags, suggestedTags: suggestedTags)
         return true
     }
 
@@ -244,7 +266,9 @@ final class UploadController {
                     state: .interrupted,
                     source: .upload,
                     sourceFileName: draft.metadata.fileName,
-                    importedAt: now
+                    importedAt: now,
+                    folderID: draft.labels.folderID,
+                    tags: draft.labels.tags
                 )
                 try await MeetingStore(root: model.paths.meetings).save(manifest)
                 let decoding = Task.detached(priority: .utility) { [controller = self] in
