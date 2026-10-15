@@ -11,6 +11,7 @@ struct NotesPage: View {
     @State private var bodyFocusRequested = false
     @State private var confirmDelete = false
     @State private var confirmExternalReload = false
+    @State private var managingFolders = false
 
     private var controller: NotesController { model.notesController }
     private var selectedNote: NoteDocument? {
@@ -18,8 +19,16 @@ struct NotesPage: View {
         return controller.note(id: id)
     }
     private var filteredNotes: [NotesListItem] {
-        NotesListProjection.filter(
-            controller.notes.map { NotesListItem(id: $0.id, title: $0.title, body: $0.body, modifiedAt: $0.modifiedAt) },
+        let visible = LibraryProjection.filter(
+            controller.notes,
+            folder: model.notesFolderFilter,
+            tags: model.notesTagFilter,
+            known: model.library.knownIDs
+        )
+        return NotesListProjection.filter(
+            visible.map {
+                NotesListItem(id: $0.id, title: $0.title, body: $0.body, modifiedAt: $0.modifiedAt, tags: $0.frontMatter.tags)
+            },
             query: searchText
         )
     }
@@ -34,6 +43,20 @@ struct NotesPage: View {
                     .keyboardShortcut("n", modifiers: [.control, .option])
             }
             .padding(12)
+
+            HStack(spacing: 6) {
+                FolderFilterMenu(
+                    model: model,
+                    filter: Binding(get: { model.notesFolderFilter }, set: { model.notesFolderFilter = $0 }),
+                    counts: LibraryProjection.counts(controller.notes, known: model.library.knownIDs),
+                    allTitle: "All notes",
+                    onManage: { managingFolders = true }
+                )
+                TagFilterBar(catalog: model.noteTagCatalog, selected: $model.notesTagFilter)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 12)
+            .padding(.bottom, 8)
 
             ForEach(controller.insertionRecoveries) { recovery in
                 HStack {
@@ -82,6 +105,7 @@ struct NotesPage: View {
             Button("Move to Trash", role: .destructive) { deleteSelected() }
             Button("Cancel", role: .cancel) {}
         }
+        .sheet(isPresented: $managingFolders) { ManageFoldersSheet(model: model) }
         .confirmationDialog(
             "Reload this note and discard your unsaved changes?",
             isPresented: $confirmExternalReload,
@@ -124,6 +148,25 @@ struct NotesPage: View {
                             noteRow(item)
                         }
                         .buttonStyle(.plain)
+                        .contextMenu {
+                            Menu("Move to folder") {
+                                Button("Unfiled") { Task { await model.setNoteLabels(id: item.id, folderID: nil, tags: item.tags) } }
+                                Divider()
+                                ForEach(model.sortedFolders) { folder in
+                                    Button(folder.name) {
+                                        Task { await model.setNoteLabels(id: item.id, folderID: folder.id, tags: item.tags) }
+                                    }
+                                }
+                            }
+                            Button("Tags…") { Task { try? await controller.select(id: item.id) } }
+                            Divider()
+                            Button("Delete…", role: .destructive) {
+                                Task {
+                                    try? await controller.select(id: item.id)
+                                    confirmDelete = true
+                                }
+                            }
+                        }
                         .listRowBackground(controller.selectedNoteID == item.id ? Color.accentColor.opacity(0.12) : Color.clear)
                     }
                 }
@@ -143,6 +186,12 @@ struct NotesPage: View {
             }
             .font(.caption)
             .foregroundStyle(.secondary)
+            if !item.tags.isEmpty {
+                HStack(spacing: 4) {
+                    ForEach(item.tags.prefix(3), id: \.self) { TagChip(name: $0) }
+                    if item.tags.count > 3 { Text("+\(item.tags.count - 3)").font(.caption).foregroundStyle(.secondary) }
+                }
+            }
         }
         .padding(.vertical, 6)
         .contentShape(Rectangle())
@@ -185,6 +234,18 @@ struct NotesPage: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 18)
                     .padding(.bottom, 10)
+
+                LabelsBox(
+                    model: model,
+                    labels: note.frontMatter.labels,
+                    catalog: model.allTagCatalog,
+                    noun: "note",
+                    onChange: { labels in
+                        Task { await model.setNoteLabels(id: note.id, folderID: labels.folderID, tags: labels.tags) }
+                    }
+                )
+                .padding(.horizontal, 18)
+                .padding(.bottom, 10)
 
                 statusRow(for: note)
 
@@ -276,7 +337,7 @@ struct NotesPage: View {
     private func createNote() {
         Task {
             do {
-                _ = try await controller.create()
+                _ = try await controller.create(frontMatter: NoteFrontMatter(folderID: model.notesFolderFilter.newItemFolderID))
                 bodyFocusRequested = true
             } catch {
                 model.saveError = "Could not create note: \(error.localizedDescription)"

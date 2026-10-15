@@ -354,6 +354,51 @@ struct NotesControllerTests {
         #expect(nextRun.undoManager(for: created.id)?.canUndo == false)
     }
 
+    @Test func labelsAreWrittenAsFrontMatterAndSurviveRename() async throws {
+        let root = try directory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = NotesStore(directory: root)
+        let created = try await store.create(title: "Plan", body: "body")
+        let controller = NotesController(store: store)
+
+        try await controller.setLabels(id: created.id, folderID: FolderID(rawValue: "f1"), tags: ["acme"])
+        await controller.flush(id: created.id)
+        let text = try String(contentsOf: root.appendingPathComponent("plan.md"), encoding: .utf8)
+        #expect(text == "---\nfolder: f1\ntags: [acme]\n---\n# Plan\n\nbody")
+
+        let note = try #require(controller.note(id: created.id))
+        _ = try await store.rename(id: created.id, title: "Plan B", revision: note.revision, expectedVersion: note.fileVersion)
+        let renamed = try String(contentsOf: root.appendingPathComponent("plan-b.md"), encoding: .utf8)
+        #expect(renamed.hasPrefix("---\nfolder: f1\ntags: [acme]\n---\n# Plan B"))
+    }
+
+    @Test func labelChangeKeepsUnsavedTyping() async throws {
+        let root = try directory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = NotesStore(directory: root)
+        let created = try await store.create(title: "Typing", body: "start")
+        let controller = NotesController(store: store)
+        try await controller.load(id: created.id)
+
+        controller.updateBody(id: created.id, body: "start and more")
+        try await controller.setLabels(id: created.id, folderID: nil, tags: ["todo"])
+        await controller.flush(id: created.id)
+
+        let persisted = try await store.open(id: created.id)
+        #expect(persisted.body == "start and more")
+        #expect(persisted.frontMatter.tags == ["todo"])
+    }
+
+    @Test func createPutsNoteInFolder() async throws {
+        let root = try directory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let controller = NotesController(store: NotesStore(directory: root))
+        let note = try await controller.create(frontMatter: NoteFrontMatter(folderID: FolderID(rawValue: "f9")))
+        let persisted = try await NotesStore(directory: root).list()
+        #expect(persisted.first?.frontMatter.folderID == FolderID(rawValue: "f9"))
+        #expect(note.frontMatter.folderID == FolderID(rawValue: "f9"))
+    }
+
     private func directory() throws -> URL {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("BugVoiceNotesController-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)

@@ -14,10 +14,19 @@ public enum NotesListProjection {
         return sorted.filter { item in
             normalize(item.title).contains(normalizedQuery)
                 || normalize(item.body).contains(normalizedQuery)
+                || LibraryTagSearch.matches(item.tags, query: query)
         }
     }
 
     private static func normalize(_ value: String) -> String {
         value.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+    }
+}
+
+/// Search text `acme` or `#acme` matches an item tagged `acme`.
+public enum LibraryTagSearch {
+    public static func matches(_ tags: [String], query: String) -> Bool {
+        guard let needle = TagName.normalize(query) else { return false }
+        return tags.contains { $0.contains(needle) }
     }
 }

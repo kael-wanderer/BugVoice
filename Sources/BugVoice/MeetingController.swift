@@ -75,7 +75,7 @@ final class MeetingController {
                 store: store, audio: capture, scheduler: scheduler, finalizer: finalizer, meetingID: id
             )
             await scheduler.bindSession(session)
-            _ = try await session.start()
+            _ = try await session.start(labels: ItemLabels(folderID: model.meetingsFolderFilter.newItemFolderID))
             self.session = session
             self.capture = capture
             self.writer = writer
@@ -215,6 +215,12 @@ final class MeetingController {
     func renameSession(id: MeetingID, title: String) async throws -> Bool {
         guard meetingID == id, let session else { return false }
         try await session.rename(title: title)
+        return true
+    }
+
+    func setLabelsInSession(id: MeetingID, folderID: FolderID?, tags: [String], suggestedTags: [String]?) async throws -> Bool {
+        guard meetingID == id, let session else { return false }
+        try await session.setLabels(folderID: folderID, tags: tags, suggestedTags: suggestedTags)
         return true
     }
 

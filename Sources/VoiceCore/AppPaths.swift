@@ -22,6 +22,8 @@ public struct AppPaths: Sendable {
     public var history: URL { root.appendingPathComponent("history.jsonl") }
     /// Daily usage totals for the Insights page. Numbers only.
     public var insights: URL { root.appendingPathComponent("insights.json") }
+    /// Folder list for Notes, Meetings and Upload. Items store their own labels.
+    public var library: URL { root.appendingPathComponent("library.json") }
     public var lastRecording: URL { root.appendingPathComponent("last.wav") }
     public var models: URL { root.appendingPathComponent("models", isDirectory: true) }
     /// Reserved for sub-project 2.

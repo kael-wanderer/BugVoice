@@ -61,6 +61,7 @@ final class AppModel {
     @ObservationIgnored let historyLog = HistoryLog(url: AppPaths.standard().history)
     @ObservationIgnored let insightsStore = InsightsStore(url: AppPaths.standard().insights)
     @ObservationIgnored let dictionaryStore = DictionaryStore(url: AppPaths.standard().dictionary)
+    @ObservationIgnored let libraryStore = LibraryStore(url: AppPaths.standard().library)
     @ObservationIgnored private var dictionaryRevision = 0
     @ObservationIgnored private var meetingStore: MeetingStore { MeetingStore(root: paths.meetings) }
     @ObservationIgnored private(set) var whisper: WhisperKitTranscriber
@@ -86,6 +87,12 @@ final class AppModel {
     var meetingManifests: [MeetingManifest] = []
     var selectedMeetingID: MeetingID?
     var meetingSearchQuery = ""
+    /// Folders from `library.json`. Notes and meetings carry their own labels.
+    var library = LibraryFile()
+    /// True when `library.json` was written by a newer BugVoice: shown, never written.
+    var libraryReadOnly = false
+    var meetingTagFilter: [String] = []
+    var notesTagFilter: [String] = []
     /// The latest dictation, for the menu preview and *Paste last*. A
     /// secure-field result is stored without its text.
     var lastResult: DictationResult?
@@ -158,6 +165,7 @@ final class AppModel {
 
         await loadDictionary()
         await loadInsights()
+        await loadLibrary()
         startDictation()
         registerShortcut(kVK_ANSI_N, letter: "N", name: "New note") { [weak self] in
             self?.createNoteAndShow()
@@ -200,7 +208,8 @@ final class AppModel {
         openMainWindow(.notes)
         Task { @MainActor in
             do {
-                _ = try await notesController.create()
+                _ = try await notesController.create(
+                    frontMatter: NoteFrontMatter(folderID: notesFolderFilter.newItemFolderID))
                 notesFocusRequest &+= 1
             } catch {
                 saveError = "Could not create note: \(error.localizedDescription)"
@@ -454,6 +463,96 @@ final class AppModel {
         }
     }
 
+    private func loadLibrary() async {
+        switch await libraryStore.load() {
+        case .loaded(let file):
+            library = file
+        case .missing:
+            library = LibraryFile()
+        case .reset(let backupName):
+            library = LibraryFile()
+            saveError = "Folders file was damaged and has been reset. The old file was kept as \(backupName)."
+        case .newer(let file):
+            library = file
+            libraryReadOnly = true
+            saveError = LibraryFolderError.readOnly.errorDescription
+        }
+    }
+
+    private func saveLibrary() async {
+        guard !libraryReadOnly else { return }
+        do {
+            try await libraryStore.save(library)
+        } catch {
+            saveError = "Could not save folders: \(error.localizedDescription)"
+        }
+    }
+
+    var sortedFolders: [LibraryFolder] { LibraryFolders.sorted(library.folders) }
+
+    /// nil for Unfiled, including ids of deleted folders.
+    func folderName(_ id: FolderID?) -> String? { library.folder(id)?.name }
+
+    var meetingsFolderFilter: FolderFilter {
+        get { FolderFilter(rawValue: settings.library.meetingsFolderFilter).resolved(known: library.knownIDs) }
+        set { settings.library.meetingsFolderFilter = newValue.rawValue }
+    }
+
+    var notesFolderFilter: FolderFilter {
+        get { FolderFilter(rawValue: settings.library.notesFolderFilter).resolved(known: library.knownIDs) }
+        set { settings.library.notesFolderFilter = newValue.rawValue }
+    }
+
+    var meetingTagCatalog: [TagCount] { LibraryProjection.catalog(meetingManifests) }
+    var noteTagCatalog: [TagCount] { LibraryProjection.catalog(notesController.notes) }
+    var allTagCatalog: [TagCount] {
+        var totals: [String: Int] = [:]
+        for tag in meetingTagCatalog + noteTagCatalog { totals[tag.name, default: 0] += tag.count }
+        return totals.map { TagCount(name: $0.key, count: $0.value) }
+            .sorted { $0.count != $1.count ? $0.count > $1.count : $0.name < $1.name }
+    }
+
+    func createFolder(_ name: String) async -> Result<LibraryFolder, LibraryFolderError> {
+        guard !libraryReadOnly else { return .failure(.readOnly) }
+        do {
+            let folder = try LibraryFolders.create(name, in: &library)
+            await saveLibrary()
+            return .success(folder)
+        } catch let error as LibraryFolderError {
+            return .failure(error)
+        } catch {
+            return .failure(.empty)
+        }
+    }
+
+    func renameFolder(_ id: FolderID, to name: String) async -> LibraryFolderError? {
+        guard !libraryReadOnly else { return .readOnly }
+        do {
+            try LibraryFolders.rename(id, to: name, in: &library)
+            await saveLibrary()
+            return nil
+        } catch let error as LibraryFolderError {
+            return error
+        } catch {
+            return .missing
+        }
+    }
+
+    /// Removes the folder from `library.json` only; its items show as Unfiled.
+    func deleteFolder(_ id: FolderID) async {
+        guard !libraryReadOnly else { return }
+        LibraryFolders.delete(id, in: &library)
+        if FolderFilter(rawValue: settings.library.meetingsFolderFilter) == .folder(id) { meetingsFolderFilter = .all }
+        if FolderFilter(rawValue: settings.library.notesFolderFilter) == .folder(id) { notesFolderFilter = .all }
+        await saveLibrary()
+    }
+
+    func setLastUploadFolder(_ id: FolderID?) async {
+        guard library.lastUploadFolderID != id else { return }
+        library.lastUploadFolderID = id
+        await saveLibrary()
+    }
+
     func recordInsights(_ result: DictationResult, noteID: NoteID?) async {
         guard let delta = InsightsDelta.dictation(result, noteID: noteID) else { return }
         await addInsights(delta, at: result.startedAt)
@@ -580,6 +679,42 @@ final class AppModel {
         }
     }
 
+    /// Same routing as rename: a live recording or upload session owns its manifest.
+    func setMeetingLabels(id: MeetingID, folderID: FolderID?, tags: [String], suggestedTags: [String]? = nil) async {
+        let remainingSuggestions = suggestedTags
+            ?? meetingManifests.first(where: { $0.id == id }).map { meeting in
+                meeting.suggestedTags.filter { !tags.contains($0) }
+            }
+        do {
+            if let uploads,
+               try await uploads.setLabelsInSession(id: id, folderID: folderID, tags: tags, suggestedTags: remainingSuggestions) {
+                await reloadMeetings()
+                return
+            }
+            if let meetings,
+               try await meetings.setLabelsInSession(id: id, folderID: folderID, tags: tags, suggestedTags: remainingSuggestions) {
+                await reloadMeetings()
+                return
+            }
+            var meeting = try await meetingStore.load(id: id)
+            meeting.folderID = folderID
+            meeting.tags = tags
+            if let remainingSuggestions { meeting.suggestedTags = remainingSuggestions }
+            try await meetingStore.save(meeting)
+            await reloadMeetings()
+        } catch {
+            saveError = "Could not update meeting: \(error.localizedDescription)"
+        }
+    }
+
+    func setNoteLabels(id: NoteID, folderID: FolderID?, tags: [String]) async {
+        do {
+            try await notesController.setLabels(id: id, folderID: folderID, tags: tags)
+        } catch {
+            saveError = "Could not update note: \(error.localizedDescription)"
+        }
+    }
+
     func deleteMeeting(id: MeetingID) async {
         if let uploads,
             let job = uploads.queue.jobs.first(where: { $0.meetingID == id && !$0.state.isTerminal })
@@ -669,10 +804,18 @@ final class AppModel {
         try Task.checkCancellation()
         if let uploads, try await uploads.saveGeneratedTextToSession(id: id, text: text, kind: kind) {
             await reloadMeetings()
+            if kind == .summary {
+                let suggestionModel = textModel
+                Task { await suggestTags(for: id, summary: text, model: suggestionModel) }
+            }
             return text
         }
         if let meetings, try await meetings.saveGeneratedTextToSession(id: id, text: text, kind: kind) {
             await reloadMeetings()
+            if kind == .summary {
+                let suggestionModel = textModel
+                Task { await suggestTags(for: id, summary: text, model: suggestionModel) }
+            }
             return text
         }
         var current = try await meetingStore.load(id: id)
@@ -680,7 +823,23 @@ final class AppModel {
         if kind == .summary { current.summary = text } else { current.actionItems = text }
         try await meetingStore.save(current)
         await reloadMeetings()
+        if kind == .summary {
+            let suggestionModel = textModel
+            Task { await suggestTags(for: id, summary: text, model: suggestionModel) }
+        }
         return text
+    }
+
+    /// Asks the Meetings model for up to 3 existing tags. Failures stay silent.
+    private func suggestTags(for id: MeetingID, summary: String, model textModel: any TextModel) async {
+        let allowed = allTagCatalog.map(\.name)
+        guard !allowed.isEmpty, !summary.isEmpty,
+              let meeting = meetingManifests.first(where: { $0.id == id }) else { return }
+        guard let answer = try? await textModel.clean(TagSuggestion.request(summary: summary, allowed: allowed)) else { return }
+        let suggestions = TagSuggestion.parse(answer, allowed: allowed, existing: meeting.tags)
+        guard !suggestions.isEmpty else { return }
+        let current = meetingManifests.first(where: { $0.id == id }) ?? meeting
+        await setMeetingLabels(id: id, folderID: current.folderID, tags: current.tags, suggestedTags: suggestions)
     }
 
     /// Drops entries older than the retention window, then reloads.

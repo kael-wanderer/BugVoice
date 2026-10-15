@@ -18,6 +18,10 @@ use the configured Speech engine and do not contribute Insights usage. The kept
 retry journal costs about 115 MB per hour until ready/deleted. Schema stays 1;
 older builds cannot decode the new file-track value in uploaded meetings.
 
+Folders and tags (roadmap item 9) merged on `main`: spec
+`docs/superpowers/specs/2026-10-15-folders-tags-design.md`, plan
+`docs/superpowers/plans/2026-10-15-folders-tags.md`. Device checks 126–134 pending.
+
 **Packaging:** app icon (Antenna Mic) and `Scripts/build-dmg.sh`; current version 0.1.0 build 10.
 
 ### Pending maintainer checks (deferred by the maintainer, 2026-10-14)

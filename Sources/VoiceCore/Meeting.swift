@@ -259,6 +259,11 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
     public var source: MeetingSource
     public var sourceFileName: String?
     public var importedAt: Date?
+    /// Folder from `library.json`; nil or an unknown id means Unfiled.
+    public var folderID: FolderID?
+    public var tags: [String]
+    /// Existing tags the Meetings model proposed after the last summary. Shown until clicked or dismissed.
+    public var suggestedTags: [String]
 
     public init(
         schemaVersion: Int = MeetingManifest.currentSchemaVersion,
@@ -278,7 +283,10 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
         actionItems: String? = nil,
         source: MeetingSource = .recording,
         sourceFileName: String? = nil,
-        importedAt: Date? = nil
+        importedAt: Date? = nil,
+        folderID: FolderID? = nil,
+        tags: [String] = [],
+        suggestedTags: [String] = []
     ) {
         self.schemaVersion = schemaVersion
         self.id = id
@@ -298,12 +306,15 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
         self.source = source
         self.sourceFileName = sourceFileName
         self.importedAt = importedAt
+        self.folderID = folderID
+        self.tags = tags
+        self.suggestedTags = suggestedTags
     }
 
     private enum CodingKeys: String, CodingKey {
         case schemaVersion, id, title, startedAt, endedAt, duration, state
         case audioFormat, chunks, marks, segments, transcriptProgress
-        case transcriptionError, summary, actionItems, source, sourceFileName, importedAt
+        case transcriptionError, summary, actionItems, source, sourceFileName, importedAt, folderID, tags, suggestedTags
     }
 
     public init(from decoder: Decoder) throws {
@@ -326,6 +337,9 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
         source = try c.decodeIfPresent(MeetingSource.self, forKey: .source) ?? .recording
         sourceFileName = try c.decodeIfPresent(String.self, forKey: .sourceFileName)
         importedAt = try c.decodeIfPresent(Date.self, forKey: .importedAt)
+        folderID = try c.decodeIfPresent(FolderID.self, forKey: .folderID)
+        tags = try c.decodeIfPresent([String].self, forKey: .tags) ?? []
+        suggestedTags = try c.decodeIfPresent([String].self, forKey: .suggestedTags) ?? []
     }
 
     public static func new(startedAt: Date) -> MeetingManifest {
@@ -377,6 +391,7 @@ public enum MeetingListProjection {
     public static func matches(_ meeting: MeetingManifest, query: String) -> Bool {
         let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !needle.isEmpty else { return true }
+        if LibraryTagSearch.matches(meeting.tags, query: needle) { return true }
         return meeting.title.localizedCaseInsensitiveContains(needle)
             || meeting.segments.contains { $0.text.localizedCaseInsensitiveContains(needle) }
     }

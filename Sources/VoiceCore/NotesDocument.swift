@@ -1,13 +1,32 @@
 import Foundation
 
+/// BugVoice's keys at the top of a note file. Lines from other apps are kept
+/// verbatim in `extra` and written back after BugVoice's keys.
+public struct NoteFrontMatter: Equatable, Sendable {
+    public var folderID: FolderID?
+    public var tags: [String]
+    public var extra: [String]
+
+    public init(folderID: FolderID? = nil, tags: [String] = [], extra: [String] = []) {
+        self.folderID = folderID
+        self.tags = tags
+        self.extra = extra
+    }
+
+    public var isEmpty: Bool { folderID == nil && tags.isEmpty && extra.isEmpty }
+    public var labels: ItemLabels { ItemLabels(folderID: folderID, tags: tags) }
+}
+
 public struct NotesMarkdownParseResult: Sendable, Equatable {
     public let title: String
     public let body: String
+    public let frontMatter: NoteFrontMatter
     public let needsNormalization: Bool
 
-    public init(title: String, body: String, needsNormalization: Bool) {
+    public init(title: String, body: String, frontMatter: NoteFrontMatter = NoteFrontMatter(), needsNormalization: Bool) {
         self.title = title
         self.body = body
+        self.frontMatter = frontMatter
         self.needsNormalization = needsNormalization
     }
 }
@@ -18,15 +37,17 @@ public enum NotesDocumentError: Error, Equatable {
 
 public enum NotesMarkdownDocument {
     public static func parse(data: Data, filename: String) throws -> NotesMarkdownParseResult {
-        guard let source = String(data: data, encoding: .utf8) else {
+        guard let original = String(data: data, encoding: .utf8) else {
             throw NotesDocumentError.invalidUTF8
         }
+        let (frontMatter, source) = splitFrontMatter(original) ?? (NoteFrontMatter(), original)
 
         if let parsed = parseHeading(source) {
-            let canonical = serialize(title: parsed.title, body: parsed.body)
+            let canonical = serialize(title: parsed.title, body: parsed.body, frontMatter: frontMatter)
             return NotesMarkdownParseResult(
                 title: parsed.title,
                 body: parsed.body,
+                frontMatter: frontMatter,
                 needsNormalization: canonical != data
             )
         }
@@ -34,16 +55,76 @@ public enum NotesMarkdownDocument {
         return NotesMarkdownParseResult(
             title: title(from: filename),
             body: source,
+            frontMatter: frontMatter,
             needsNormalization: true
         )
     }
 
     public static func serialize(title: String, body: String) -> Data {
-        Data("# \(title)\n\n\(body)".utf8)
+        serialize(title: title, body: body, frontMatter: NoteFrontMatter())
+    }
+
+    public static func serialize(title: String, body: String, frontMatter: NoteFrontMatter) -> Data {
+        var text = ""
+        if !frontMatter.isEmpty {
+            text += "---\n"
+            if let folderID = frontMatter.folderID { text += "folder: \(folderID.rawValue)\n" }
+            if !frontMatter.tags.isEmpty { text += "tags: [\(frontMatter.tags.joined(separator: ", "))]\n" }
+            for line in frontMatter.extra { text += line + "\n" }
+            text += "---\n"
+        }
+        text += "# \(title)\n\n\(body)"
+        return Data(text.utf8)
+    }
+
+    /// Returns nil when the file does not start with a closed `---` block.
+    private static func splitFrontMatter(_ source: String) -> (NoteFrontMatter, String)? {
+        let lines = source.components(separatedBy: "\n")
+        guard let first = lines.first, stripCR(first) == "---", lines.count > 1 else { return nil }
+        guard let close = lines.indices.dropFirst().first(where: { stripCR(lines[$0]) == "---" }) else { return nil }
+
+        var front = NoteFrontMatter()
+        for raw in lines[1..<close] {
+            let line = stripCR(raw)
+            if line.hasPrefix("folder:") {
+                let value = unquote(String(line.dropFirst("folder:".count)))
+                front.folderID = value.isEmpty ? nil : FolderID(rawValue: value)
+            } else if line.hasPrefix("tags:"), let tags = parseTagList(String(line.dropFirst("tags:".count))) {
+                front.tags = tags
+            } else {
+                front.extra.append(line)
+            }
+        }
+        let remainder = lines[(close + 1)...].joined(separator: "\n")
+        return (front, remainder)
+    }
+
+    private static func parseTagList(_ raw: String) -> [String]? {
+        let value = raw.trimmingCharacters(in: .whitespaces)
+        guard value.hasPrefix("["), value.hasSuffix("]") else { return nil }
+        var tags: [String] = []
+        for part in value.dropFirst().dropLast().split(separator: ",") {
+            guard let tag = TagName.normalize(unquote(String(part))), !tags.contains(tag) else { continue }
+            if tags.count < ItemLabels.maxTags { tags.append(tag) }
+        }
+        return tags
+    }
+
+    private static func unquote(_ raw: String) -> String {
+        var value = raw.trimmingCharacters(in: .whitespaces)
+        if value.count >= 2, let first = value.first, let last = value.last,
+           (first == "\"" && last == "\"") || (first == "'" && last == "'") {
+            value = String(value.dropFirst().dropLast())
+        }
+        return value
+    }
+
+    private static func stripCR(_ line: String) -> String {
+        line.hasSuffix("\r") ? String(line.dropLast()) : line
     }
 
     private static func parseHeading(_ source: String) -> (title: String, body: String)? {
-        let firstLineEnd = source.firstIndex(of: "\n") ?? source.endIndex
+        let firstLineEnd = source.firstIndex(where: { $0 == "\n" || $0 == "\r\n" }) ?? source.endIndex
         var heading = String(source[..<firstLineEnd])
         if heading.last == "\r" { heading.removeLast() }
         guard heading.hasPrefix("# ") else { return nil }

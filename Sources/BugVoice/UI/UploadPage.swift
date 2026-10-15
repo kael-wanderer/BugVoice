@@ -52,9 +52,35 @@ struct UploadPage: View {
                         }
                         if !controller.drafts.isEmpty {
                             ForEach(controller.drafts) { draft in
-                                metadataCard(
-                                    name: draft.metadata.fileName, kind: draft.metadata.kind,
-                                    duration: draft.metadata.duration, bytes: draft.metadata.byteSize)
+                                VStack(spacing: 10) {
+                                    metadataCard(
+                                        name: draft.metadata.fileName, kind: draft.metadata.kind,
+                                        duration: draft.metadata.duration, bytes: draft.metadata.byteSize)
+                                    Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 12, verticalSpacing: 8) {
+                                        GridRow {
+                                            Text("Save to").font(.caption).foregroundStyle(.secondary)
+                                            HStack(spacing: 8) {
+                                                FolderPicker(model: model, folderID: draft.labels.folderID) { id in
+                                                    controller.setDraftLabels(draft.id, ItemLabels(folderID: id, tags: draft.labels.tags))
+                                                }
+                                                if draft.labels.folderID != nil, draft.labels.folderID == model.library.lastUploadFolderID {
+                                                    Text("Last used").font(.caption).foregroundStyle(.secondary)
+                                                }
+                                            }
+                                        }
+                                        GridRow {
+                                            Text("Tags").font(.caption).foregroundStyle(.secondary)
+                                            TagField(tags: draft.labels.tags, catalog: model.allTagCatalog, noun: "meeting") { tags in
+                                                controller.setDraftLabels(draft.id, ItemLabels(folderID: draft.labels.folderID, tags: tags))
+                                            }
+                                        }
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.horizontal, 16)
+                                    if controller.drafts.count > 1, draft.id == controller.drafts.first?.id {
+                                        Button("Apply to all") { controller.applyFirstLabelsToAll() }
+                                    }
+                                }
                             }
                             HStack {
                                 Button("Cancel") { controller.clearDraft() }

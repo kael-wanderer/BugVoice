@@ -144,6 +144,23 @@ public struct StyleSettings: Codable, Equatable, Sendable {
     }
 }
 
+/// Which folder each page shows. "all", "unfiled" or a folder id.
+public struct LibrarySettings: Codable, Equatable, Sendable {
+    public var meetingsFolderFilter = "all"
+    public var notesFolderFilter = "all"
+
+    public init() {}
+}
+
+extension LibrarySettings {
+    public init(from decoder: Decoder) throws {
+        self.init()
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        meetingsFolderFilter = c.value(.meetingsFolderFilter, default: meetingsFolderFilter)
+        notesFolderFilter = c.value(.notesFolderFilter, default: notesFolderFilter)
+    }
+}
+
 public struct AppSettings: Codable, Equatable, Sendable {
     public var hotkey: HotkeyKey = .rightOption
     public var handsFreeEnabled = true
@@ -158,6 +175,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var speech = SpeechSettings()
     public var models = ModelSettings()
     public var styles = StyleSettings()
+    public var library = LibrarySettings()
 
     public init() {}
 }
@@ -248,5 +266,6 @@ extension AppSettings {
             models = LegacyTextModelMigration.migrate(legacy)
         }
         styles = c.value(.styles, default: styles)
+        library = c.value(.library, default: library)
     }
 }
