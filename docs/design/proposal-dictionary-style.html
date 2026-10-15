@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BugVoice Dictionary and Style</title>
+<style>
+/* Layout: macOS window mock, full-height sidebar. Switch pages from the sidebar; Dictionary page has Dictionary/Snippets pill tabs. */
+:root {
+  --page: #e9ebf0; --win: #ffffff; --side: #f2f3f6; --card: #ffffff; --line: #e1e4ea; --chip: #eceef2;
+  --fg: #1c1f26; --muted: #6a7080; --accent: #3a6ff0; --accent-soft: #e4ebfd; --strike: #9aa0ad;
+  --red: #ff5f57; --yellow: #febc2e; --green: #28c840;
+  --app: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --page: #0d0e11; --win: #1b1d22; --side: #16181c; --card: #212329; --line: #2d3037; --chip: #272a31;
+  --fg: #e9ebf0; --muted: #9298a6; --accent: #6e93ff; --accent-soft: #23304f; --strike: #6d7380;
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --page: #0d0e11; --win: #1b1d22; --side: #16181c; --card: #212329; --line: #2d3037; --chip: #272a31;
+  --fg: #e9ebf0; --muted: #9298a6; --accent: #6e93ff; --accent-soft: #23304f; --strike: #6d7380;
+  color-scheme: dark }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--fg); font-family: var(--app); font-size: 13px; line-height: 1.45;
+  padding: 28px max(16px, env(safe-area-inset-left, 0px)) 48px max(16px, env(safe-area-inset-right, 0px)); }
+.frame { max-width: 1180px; margin: 0 auto; display: grid; gap: 14px; }
+.caption { color: var(--muted); font-size: 12.5px; max-width: 90ch; margin: 0; }
+.caption b { color: var(--fg); }
+.theme { justify-self: start; display: flex; gap: 6px; }
+.theme button { font: inherit; font-size: 12px; border: 1px solid var(--line); background: var(--card); color: var(--fg); border-radius: 6px; padding: 3px 10px; cursor: pointer; }
+
+.win { display: grid; grid-template-columns: 210px 1fr; background: var(--win); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; box-shadow: 0 20px 50px rgb(0 0 0 / .14); min-height: 700px; }
+.side { background: var(--side); border-right: 1px solid var(--line); padding: 14px 10px; display: flex; flex-direction: column; gap: 2px; }
+.lights { display: flex; gap: 8px; padding: 0 6px 18px; }
+.lights i { width: 12px; height: 12px; border-radius: 50%; }
+.lights i:nth-child(1) { background: var(--red); } .lights i:nth-child(2) { background: var(--yellow); } .lights i:nth-child(3) { background: var(--green); }
+.nav { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 7px; color: var(--fg); border: 0; background: none; font: inherit; text-align: left; cursor: pointer; }
+.nav svg { width: 16px; height: 16px; stroke: var(--muted); fill: none; stroke-width: 1.6; flex: none; }
+.nav[aria-current="page"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.nav[aria-current="page"] svg { stroke: var(--accent); }
+.nav.dim { color: var(--muted); cursor: default; }
+.side .spacer { flex: 1; }
+
+.main { padding: 22px; display: grid; gap: 16px; align-content: start; min-width: 0; }
+.main h1 { margin: 0; font-size: 20px; font-weight: 650; }
+
+.pills { display: inline-flex; background: var(--chip); border-radius: 999px; padding: 3px; gap: 2px; width: fit-content; }
+.pills button { font: inherit; border: 0; background: transparent; color: var(--muted); padding: 6px 16px; border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
+.pills button svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.6; }
+.pills button[aria-pressed="true"] { background: var(--card); color: var(--fg); font-weight: 600; box-shadow: 0 1px 2px rgb(0 0 0 / .14); }
+
+.hero { position: relative; overflow: hidden; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 24px; display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; min-height: 210px; }
+.hero h2 { margin: 0 0 8px; font-size: 19px; font-weight: 700; letter-spacing: -0.01em; }
+.hero p { margin: 0 0 18px; color: var(--muted); font-size: 14px; max-width: 52ch; }
+.add { display: flex; align-items: center; gap: 8px; border: 1.5px solid var(--accent); border-radius: 999px; padding: 6px 8px 6px 16px; max-width: 520px; background: var(--win); }
+.add input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--fg); font: inherit; font-size: 13.5px; outline: none; }
+.add input::placeholder { color: var(--muted); }
+.add button { font: inherit; font-size: 12px; border: 0; background: var(--accent); color: #fff; border-radius: 999px; padding: 5px 12px; cursor: pointer; }
+.hint { color: var(--muted); font-size: 11.5px; margin-top: 8px; }
+.art { position: relative; min-height: 170px; }
+.ring { position: absolute; border: 1.5px dashed var(--line); border-radius: 50%; }
+.ring.a { width: 260px; height: 260px; right: 10px; top: -30px; }
+.ring.b { width: 170px; height: 170px; right: 55px; top: 15px; }
+.badge { position: absolute; right: 100px; top: 58px; width: 80px; height: 80px; border-radius: 50%; background: var(--accent-soft); display: grid; place-items: center; }
+.badge svg { width: 30px; height: 30px; stroke: var(--accent); fill: none; stroke-width: 1.6; }
+.chip { position: absolute; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 7px 12px; font-size: 13px; white-space: nowrap; box-shadow: 0 4px 14px rgb(0 0 0 / .06); }
+.chip s { color: var(--strike); margin-right: 6px; }
+.chip b { color: var(--accent); font-weight: 600; }
+.chip i { display: block; color: var(--muted); }
+.chip em { color: var(--accent); font-style: italic; }
+.chip.one { right: 120px; top: 6px; } .chip.two { right: 0; top: 140px; }
+
+.list { background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.list-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12px; flex-wrap: wrap; }
+.search { border: 1px solid var(--line); border-radius: 7px; padding: 4px 9px; background: var(--win); color: var(--fg); font: inherit; font-size: 12px; width: 180px; }
+.row { display: grid; grid-template-columns: minmax(0, 220px) minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 11px 16px; border-bottom: 1px solid var(--line); }
+.row:last-child { border-bottom: 0; }
+.row .word { font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.row .heard { color: var(--muted); display: flex; flex-wrap: wrap; gap: 5px; min-width: 0; }
+.tag { background: var(--chip); border-radius: 6px; padding: 1px 7px; font-size: 12px; color: var(--muted); }
+.tag.add { background: transparent; border: 1px dashed var(--line); cursor: pointer; }
+.row .exp { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; font-size: 12.5px; }
+.row .exp code { font-family: var(--mono); font-size: 12px; color: var(--fg); }
+.acts { display: flex; gap: 6px; }
+.acts button { font: inherit; font-size: 12px; border: 1px solid var(--line); background: var(--win); color: var(--fg); border-radius: 6px; padding: 2px 9px; cursor: pointer; }
+
+/* Style page */
+.styles { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 16px; }
+.style-list { display: grid; gap: 4px; align-content: start; }
+.style-item { text-align: left; font: inherit; border: 1px solid transparent; background: transparent; color: var(--fg); border-radius: 10px; padding: 9px 12px; cursor: pointer; display: grid; gap: 1px; }
+.style-item small { color: var(--muted); font-size: 11.5px; }
+.style-item[aria-pressed="true"] { background: var(--card); border-color: var(--line); box-shadow: 0 1px 2px rgb(0 0 0 / .08); }
+.panel { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px; display: grid; gap: 16px; align-content: start; min-width: 0; }
+.panel h3 { margin: 0; font-size: 16px; }
+.section-k { font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin-bottom: 6px; }
+.apps { display: flex; flex-wrap: wrap; gap: 6px; }
+.app { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 8px; padding: 4px 9px; font-size: 12.5px; }
+.app small { color: var(--muted); }
+.app.addapp { border-style: dashed; color: var(--accent); cursor: pointer; }
+.toggle { display: flex; align-items: center; gap: 10px; }
+.sw { width: 32px; height: 18px; border-radius: 999px; background: var(--accent); position: relative; flex: none; }
+.sw::after { content: ""; position: absolute; right: 2px; top: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; }
+.sw.off { background: var(--line); } .sw.off::after { right: auto; left: 2px; }
+textarea { width: 100%; min-height: 84px; resize: vertical; border: 1px solid var(--line); border-radius: 8px; background: var(--win); color: var(--fg); font: 12.5px/1.5 var(--mono); padding: 10px; }
+.ex { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ex div { border: 1px solid var(--line); border-radius: 8px; padding: 10px; font-size: 12.5px; min-width: 0; }
+.ex div b { display: block; font-size: 11px; color: var(--muted); font-weight: 600; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .06em; }
+.link { color: var(--accent); font-size: 12px; background: none; border: 0; padding: 0; cursor: pointer; font: inherit; }
+
+[hidden] { display: none !important; }
+@media (max-width: 900px) {
+  .win { grid-template-columns: 1fr; }
+  .side { flex-direction: row; flex-wrap: wrap; border-right: 0; border-bottom: 1px solid var(--line); }
+  .side .spacer, .lights { display: none; }
+  .hero { grid-template-columns: 1fr; }
+  .art { display: none; }
+  .styles { grid-template-columns: 1fr; }
+  .row { grid-template-columns: 1fr; }
+  .ex { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="frame">
+  <p class="caption"><b>Dictionary and Style pages.</b> Click Dictionary or Style in the sidebar, and the Dictionary / Snippets tabs. Rows are examples. Dictionary and Snippets apply in every app; Style is chosen by the app you dictate into.</p>
+  <div class="theme" role="group" aria-label="Theme">
+    <button id="t-light" type="button">Light</button><button id="t-dark" type="button">Dark</button><button id="t-system" type="button">System</button>
+  </div>
+
+  <div class="win">
+    <nav class="side" aria-label="Pages">
+      <div class="lights" aria-hidden="true"><i></i><i></i><i></i></div>
+      <button class="nav dim" type="button" tabindex="-1"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Dictation</button>
+      <button class="nav dim" type="button" tabindex="-1"><svg viewBox="0 0 24 24"><path d="M5 20V12M10 20V6M15 20v-9M20 20V4"/></svg>Insights</button>
+      <button class="nav" id="nav-dict" type="button" data-page="dict" aria-current="page"><svg viewBox="0 0 24 24"><path d="M6 3h11a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6z"/><path d="M4 7h3M4 12h3M4 17h3M13 10a2 2 0 1 0 0 4"/></svg>Dictionary</button>
+      <button class="nav" id="nav-style" type="button" data-page="style"><svg viewBox="0 0 24 24"><path d="M4 20l4-1L19 8l-3-3L5 16z"/><path d="M14 6l3 3"/></svg>Style</button>
+      <button class="nav dim" type="button" tabindex="-1"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5"/></svg>Meetings</button>
+      <button class="nav dim" type="button" tabindex="-1"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h5"/></svg>Notes</button>
+      <div class="spacer"></div>
+      <button class="nav dim" type="button" tabindex="-1"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>Settings</button>
+    </nav>
+
+    <!-- Dictionary page -->
+    <section class="main" id="page-dict">
+      <h1>Dictionary</h1>
+      <div class="pills" role="group" aria-label="Dictionary tab">
+        <button id="tab-words" type="button" data-tab="words" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M6 3h11a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6z"/><path d="M4 7h3M4 12h3M4 17h3"/></svg>Dictionary</button>
+        <button id="tab-snips" type="button" data-tab="snips" aria-pressed="false"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M15 9v6"/></svg>Snippets</button>
+      </div>
+
+      <div id="words">
+        <div class="hero">
+          <div>
+            <h2>Add words to your dictionary</h2>
+            <p>Names, tools and acronyms BugVoice should always get right. Add what it mishears them as, and those are fixed too.</p>
+            <form class="add" id="add-word"><input id="in-word" placeholder="Add words separated by commas — OpenWhispr, Supabase, Kael"><button type="submit">Add ⏎</button></form>
+            <div class="hint">Words also guide speech recognition and the text model.</div>
+          </div>
+          <div class="art" aria-hidden="true">
+            <span class="ring a"></span><span class="ring b"></span>
+            <span class="badge"><svg viewBox="0 0 24 24"><path d="M6 3h11a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6z"/><path d="M4 7h3M4 12h3M4 17h3M13 10a2 2 0 1 0 0 4"/></svg></span>
+            <span class="chip one"><s>open whisper</s><b>OpenWhispr</b></span>
+            <span class="chip two"><s>bug voice</s><b>BugVoice</b></span>
+          </div>
+        </div>
+        <div class="list">
+          <div class="list-head"><span id="word-count">4 words</span><input class="search" id="search-words" placeholder="Search"></div>
+          <div id="word-rows"></div>
+        </div>
+      </div>
+
+      <div id="snips" hidden>
+        <div class="hero">
+          <div>
+            <h2>Stuff you shouldn't have to say twice</h2>
+            <p>Say a trigger phrase and BugVoice puts in what you saved: links, intros, sign-offs, prompts. The saved text is pasted exactly, never reworded.</p>
+            <form class="add" id="add-snip"><input id="in-snip" placeholder="Add a trigger phrase — &quot;my linkedin&quot;, &quot;cal link&quot;"><button type="submit">Add ⏎</button></form>
+            <div class="hint">After adding the trigger, type the text it expands to. Line breaks are kept.</div>
+          </div>
+          <div class="art" aria-hidden="true">
+            <span class="ring a"></span><span class="ring b"></span>
+            <span class="badge"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M15 9v6"/></svg></span>
+            <span class="chip one"><i>“Sign off”</i><em>↳ Best, Kael · kael@example.com</em></span>
+            <span class="chip two"><i>“My LinkedIn”</i><em>↳ linkedin.com/in/kael</em></span>
+          </div>
+        </div>
+        <div class="list">
+          <div class="list-head"><span id="snip-count">3 snippets</span><input class="search" id="search-snips" placeholder="Search"></div>
+          <div id="snip-rows"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Style page -->
+    <section class="main" id="page-style" hidden>
+      <h1>Style</h1>
+      <p class="caption">Each app is matched to a style when you start dictating. The style sets how the text model cleans your words.</p>
+      <div class="styles">
+        <div class="style-list" id="style-list" role="group" aria-label="Styles"></div>
+        <div class="panel" id="style-panel"></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+(function () {
+  const words = [
+    { w: "OpenWhispr", heard: ["open whisper", "open whispers"] },
+    { w: "BugVoice", heard: ["bug voice"] },
+    { w: "Supabase", heard: [] },
+    { w: "Kael", heard: ["kale", "cal"] },
+  ];
+  const snips = [
+    { t: "my linkedin", x: "linkedin.com/in/kael" },
+    { t: "sign off", x: "Best,\nKael · kael@example.com" },
+    { t: "rewrite prompt", x: "Rewrite this to be more concise, keep every fact, no new claims." },
+  ];
+  const styles = [
+    { id: "personal", name: "Personal messages", sub: "Messages, Zalo, WhatsApp, Telegram", on: true,
+      apps: ["Messages", "Zalo", "WhatsApp", "Telegram", "web.whatsapp.com"],
+      rules: "Casual and warm. Remove filler words, add light punctuation, keep emoji words and slang as spoken. No greeting or sign-off unless spoken.",
+      raw: "um hey are you free tonight like around 7 for dinner", out: "Hey, are you free tonight around 7 for dinner?" },
+    { id: "work", name: "Work messages", sub: "Slack, Teams, Google Chat", on: true,
+      apps: ["Slack", "Microsoft Teams", "Google Chat", "teams.microsoft.com", "app.slack.com"],
+      rules: "Clear and short. Remove filler words, apply self-corrections, keep technical terms. One short paragraph; lists as bullets.",
+      raw: "so the deploy is friday no I mean thursday and uh can you check the API", out: "The deploy is Thursday. Can you check the API?" },
+    { id: "email", name: "Email", sub: "Mail, Outlook, Gmail", on: true,
+      apps: ["Mail", "Outlook", "mail.google.com", "outlook.office.com"],
+      rules: "Full sentences with punctuation. Keep greetings and sign-offs as spoken. Remove filler words and apply self-corrections.",
+      raw: "hi anna thanks for the update um I'll review it tomorrow best kael", out: "Hi Anna,\n\nThanks for the update. I'll review it tomorrow.\n\nBest,\nKael" },
+    { id: "document", name: "Document", sub: "Notion, Obsidian, Pages, Docs", on: true,
+      apps: ["Notion", "Obsidian", "Pages", "TextEdit", "docs.google.com"],
+      rules: "Remove filler words. Apply self-corrections. Add punctuation and capitalization. Split into paragraphs at topic changes. Lists as Markdown lists.",
+      raw: "first install the app second grant the mic third hold right option", out: "1. Install the app.\n2. Grant the microphone.\n3. Hold Right Option." },
+    { id: "terminal", name: "Terminal", sub: "Ghostty, iTerm, Terminal, VS Code panel", on: false,
+      apps: ["Ghostty", "iTerm", "Terminal", "Warp", "VS Code terminal panel"],
+      rules: "Literal mode. Only fix obvious recognition errors and remove filler words. Do not reword. No trailing period.",
+      raw: "um git status", out: "git status" },
+    { id: "other", name: "Other", sub: "Every app not listed", on: true,
+      apps: [],
+      rules: "Light touch. Remove filler words, add punctuation, keep the casual tone and wording.",
+      raw: "so I think we should uh ship it", out: "I think we should ship it." },
+  ];
+  let current = "work";
+  const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  function renderWords(q = "") {
+    const list = words.filter(r => (r.w + " " + r.heard.join(" ")).toLowerCase().includes(q.toLowerCase()));
+    document.getElementById("word-count").textContent = `${words.length} ${words.length === 1 ? "word" : "words"}`;
+    document.getElementById("word-rows").innerHTML = list.map(r => `
+      <div class="row"><span class="word">${esc(r.w)}</span>
+      <span class="heard">${r.heard.length ? "Heard as " : ""}${r.heard.map(h => `<span class="tag">${esc(h)}</span>`).join("")}<span class="tag add">+ heard as</span></span>
+      <span class="acts"><button type="button">Edit</button><button type="button">Delete</button></span></div>`).join("");
+  }
+  function renderSnips(q = "") {
+    const list = snips.filter(r => (r.t + " " + r.x).toLowerCase().includes(q.toLowerCase()));
+    document.getElementById("snip-count").textContent = `${snips.length} ${snips.length === 1 ? "snippet" : "snippets"}`;
+    document.getElementById("snip-rows").innerHTML = list.map(r => `
+      <div class="row"><span class="word">“${esc(r.t)}”</span>
+      <span class="exp">↳ <code>${esc(r.x.replace(/\n/g, " ⏎ "))}</code></span>
+      <span class="acts"><button type="button">Edit</button><button type="button">Delete</button></span></div>`).join("");
+  }
+  function renderStyles() {
+    document.getElementById("style-list").innerHTML = styles.map(s =>
+      `<button class="style-item" type="button" data-style="${s.id}" aria-pressed="${s.id === current}"><span>${s.name}</span><small>${esc(s.sub)}</small></button>`).join("");
+    const s = styles.find(x => x.id === current);
+    document.getElementById("style-panel").innerHTML = `
+      <h3>${s.name}</h3>
+      <div><div class="section-k">Apps and websites</div>
+        <div class="apps">${s.apps.map(a => `<span class="app">${esc(a)} <small>Move to…</small></span>`).join("")}
+        ${s.id === "other" ? `<span class="caption">Every app without a style uses Other.</span>` : `<span class="app addapp">+ Add app</span>`}</div></div>
+      <div class="toggle"><span class="sw ${s.on ? "" : "off"}"></span><span>Clean up with the text model</span></div>
+      <div><div class="section-k">Tone</div><textarea id="rules" aria-label="Tone rules">${esc(s.rules)}</textarea>
+        <button class="link" type="button">Reset to default</button></div>
+      <div><div class="section-k">Example</div>
+        <div class="ex"><div><b>You say</b>${esc(s.raw)}</div><div><b>BugVoice writes</b>${esc(s.out).replace(/\n/g, "<br>")}</div></div></div>`;
+    document.querySelectorAll("[data-style]").forEach(b => b.addEventListener("click", () => { current = b.dataset.style; renderStyles(); }));
+  }
+
+  document.querySelectorAll("[data-tab]").forEach(b => b.addEventListener("click", () => {
+    document.querySelectorAll("[data-tab]").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+    document.getElementById("words").hidden = b.dataset.tab !== "words";
+    document.getElementById("snips").hidden = b.dataset.tab !== "snips";
+  }));
+  document.querySelectorAll("[data-page]").forEach(b => b.addEventListener("click", () => {
+    document.querySelectorAll("[data-page]").forEach(x => x.toggleAttribute("aria-current", x === b));
+    document.querySelectorAll("[data-page]").forEach(x => { if (x === b) x.setAttribute("aria-current", "page"); });
+    document.getElementById("page-dict").hidden = b.dataset.page !== "dict";
+    document.getElementById("page-style").hidden = b.dataset.page !== "style";
+  }));
+  document.getElementById("add-word").addEventListener("submit", e => {
+    e.preventDefault();
+    const v = document.getElementById("in-word").value.split(",").map(s => s.trim()).filter(Boolean);
+    v.forEach(w => { if (!words.some(r => r.w.toLowerCase() === w.toLowerCase())) words.unshift({ w, heard: [] }); });
+    document.getElementById("in-word").value = ""; renderWords();
+  });
+  document.getElementById("add-snip").addEventListener("submit", e => {
+    e.preventDefault();
+    const t = document.getElementById("in-snip").value.trim();
+    if (t) snips.unshift({ t: t.toLowerCase(), x: "(type the text it expands to)" });
+    document.getElementById("in-snip").value = ""; renderSnips();
+  });
+  document.getElementById("search-words").addEventListener("input", e => renderWords(e.target.value));
+  document.getElementById("search-snips").addEventListener("input", e => renderSnips(e.target.value));
+  const setTheme = t => { if (t === "system") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", t); };
+  document.getElementById("t-light").onclick = () => setTheme("light");
+  document.getElementById("t-dark").onclick = () => setTheme("dark");
+  document.getElementById("t-system").onclick = () => setTheme("system");
+  renderWords(); renderSnips(); renderStyles();
+})();
+</script>
+</body>
+</html>
