@@ -62,6 +62,11 @@ public struct UploadQueue: Sendable {
         }
     }
 
+    public mutating func attach(id: UUID, meetingID: MeetingID) {
+        guard let index = jobs.firstIndex(where: { $0.id == id }), !jobs[index].state.isTerminal else { return }
+        jobs[index].meetingID = meetingID
+    }
+
     public mutating func admit(meetingActive: Bool) -> UploadJob? {
         guard !meetingActive, active == nil,
               let index = jobs.firstIndex(where: { $0.state == .queued }) else { return nil }
