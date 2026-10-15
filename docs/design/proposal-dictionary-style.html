@@ -86,11 +86,9 @@ body { margin: 0; background: var(--page); color: var(--fg); font-family: var(--
 .acts button { font: inherit; font-size: 12px; border: 1px solid var(--line); background: var(--win); color: var(--fg); border-radius: 6px; padding: 2px 9px; cursor: pointer; }
 
 /* Style page */
-.styles { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 16px; }
-.style-list { display: grid; gap: 4px; align-content: start; }
-.style-item { text-align: left; font: inherit; border: 1px solid transparent; background: transparent; color: var(--fg); border-radius: 10px; padding: 9px 12px; cursor: pointer; display: grid; gap: 1px; }
-.style-item small { color: var(--muted); font-size: 11.5px; }
-.style-item[aria-pressed="true"] { background: var(--card); border-color: var(--line); box-shadow: 0 1px 2px rgb(0 0 0 / .08); }
+/* Style tabs are pills at the top, like Dictionary; the detail card is full width. */
+.styles { display: grid; gap: 16px; }
+.style-list { flex-wrap: wrap; }
 .panel { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px; display: grid; gap: 16px; align-content: start; min-width: 0; }
 .panel h3 { margin: 0; font-size: 16px; }
 .section-k { font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin-bottom: 6px; }
@@ -123,7 +121,7 @@ textarea { width: 100%; min-height: 84px; resize: vertical; border: 1px solid va
 </head>
 <body>
 <div class="frame">
-  <p class="caption"><b>Dictionary and Style pages.</b> Click Dictionary or Style in the sidebar, and the Dictionary / Snippets tabs. Rows are examples. Dictionary and Snippets apply in every app; Style is chosen by the app you dictate into.</p>
+  <p class="caption"><b>Dictionary and Style pages.</b> Click Dictionary or Style in the sidebar, the Dictionary / Snippets tabs, and the six style tabs at the top of Style. Rows are examples. Dictionary and Snippets apply in every app; Style is chosen by the app you dictate into.</p>
   <div class="theme" role="group" aria-label="Theme">
     <button id="t-light" type="button">Light</button><button id="t-dark" type="button">Dark</button><button id="t-system" type="button">System</button>
   </div>
@@ -197,7 +195,7 @@ textarea { width: 100%; min-height: 84px; resize: vertical; border: 1px solid va
       <h1>Style</h1>
       <p class="caption">Each app is matched to a style when you start dictating. The style sets how the text model cleans your words.</p>
       <div class="styles">
-        <div class="style-list" id="style-list" role="group" aria-label="Styles"></div>
+        <div class="pills style-list" id="style-list" role="group" aria-label="Styles"></div>
         <div class="panel" id="style-panel"></div>
       </div>
     </section>
@@ -264,7 +262,7 @@ textarea { width: 100%; min-height: 84px; resize: vertical; border: 1px solid va
   }
   function renderStyles() {
     document.getElementById("style-list").innerHTML = styles.map(s =>
-      `<button class="style-item" type="button" data-style="${s.id}" aria-pressed="${s.id === current}"><span>${s.name}</span><small>${esc(s.sub)}</small></button>`).join("");
+      `<button type="button" data-style="${s.id}" aria-pressed="${s.id === current}">${s.name}</button>`).join("");
     const s = styles.find(x => x.id === current);
     document.getElementById("style-panel").innerHTML = `
       <h3>${s.name}</h3>

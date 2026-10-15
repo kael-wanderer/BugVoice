@@ -41,8 +41,9 @@ body { margin: 0; background: var(--page); color: var(--fg); font-family: var(--
 
 .main { padding: 22px; display: grid; gap: 16px; align-content: start; min-width: 0; }
 .main h1 { margin: 0; font-size: 20px; font-weight: 650; }
-.tabs { display: flex; flex-wrap: wrap; gap: 2px; background: var(--chip); border-radius: 8px; padding: 3px; width: fit-content; }
-.tabs span { padding: 4px 12px; border-radius: 6px; color: var(--muted); }
+/* Settings tabs are pills, like Dictionary and Style. */
+.tabs { display: flex; flex-wrap: wrap; gap: 2px; background: var(--chip); border-radius: 999px; padding: 3px; width: fit-content; }
+.tabs span { padding: 5px 14px; border-radius: 999px; color: var(--muted); }
 .tabs span.on { background: var(--card); color: var(--fg); font-weight: 600; box-shadow: 0 1px 2px rgb(0 0 0 / .14); }
 
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
@@ -94,7 +95,7 @@ button.p { font: inherit; font-size: 12px; border: 0; background: var(--accent);
 </head>
 <body>
 <div class="frame">
-  <p class="caption"><b>Settings → Models</b> replaces Settings → Text model. Top: which engine each feature uses. Middle: the connections you set up, each with its own key. Bottom: coding CLIs found on this Mac. Click <b>Edit</b> on a connection or <b>+ Add connection</b> to see the sheet. The menu bar's "Text model" picker becomes "Dictation model" and lists connections.</p>
+  <p class="caption"><b>Settings → Models</b> replaces Settings → Text model. Top: which engine each feature uses. Middle: the connections you set up, each with its own key. Bottom: coding CLIs found on this Mac. Click <b>Edit</b> on a connection or <b>+ Add connection</b> to see the sheet. The menu bar's "Text model" picker becomes "Dictation model" and lists connections. Every Settings tab uses full-width cards like this one. API keys are kept in <code>credentials.json</code> (owner-only), not the Keychain.</p>
   <div class="theme"><button data-t="light">Light</button><button data-t="dark">Dark</button><button data-t="">System</button></div>
 
   <div class="win">
@@ -138,7 +139,7 @@ button.p { font: inherit; font-size: 12px; border: 0; background: var(--accent);
       </section>
 
       <section class="card conns">
-        <div class="card-head"><h2>Connections</h2><p>Each keeps its own API key in Keychain.</p></div>
+        <div class="card-head"><h2>Connections</h2><p>Each keeps its own API key on this Mac.</p></div>
         <div class="row">
           <div class="icon" style="background:#5b5bd6">LM</div>
           <div class="name"><b>LM Studio</b><span class="sub mono">http://localhost:1234 · qwen3.8-27b-mlx</span></div>

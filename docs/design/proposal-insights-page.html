@@ -7,7 +7,7 @@
 <title>BugVoice Insights Page</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
-/* Layout: a macOS window mock. Full-height sidebar with traffic lights on it; content pane with header row (pill tabs, period switch, Local badge), two card rows, heatmap, app/style breakdown. */
+/* Layout: a macOS window mock. Full-height sidebar with traffic lights on it; content pane with header row (pill tabs on the left; period switch and Local badge on the right), two card rows, heatmap, app/style breakdown. */
 :root {
   --page: #e9ebf0; --win: #ffffff; --side: #f2f3f6; --card: #ffffff; --line: #e1e4ea; --chip: #eceef2;
   --fg: #1c1f26; --muted: #6a7080; --accent: #3a6ff0; --accent-soft: #e4ebfd;
@@ -133,13 +133,15 @@ body { background: var(--page); color: var(--fg); font-family: var(--app); font-
               <button id="tab-usage" aria-pressed="true">Usage</button>
               <button id="tab-details" aria-pressed="false" disabled>Details<span class="soon">Later</span></button>
             </div>
+          </div>
+          <div class="head-left">
             <div class="pills small" role="group" aria-label="Period">
               <button id="p-all" data-p="all" aria-pressed="true">All time</button>
               <button id="p-30" data-p="30" aria-pressed="false">30 days</button>
               <button id="p-7" data-p="7" aria-pressed="false">7 days</button>
             </div>
+            <span class="badge"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>Local</span>
           </div>
-          <span class="badge"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>Local</span>
         </div>
 
         <div class="cards four">
