@@ -195,7 +195,8 @@ public actor NotesStore {
         case .bodyEnd(let location):
             range = NSRange(location: location, length: 0)
         }
-        updated.body = (current.body as NSString).replacingCharacters(in: range, with: text)
+        let spaced = NotesSpacing.fit(text, into: current.body, at: range.location, replacing: range.length)
+        updated.body = (current.body as NSString).replacingCharacters(in: range, with: spaced)
         updated.revision &+= 1
         return try save(updated, expectedVersion: current.fileVersion, isDirty: true)
     }

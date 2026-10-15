@@ -30,6 +30,25 @@ struct NotesControllerTests {
         #expect(persisted.body == "typed edit dictated")
     }
 
+    @Test func secondDictationIsSeparatedFromThePreviousWord() async throws {
+        let root = try directory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = NotesStore(directory: root)
+        let created = try await store.create(title: "Spacing", body: "more feature")
+        let controller = NotesController(store: store)
+        try await controller.load(id: created.id)
+        let capture = NotesDictationCapture(
+            noteID: created.id,
+            editorID: UUID(),
+            selection: NotesTextRange(location: 12, length: 0),
+            bodyUTF16Length: 12,
+            bodyRevision: 0
+        )
+
+        #expect(await controller.insert(capture: capture, text: "Hello, how are you?") == .inserted)
+        #expect(controller.note(id: created.id)?.body == "more feature Hello, how are you?")
+    }
+
     @Test func ownSaveUpdatesKnownVersionWithoutExternalChangeWarning() async throws {
         let root = try directory()
         defer { try? FileManager.default.removeItem(at: root) }

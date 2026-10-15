@@ -382,7 +382,8 @@ public final class NotesController {
             range = NSRange(location: location, length: 0)
         }
         let oldBody = latestState.note.body
-        let updatedBody = (oldBody as NSString).replacingCharacters(in: range, with: text)
+        let spaced = NotesSpacing.fit(text, into: oldBody, at: range.location, replacing: range.length)
+        let updatedBody = (oldBody as NSString).replacingCharacters(in: range, with: spaced)
         if let editor = latestState.editor {
             guard let textStorage = editor.textStorage else {
                 retainInsertionRecovery(noteID: capture.noteID, text: text)
@@ -391,18 +392,18 @@ public final class NotesController {
             let undoManager = latestState.undoManager
             editor.breakUndoCoalescing()
             undoManager.beginUndoGrouping()
-            guard editor.shouldChangeText(in: range, replacementString: text) else {
+            guard editor.shouldChangeText(in: range, replacementString: spaced) else {
                 undoManager.endUndoGrouping()
                 retainInsertionRecovery(noteID: capture.noteID, text: text)
                 return .saveFailed
             }
-            textStorage.replaceCharacters(in: range, with: text)
+            textStorage.replaceCharacters(in: range, with: spaced)
             latestState.note.body = updatedBody
             latestState.note.revision &+= 1
             latestState.note.modifiedAt = .now
             latestState.isDirty = true
             editor.didChangeText()
-            editor.setSelectedRange(NSRange(location: range.location + (text as NSString).length, length: 0))
+            editor.setSelectedRange(NSRange(location: range.location + (spaced as NSString).length, length: 0))
             latestState.lastSelection = editor.selectedRange()
             undoManager.setActionName("Dictation")
             undoManager.endUndoGrouping()
