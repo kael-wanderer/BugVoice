@@ -75,11 +75,12 @@ public enum MeetingRetention {
         policy: MeetingRetentionPolicy,
         now: Date
     ) -> Bool {
+        let retainedFrom = meeting.source == .upload ? (meeting.importedAt ?? meeting.endedAt) : meeting.endedAt
         guard meeting.state == .ready,
               let maxAge = policy.maxAge,
-              let endedAt = meeting.endedAt
+              let retainedFrom
         else { return false }
-        return endedAt <= now.addingTimeInterval(-maxAge)
+        return retainedFrom <= now.addingTimeInterval(-maxAge)
     }
 
     public static func pruneCandidates(
