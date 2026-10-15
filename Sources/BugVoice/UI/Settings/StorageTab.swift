@@ -7,6 +7,7 @@ struct StorageTab: View {
     @State private var sizes: [String: Int64] = [:]
     @State private var confirmClear = false
     @State private var confirmDontSave = false
+    @State private var confirmResetInsights = false
 
     var body: some View {
         Form {
@@ -23,6 +24,10 @@ struct StorageTab: View {
                 }
                 row("Dictation history", path: model.paths.history, detail: "\(model.history.count) entries") {
                     Button("Clear…") { confirmClear = true }
+                }
+                row("Insights", path: model.paths.insights, detail: "\(model.insights.days.count) \(model.insights.days.count == 1 ? "day" : "days")") {
+                    Button("Reset…") { confirmResetInsights = true }
+                        .disabled(model.insightsReadOnly)
                 }
                 row("Last recording (last.wav)", path: model.paths.lastRecording, detail: "1 file") { EmptyView() }
                 if FileManager.default.fileExists(atPath: model.paths.meetings.path) {
@@ -55,6 +60,12 @@ struct StorageTab: View {
         } message: {
             Text("Choosing Don't save deletes every saved dictation.")
         }
+        .confirmationDialog("Reset insights?", isPresented: $confirmResetInsights) {
+            Button("Reset", role: .destructive) { Task { await model.resetInsights(); await measure() } }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Words, streak and activity go back to zero. Dictation history is not affected.")
+        }
     }
 
     /// Choosing Don't save waits for confirmation; Cancel keeps the old value.
@@ -86,7 +97,7 @@ struct StorageTab: View {
     }
 
     func measure() async {
-        let urls = [model.paths.models, model.paths.history, model.paths.lastRecording, model.paths.meetings, model.paths.notes]
+        let urls = [model.paths.models, model.paths.history, model.paths.insights, model.paths.lastRecording, model.paths.meetings, model.paths.notes]
         sizes = await Task.detached {
             var out: [String: Int64] = [:]
             for url in urls { out[url.path] = Self.size(of: url) }

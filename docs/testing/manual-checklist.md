@@ -126,3 +126,20 @@ blank until the maintainer runs each check.
 | 70 | Undo | Dictate into a visible note, then into a note whose editor is off screen; reopen and undo | Each insertion is one undo step; off-screen insertion can be undone after reopening | |
 | 71 | Notes controls | Use the mic button, ⌃⌥N, Copy as Markdown, Export, and confirmed Trash | Listening bar appears; shortcut opens a new note; copy/export contain canonical Markdown; Trash affects only the confirmed note | |
 | 72 | Notes storage and quit | Inspect Notes size/count and Show in Finder; quit with dirty Notes and with an active Meeting | Notes size/count are shown; pending notes save before quit; meeting Stop and keep / Cancel flow still works | |
+
+
+## Insights
+
+Run these after building with `Scripts/build-app.sh`. Keep the Result column
+blank until the maintainer runs each check.
+
+| # | Where | Do | Expect | Result |
+|---|---|---|---|---|
+| 73 | Insights page | Open Insights from the sidebar in light, then dark | 4 + 3 cards, heatmap with today's cell, both breakdown panels; Local badge; Details tab disabled with "Later" | |
+| 74 | Period switch | Choose 30 days, then 7 days, then All time | Cards and breakdown change; heatmap dims days outside the period; Current streak unchanged | |
+| 75 | Live update | With Insights open, dictate into Terminal, then VS Code | Words, Dictations, today's cell and both app bars update without reopening | |
+| 76 | Notes | Dictate twice into the same note | Notes card +1, note words increase; Dictation history unchanged | |
+| 77 | Meetings | Record a 1-minute meeting and stop | Meetings card +1, hours update | |
+| 78 | Clear history | Settings → Storage → Dictation history → Clear… | Insights numbers unchanged | |
+| 79 | Reset insights | Settings → Storage → Insights → Reset… → Reset; quit and relaunch | Everything zero; relaunch does not refill from history | |
+| 80 | Window chrome | Visit every page | No title text; sidebar full height with window buttons on it; no page content under the title bar | |

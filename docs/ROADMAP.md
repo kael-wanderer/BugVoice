@@ -10,6 +10,7 @@ implementation, like Dictation, Meetings and Notes before it.
 | Dictation (speech → text at the cursor) | Works. Device checks passed for Terminal, VS Code, Notion, Chrome, Vietnamese, hands-free. |
 | Meetings | Built (You/Others tracks, transcript, Summary, Action items). Untested on device; waits for a real meeting and the system-audio spike. |
 | Notes | Built, but failed when tried. On hold until item 0. |
+| Insights | Built (Usage tab). Device checks 73–80 pending. |
 
 ## Order
 
