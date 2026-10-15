@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BugVoice Models</title>
+<style>
+/* Settings → Models: Use for table, connections, coding CLIs, edit sheet. */
+:root {
+  --page: #e9ebf0; --win: #ffffff; --side: #f2f3f6; --card: #ffffff; --line: #e1e4ea; --chip: #eceef2;
+  --fg: #1c1f26; --muted: #6a7080; --accent: #3a6ff0; --accent-soft: #e4ebfd;
+  --ok: #1f9d55; --warn: #c27a00; --bad: #d64545;
+  --red: #ff5f57; --yellow: #febc2e; --green: #28c840;
+  --app: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --page: #0d0e11; --win: #1b1d22; --side: #16181c; --card: #212329; --line: #2d3037; --chip: #272a31;
+  --fg: #e9ebf0; --muted: #9298a6; --accent: #6e93ff; --accent-soft: #23304f;
+  --ok: #4cc27f; --warn: #e0a43a; --bad: #f07070; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --page: #0d0e11; --win: #1b1d22; --side: #16181c; --card: #212329; --line: #2d3037; --chip: #272a31;
+  --fg: #e9ebf0; --muted: #9298a6; --accent: #6e93ff; --accent-soft: #23304f;
+  --ok: #4cc27f; --warn: #e0a43a; --bad: #f07070; color-scheme: dark }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--fg); font-family: var(--app); font-size: 13px; line-height: 1.45;
+  padding: 28px 16px 48px; }
+.frame { max-width: 1180px; margin: 0 auto; display: grid; gap: 14px; }
+.caption { color: var(--muted); font-size: 12.5px; max-width: 95ch; margin: 0; }
+.caption b { color: var(--fg); }
+.theme { justify-self: start; display: flex; gap: 6px; }
+.theme button { font: inherit; font-size: 12px; border: 1px solid var(--line); background: var(--card); color: var(--fg); border-radius: 6px; padding: 3px 10px; cursor: pointer; }
+
+.win { position: relative; display: grid; grid-template-columns: 210px 1fr; background: var(--win); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; box-shadow: 0 20px 50px rgb(0 0 0 / .14); min-height: 760px; }
+.side { background: var(--side); border-right: 1px solid var(--line); padding: 14px 10px; display: flex; flex-direction: column; gap: 2px; }
+.lights { display: flex; gap: 8px; padding: 0 6px 18px; }
+.lights i { width: 12px; height: 12px; border-radius: 50%; }
+.lights i:nth-child(1) { background: var(--red); } .lights i:nth-child(2) { background: var(--yellow); } .lights i:nth-child(3) { background: var(--green); }
+.nav { padding: 7px 10px; border-radius: 7px; color: var(--muted); }
+.nav.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+
+.main { padding: 22px; display: grid; gap: 16px; align-content: start; min-width: 0; }
+.main h1 { margin: 0; font-size: 20px; font-weight: 650; }
+.tabs { display: flex; flex-wrap: wrap; gap: 2px; background: var(--chip); border-radius: 8px; padding: 3px; width: fit-content; }
+.tabs span { padding: 4px 12px; border-radius: 6px; color: var(--muted); }
+.tabs span.on { background: var(--card); color: var(--fg); font-weight: 600; box-shadow: 0 1px 2px rgb(0 0 0 / .14); }
+
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.card-head h2 { margin: 0; font-size: 14px; }
+.card-head p { margin: 0; color: var(--muted); font-size: 12px; }
+.row { display: grid; gap: 12px; align-items: center; padding: 11px 16px; border-bottom: 1px solid var(--line); }
+.row:last-child { border-bottom: 0; }
+.uses .row { grid-template-columns: 170px minmax(0, 1.4fr) minmax(0, 1fr) 110px 18px; }
+.conns .row { grid-template-columns: 30px minmax(0, 1fr) minmax(0, 1fr) 130px auto; }
+.clis .row { grid-template-columns: 30px 90px minmax(0, 1fr) minmax(0, 1fr); }
+.feat b { display: block; }
+.feat small, .sub { color: var(--muted); font-size: 11.5px; }
+select, input[type=text], input[type=password] { width: 100%; min-width: 0; font: inherit; font-size: 12.5px; border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; background: var(--win); color: var(--fg); }
+input[readonly] { color: var(--muted); background: var(--chip); }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ok); }
+.dot.warn { background: var(--warn); } .dot.off { background: var(--line); }
+.icon { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; font-weight: 700; font-size: 12px; color: #fff; }
+.name b { display: block; }
+.mono { font-family: var(--mono); font-size: 12px; }
+.status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.acts { display: flex; gap: 6px; justify-content: flex-end; }
+button.b { font: inherit; font-size: 12px; border: 1px solid var(--line); background: var(--win); color: var(--fg); border-radius: 6px; padding: 3px 10px; cursor: pointer; }
+button.p { font: inherit; font-size: 12px; border: 0; background: var(--accent); color: #fff; border-radius: 6px; padding: 4px 12px; cursor: pointer; }
+.foot { padding: 10px 16px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; position: relative; }
+.menu { position: absolute; left: 16px; bottom: 44px; background: var(--card); border: 1px solid var(--line); border-radius: 9px; box-shadow: 0 12px 30px rgb(0 0 0 / .18); padding: 5px; display: grid; min-width: 260px; z-index: 5; }
+.menu .k { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); padding: 6px 9px 2px; font-weight: 600; }
+.menu button { font: inherit; text-align: left; border: 0; background: none; color: var(--fg); padding: 5px 9px; border-radius: 6px; cursor: pointer; }
+.menu button:hover { background: var(--accent-soft); }
+.note { color: var(--muted); font-size: 12px; padding: 10px 16px; border-top: 1px solid var(--line); background: var(--side); }
+
+.scrim { position: absolute; inset: 0; background: rgb(0 0 0 / .28); display: grid; place-items: start center; padding-top: 70px; z-index: 10; }
+.sheet { width: min(500px, 92%); background: var(--card); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 24px 60px rgb(0 0 0 / .3); padding: 18px; display: grid; gap: 12px; }
+.sheet h3 { margin: 0; font-size: 15px; }
+.field { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 10px; align-items: center; }
+.field label { color: var(--muted); font-size: 12px; text-align: right; }
+.inline { display: flex; gap: 6px; }
+.ok { color: var(--ok); font-size: 12px; }
+.sheet .acts { margin-top: 4px; }
+
+[hidden] { display: none !important; }
+@media (max-width: 900px) {
+  .win { grid-template-columns: 1fr; }
+  .side { display: none; }
+  .uses .row, .conns .row, .clis .row { grid-template-columns: 1fr; }
+  .field { grid-template-columns: 1fr; } .field label { text-align: left; }
+}
+</style>
+</head>
+<body>
+<div class="frame">
+  <p class="caption"><b>Settings → Models</b> replaces Settings → Text model. Top: which engine each feature uses. Middle: the connections you set up, each with its own key. Bottom: coding CLIs found on this Mac. Click <b>Edit</b> on a connection or <b>+ Add connection</b> to see the sheet. The menu bar's "Text model" picker becomes "Dictation model" and lists connections.</p>
+  <div class="theme"><button data-t="light">Light</button><button data-t="dark">Dark</button><button data-t="">System</button></div>
+
+  <div class="win">
+    <nav class="side">
+      <div class="lights"><i></i><i></i><i></i></div>
+      <div class="nav">Dictation</div><div class="nav">Insights</div><div class="nav">Dictionary</div><div class="nav">Style</div>
+      <div class="nav">Meetings</div><div class="nav">Notes</div><div class="nav on">Settings</div>
+    </nav>
+
+    <main class="main">
+      <h1>Settings</h1>
+      <div class="tabs"><span>General</span><span>Speech</span><span class="on">Models</span><span>Meetings</span><span>Storage</span></div>
+
+      <section class="card uses">
+        <div class="card-head"><h2>Use for</h2><p>Which model each feature uses.</p></div>
+        <div class="row">
+          <div class="feat"><b>Dictation cleanup</b><small>Answer within 3 s or raw text is pasted</small></div>
+          <select><option>LM Studio</option><option>Ollama</option><option>Anthropic</option><option>OpenAI</option><option>OpenRouter</option><option>Apple Intelligence</option><option>None (raw text)</option></select>
+          <input type="text" value="" placeholder="qwen3.8-27b-mlx (connection default)">
+          <select><option>Thinking off</option><option>Thinking on</option></select>
+          <span class="dot" title="Reachable"></span>
+        </div>
+        <div class="row">
+          <div class="feat"><b>Notes dictation</b><small>Same 3 s limit</small></div>
+          <select><option>Same as Dictation</option><option>LM Studio</option><option>Ollama</option><option>Anthropic</option><option>OpenAI</option><option>OpenRouter</option></select>
+          <input type="text" value="" placeholder="—" readonly>
+          <select disabled><option>—</option></select>
+          <span class="dot"></span>
+        </div>
+        <div class="row">
+          <div class="feat"><b>Meeting notes</b><small>Summary and action items. No time limit.</small></div>
+          <select>
+            <optgroup label="Connections"><option>LM Studio</option><option>Ollama</option><option selected>Anthropic</option><option>OpenAI</option><option>OpenRouter</option></optgroup>
+            <optgroup label="Coding CLIs"><option>Claude Code (claude)</option><option>Codex (codex)</option><option>Pi (pi)</option></optgroup>
+          </select>
+          <input type="text" value="claude-sonnet-5-5">
+          <select><option>Effort: default</option><option>low</option><option>medium</option><option>high</option></select>
+          <span class="dot"></span>
+        </div>
+        <div class="note">Coding CLIs take several seconds per call, so they are offered for Meeting notes only. Text goes to a cloud service only when a feature uses a cloud connection.</div>
+      </section>
+
+      <section class="card conns">
+        <div class="card-head"><h2>Connections</h2><p>Each keeps its own API key in Keychain.</p></div>
+        <div class="row">
+          <div class="icon" style="background:#5b5bd6">LM</div>
+          <div class="name"><b>LM Studio</b><span class="sub mono">http://localhost:1234 · qwen3.8-27b-mlx</span></div>
+          <div class="sub">Local · OpenAI-compatible · no key</div>
+          <div class="status"><span class="dot"></span>Reachable · 6 models</div>
+          <div class="acts"><button class="b" data-edit="lms">Edit</button></div>
+        </div>
+        <div class="row">
+          <div class="icon" style="background:#3d3d3d">Ol</div>
+          <div class="name"><b>Ollama</b><span class="sub mono">http://localhost:11434 · llama3.3</span></div>
+          <div class="sub">Local · OpenAI-compatible · no key</div>
+          <div class="status"><span class="dot off"></span>Not running</div>
+          <div class="acts"><button class="b" data-edit="ollama">Edit</button></div>
+        </div>
+        <div class="row">
+          <div class="icon" style="background:#c96442">A</div>
+          <div class="name"><b>Anthropic</b><span class="sub mono">api.anthropic.com · claude-sonnet-5-5</span></div>
+          <div class="sub">Cloud · key saved</div>
+          <div class="status"><span class="dot"></span>Reachable</div>
+          <div class="acts"><button class="b" data-edit="anthropic">Edit</button></div>
+        </div>
+        <div class="row">
+          <div class="icon" style="background:#10a37f">O</div>
+          <div class="name"><b>OpenAI</b><span class="sub mono">api.openai.com · gpt-5.5-mini</span></div>
+          <div class="sub">Cloud · key saved</div>
+          <div class="status"><span class="dot"></span>Reachable</div>
+          <div class="acts"><button class="b" data-edit="openai">Edit</button></div>
+        </div>
+        <div class="row">
+          <div class="icon" style="background:#6467f2">OR</div>
+          <div class="name"><b>OpenRouter</b><span class="sub mono">openrouter.ai/api · anthropic/claude-haiku-5-5</span></div>
+          <div class="sub">Cloud · no key yet</div>
+          <div class="status"><span class="dot warn"></span>Needs a key</div>
+          <div class="acts"><button class="b" data-edit="openrouter">Edit</button></div>
+        </div>
+        <div class="foot">
+          <button class="b" id="addBtn">+ Add connection</button>
+          <span class="sub">Apple Intelligence is always listed when this Mac supports it.</span>
+          <div class="menu" id="addMenu" hidden>
+            <div class="k">On this Mac</div>
+            <button data-edit="new-lms">LM Studio</button><button data-edit="new-ollama">Ollama</button><button data-edit="new-mlx">MLX server</button>
+            <div class="k">Cloud</div>
+            <button data-edit="new-anthropic">Anthropic</button><button data-edit="new-openai">OpenAI</button><button data-edit="new-openrouter">OpenRouter</button>
+            <div class="k">Custom</div>
+            <button data-edit="new-custom-oai">OpenAI-compatible server</button><button data-edit="new-custom-ant">Anthropic-compatible server</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card clis">
+        <div class="card-head"><h2>Coding CLIs</h2><p>Run with their own login. BugVoice stores no key for them.</p></div>
+        <div class="row">
+          <div class="icon" style="background:#c96442">C</div><b>claude</b>
+          <span class="sub mono">~/.local/bin/claude · 2.1.300</span>
+          <span class="status"><span class="dot"></span>Found · tools and MCP servers turned off</span>
+        </div>
+        <div class="row">
+          <div class="icon" style="background:#111">X</div><b>codex</b>
+          <span class="sub mono">~/.npm-global/bin/codex · 0.162.1</span>
+          <span class="status"><span class="dot"></span>Found · read-only sandbox</span>
+        </div>
+        <div class="row">
+          <div class="icon" style="background:#7a52c7">π</div><b>pi</b>
+          <span class="sub mono">/opt/homebrew/bin/pi · 0.85.1</span>
+          <span class="status"><span class="dot"></span>Found · extensions and tools turned off</span>
+        </div>
+      </section>
+    </main>
+
+    <div class="scrim" id="scrim" hidden>
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+        <h3 id="sheetTitle">Edit connection</h3>
+        <div class="field"><label>Name</label><input type="text" id="fName"></div>
+        <div class="field"><label>Kind</label><input type="text" id="fKind" readonly></div>
+        <div class="field"><label>Address</label><input type="text" id="fUrl"></div>
+        <div class="field" id="keyRow"><label>API key</label><div class="inline"><input type="password" id="fKey" placeholder="Paste the key"><button class="b">Remove</button></div></div>
+        <div class="field"><label>Default model</label><div class="inline"><input type="text" id="fModel"><select style="width:auto"><option>Choose…</option></select></div></div>
+        <div class="field"><label></label><div class="inline"><button class="b">Test connection</button><span class="ok" id="fTest">Reachable · lists models, generates nothing</span></div></div>
+        <div class="acts"><button class="b" id="del">Delete</button><span style="flex:1"></span><button class="b" id="cancel">Cancel</button><button class="p" id="save">Save</button></div>
+      </div>
+    </div>
+  </div>
+
+  <p class="caption"><b>Rules shown here:</b> OpenAI, Anthropic and OpenRouter addresses are fixed (shown read-only). Local and custom addresses are editable; plain <code>http://</code> is allowed only for this Mac (localhost). Changing an address asks for the key again. A deleted connection that a feature uses makes that feature show "Choose a model" until another is picked.</p>
+</div>
+
+<script>
+const C = {
+  lms: ["LM Studio", "Local · OpenAI-compatible", "http://localhost:1234", false, "qwen3.8-27b-mlx", false],
+  ollama: ["Ollama", "Local · OpenAI-compatible", "http://localhost:11434", false, "llama3.3", false],
+  anthropic: ["Anthropic", "Cloud · Anthropic", "https://api.anthropic.com", true, "claude-sonnet-5-5", true],
+  openai: ["OpenAI", "Cloud · OpenAI", "https://api.openai.com", true, "gpt-5.5-mini", true],
+  openrouter: ["OpenRouter", "Cloud · OpenAI-compatible", "https://openrouter.ai/api", true, "anthropic/claude-haiku-5-5", true],
+  "new-lms": ["LM Studio", "Local · OpenAI-compatible", "http://localhost:1234", false, "", false],
+  "new-ollama": ["Ollama", "Local · OpenAI-compatible", "http://localhost:11434", false, "", false],
+  "new-mlx": ["MLX server", "Local · OpenAI-compatible", "http://localhost:8080", false, "", false],
+  "new-anthropic": ["Anthropic", "Cloud · Anthropic", "https://api.anthropic.com", true, "", true],
+  "new-openai": ["OpenAI", "Cloud · OpenAI", "https://api.openai.com", true, "", true],
+  "new-openrouter": ["OpenRouter", "Cloud · OpenAI-compatible", "https://openrouter.ai/api", true, "", true],
+  "new-custom-oai": ["My server", "Custom · OpenAI-compatible", "https://", false, "", true],
+  "new-custom-ant": ["My server", "Custom · Anthropic-compatible", "https://", false, "", true],
+};
+const $ = (id) => document.getElementById(id);
+document.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => {
+  const [name, kind, url, fixed, model, key] = C[b.dataset.edit];
+  const isNew = b.dataset.edit.startsWith("new-");
+  $("sheetTitle").textContent = isNew ? "Add connection" : "Edit connection";
+  $("fName").value = name; $("fKind").value = kind; $("fUrl").value = url; $("fUrl").readOnly = fixed;
+  $("fModel").value = model; $("keyRow").hidden = !key; $("del").hidden = isNew;
+  $("fTest").textContent = isNew ? "" : "Reachable · lists models, generates nothing";
+  $("addMenu").hidden = true; $("scrim").hidden = false;
+}));
+$("addBtn").addEventListener("click", () => { $("addMenu").hidden = !$("addMenu").hidden; });
+["cancel", "save", "del"].forEach((id) => $(id).addEventListener("click", () => { $("scrim").hidden = true; }));
+$("scrim").addEventListener("click", (e) => { if (e.target.id === "scrim") $("scrim").hidden = true; });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") { $("scrim").hidden = true; $("addMenu").hidden = true; } });
+document.querySelectorAll(".theme button").forEach((b) => b.addEventListener("click", () => {
+  if (b.dataset.t) document.documentElement.dataset.theme = b.dataset.t; else delete document.documentElement.dataset.theme;
+}));
+</script>
+</body>
+</html>
