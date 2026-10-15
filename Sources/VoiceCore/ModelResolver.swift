@@ -79,6 +79,28 @@ public enum ModelResolver {
     }
 }
 
+extension ModelResolver {
+    /// Transforms and Ask use the Notes model with the long time limit of
+    /// Meetings: 10 minutes for a local server, 2 minutes for a cloud one.
+    public static func transformPlan(
+        settings: ModelSettings,
+        cliPaths: [CLITool: String],
+        appleIntelligenceAvailable: Bool
+    ) -> ModelPlan {
+        let notes = plan(for: .notes, settings: settings, cliPaths: cliPaths, appleIntelligenceAvailable: appleIntelligenceAvailable)
+        switch notes {
+        case .connection(let connection, let url, let modelID, let disableThinking, _):
+            return .connection(
+                connection, baseURL: url, modelID: modelID, disableThinking: disableThinking,
+                timeout: ConnectionAddress.isLocal(url) ? localTimeout : cloudTimeout)
+        case .appleIntelligence:
+            return .appleIntelligence(timeout: cloudTimeout)
+        case .none, .unavailable, .cli:
+            return notes
+        }
+    }
+}
+
 /// The text model a dictation uses, with what the pipeline needs to call it.
 public struct CleanupModel: Sendable {
     public var model: any TextModel

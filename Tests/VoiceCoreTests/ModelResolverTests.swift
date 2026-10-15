@@ -88,3 +88,30 @@ struct ModelResolverTests {
         #expect(await base.requests.first?.disableThinking == true)
     }
 }
+
+struct TransformPlanTests {
+    let lan = ModelConnection(id: "lmstudio", name: "LM Studio", kind: .openAICompatible, baseURL: "http://localhost:1234", model: "qwen3.8-27b-mlx")
+    let cloud = ModelConnection(id: "anthropic-1", name: "Anthropic", kind: .anthropic, baseURL: "", model: "claude-sonnet-5-5")
+
+    func plan(_ s: ModelSettings, apple: Bool = false) -> ModelPlan {
+        ModelResolver.transformPlan(settings: s, cliPaths: [:], appleIntelligenceAvailable: apple)
+    }
+
+    @Test func usesNotesModelWithLongTimeouts() {
+        var s = ModelSettings()
+        s.connections = [lan, cloud]
+        s.dictation = ModelUse(engine: .connection("lmstudio"), disableThinking: true)
+        s.dictationTimeoutSeconds = 5
+        #expect(plan(s) == .connection(lan, baseURL: URL(string: "http://localhost:1234")!, modelID: "qwen3.8-27b-mlx", disableThinking: true, timeout: 600))
+        s.notes = ModelUse(engine: .connection("anthropic-1"))
+        #expect(plan(s) == .connection(cloud, baseURL: URL(string: "https://api.anthropic.com")!, modelID: "claude-sonnet-5-5", disableThinking: false, timeout: 120))
+    }
+
+    @Test func appleIntelligenceAndNone() {
+        var s = ModelSettings()
+        s.dictation = ModelUse(engine: .appleIntelligence)
+        #expect(plan(s, apple: true) == .appleIntelligence(timeout: 120))
+        s.dictation = ModelUse(engine: .none)
+        #expect(plan(s) == ModelPlan.none)
+    }
+}
