@@ -42,6 +42,7 @@ version and build live in `App/Info.plist`. App icon source is `App/Icon/AppIcon
 - Notes spec: `docs/superpowers/specs/2026-10-14-notes-design.md`
 - Notes plan: `docs/superpowers/plans/2026-10-14-notes.md`
 - Notes execution log: `docs/progress/notes-log.md`
+- Roadmap (next sub-projects, dropped ideas): `docs/ROADMAP.md`
 
 ## Rules
 
