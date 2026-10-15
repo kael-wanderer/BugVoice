@@ -227,3 +227,4 @@ Review-focus inputs: zero-length file; 48 kHz stereo or 5.1; video track only;
 source removed/moved while reading; three-hour-or-longer file. A reader already
 holding an open file may complete after its pathname disappears; a read failure
 must never produce truncated ready audio.
+| 135 | Notes | Open a note that has text (fresh launch, then select another note and back) | Body text shows in the editor and wraps at the window width (BV-0006) | |

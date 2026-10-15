@@ -459,6 +459,14 @@ private struct NotesBodyEditor: NSViewRepresentable {
         scroll.hasVerticalScroller = true
         scroll.borderType = .noBorder
         scroll.drawsBackground = false
+        // A text view made with frame .zero stays 0 pt wide and draws nothing
+        // unless it grows with the scroll view.
+        editor.minSize = .zero
+        editor.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+        editor.isVerticallyResizable = true
+        editor.isHorizontallyResizable = false
+        editor.autoresizingMask = [.width]
+        editor.textContainer?.widthTracksTextView = true
         scroll.documentView = editor
         controller.attachEditor(editor, to: noteID)
         context.coordinator.editor = editor
