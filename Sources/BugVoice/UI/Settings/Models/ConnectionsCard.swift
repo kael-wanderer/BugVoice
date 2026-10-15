@@ -10,7 +10,7 @@ struct ConnectionsCard: View {
             HStack(alignment: .firstTextBaseline) {
                 Text("Connections").font(.headline)
                 Spacer()
-                Text("Each keeps its own API key in Keychain.").font(.caption).foregroundStyle(.secondary)
+                Text("Each keeps its own API key on this Mac.").font(.caption).foregroundStyle(.secondary)
             }
             .padding(.bottom, 8)
             if model.settings.models.connections.isEmpty {
@@ -66,7 +66,7 @@ struct ConnectionsCard: View {
 
     private func keyState(_ c: ModelConnection) -> String {
         let local = ConnectionAddress.baseURL(for: c).map(ConnectionAddress.isLocal) ?? false
-        let hasKey = !(model.keychain.read(c.keychainAccount) ?? "").isEmpty
+        let hasKey = !(model.credentials.read(c.credentialAccount) ?? "").isEmpty
         if hasKey { return "\(c.kind.isCloud ? "Cloud" : c.kind.title) · key saved" }
         return local ? "Local · no key needed" : "\(c.kind.isCloud ? "Cloud" : c.kind.title) · no key yet"
     }

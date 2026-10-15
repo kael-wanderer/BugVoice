@@ -51,7 +51,8 @@ enum Page: String, CaseIterable, Identifiable {
 @Observable
 final class AppModel {
     let paths = AppPaths.standard()
-    let keychain = Keychain()
+    /// API keys. See `CredentialStore`.
+    let credentials = CredentialStore(url: AppPaths.standard().credentials)
     @ObservationIgnored let notesStore: NotesStore
     @ObservationIgnored let notesController: NotesController
     @ObservationIgnored let store = SettingsStore(url: AppPaths.standard().settings)
@@ -102,7 +103,7 @@ final class AppModel {
     var permissionStatus: [PermissionKind: Bool] = [:]
     var systemAudioPermissionFailed = false
     /// The latest failure to save something (settings, Dictionary, history,
-    /// Keychain, login item). The UI shows it and sets it back to nil once
+    /// API key, login item). The UI shows it and sets it back to nil once
     /// the user has seen it. Never cleared by a later success.
     var saveError: String?
 
@@ -137,8 +138,9 @@ final class AppModel {
         }
         await notesController.reloadList()
         let loaded = store.load()
+        importKeychainKeys(connections: loaded.models.connections)
         whisper = WhisperKitTranscriber(modelName: loaded.speech.whisperModel, downloadBase: paths.models)
-        priorityTranscriber = PriorityTranscriber(base: ProviderFactory.transcriber(loaded.speech, whisper: whisper, keychain: keychain))
+        priorityTranscriber = PriorityTranscriber(base: ProviderFactory.transcriber(loaded.speech, whisper: whisper, credentials: credentials))
         await transcriptionRouter.replace(with: priorityTranscriber)
         // Loading is not a change: no save, no model reload, no login-item call.
         isLoadingSettings = true
@@ -221,7 +223,7 @@ final class AppModel {
     private func rebuildSpeechTranscriber() {
         let speech = settings.speech
         let replacementWhisper = WhisperKitTranscriber(modelName: speech.whisperModel, downloadBase: paths.models)
-        let replacement = PriorityTranscriber(base: ProviderFactory.transcriber(speech, whisper: replacementWhisper, keychain: keychain))
+        let replacement = PriorityTranscriber(base: ProviderFactory.transcriber(speech, whisper: replacementWhisper, credentials: credentials))
         speechState = speech.engine == .whisperKit ? .notLoaded : .ready
         Task { [weak self] in
             guard let self else { return }
@@ -288,7 +290,7 @@ final class AppModel {
         DictationPipeline(
             transcriber: transcriptionRouter,
             cleanup: ProviderFactory.cleanupModel(
-                plan(for: feature), keychain: keychain, fallbackTimeout: settings.models.dictationTimeoutSeconds
+                plan(for: feature), credentials: credentials, fallbackTimeout: settings.models.dictationTimeoutSeconds
             ),
             insertion: insertion,
             focus: FocusInspector(),
@@ -329,11 +331,11 @@ final class AppModel {
     private func applyPendingKeyMoves() {
         let moves = settings.models.pendingKeyMoves
         guard !moves.isEmpty else { return }
-        for move in moves where keychain.read(move.to) == nil {
-            guard let value = keychain.read(move.from), !value.isEmpty else { continue }
+        for move in moves where credentials.read(move.to) == nil {
+            guard let value = credentials.read(move.from), !value.isEmpty else { continue }
             do {
-                try keychain.write(value, account: move.to)
-                try keychain.write(nil, account: move.from)
+                try credentials.write(value, account: move.to)
+                try credentials.write(nil, account: move.from)
             } catch {
                 saveError = "Could not move the API key: \(error.localizedDescription)"
             }
@@ -349,7 +351,7 @@ final class AppModel {
         }
         do {
             let models = try await ModelCatalog.list(
-                baseURL: url, apiKey: keychain.read(connection.keychainAccount),
+                baseURL: url, apiKey: credentials.read(connection.credentialAccount),
                 anthropic: connection.kind.usesAnthropicAPI
             )
             connectionStatus[connection.id] = .reachable(models: models)
@@ -536,7 +538,7 @@ final class AppModel {
             await refreshCLIs()
         }
         let plan = plan(for: .meetings)
-        guard var textModel = ProviderFactory.textModel(plan, keychain: keychain) else {
+        guard var textModel = ProviderFactory.textModel(plan, credentials: credentials) else {
             throw MeetingGenerationError.noTextModel
         }
         if case .connection(_, _, _, let disableThinking, _) = plan, disableThinking {
@@ -630,23 +632,35 @@ final class AppModel {
         }
     }
 
-    // MARK: Keychain
+    // MARK: API keys
 
-    /// Returns false, and sets `saveError`, when the Keychain refused the write.
+    /// Copies keys saved by older builds from the Keychain into
+    /// `credentials.json` once, then deletes them from the Keychain. macOS
+    /// asks for the login password one last time for each key it finds.
+    private func importKeychainKeys(connections: [ModelConnection]) {
+        guard !credentials.keychainImported else { return }
+        let keychain = Keychain()
+        let accounts = ["speech-openai", "openai", "anthropic"] + connections.map(\.credentialAccount)
+        do {
+            let moved = try credentials.importLegacy(accounts: accounts, read: keychain.read)
+            for account in moved { try? keychain.write(nil, account: account) }
+        } catch {
+            saveError = "Could not copy the API keys from Keychain: \(error.localizedDescription)"
+        }
+    }
+
+    /// Returns false, and sets `saveError`, when the key could not be saved.
     @discardableResult
     func saveKey(_ value: String, account: String) -> Bool {
         do {
-            try keychain.write(value, account: account)
+            try credentials.write(value, account: account)
             if account == "speech-openai", settings.speech.engine == .openAICompatible {
                 speechAPIKeyGeneration &+= 1
                 rebuildSpeechTranscriber()
             }
             return true
-        } catch let error as KeychainError {
-            saveError = "Could not save the key in Keychain (error \(error.status))."
-            return false
         } catch {
-            saveError = "Could not save the key in Keychain: \(error.localizedDescription)"
+            saveError = "Could not save the key: \(error.localizedDescription)"
             return false
         }
     }

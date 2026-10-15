@@ -1,6 +1,8 @@
 import Foundation
 import Security
 
+/// The old home of API keys. Read once at launch to import them into
+/// `CredentialStore`, then emptied.
 public struct Keychain: Sendable {
     public let service: String
 

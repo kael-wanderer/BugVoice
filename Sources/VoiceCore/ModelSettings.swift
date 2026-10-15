@@ -40,7 +40,7 @@ public enum CLITool: String, Codable, Sendable, CaseIterable {
     }
 }
 
-/// A model server. Its API key is in Keychain under `keychainAccount`.
+/// A model server. Its API key is in `CredentialStore` under `credentialAccount`.
 public struct ModelConnection: Codable, Equatable, Sendable, Identifiable {
     public var id: String
     public var name: String
@@ -58,7 +58,7 @@ public struct ModelConnection: Codable, Equatable, Sendable, Identifiable {
         self.model = model
     }
 
-    public var keychainAccount: String { "connection-\(id)" }
+    public var credentialAccount: String { "connection-\(id)" }
 
     /// Lowercase ASCII letters, digits and `-`; never `cli-…`.
     public static func isValidID(_ id: String) -> Bool {
@@ -166,7 +166,7 @@ extension ModelUse {
     }
 }
 
-/// A Keychain item to copy once from the old single-key layout.
+/// A saved key to copy once from the old single-key layout.
 public struct KeyMove: Equatable, Sendable {
     public var from: String
     public var to: String

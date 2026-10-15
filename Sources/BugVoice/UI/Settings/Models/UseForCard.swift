@@ -160,7 +160,7 @@ struct UseForCard: View {
         testing = true
         defer { testing = false }
         guard let cleanup = ProviderFactory.cleanupModel(
-            model.plan(for: .dictation), keychain: model.keychain, fallbackTimeout: model.settings.models.dictationTimeoutSeconds
+            model.plan(for: .dictation), credentials: model.credentials, fallbackTimeout: model.settings.models.dictationTimeoutSeconds
         ) else {
             testOutput = "Dictation cleanup is set to None."
             return

@@ -67,7 +67,7 @@ struct ModelSettingsTests {
         #expect(s.dictation.model == "x")
     }
 
-    @Test func connectionIDsAndKeychainAccount() {
+    @Test func connectionIDsAndCredentialAccount() {
         #expect(ModelConnection.isValidID("anthropic-1a2b3c"))
         #expect(!ModelConnection.isValidID(""))
         #expect(!ModelConnection.isValidID("cli-codex"))
@@ -76,7 +76,7 @@ struct ModelSettingsTests {
         let id = ModelConnection.newID(for: .openRouter)
         #expect(id.hasPrefix("openrouter-"))
         #expect(ModelConnection.isValidID(id))
-        #expect(ModelConnection(id: "x-1", name: "", kind: .openAI, baseURL: "", model: "").keychainAccount == "connection-x-1")
+        #expect(ModelConnection(id: "x-1", name: "", kind: .openAI, baseURL: "", model: "").credentialAccount == "connection-x-1")
     }
 
     @Test(arguments: [

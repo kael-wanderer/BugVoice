@@ -181,3 +181,4 @@ blank until the maintainer runs each check.
 | 99 | codex and pi | Repeat 98 with Codex, then Pi | Summary generated each time | |
 | 100 | Cancel | Start a CLI-backed summary and cancel it | The process ends within 2 s | |
 | 101 | Menu bar | Switch "Dictation model" in the menu | The Dictation row in Settings → Models changes to match | |
+| 102 | Keys | Launch over a build that kept keys in Keychain; allow each prompt; quit; rebuild; launch again | Prompts once per saved key, never again; `credentials.json` is `-rw-------`; Keychain Access shows no BugVoice items | |

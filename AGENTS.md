@@ -51,7 +51,10 @@ version and build live in `App/Info.plist`. App icon source is `App/Icon/AppIcon
   dependency is a maintainer decision and gets a `THIRD_PARTY_NOTICES.md` entry.
 - TDD for everything in `VoiceCore`: failing test first, then code. `swift test`
   must pass before every commit.
-- API keys live in Keychain (service `BugVoice`), never in `settings.json`.
+- API keys live in `credentials.json` (`CredentialStore`: folder 0700, file 0600),
+  never in `settings.json`. Not the Keychain: without an Apple Team ID, macOS ties
+  each Keychain item to the exact build, so every rebuild asked for the login
+  password. Keychain is read once at launch to import keys from older builds.
 - Build the app with `Scripts/build-app.sh`. It signs with the `Bugler Local Dev`
   identity so macOS keeps Microphone / Accessibility / Input Monitoring grants
   across rebuilds. Do not switch to ad hoc signing.

@@ -25,7 +25,7 @@ struct ConnectionSheet: View {
     private var addressChanged: Bool {
         !isNew && connection.baseURL.trimmingCharacters(in: .whitespaces) != original.baseURL.trimmingCharacters(in: .whitespaces)
     }
-    private var hadKey: Bool { !(model.keychain.read(original.keychainAccount) ?? "").isEmpty }
+    private var hadKey: Bool { !(model.credentials.read(original.credentialAccount) ?? "").isEmpty }
     private var showsKey: Bool {
         connection.kind.isCloud || !(ConnectionAddress.baseURL(for: connection).map(ConnectionAddress.isLocal) ?? true)
             || hadKey
@@ -85,7 +85,7 @@ struct ConnectionSheet: View {
         defer { testing = false }
         guard let url = ConnectionAddress.baseURL(for: connection) else { return }
         let typed = key.trimmingCharacters(in: .whitespaces)
-        let apiKey = typed.isEmpty && !keyRemoved && !addressChanged ? model.keychain.read(original.keychainAccount) : typed
+        let apiKey = typed.isEmpty && !keyRemoved && !addressChanged ? model.credentials.read(original.credentialAccount) : typed
         do {
             models = try await ModelCatalog.list(baseURL: url, apiKey: apiKey, anthropic: connection.kind.usesAnthropicAPI)
             testResult = models.count == 1 ? "Reachable · 1 model" : "Reachable · \(models.count) models"
@@ -98,9 +98,9 @@ struct ConnectionSheet: View {
         let typed = key.trimmingCharacters(in: .whitespaces)
         do {
             if !typed.isEmpty {
-                try model.keychain.write(typed, account: connection.keychainAccount)
+                try model.credentials.write(typed, account: connection.credentialAccount)
             } else if keyRemoved || (addressChanged && hadKey) {
-                try model.keychain.write(nil, account: connection.keychainAccount)
+                try model.credentials.write(nil, account: connection.credentialAccount)
             }
         } catch {
             model.saveError = "Could not save the API key: \(error.localizedDescription)"
@@ -120,7 +120,7 @@ struct ConnectionSheet: View {
 
     /// The key goes with the connection. Rows that used it show "Choose a model".
     private func delete() {
-        try? model.keychain.write(nil, account: original.keychainAccount)
+        try? model.credentials.write(nil, account: original.credentialAccount)
         model.settings.models.connections.removeAll { $0.id == original.id }
         model.connectionStatus[original.id] = nil
         dismiss()

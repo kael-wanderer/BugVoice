@@ -14,14 +14,14 @@ struct UnavailableModel: TextModel {
 
 @MainActor
 enum ProviderFactory {
-    static func textModel(_ plan: ModelPlan, keychain: Keychain) -> (any TextModel)? {
+    static func textModel(_ plan: ModelPlan, credentials: CredentialStore) -> (any TextModel)? {
         switch plan {
         case .none:
             return nil
         case .unavailable(let reason):
             return UnavailableModel(reason: reason)
         case .connection(let connection, let url, let modelID, _, let timeout):
-            let key = keychain.read(connection.keychainAccount)
+            let key = credentials.read(connection.credentialAccount)
             if connection.kind.usesAnthropicAPI {
                 return AnthropicCompatibleModel(baseURL: url, model: modelID, apiKey: key, requestTimeout: timeout)
             }
@@ -43,8 +43,8 @@ enum ProviderFactory {
         }
     }
 
-    static func cleanupModel(_ plan: ModelPlan, keychain: Keychain, fallbackTimeout: Double) -> CleanupModel? {
-        guard let model = textModel(plan, keychain: keychain) else { return nil }
+    static func cleanupModel(_ plan: ModelPlan, credentials: CredentialStore, fallbackTimeout: Double) -> CleanupModel? {
+        guard let model = textModel(plan, credentials: credentials) else { return nil }
         switch plan {
         case .connection(_, _, let modelID, let disableThinking, let timeout):
             return CleanupModel(model: model, modelID: modelID, shortName: plan.shortName, disableThinking: disableThinking, timeoutSeconds: timeout)
@@ -55,13 +55,13 @@ enum ProviderFactory {
         }
     }
 
-    static func transcriber(_ s: SpeechSettings, whisper: WhisperKitTranscriber, keychain: Keychain) -> any Transcriber {
+    static func transcriber(_ s: SpeechSettings, whisper: WhisperKitTranscriber, credentials: CredentialStore) -> any Transcriber {
         switch s.engine {
         case .whisperKit:
             return whisper
         case .openAICompatible:
             let url = URL(string: s.serverBaseURL) ?? URL(string: "http://localhost:8000")!
-            return OpenAICompatibleTranscriber(baseURL: url, model: s.serverModel, apiKey: keychain.read("speech-openai"))
+            return OpenAICompatibleTranscriber(baseURL: url, model: s.serverModel, apiKey: credentials.read("speech-openai"))
         }
     }
 }
