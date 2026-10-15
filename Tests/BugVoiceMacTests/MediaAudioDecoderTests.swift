@@ -62,13 +62,9 @@ struct MediaAudioDecoderTests {
     @Test func resamplesAndDownmixes() async throws {
         let root = try directory()
         defer { try? FileManager.default.removeItem(at: root) }
-        for channels in [1, 2] {
+        for channels in [1, 2, 6] {
             let url = root.appendingPathComponent("audio-\(channels).m4a")
-            do {
-                try await UploadAssetFactory.make(at: url, rate: channels == 1 ? 16_000 : 48_000, channels: channels)
-            } catch {
-                throw error
-            }
+            try await UploadAssetFactory.make(at: url, rate: channels == 1 ? 16_000 : 48_000, channels: channels)
             let metadata = try await MediaAudioDecoder.probe(url)
             #expect(metadata.kind == .audio)
             #expect(abs(metadata.duration - 3) < 0.1)
@@ -81,10 +77,16 @@ struct MediaAudioDecoderTests {
             let block = try reader.readSamples(maxCount: 16_000)
             let rms = AudioClip(samples: block).rms
             // Apple's 5.1-to-mono matrix lowers level more than a stereo average does.
-            #expect(rms > 0.20)
+            #expect(rms > (channels == 6 ? 0.10 : 0.20))
             #expect(rms <= 0.8)
         }
-        print("5.1 and combined audio/video fixture encoders unavailable in the automated test environment; see device checks 105 and 119.")
+        let mov = root.appendingPathComponent("av.mov")
+        try await UploadAssetFactory.make(at: mov, rate: 48_000, channels: 2, video: true)
+        let movie = try await MediaAudioDecoder.probe(mov)
+        #expect(movie.kind == .video)
+        let movieWriter = MeetingPCMJournalWriter(directory: root.appendingPathComponent("capture-mov"))
+        try await MediaAudioDecoder.decode(mov, metadata: movie, writer: movieWriter, boundary: {}, progress: { _ in })
+        #expect(abs((try movieWriter.storedCheckpoint().track(.file)?.sampleCount ?? 0) - 48_000) < 1_600)
     }
 
     @Test func threeHourTimelineUsesBoundedBlocks() async throws {

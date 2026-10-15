@@ -58,7 +58,8 @@ enum UploadAssetFactory {
             writer.add(audioInput)
         }
         let videoInput = AVAssetWriterInput(mediaType: .video, outputSettings: [
-            AVVideoCodecKey: AVVideoCodecType.h264,
+            // Motion JPEG has no frame reordering, so the writer never holds audio back waiting for video.
+            AVVideoCodecKey: AVVideoCodecType.jpeg,
             AVVideoWidthKey: 16,
             AVVideoHeightKey: 16
         ])
@@ -67,6 +68,10 @@ enum UploadAssetFactory {
             kCVPixelBufferWidthKey as String: 16,
             kCVPixelBufferHeightKey as String: 16
         ])
+        // Test fixtures are written as fast as possible; real-time mode stops the writer
+        // from blocking one input while it waits to interleave the other.
+        audioInput.expectsMediaDataInRealTime = true
+        videoInput.expectsMediaDataInRealTime = true
         if video {
             guard writer.canAdd(videoInput) else { throw CocoaError(.featureUnsupported) }
             writer.add(videoInput)
@@ -85,7 +90,8 @@ enum UploadAssetFactory {
                 for frame in 0..<frames {
                     let value = Float(sin(2 * Double.pi * 440 * Double(block * frames + frame) / rate) * 0.4)
                     for channel in 0..<channels {
-                        samples[frame * channels + channel] = channel == 3 && channels == 6 ? 0 : value
+                        // 5.1 (L R C LFE Ls Rs): dialogue sits in the center channel, as in real films.
+                        samples[frame * channels + channel] = channels == 6 ? (channel == 2 ? value : 0) : value
                     }
                 }
                 var buffer: CMBlockBuffer?
