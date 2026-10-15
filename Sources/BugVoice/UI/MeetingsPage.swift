@@ -17,6 +17,8 @@ struct MeetingsPage: View {
     @Bindable var model: AppModel
     @State private var player = MeetingPlayerModel()
     @State private var pendingDelete: MeetingManifest?
+    @State private var pendingRename: MeetingManifest?
+    @State private var renameTitle = ""
 
     private var groups: [MeetingDayGroup] {
         MeetingListProjection.groups(meetings: model.meetingManifests, query: model.meetingSearchQuery)
@@ -78,6 +80,10 @@ struct MeetingsPage: View {
                                         model.selectedMeetingID = meeting.id
                                     }
                                     .contextMenu {
+                                        Button("Rename…") {
+                                            renameTitle = meeting.title
+                                            pendingRename = meeting
+                                        }
                                         if meeting.state != .recording, meeting.state != .paused {
                                             Button("Delete…", role: .destructive) { pendingDelete = meeting }
                                         }
@@ -101,6 +107,33 @@ struct MeetingsPage: View {
         } message: { _ in
             Text("The transcript and audio files will be deleted.")
         }
+        .sheet(item: $pendingRename) { meeting in
+            MeetingRenameSheet(model: model, id: meeting.id, title: $renameTitle) { pendingRename = nil }
+        }
+    }
+}
+
+private struct MeetingRenameSheet: View {
+    let model: AppModel
+    let id: MeetingID
+    @Binding var title: String
+    let dismiss: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Rename meeting").font(.headline)
+            TextField("Meeting title", text: $title)
+            HStack {
+                Spacer()
+                Button("Cancel", action: dismiss)
+                Button("Save") {
+                    Task { await model.renameMeeting(id: id, title: title); dismiss() }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
+        .padding(20).frame(width: 360)
     }
 }
 
@@ -133,6 +166,8 @@ private struct MeetingListRow: View {
             .padding(9)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(selected ? Color.accentColor.opacity(0.15) : Color.clear, in: RoundedRectangle(cornerRadius: 8))
+            // Make the whole card clickable, not only the drawn text.
+            .contentShape(RoundedRectangle(cornerRadius: 8))
         }
         .buttonStyle(.plain)
     }
@@ -210,20 +245,7 @@ private struct MeetingDetails: View {
             Text("The transcript and audio files will be deleted.")
         }
         .sheet(isPresented: $showRename) {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Rename meeting").font(.headline)
-                TextField("Meeting title", text: $renameTitle)
-                HStack {
-                    Spacer()
-                    Button("Cancel") { showRename = false }
-                    Button("Save") {
-                        Task { await model.renameMeeting(id: meeting.id, title: renameTitle); showRename = false }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(renameTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                }
-            }
-            .padding(20).frame(width: 360)
+            MeetingRenameSheet(model: model, id: meeting.id, title: $renameTitle) { showRename = false }
         }
         .onChange(of: meeting.id) { _, _ in
             generationTask?.cancel()

@@ -209,6 +209,7 @@ Run after building with `Scripts/build-app.sh`. Results stay blank until run on 
 | 120 | Upload | Upload a music-only MP3 | No Russian/Japanese subtitle credits or "Music" lines in the transcript | |
 | 121 | Upload | Upload 6 or more files; page with Newer/Older; press Clear history | 5 per page, newest first; Clear history empties finished rows and every meeting stays in Meetings | |
 | 122 | Meetings | Right-click a meeting row; choose Delete…; confirm. Check More beside the title is a compact button | Meeting is gone from list and disk; right-click offers no Delete while recording | |
+| 123 | Meetings | Right-click a meeting row; choose Rename…; save. Click a row on its badge, status, time or last line | New title shows in list and details; clicking anywhere on the card selects it | |
 
 Review-focus inputs: zero-length file; 48 kHz stereo or 5.1; video track only;
 source removed/moved while reading; three-hour-or-longer file. A reader already
