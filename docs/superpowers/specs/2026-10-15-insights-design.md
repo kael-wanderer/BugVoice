@@ -31,7 +31,8 @@ Layout follows `docs/design/proposal-insights-page.html`.
 
 - The title bar is transparent and shows no title text. The sidebar runs the
   full window height; the traffic-light buttons sit on the sidebar.
-- The detail column keeps a toolbar row with the page name (e.g. "Insights").
+- Pages keep their own content unchanged. The Insights page draws its own title
+  row ("Insights"); no shared toolbar row is added.
 - The sidebar header with the app icon, "BugVoice" and the "Local" chip is
   removed; the storage badge moves into pages that need it.
 
@@ -56,7 +57,7 @@ Row 1 (four cards):
 | Card | Value | Subtitle |
 |---|---|---|
 | Words spoken | words in period | "All time · N today" / "Last 30 days · N today" |
-| Words per minute | words ÷ minutes spoken, in period | "Words ÷ time speaking" |
+| Words per minute | (words + note words) ÷ minutes spoken, in period | "Words ÷ time speaking" |
 | Dictations | dictations in period | period label |
 | Current streak | "N days" (always all-time, not affected by period) | "Longest: N days" |
 
@@ -131,13 +132,16 @@ is recorded (`yyyy-MM-dd`). An app with no name is stored as "Unknown".
 | Dictation with outcome `insertedInNote` | noteWords; `notes` +1 the first time that note is dictated into that day; recording seconds and 1 dictation also count |
 | Dictation with outcome `copiedSecureField` | nothing (no words of a secret are measured) |
 | Any other outcome (too short, nothing heard, failed, cancelled, note deleted, note save failed) | nothing |
-| Meeting stop (success or transcript failure, audio saved) | 1 meeting, its recorded duration in seconds |
+| Meeting stop (success or transcript failure, audio saved) | 1 meeting, its recorded duration in seconds (the recorder's elapsed time, pauses excluded); nothing when 0 s |
+
+Dictations are filed under the day of `startedAt`; meetings under the day they stop.
 
 Words = whitespace-separated tokens of the inserted text (same rule as
 `HistoryEntry.wordCount`). Vietnamese syllables each count as a word.
 
 Cleanup fixes = word-level edit distance between `raw` and `cleaned` when
-`cleaned` exists; 0 otherwise. `WordErrorRate` gains a public
+`cleaned` exists; 0 otherwise. Like `WordErrorRate`, case and punctuation
+changes are not counted. `WordErrorRate` gains a public
 `editDistance(reference:hypothesis:) -> Int` that `compute` reuses.
 
 Insights records **before** the history retention check, so it counts when
@@ -148,8 +152,8 @@ for that day (note identifiers only, no titles or text); `notes` is its count.
 
 ### 3.3 Backfill
 
-On launch, if `backfilledFromHistory` is false (or the file is missing), every
-entry in `history.jsonl` is added by the same rules, then the flag is set. It
+On launch, before history retention pruning runs, if `backfilledFromHistory`
+is false (or the file is missing), every entry in `history.jsonl` is added by the same rules, then the flag is set. It
 runs once; Reset insights sets the flag to true so a reset is not undone by a
 backfill. Meetings are not backfilled.
 
