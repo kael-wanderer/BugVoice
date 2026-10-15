@@ -129,6 +129,7 @@ final class PermissionsWindowController: NSObject, NSWindowDelegate {
         window.isReleasedWhenClosed = false
         window.delegate = self
         window.center()
+        AppWindow.placeForDevelopment(window)
         return window
     }
 

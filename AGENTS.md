@@ -58,6 +58,12 @@ version and build live in `App/Info.plist`. App icon source is `App/Icon/AppIcon
 - Build the app with `Scripts/build-app.sh`. It signs with the `Bugler Local Dev`
   identity so macOS keeps Microphone / Accessibility / Input Monitoring grants
   across rebuilds. Do not switch to ad hoc signing.
+- Run the dev app with `Scripts/run-dev-app.sh`, never a bare `open`. With two
+  displays its windows open on the one that is not primary, so the owner's
+  main display stays free; with one display they open as usual.
+  `BUGVOICE_DEV_SCREEN=primary Scripts/run-dev-app.sh` keeps them on the
+  primary display. Find the window's position before a screenshot or click,
+  and capture the BugVoice window itself, not a screen region.
 - Never paste into a secure text field. Never send audio or text off this Mac
   unless the user configured a remote server.
 - UI copy: plain English, no hedging words, no emoji.

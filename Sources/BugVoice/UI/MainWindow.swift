@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import VoiceCore
 
 struct MainWindow: View {
     @Bindable var model: AppModel
@@ -89,6 +90,7 @@ final class MainWindowController: NSObject, NSWindowDelegate {
             window.center()
         }
         window.setFrameAutosaveName("BugVoiceMain")
+        AppWindow.placeForDevelopment(window)
         return window
     }
 
@@ -112,5 +114,23 @@ enum AppWindow {
                 && ($0.identifier.map(ours.contains) ?? false)
         }
         if !otherVisible { NSApp.setActivationPolicy(.accessory) }
+    }
+
+    /// Development runs only (see `DevScreen`): centers a new window on a
+    /// display that is not primary. Does nothing on a normal launch or with
+    /// one display.
+    static func placeForDevelopment(_ window: NSWindow) {
+        let screens = NSScreen.screens
+        let displays = screens.map { DevScreen.Display(x: $0.frame.minX, y: $0.frame.minY) }
+        // NSScreen.screens[0] is the display with the menu bar.
+        let setting = ProcessInfo.processInfo.environment[DevScreen.environmentKey]
+        guard let index = DevScreen.choose(displays, primary: displays.first, setting: setting) else { return }
+        let visible = screens[index].visibleFrame
+        let size = NSSize(
+            width: min(window.frame.width, visible.width),
+            height: min(window.frame.height, visible.height))
+        window.setFrame(
+            NSRect(x: visible.midX - size.width / 2, y: visible.midY - size.height / 2, width: size.width, height: size.height),
+            display: false)
     }
 }
