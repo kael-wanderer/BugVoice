@@ -10,43 +10,55 @@ struct StorageTab: View {
     @State private var confirmResetInsights = false
 
     var body: some View {
-        Form {
-            LabeledContent("Data folder") {
-                HStack {
-                    Text(model.paths.root.path).font(.system(.callout, design: .monospaced)).textSelection(.enabled)
+        SettingsScroll {
+            SettingsCard {
+                SettingsRow(title: "Data folder") {
+                    Text(model.paths.root.path).font(.system(.callout, design: .monospaced)).textSelection(.enabled).lineLimit(1)
                     Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([model.paths.root]) }
                 }
+                Divider()
+                SettingsRow(title: "Disk used") {
+                    Text(format(sizes.values.reduce(0, +))).foregroundStyle(.secondary)
+                }
             }
-            LabeledContent("Disk used", value: format(sizes.values.reduce(0, +)))
-            Section {
+            SettingsCard {
                 row("Speech models", path: model.paths.models, detail: model.settings.speech.whisperModel) {
                     Button("Show") { NSWorkspace.shared.activateFileViewerSelecting([model.paths.models]) }
                 }
+                Divider()
                 row("Dictation history", path: model.paths.history, detail: "\(model.history.count) entries") {
                     Button("Clear…") { confirmClear = true }
                 }
+                Divider()
                 row("Insights", path: model.paths.insights, detail: "\(model.insights.days.count) \(model.insights.days.count == 1 ? "day" : "days")") {
                     Button("Reset…") { confirmResetInsights = true }
                         .disabled(model.insightsReadOnly)
                 }
+                Divider()
                 row("Last recording (last.wav)", path: model.paths.lastRecording, detail: "1 file") { EmptyView() }
                 if FileManager.default.fileExists(atPath: model.paths.meetings.path) {
+                    Divider()
                     row("Meetings", path: model.paths.meetings, detail: "\(model.meetingManifests.count) meetings") {
                         Button("Show") { NSWorkspace.shared.activateFileViewerSelecting([model.paths.meetings]) }
                     }
                 }
+                Divider()
                 row("Notes", path: model.paths.notes, detail: "\(model.notesController.notes.count) notes") {
                     Button("Show") { NSWorkspace.shared.activateFileViewerSelecting([model.paths.notes]) }
                 }
             }
-            Picker("Keep dictation history", selection: retentionBinding) {
-                Text("Forever").tag(Retention.forever)
-                Text("30 days").tag(Retention.days30)
-                Text("7 days").tag(Retention.days7)
-                Text("Don't save").tag(Retention.off)
+            SettingsCard {
+                SettingsRow(title: "Keep dictation history") {
+                    Picker("Keep dictation history", selection: retentionBinding) {
+                        Text("Forever").tag(Retention.forever)
+                        Text("30 days").tag(Retention.days30)
+                        Text("7 days").tag(Retention.days7)
+                        Text("Don't save").tag(Retention.off)
+                    }
+                    .labelsHidden().fixedSize()
+                }
             }
         }
-        .formStyle(.grouped)
         .task { await measure() }
         .confirmationDialog("Delete all dictation history?", isPresented: $confirmClear) {
             Button("Delete", role: .destructive) { Task { await model.clearHistory(); await measure() } }

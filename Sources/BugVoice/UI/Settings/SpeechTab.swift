@@ -14,42 +14,60 @@ struct SpeechTab: View {
     ]
 
     var body: some View {
-        Form {
-            Picker("Engine", selection: $model.settings.speech.engine) {
-                Text("WhisperKit (on device)").tag(SpeechEngine.whisperKit)
-                Text("OpenAI-compatible server").tag(SpeechEngine.openAICompatible)
-            }
-            .pickerStyle(.segmented)
-
-            if model.settings.speech.engine == .whisperKit {
-                LabeledContent("Model") {
-                    HStack {
-                        Picker("", selection: $model.settings.speech.whisperModel) {
+        SettingsScroll {
+            SettingsCard {
+                SettingsRow(title: "Engine") {
+                    Picker("Engine", selection: $model.settings.speech.engine) {
+                        Text("WhisperKit (on device)").tag(SpeechEngine.whisperKit)
+                        Text("OpenAI-compatible server").tag(SpeechEngine.openAICompatible)
+                    }
+                    .pickerStyle(.segmented).labelsHidden().fixedSize()
+                }
+                Divider()
+                if model.settings.speech.engine == .whisperKit {
+                    SettingsRow(title: "Model") {
+                        Text(stateText).foregroundStyle(.secondary)
+                        Picker("Model", selection: $model.settings.speech.whisperModel) {
                             ForEach(Self.whisperModels, id: \.0) { Text($0.1).tag($0.0) }
                         }
-                        .labelsHidden()
-                        Text(stateText).foregroundStyle(.secondary)
+                        .labelsHidden().fixedSize()
+                    }
+                } else {
+                    SettingsRow(title: "Base URL") {
+                        TextField("Base URL", text: $model.settings.speech.serverBaseURL)
+                            .textFieldStyle(.roundedBorder).labelsHidden().frame(maxWidth: 360)
+                    }
+                    SettingsRow(title: "Model") {
+                        TextField("Model", text: $model.settings.speech.serverModel)
+                            .textFieldStyle(.roundedBorder).labelsHidden().frame(maxWidth: 360)
+                    }
+                    SettingsRow(title: "API key") {
+                        KeyField(model: model, title: "Paste the key", account: "speech-openai")
+                            .textFieldStyle(.roundedBorder).frame(maxWidth: 360)
                     }
                 }
-            } else {
-                TextField("Base URL", text: $model.settings.speech.serverBaseURL)
-                TextField("Model", text: $model.settings.speech.serverModel)
-                KeyField(model: model, title: "API key (stored in Keychain)", account: "speech-openai")
             }
-
-            Picker("Language", selection: $model.settings.speech.language) {
-                Text("Auto").tag(SpeechLanguage.auto)
-                Text("Vietnamese").tag(SpeechLanguage.vi)
-                Text("English").tag(SpeechLanguage.en)
-            }
-            .pickerStyle(.segmented)
-            Toggle("Use Dictionary words as hints", isOn: $model.settings.speech.useVocabularyHints)
-            Picker("Microphone", selection: $model.settings.speech.microphoneUID) {
-                Text("System default").tag(String?.none)
-                ForEach(devices) { Text($0.name).tag(Optional($0.id)) }
+            SettingsCard {
+                SettingsRow(title: "Language") {
+                    Picker("Language", selection: $model.settings.speech.language) {
+                        Text("Auto").tag(SpeechLanguage.auto)
+                        Text("Vietnamese").tag(SpeechLanguage.vi)
+                        Text("English").tag(SpeechLanguage.en)
+                    }
+                    .pickerStyle(.segmented).labelsHidden().fixedSize()
+                }
+                Divider()
+                SettingsToggle(title: "Use Dictionary words as hints", isOn: $model.settings.speech.useVocabularyHints)
+                Divider()
+                SettingsRow(title: "Microphone") {
+                    Picker("Microphone", selection: $model.settings.speech.microphoneUID) {
+                        Text("System default").tag(String?.none)
+                        ForEach(devices) { Text($0.name).tag(Optional($0.id)) }
+                    }
+                    .labelsHidden().fixedSize()
+                }
             }
         }
-        .formStyle(.grouped)
         .task {
             devices = AudioDevices.inputs()
             await model.refreshSpeechState()
