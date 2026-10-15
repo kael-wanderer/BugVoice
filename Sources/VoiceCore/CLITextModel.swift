@@ -85,7 +85,22 @@ public enum CLIOutput {
         if ["/login", "not logged in", "please log in", "codex login", "unauthorized"].contains(where: said.contains) {
             throw CLIOutputError.signedOut(tool)
         }
-        throw CLIOutputError.noAnswer(tool, detail: String(result.stderr.trimmingCharacters(in: .whitespacesAndNewlines).suffix(300)))
+        var detail = result.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
+        if detail.isEmpty, tool == .pi { detail = piError(result.stdout) ?? "" }
+        throw CLIOutputError.noAnswer(tool, detail: String(detail.suffix(300)))
+    }
+
+    /// Pi reports a provider failure as an assistant message with
+    /// `stopReason: "error"` on stdout.
+    private static func piError(_ stdout: String) -> String? {
+        var found: String?
+        for line in stdout.split(whereSeparator: \.isNewline) {
+            guard let event = json(String(line)), let message = event["message"] as? [String: Any],
+                  message["role"] as? String == "assistant", message["stopReason"] as? String == "error"
+            else { continue }
+            found = nonEmpty(message["errorMessage"] as? String) ?? found
+        }
+        return found
     }
 
     private static func parsed(tool: CLITool, stdout: String, codexAnswer: String?) throws -> String? {

@@ -97,6 +97,13 @@ struct CLITextModelTests {
         #expect(try answer(.pi, stdout: stdout) == "final answer")
     }
 
+    /// Pi reports provider failures in stdout, not stderr.
+    @Test func piErrorMessageIsShown() {
+        let stdout = #"{"type":"agent_end","messages":[{"role":"assistant","content":[],"stopReason":"error","errorMessage":"401: Invalid API key"}]}"#
+            + "\n" + #"{"type":"message_end","message":{"role":"assistant","content":[],"stopReason":"error","errorMessage":"401: Invalid API key"}}"#
+        #expect(throws: CLIOutputError.noAnswer(.pi, detail: "401: Invalid API key")) { try answer(.pi, stdout: stdout) }
+    }
+
     /// A meeting about access control is still a summary, not a sign-in problem.
     @Test(arguments: CLITool.allCases)
     func answerMentioningLoginWordsIsKept(tool: CLITool) throws {
