@@ -22,9 +22,27 @@ public protocol TextModel: Sendable {
     func clean(_ request: CleanupRequest) async throws -> String
 }
 
-public enum ProviderError: Error, Equatable, Sendable {
+public enum ProviderError: Error, Equatable, Sendable, LocalizedError {
     case invalidURL(String)
     case http(status: Int, body: String)
     case malformedResponse(String)
     case unavailable(String)
+    case redirected
+
+    public var errorDescription: String? {
+        switch self {
+        case .invalidURL(let url): "The address \(url) is not valid."
+        case .http(let status, let body):
+            switch status {
+            case 401, 403: "The key was refused."
+            case 404: "The model or address was not found."
+            case 429: "The service is rate limiting requests."
+            case 500...599: "The service had an error."
+            default: body.isEmpty ? "The service answered with status \(status)." : "The service answered with status \(status): \(body.prefix(200))"
+            }
+        case .malformedResponse: "The service sent an answer BugVoice could not read."
+        case .unavailable(let reason): reason
+        case .redirected: "The server redirected the request. BugVoice does not follow it with a key."
+        }
+    }
 }

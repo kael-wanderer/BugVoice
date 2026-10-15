@@ -14,16 +14,23 @@ struct UnavailableModel: TextModel {
 
 @MainActor
 enum ProviderFactory {
-    static func textModel(_ s: TextModelSettings, keychain: Keychain) -> (any TextModel)? {
-        switch s.provider {
+    static func textModel(_ plan: ModelPlan, keychain: Keychain) -> (any TextModel)? {
+        switch plan {
         case .none:
             return nil
-        case .openAICompatible:
-            guard let url = URL(string: s.baseURL), url.scheme != nil else { return UnavailableModel(reason: "Invalid base URL") }
-            return OpenAICompatibleModel(baseURL: url, model: s.model, apiKey: keychain.read("openai"))
-        case .anthropicCompatible:
-            guard let url = URL(string: s.baseURL), url.scheme != nil else { return UnavailableModel(reason: "Invalid base URL") }
-            return AnthropicCompatibleModel(baseURL: url, model: s.model, apiKey: keychain.read("anthropic"), version: s.anthropicVersion)
+        case .unavailable(let reason):
+            return UnavailableModel(reason: reason)
+        case .connection(let connection, let url, let modelID, _, let timeout):
+            let key = keychain.read(connection.keychainAccount)
+            if connection.kind.usesAnthropicAPI {
+                return AnthropicCompatibleModel(baseURL: url, model: modelID, apiKey: key, requestTimeout: timeout)
+            }
+            let flavor: OpenAICompatibleModel.Flavor = switch connection.kind {
+            case .openAI: .openAI
+            case .openRouter: .openRouter
+            default: .local
+            }
+            return OpenAICompatibleModel(baseURL: url, model: modelID, apiKey: key, flavor: flavor, requestTimeout: timeout)
         case .appleIntelligence:
             #if canImport(FoundationModels)
             if #available(macOS 26.0, *), AppleIntelligenceModel.isAvailable {
@@ -31,6 +38,20 @@ enum ProviderFactory {
             }
             #endif
             return UnavailableModel(reason: "Apple Intelligence is not available on this Mac")
+        case .cli(let tool, let path, let model, let effort, let timeout):
+            return CLITextModel(tool: tool, executable: path, model: model, effort: effort, timeout: timeout, runner: FoundationProcessRunner())
+        }
+    }
+
+    static func cleanupModel(_ plan: ModelPlan, keychain: Keychain, fallbackTimeout: Double) -> CleanupModel? {
+        guard let model = textModel(plan, keychain: keychain) else { return nil }
+        switch plan {
+        case .connection(_, _, let modelID, let disableThinking, let timeout):
+            return CleanupModel(model: model, modelID: modelID, shortName: plan.shortName, disableThinking: disableThinking, timeoutSeconds: timeout)
+        case .appleIntelligence(let timeout):
+            return CleanupModel(model: model, modelID: "apple-intelligence", shortName: plan.shortName, timeoutSeconds: timeout)
+        case .none, .unavailable, .cli:
+            return CleanupModel(model: model, modelID: "", shortName: nil, timeoutSeconds: fallbackTimeout)
         }
     }
 

@@ -7,7 +7,7 @@ struct SettingsView: View {
         TabView {
             GeneralTab(model: model).tabItem { Label("General", systemImage: "gearshape") }
             SpeechTab(model: model).tabItem { Label("Speech", systemImage: "mic") }
-            TextModelTab(model: model).tabItem { Label("Text model", systemImage: "cpu") }
+            ModelsTab(model: model).tabItem { Label("Models", systemImage: "cpu") }
             MeetingsTab(model: model).tabItem { Label("Meetings", systemImage: "waveform.path") }
             StorageTab(model: model).tabItem { Label("Storage", systemImage: "internaldrive") }
         }

@@ -78,7 +78,7 @@ public struct DictationResult: Sendable, Equatable {
 
 public struct DictationPipeline: Sendable {
     public var transcriber: any Transcriber
-    public var textModel: (any TextModel)?
+    public var cleanup: CleanupModel?
     public var insertion: any InsertionTarget
     public var focus: any FocusProvider
     public var settings: AppSettings
@@ -89,14 +89,14 @@ public struct DictationPipeline: Sendable {
 
     public init(
         transcriber: any Transcriber,
-        textModel: (any TextModel)?,
+        cleanup: CleanupModel?,
         insertion: any InsertionTarget,
         focus: any FocusProvider,
         settings: AppSettings,
         vocabulary: Vocabulary
     ) {
         self.transcriber = transcriber
-        self.textModel = textModel
+        self.cleanup = cleanup
         self.insertion = insertion
         self.focus = focus
         self.settings = settings
@@ -173,18 +173,18 @@ public struct DictationPipeline: Sendable {
         var cleanedAccepted = false
 
         // Clean
-        if let model = textModel, settings.cleanupEnabled, settings.styles.isCleanupEnabled(for: style) {
-            onStage(.cleaning(model: settings.textModel.model))
+        if let cleanup, settings.cleanupEnabled, settings.styles.isCleanupEnabled(for: style) {
+            onStage(.cleaning(model: cleanup.modelID))
             mark = Date()
             var built = PromptBuilder(customRules: settings.styles.customRules).request(
                 raw: protected.text, style: style, focus: startFocus, vocabulary: vocabulary,
-                modelID: settings.textModel.model, disableThinking: settings.textModel.disableThinking
+                modelID: cleanup.modelID, disableThinking: cleanup.disableThinking
             )
             built.maxTokens = min(1024, 2 * protected.text.count + 50)
             let request = built
             do {
-                let output = try await withTimeout(seconds: settings.textModel.timeoutSeconds) {
-                    try await model.clean(request)
+                let output = try await withTimeout(seconds: cleanup.timeoutSeconds) {
+                    try await cleanup.model.clean(request)
                 }
                 switch OutputSanitizer.sanitize(output, raw: protected.text) {
                 case .accepted(let cleaned) where protected.isIntact(cleaned):
@@ -199,7 +199,7 @@ public struct DictationPipeline: Sendable {
                 result.rawReason = .modelTimeout
             } catch {
                 result.rawReason = .modelError
-                result.errorMessage = String(describing: error)
+                result.errorMessage = error.localizedDescription
             }
             result.timings.clean = Date().timeIntervalSince(mark)
         } else {

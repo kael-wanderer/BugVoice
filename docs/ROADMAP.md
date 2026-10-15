@@ -27,8 +27,9 @@ implementation, like Dictation, Meetings and Notes before it.
 
 ## Notes on scope
 
-- Cloud API keys may already work: text cleanup speaks OpenAI-compatible and
-  Anthropic-compatible APIs with the key in Keychain. Item 3 starts by checking that.
+- Item 3 replaced the single text model with connections (each with its own
+  Keychain key) and a model per feature; `claude`, `codex` and `pi` can write
+  meeting notes. Gemini was left out.
 - Coding CLIs take several seconds per call: fine for summaries and Ask AI,
   too slow for dictation cleanup.
 - Item 2 replaced `vocabulary.txt` with `dictionary.json` (words, heard-as

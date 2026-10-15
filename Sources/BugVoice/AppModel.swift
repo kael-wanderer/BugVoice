@@ -10,7 +10,13 @@ import WhisperEngine
 
 private enum MeetingGenerationError: LocalizedError {
     case noTextModel
-    var errorDescription: String? { "Choose a text model in Settings before generating meeting notes." }
+    var errorDescription: String? { "Choose a model for Meeting notes in Settings → Models." }
+}
+
+/// The last Test connection result this session. Not saved.
+enum ConnectionStatus: Equatable {
+    case reachable(models: [String])
+    case failed(String)
 }
 
 /// Main-window pages, in sidebar order.
@@ -81,6 +87,9 @@ final class AppModel {
     var lastResult: DictationResult?
     var page: Page = .dictation
     var speechState: WhisperKitTranscriber.LoadState = .notLoaded
+    /// Coding CLIs found on this Mac, looked up at launch and when Settings → Models opens.
+    var cliInfo: [CLITool: CLIInfo] = [:]
+    var connectionStatus: [String: ConnectionStatus] = [:]
     var hotkeyActive = false
     /// Global shortcuts another app already holds, e.g. "⌃⌥V Paste last".
     var unavailableShortcuts: [String] = []
@@ -135,6 +144,7 @@ final class AppModel {
         isLoadingSettings = true
         settings = loaded
         isLoadingSettings = false
+        applyPendingKeyMoves()
 
         await loadDictionary()
         await loadInsights()
@@ -152,6 +162,7 @@ final class AppModel {
         await recoverUnfinishedMeetings()
         await applyMeetingRetention()
         Task { await prepareSpeech() }
+        Task { await refreshCLIs() }
     }
 
     /// Configured from the settings just loaded (loading does not fire
@@ -273,15 +284,78 @@ final class AppModel {
 
     // MARK: Dictation
 
-    func makePipeline(insertion: any InsertionTarget) -> DictationPipeline {
+    func makePipeline(insertion: any InsertionTarget, feature: ModelFeature) -> DictationPipeline {
         DictationPipeline(
             transcriber: transcriptionRouter,
-            textModel: ProviderFactory.textModel(settings.textModel, keychain: keychain),
+            cleanup: ProviderFactory.cleanupModel(
+                plan(for: feature), keychain: keychain, fallbackTimeout: settings.models.dictationTimeoutSeconds
+            ),
             insertion: insertion,
             focus: FocusInspector(),
             settings: settings,
             vocabulary: vocabulary
         )
+    }
+
+    // MARK: Models
+
+    var appleIntelligenceAvailable: Bool {
+        #if canImport(FoundationModels)
+        if #available(macOS 26.0, *) { return AppleIntelligenceModel.isAvailable }
+        #endif
+        return false
+    }
+
+    func plan(for feature: ModelFeature) -> ModelPlan {
+        ModelResolver.plan(
+            for: feature, settings: settings.models,
+            cliPaths: cliInfo.mapValues(\.path),
+            appleIntelligenceAvailable: appleIntelligenceAvailable
+        )
+    }
+
+    func refreshCLIs() async {
+        let runner = FoundationProcessRunner()
+        var found: [CLITool: CLIInfo] = [:]
+        for tool in CLITool.allCases {
+            if let info = await CLILocator.locate(tool, runner: runner) { found[tool] = info }
+        }
+        cliInfo = found
+    }
+
+    /// Copies keys saved under the old single-key accounts to their new
+    /// connections once, then forgets the moves (which saves the settings
+    /// in the new format).
+    private func applyPendingKeyMoves() {
+        let moves = settings.models.pendingKeyMoves
+        guard !moves.isEmpty else { return }
+        for move in moves where keychain.read(move.to) == nil {
+            guard let value = keychain.read(move.from), !value.isEmpty else { continue }
+            do {
+                try keychain.write(value, account: move.to)
+                try keychain.write(nil, account: move.from)
+            } catch {
+                saveError = "Could not move the API key: \(error.localizedDescription)"
+            }
+        }
+        settings.models.pendingKeyMoves = []
+    }
+
+    /// Lists the server's models; never asks for a generation.
+    func testConnection(_ connection: ModelConnection) async {
+        guard let url = ConnectionAddress.baseURL(for: connection) else {
+            connectionStatus[connection.id] = .failed(ConnectionAddress.problem(connection.baseURL) ?? "The address is not valid.")
+            return
+        }
+        do {
+            let models = try await ModelCatalog.list(
+                baseURL: url, apiKey: keychain.read(connection.keychainAccount),
+                anthropic: connection.kind.usesAnthropicAPI
+            )
+            connectionStatus[connection.id] = .reachable(models: models)
+        } catch {
+            connectionStatus[connection.id] = .failed(error.localizedDescription)
+        }
     }
 
     func captureNotesDictation(startFocus: FocusSnapshot) -> NotesDictationCapture? {
@@ -458,8 +532,15 @@ final class AppModel {
         progress: @escaping @Sendable (MeetingTextProgress) -> Void
     ) async throws -> String {
         var meeting = try await meetingStore.load(id: id)
-        guard let textModel = ProviderFactory.textModel(settings.textModel, keychain: keychain) else {
+        if case .cli(let tool) = settings.models.meetings.engine, cliInfo[tool] == nil {
+            await refreshCLIs()
+        }
+        let plan = plan(for: .meetings)
+        guard var textModel = ProviderFactory.textModel(plan, keychain: keychain) else {
             throw MeetingGenerationError.noTextModel
+        }
+        if case .connection(_, _, _, let disableThinking, _) = plan, disableThinking {
+            textModel = ThinkingOverride(base: textModel, disableThinking: true)
         }
         let text = try await MeetingTextGenerator().generate(
             transcript: meeting.segments,

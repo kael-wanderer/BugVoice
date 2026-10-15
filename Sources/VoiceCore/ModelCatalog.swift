@@ -7,7 +7,7 @@ public enum ModelCatalog {
     }
 
     /// `GET {base}/v1/models`. Both API families return `{ data: [{ id }] }`.
-    public static func list(baseURL: URL, apiKey: String?, anthropic: Bool, session: URLSession = .shared) async throws -> [String] {
+    public static func list(baseURL: URL, apiKey: String?, anthropic: Bool, session: URLSession = HTTP.noRedirectSession) async throws -> [String] {
         var request = URLRequest(url: Endpoint.join(baseURL, "models"), timeoutInterval: 10)
         if let apiKey, !apiKey.isEmpty {
             if anthropic {
@@ -17,7 +17,7 @@ public enum ModelCatalog {
             }
         }
         if anthropic { request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version") }
-        let data = try await HTTP.send(request, session: session)
+        let data = try await HTTP.send(request, session: session, redactBody: !(apiKey ?? "").isEmpty)
         return try HTTP.decode(Listing.self, from: data).data.map(\.id)
     }
 }
