@@ -64,20 +64,20 @@ public actor NotesStore {
         return try read(id: id, url: url)
     }
 
-    public func create(title: String, body: String = "") throws -> NoteDocument {
+    public func create(title: String, body: String = "", frontMatter: NoteFrontMatter = NoteFrontMatter()) throws -> NoteDocument {
         try ensureDirectory()
         let existing = try markdownFilenames()
         let slug = NotesSlug.available(title, existingFilenames: existing)
         let candidateID = NoteID(rawValue: slug)
         let id = pathsByID[candidateID] == nil ? candidateID : NoteID()
         let url = directory.appendingPathComponent("\(slug).md")
-        let data = NotesMarkdownDocument.serialize(title: title, body: body)
+        let data = NotesMarkdownDocument.serialize(title: title, body: body, frontMatter: frontMatter)
         try durableReplace(data, at: url)
         let version = try fingerprint(at: url)
         pathsByID[id] = url.lastPathComponent
         highestSavedRevision[id] = 0
         lastWrittenVersions[id] = version
-        return NoteDocument(id: id, title: title, body: body, modifiedAt: version.modifiedAt, fileVersion: version, slug: slug)
+        return NoteDocument(id: id, title: title, body: body, modifiedAt: version.modifiedAt, fileVersion: version, slug: slug, frontMatter: frontMatter)
     }
 
     public func save(
@@ -108,7 +108,7 @@ public actor NotesStore {
             guard keepMine, confirmedExternalVersion == nil else { return .missingConflict }
         }
 
-        let data = NotesMarkdownDocument.serialize(title: note.title, body: note.body)
+        let data = NotesMarkdownDocument.serialize(title: note.title, body: note.body, frontMatter: note.frontMatter)
         try durableReplace(data, at: url)
         let version = try fingerprint(at: url)
         highestSavedRevision[note.id] = note.revision
@@ -130,7 +130,7 @@ public actor NotesStore {
         let filenames = try markdownFilenames()
         let slug = NotesSlug.available(title, existingFilenames: filenames, excludingFilename: source.lastPathComponent)
         let destination = directory.appendingPathComponent("\(slug).md")
-        let data = NotesMarkdownDocument.serialize(title: title, body: previous.body)
+        let data = NotesMarkdownDocument.serialize(title: title, body: previous.body, frontMatter: previous.frontMatter)
         try durableReplace(data, at: destination)
         if source != destination {
             guard unlink(source.path) == 0 else { throw posixError() }
@@ -223,7 +223,8 @@ public actor NotesStore {
             modifiedAt: version.modifiedAt,
             fileVersion: version,
             needsNormalization: parsed.needsNormalization,
-            slug: url.deletingPathExtension().lastPathComponent
+            slug: url.deletingPathExtension().lastPathComponent,
+            frontMatter: parsed.frontMatter
         )
     }
 

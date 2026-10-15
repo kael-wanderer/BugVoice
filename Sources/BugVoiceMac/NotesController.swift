@@ -72,11 +72,11 @@ public final class NotesController {
     }
 
     @discardableResult
-    public func create(title: String = "Untitled") async throws -> NoteDocument {
+    public func create(title: String = "Untitled", frontMatter: NoteFrontMatter = NoteFrontMatter()) async throws -> NoteDocument {
         if let selectedNoteID {
             guard await flush(id: selectedNoteID) else { throw NotesControllerError.saveFailed(selectedNoteID) }
         }
-        let note = try await store.create(title: title)
+        let note = try await store.create(title: title, frontMatter: frontMatter)
         loaded[note.id] = LoadedNote(note: note)
         selectedNoteID = note.id
         await reloadList()
@@ -337,6 +337,22 @@ public final class NotesController {
         state.note.modifiedAt = .now
         state.isDirty = true
         state.saveError = nil
+        scheduleSave(id: id)
+        changed()
+    }
+
+    /// Changes a note's folder and tags. Loads the note if needed; the change
+    /// rides the same autosave as body edits, so unsaved typing is kept.
+    public func setLabels(id: NoteID, folderID: FolderID?, tags: [String]) async throws {
+        try await load(id: id)
+        guard let state = loaded[id] else { return }
+        guard state.note.frontMatter.folderID != folderID || state.note.frontMatter.tags != tags else { return }
+        state.note.frontMatter.folderID = folderID
+        state.note.frontMatter.tags = tags
+        state.note.revision &+= 1
+        state.isDirty = true
+        state.saveError = nil
+        updateListRow(state.note)
         scheduleSave(id: id)
         changed()
     }
