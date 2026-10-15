@@ -391,6 +391,19 @@ struct MeetingSessionTests {
         #expect(await rig.finalizer.cleanupObservedReadyManifest)
     }
 
+    @Test func labelsSetDuringRecordingSurviveStop() async throws {
+        let rig = SessionRig()
+        let session = rig.makeSession()
+        let started = try await session.start(labels: ItemLabels(folderID: FolderID(rawValue: "f1")))
+        #expect(started.folderID == FolderID(rawValue: "f1"))
+        try await session.setLabels(folderID: FolderID(rawValue: "f2"), tags: ["acme"], suggestedTags: nil)
+        let stopped = try await session.stop()
+        #expect(stopped.folderID == FolderID(rawValue: "f2"))
+        #expect(stopped.tags == ["acme"])
+        let saved = await rig.store.meetings[stopped.id]
+        #expect(saved?.tags == ["acme"])
+    }
+
     private func chunk(_ id: String, track: MeetingTrack, segments: [MeetingSegment]) -> MeetingChunkProcessingResult {
         MeetingChunkProcessingResult(record: MeetingChunkRecord(
             id: id, track: track, offset: 0, duration: 30,

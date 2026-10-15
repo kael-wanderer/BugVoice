@@ -84,6 +84,17 @@ public actor MeetingSession {
         try await store.save(meeting)
     }
 
+    /// Folder and tag changes while this session owns the manifest. Pass nil
+    /// `suggestedTags` to leave the suggestions as they are.
+    public func setLabels(folderID: FolderID?, tags: [String], suggestedTags: [String]?) async throws {
+        guard var meeting = manifest else { throw MeetingSessionError.invalidState }
+        meeting.folderID = folderID
+        meeting.tags = tags
+        if let suggestedTags { meeting.suggestedTags = suggestedTags }
+        manifest = meeting
+        try await store.save(meeting)
+    }
+
     public func saveGeneratedText(_ text: String, kind: MeetingTextKind) async throws {
         guard var meeting = manifest else { throw MeetingSessionError.invalidState }
         if kind == .summary { meeting.summary = text }
@@ -147,10 +158,12 @@ public actor MeetingSession {
     }
 
     @discardableResult
-    public func start() async throws -> MeetingManifest {
+    public func start(labels: ItemLabels = ItemLabels()) async throws -> MeetingManifest {
         guard manifest == nil else { throw MeetingSessionError.invalidState }
         let now = clock.now()
         var meeting = MeetingManifest(id: meetingID, startedAt: now, state: .recording)
+        meeting.folderID = labels.folderID
+        meeting.tags = labels.tags
         manifest = meeting
         do {
             try await store.save(meeting)
