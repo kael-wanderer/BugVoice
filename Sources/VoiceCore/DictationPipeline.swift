@@ -173,7 +173,7 @@ public struct DictationPipeline: Sendable {
         var cleanedAccepted = false
 
         // Clean
-        if let model = textModel, style != .terminal, settings.cleanupEnabled, settings.styles.isCleanupEnabled(for: style) {
+        if let model = textModel, settings.cleanupEnabled, settings.styles.isCleanupEnabled(for: style) {
             onStage(.cleaning(model: settings.textModel.model))
             mark = Date()
             var built = PromptBuilder(customRules: settings.styles.customRules).request(

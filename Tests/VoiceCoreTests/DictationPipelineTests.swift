@@ -381,6 +381,17 @@ struct DictationPipelineTests {
         #expect(r.finalText == "here is linkedin.com/in/kael")
     }
 
+    @Test func terminalCleansWhenItsSwitchIsOn() async {
+        var s = AppSettings()
+        s.styles.cleanupEnabled[Style.terminal.rawValue] = true
+        let model = RecordingModel(output: "git status")
+        let r = await pipeline(transcriber: FakeTranscriber(text: "um git status"), model: model, focusAtInsert: terminalFocus, settings: s)
+            .run(clip: speechClip, startFocus: terminalFocus, startedAt: Date(), onStage: { _ in })
+        #expect(await model.requests.count == 1)
+        #expect(r.rawReason == nil)
+        #expect(r.finalText == "git status")
+    }
+
     @Test func terminalFillsSnippetWithoutModelCall() async {
         let model = RecordingModel()
         let r = await pipeline(transcriber: FakeTranscriber(text: "open my linkedin"), model: model, focusAtInsert: terminalFocus, vocabulary: Self.dictionaryVocab)
