@@ -125,7 +125,7 @@ For every dictation (`DictationPipeline`):
 7. **Fill**: each placeholder → its snippet text, exactly.
 8. Insert.
 
-When cleanup is off, the model is unavailable, or the style is Terminal: steps 4–5 are skipped; 6–7 still run.
+When cleanup is off (the master switch, or the style's switch — off by default for Terminal) or the model is unavailable: steps 4–5 are skipped; 6–7 still run.
 
 Trigger matching:
 - Whole words, case-insensitive, NFC on both sides.
