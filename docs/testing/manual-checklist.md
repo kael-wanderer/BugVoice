@@ -222,9 +222,9 @@ Run after building with `Scripts/build-app.sh`. Results stay blank until run on 
 | 132 | Meetings / Notes | Delete a folder that has items | Items show under Unfiled; no files deleted; page filter falls back to All | |
 | 133 | Notes | Tag and file a note, then open its .md file in TextEdit or Obsidian | File starts with --- folder/tags --- then # Title; other apps' keys kept after an edit | |
 | 134 | Meetings | While recording, change the meeting's folder and tags; stop | Labels kept after transcription finishes | |
+| 135 | Notes | Open a note that has text (fresh launch, then select another note and back) | Body text shows in the editor and wraps at the window width (BV-0006) | |
 
 Review-focus inputs: zero-length file; 48 kHz stereo or 5.1; video track only;
 source removed/moved while reading; three-hour-or-longer file. A reader already
 holding an open file may complete after its pathname disappears; a read failure
 must never produce truncated ready audio.
-| 135 | Notes | Open a note that has text (fresh launch, then select another note and back) | Body text shows in the editor and wraps at the window width (BV-0006) | |
