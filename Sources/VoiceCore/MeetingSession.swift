@@ -54,6 +54,8 @@ public actor MeetingSession {
     private var activeStartedAt: Date?
     private var accumulatedActiveTime: TimeInterval = 0
     private var cancelRequested = false
+    private var uploadInvalidated = false
+    private var finalProgressFailure: (any Error)?
 
     public init(
         clock: any MeetingClock = SystemMeetingClock(),
@@ -107,6 +109,41 @@ public actor MeetingSession {
         meeting.segments = MeetingTranscriptMerger.merge(chunks)
         manifest = meeting
         try await store.save(meeting)
+    }
+
+    @discardableResult
+    public func transcribeUpload(_ meeting: MeetingManifest) async throws -> MeetingManifest {
+        guard manifest == nil, meeting.source == .upload, meeting.state == .transcribing,
+              meeting.duration.isFinite, meeting.duration > 0 else {
+            throw MeetingSessionError.invalidState
+        }
+        manifest = meeting
+        try await store.save(meeting)
+        return try await finishTranscription(meeting)
+    }
+
+    public func persistFinal(_ result: MeetingChunkProcessingResult) async throws {
+        guard !uploadInvalidated,
+              var meeting = manifest, meeting.state == .transcribing else {
+            throw MeetingSessionError.invalidState
+        }
+        meeting.chunks.removeAll { $0.id == result.record.id }
+        meeting.chunks.append(result.record)
+        var chunks = meeting.chunks.filter { $0.id != result.record.id }.map { record in
+            MeetingChunkProcessingResult(
+                record: record,
+                segments: meeting.segments.filter { $0.sourceChunkID == record.id }
+            )
+        }
+        chunks.append(result)
+        meeting.segments = MeetingTranscriptMerger.merge(chunks)
+        manifest = meeting
+        try await store.save(meeting)
+    }
+
+    public func invalidateUpload() async {
+        uploadInvalidated = true
+        cancelRequested = true
     }
 
     @discardableResult
@@ -216,6 +253,9 @@ public actor MeetingSession {
     @discardableResult
     public func recover(id: MeetingID) async throws -> MeetingManifest {
         var recovered = try await store.load(id: id)
+        if recovered.source == .upload, recovered.state == .interrupted {
+            throw MeetingSessionError.invalidState
+        }
         let checkpoint = try await audio.recover(id: id, manifest: recovered)
         if recovered.state == .recording || recovered.state == .paused {
             recovered.duration = checkpoint.tracks.map(\.endOffset).max() ?? recovered.duration
@@ -241,6 +281,7 @@ public actor MeetingSession {
         meeting.endedAt = meeting.endedAt ?? clock.now()
         meeting.transcriptionError = nil
         cancelRequested = false
+        finalProgressFailure = nil
         manifest = meeting
         try await store.save(meeting)
         return try await finishTranscription(meeting)
@@ -267,18 +308,29 @@ public actor MeetingSession {
 
     private func finishTranscription(_ initial: MeetingManifest) async throws -> MeetingManifest {
         var meeting = initial
+        var audioAttempted = false
         do {
             let meetingID = meeting.id
             let chunks = try await scheduler.transcribeFinal(meeting, chunkSeconds: 30) { [weak self] progress in
                 await self?.setTranscriptProgress(progress, meetingID: meetingID)
             }
-            guard !cancelRequested else { return manifest ?? meeting }
+            if initial.source == .recording, cancelRequested { return manifest ?? meeting }
+            try Task.checkCancellation()
+            guard !uploadInvalidated else { throw CancellationError() }
+            if initial.source == .upload, chunks.contains(where: { $0.record.state == .failed }) {
+                throw UploadFailure.transcript
+            }
+            if let finalProgressFailure { throw finalProgressFailure }
+            meeting = manifest ?? meeting
             meeting.chunks = chunks.map(\.record)
             meeting.segments = MeetingTranscriptMerger.merge(chunks)
             meeting.transcriptProgress = 1
             meeting.transcriptionError = nil
+            audioAttempted = true
             let finalized = try await finalizer.finalize(meeting)
-            guard !cancelRequested else { return manifest ?? meeting }
+            if initial.source == .recording, cancelRequested { return manifest ?? meeting }
+            try Task.checkCancellation()
+            guard !uploadInvalidated else { throw CancellationError() }
             var current = manifest ?? meeting
             current.audioFormat = finalized.audioFormat
             current.chunks = finalized.chunks
@@ -291,21 +343,51 @@ public actor MeetingSession {
             try? await finalizer.cleanupCapture()
             return current
         } catch {
-            if cancelRequested { return manifest ?? meeting }
-            var current = manifest ?? meeting
+            if initial.source == .recording {
+                if cancelRequested { return manifest ?? meeting }
+                var current = manifest ?? meeting
+                current.state = .transcribing
+                current.transcriptionError = String(describing: error)
+                manifest = current
+                try? await store.save(current)
+                throw error
+            }
+            if cancelRequested || uploadInvalidated || error is CancellationError {
+                throw CancellationError()
+            }
+            if UploadFailure.isDiskFull(error) { throw error }
+            var current = manifest ?? initial
+            var failure = UploadFailure.audioSave
+            if !audioAttempted {
+                do {
+                    current = try await finalizer.finalize(current)
+                    failure = .transcript
+                } catch {
+                    if UploadFailure.isDiskFull(error) { throw error }
+                    if error is CancellationError { throw error }
+                    failure = .audioSave
+                }
+            }
+            try Task.checkCancellation()
+            guard !uploadInvalidated else { throw CancellationError() }
             current.state = .transcribing
-            current.transcriptionError = String(describing: error)
+            current.transcriptionError = failure.localizedDescription
             manifest = current
-            try? await store.save(current)
-            throw error
+            try await store.save(current)
+            throw failure
         }
     }
 
     private func setTranscriptProgress(_ progress: Double, meetingID: MeetingID) async {
-        guard var meeting = manifest, meeting.id == meetingID, meeting.state == .transcribing else { return }
-        meeting.transcriptProgress = min(1, max(0, progress))
+        guard !uploadInvalidated,
+              var meeting = manifest, meeting.id == meetingID, meeting.state == .transcribing else { return }
+        meeting.transcriptProgress = progress.isFinite ? min(1, max(0, progress)) : nil
         manifest = meeting
-        try? await store.save(meeting)
+        do {
+            try await store.save(meeting)
+        } catch {
+            if meeting.source == .upload { finalProgressFailure = error }
+        }
     }
 
     private func elapsed(at now: Date) -> TimeInterval {

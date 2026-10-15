@@ -43,6 +43,13 @@ public enum MeetingRecoveryPolicy {
         case .ready, .failed: nil
         }
     }
+
+    public static func action(for manifest: MeetingManifest) -> MeetingRecoveryAction? {
+        if manifest.source == .upload {
+            return manifest.state == .transcribing ? .retryTranscription : nil
+        }
+        return action(for: manifest.state)
+    }
 }
 
 public enum MeetingSource: String, Codable, Sendable {
