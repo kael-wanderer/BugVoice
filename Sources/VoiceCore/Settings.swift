@@ -1,7 +1,31 @@
 import Foundation
 
 public enum Style: String, Codable, Sendable, CaseIterable {
-    case terminal, document, chat, email, other
+    case personal, work, email, document, terminal, other
+
+    public var title: String {
+        switch self {
+        case .personal: "Personal messages"
+        case .work: "Work messages"
+        case .email: "Email"
+        case .document: "Document"
+        case .terminal: "Terminal"
+        case .other: "Other"
+        }
+    }
+}
+
+extension Style {
+    public init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        if raw == "chat" {
+            self = .personal
+        } else if let style = Style(rawValue: raw) {
+            self = style
+        } else {
+            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Unknown style \(raw)"))
+        }
+    }
 }
 
 public enum HotkeyKey: String, Codable, Sendable, CaseIterable {
@@ -199,8 +223,25 @@ extension StyleSettings {
         cleanupEnabled = c.value(.cleanupEnabled, default: cleanupEnabled)
         // Decoded as strings so one unknown style drops only its own entry.
         let rawOverrides: [String: String] = c.value(.appOverrides, default: [:])
-        appOverrides = rawOverrides.compactMapValues(Style.init(rawValue:))
+        appOverrides = rawOverrides.reduce(into: [:]) { result, entry in
+            if entry.value == Self.legacyChat {
+                result[entry.key] = StyleRouter.defaultApps[entry.key] == .work ? .work : .personal
+            } else if let style = Style(rawValue: entry.value) {
+                result[entry.key] = style
+            }
+        }
         customRules = c.value(.customRules, default: customRules)
+        Self.splitLegacyChat(&cleanupEnabled)
+        Self.splitLegacyChat(&customRules)
+    }
+
+    static let legacyChat = "chat"
+
+    static func splitLegacyChat<Value>(_ values: inout [String: Value]) {
+        guard let value = values.removeValue(forKey: legacyChat) else { return }
+        for style in [Style.personal, .work] where values[style.rawValue] == nil {
+            values[style.rawValue] = value
+        }
     }
 }
 

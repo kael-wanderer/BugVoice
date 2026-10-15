@@ -43,7 +43,7 @@ struct SpeechTab: View {
                 Text("English").tag(SpeechLanguage.en)
             }
             .pickerStyle(.segmented)
-            Toggle("Use vocabulary as hints", isOn: $model.settings.speech.useVocabularyHints)
+            Toggle("Use Dictionary words as hints", isOn: $model.settings.speech.useVocabularyHints)
             Picker("Microphone", selection: $model.settings.speech.microphoneUID) {
                 Text("System default").tag(String?.none)
                 ForEach(devices) { Text($0.name).tag(Optional($0.id)) }

@@ -64,4 +64,17 @@ struct VocabularyTests {
         #expect(v.whisperPrompt() == "gamma, beta, alpha")
         #expect(v.whisperPrompt(maxCharacters: 14) == "gamma, beta")
     }
+
+    @Test func builtFromDictionary() throws {
+        var f = DictionaryFile()
+        f.addWords("Kael")
+        f.addWords("OpenWhispr")
+        f.addHeardAs("open whisper", to: f.words[0].id)
+        try f.addSnippet(trigger: "my linkedin", text: "linkedin.com/in/kael")
+        let v = Vocabulary(dictionary: f)
+        #expect(v.terms == ["Kael", "OpenWhispr"])
+        #expect(v.whisperPrompt() == "OpenWhispr, Kael")
+        #expect(v.applyReplacements(to: "open whisper rocks") == "OpenWhispr rocks")
+        #expect(v.snippets == f.snippets)
+    }
 }

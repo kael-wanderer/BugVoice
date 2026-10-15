@@ -9,6 +9,8 @@ public struct PromptBuilder: Sendable {
     Keep names, product names, code identifiers, file paths, and numbers exactly as spoken.
     """
 
+    static let placeholderRule = "Tokens like ⟦S1⟧ are placeholders. Keep every one exactly once, unchanged, where it belongs."
+
     public static func defaultRules(for style: Style) -> String {
         switch style {
         case .terminal:
@@ -17,7 +19,11 @@ public struct PromptBuilder: Sendable {
             "Remove filler words (um, uh, like, ờ, à, kiểu, thì là). Apply self-corrections such as \"no, I mean\" or \"à không\" by keeping only the corrected version. Add punctuation and capitalization. Split into paragraphs at topic changes. When the speaker lists items, format them as a Markdown list."
         case .email:
             "Write full sentences with punctuation. Keep greetings and sign-offs as spoken. Remove filler words and apply self-corrections."
-        case .chat, .other:
+        case .personal:
+            "Casual and warm. Remove filler words, add light punctuation, keep slang and the speaker's wording. No greeting or sign-off unless spoken."
+        case .work:
+            "Clear and short. Remove filler words, apply self-corrections such as \"no, I mean\" or \"à không\" by keeping only the corrected version, keep technical terms. One short paragraph; when the speaker lists items, use bullets."
+        case .other:
             "Light touch. Remove filler words, add punctuation, keep the casual tone and wording."
         }
     }
@@ -28,10 +34,11 @@ public struct PromptBuilder: Sendable {
         self.customRules = customRules
     }
 
-    public func systemPrompt(style: Style, vocabulary: Vocabulary, focus: FocusSnapshot) -> String {
+    public func systemPrompt(style: Style, vocabulary: Vocabulary, focus: FocusSnapshot, hasPlaceholders: Bool = false) -> String {
         var parts = [Self.sharedRules]
         let rules = customRules[style.rawValue].flatMap { $0.isEmpty ? nil : $0 } ?? Self.defaultRules(for: style)
         parts.append("Style: \(rules)")
+        if hasPlaceholders { parts.append(Self.placeholderRule) }
         if !vocabulary.terms.isEmpty {
             parts.append("Spell these terms exactly: \(vocabulary.terms.joined(separator: ", "))")
         }
@@ -58,7 +65,10 @@ public struct PromptBuilder: Sendable {
             user += "\n\n/no_think"
         }
         return CleanupRequest(
-            system: systemPrompt(style: style, vocabulary: vocabulary, focus: focus),
+            system: systemPrompt(
+                style: style, vocabulary: vocabulary, focus: focus,
+                hasPlaceholders: !SnippetExpander.placeholders(in: raw).isEmpty
+            ),
             user: user,
             disableThinking: suppressThinking
         )

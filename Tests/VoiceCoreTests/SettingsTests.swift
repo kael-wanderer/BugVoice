@@ -54,7 +54,28 @@ struct SettingsTests {
         let json = #"{"styles":{"appOverrides":{"com.a":"document","com.b":"poem","com.c":"chat"}}}"#
         try Data(json.utf8).write(to: url)
         let overrides = SettingsStore(url: url).load().styles.appOverrides
-        #expect(overrides == ["com.a": .document, "com.c": .chat])
+        #expect(overrides == ["com.a": .document, "com.c": .personal])
+    }
+
+    @Test func legacyChatOverrideFollowsBuiltInStyle() throws {
+        let url = tempDir().appendingPathComponent("settings.json")
+        let json = #"{"styles":{"appOverrides":{"com.tinyspeck.slackmacgap":"chat","com.vng.zalo":"chat","com.example.x":"chat","com.a":"document"}}}"#
+        try Data(json.utf8).write(to: url)
+        #expect(SettingsStore(url: url).load().styles.appOverrides == [
+            "com.tinyspeck.slackmacgap": .work,
+            "com.vng.zalo": .personal,
+            "com.example.x": .personal,
+            "com.a": .document,
+        ])
+    }
+
+    @Test func legacyChatRulesAndCleanupCopyWithoutOverwriting() throws {
+        let url = tempDir().appendingPathComponent("settings.json")
+        let json = #"{"styles":{"customRules":{"chat":"Only lowercase.","work":"Mine."},"cleanupEnabled":{"chat":false,"terminal":false}}}"#
+        try Data(json.utf8).write(to: url)
+        let styles = SettingsStore(url: url).load().styles
+        #expect(styles.customRules == ["personal": "Only lowercase.", "work": "Mine."])
+        #expect(styles.cleanupEnabled == ["personal": false, "work": false, "terminal": false])
     }
 
     @Test func corruptFileIsSetAsideAndDefaultsLoad() throws {

@@ -14,6 +14,8 @@ struct MainWindow: View {
             switch model.page {
             case .dictation: DictationHistoryView(model: model)
             case .insights: InsightsPage(model: model)
+            case .dictionary: DictionaryPage(model: model)
+            case .style: StylePage(model: model)
             case .meetings: MeetingsPage(model: model)
             case .notes: NotesPage(model: model)
             case .settings: SettingsView(model: model)

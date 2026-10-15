@@ -55,7 +55,7 @@ struct DictationHistoryView: View {
                 Text(e.startedAt.formatted(date: .omitted, time: .shortened)).font(.callout)
                 HStack(spacing: 4) {
                     Text(e.appName ?? "Unknown").font(.caption2).foregroundStyle(.secondary)
-                    if e.rawReason == .modelError || e.rawReason == .modelTimeout {
+                    if let reason = e.rawReason, [.modelError, .modelTimeout, .placeholderLost].contains(reason) {
                         Text("raw").font(.caption2).foregroundStyle(.orange)
                     }
                 }

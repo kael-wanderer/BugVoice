@@ -13,14 +13,16 @@ private enum MeetingGenerationError: LocalizedError {
     var errorDescription: String? { "Choose a text model in Settings before generating meeting notes." }
 }
 
-/// Main-window pages. Notes are reserved for sub-project 3.
+/// Main-window pages, in sidebar order.
 enum Page: String, CaseIterable, Identifiable {
-    case dictation, insights, meetings, notes, settings
+    case dictation, insights, dictionary, style, meetings, notes, settings
     var id: String { rawValue }
     var title: String {
         switch self {
         case .dictation: "Dictation"
         case .insights: "Insights"
+        case .dictionary: "Dictionary"
+        case .style: "Style"
         case .meetings: "Meetings"
         case .notes: "Notes"
         case .settings: "Settings"
@@ -30,6 +32,8 @@ enum Page: String, CaseIterable, Identifiable {
         switch self {
         case .dictation: "mic"
         case .insights: "chart.bar"
+        case .dictionary: "character.book.closed"
+        case .style: "paintbrush.pointed"
         case .meetings: "waveform.path"
         case .notes: "note.text"
         case .settings: "gearshape"
@@ -47,6 +51,8 @@ final class AppModel {
     @ObservationIgnored let store = SettingsStore(url: AppPaths.standard().settings)
     @ObservationIgnored let historyLog = HistoryLog(url: AppPaths.standard().history)
     @ObservationIgnored let insightsStore = InsightsStore(url: AppPaths.standard().insights)
+    @ObservationIgnored let dictionaryStore = DictionaryStore(url: AppPaths.standard().dictionary)
+    @ObservationIgnored private var dictionaryRevision = 0
     @ObservationIgnored private var meetingStore: MeetingStore { MeetingStore(root: paths.meetings) }
     @ObservationIgnored private(set) var whisper: WhisperKitTranscriber
     @ObservationIgnored private(set) var priorityTranscriber: PriorityTranscriber
@@ -59,7 +65,8 @@ final class AppModel {
             settingsDidChange(from: oldValue)
         }
     }
-    var vocabularyText = ""
+    var dictionary = DictionaryFile()
+    var dictionaryReadOnly = false
     var vocabulary = Vocabulary()
     var history: [HistoryEntry] = []
     /// Daily usage totals for the Insights page.
@@ -85,7 +92,7 @@ final class AppModel {
     var permissionsGranted = Permissions.allGranted
     var permissionStatus: [PermissionKind: Bool] = [:]
     var systemAudioPermissionFailed = false
-    /// The latest failure to save something (settings, vocabulary, history,
+    /// The latest failure to save something (settings, Dictionary, history,
     /// Keychain, login item). The UI shows it and sets it back to nil once
     /// the user has seen it. Never cleared by a later success.
     var saveError: String?
@@ -129,16 +136,7 @@ final class AppModel {
         settings = loaded
         isLoadingSettings = false
 
-        if !FileManager.default.fileExists(atPath: paths.vocabulary.path) {
-            do {
-                try "# One term per line. Use  spoken => written  for replacements.\n"
-                    .write(to: paths.vocabulary, atomically: true, encoding: .utf8)
-            } catch {
-                saveError = "Could not create vocabulary.txt: \(error.localizedDescription)"
-            }
-        }
-        vocabularyText = (try? String(contentsOf: paths.vocabulary, encoding: .utf8)) ?? ""
-        vocabulary = Vocabulary.parse(vocabularyText)
+        await loadDictionary()
         await loadInsights()
         startDictation()
         registerShortcut(kVK_ANSI_N, letter: "N", name: "New note") { [weak self] in
@@ -517,15 +515,37 @@ final class AppModel {
         }
     }
 
-    // MARK: Vocabulary
+    // MARK: Dictionary
 
-    func saveVocabulary(_ text: String) {
-        vocabularyText = text
-        vocabulary = Vocabulary.parse(text)
+    func loadDictionary() async {
         do {
-            try text.write(to: paths.vocabulary, atomically: true, encoding: .utf8)
+            try await dictionaryStore.migrateIfNeeded(vocabularyURL: paths.vocabulary)
         } catch {
-            saveError = "Could not save vocabulary.txt: \(error.localizedDescription)"
+            saveError = "Could not move vocabulary.txt into the Dictionary: \(error.localizedDescription)"
+        }
+        let (file, issue) = await dictionaryStore.load()
+        dictionary = file
+        vocabulary = Vocabulary(dictionary: file)
+        dictionaryReadOnly = issue == .newerVersion
+        switch issue {
+        case .none, .newerVersion: break
+        case .resetFromCorrupt:
+            saveError = "Dictionary file was damaged and has been reset. The old file is kept next to it."
+        }
+    }
+
+    func editDictionary(_ change: (inout DictionaryFile) throws -> Void) async rethrows {
+        guard !dictionaryReadOnly else { return }
+        var next = dictionary
+        try change(&next)
+        guard next != dictionary else { return }
+        dictionary = next
+        vocabulary = Vocabulary(dictionary: next)
+        dictionaryRevision += 1
+        do {
+            try await dictionaryStore.save(next, revision: dictionaryRevision)
+        } catch {
+            saveError = "Could not save the Dictionary: \(error.localizedDescription)"
         }
     }
 

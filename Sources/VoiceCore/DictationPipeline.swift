@@ -166,25 +166,32 @@ public struct DictationPipeline: Sendable {
             return result
         }
 
+        // Apply Dictionary corrections before protecting snippets. The
+        // snippet text itself remains outside the text model request.
+        let protected = SnippetExpander.protect(vocabulary.applyReplacements(to: raw), snippets: vocabulary.snippets)
+        var text = protected.text
+        var cleanedAccepted = false
+
         // Clean
-        var text = raw
         if let model = textModel, settings.cleanupEnabled, settings.styles.isCleanupEnabled(for: style) {
             onStage(.cleaning(model: settings.textModel.model))
             mark = Date()
             var built = PromptBuilder(customRules: settings.styles.customRules).request(
-                raw: raw, style: style, focus: startFocus, vocabulary: vocabulary,
+                raw: protected.text, style: style, focus: startFocus, vocabulary: vocabulary,
                 modelID: settings.textModel.model, disableThinking: settings.textModel.disableThinking
             )
-            built.maxTokens = min(1024, 2 * raw.count + 50)
+            built.maxTokens = min(1024, 2 * protected.text.count + 50)
             let request = built
             do {
                 let output = try await withTimeout(seconds: settings.textModel.timeoutSeconds) {
                     try await model.clean(request)
                 }
-                switch OutputSanitizer.sanitize(output, raw: raw) {
-                case .accepted(let cleaned):
-                    result.cleaned = cleaned
+                switch OutputSanitizer.sanitize(output, raw: protected.text) {
+                case .accepted(let cleaned) where protected.isIntact(cleaned):
                     text = cleaned
+                    cleanedAccepted = true
+                case .accepted:
+                    result.rawReason = .placeholderLost
                 case .rejected(let reason):
                     result.rawReason = reason
                 }
@@ -199,7 +206,8 @@ public struct DictationPipeline: Sendable {
             result.rawReason = .cleanupOff
         }
 
-        text = vocabulary.applyReplacements(to: text)
+        text = protected.fill(vocabulary.applyReplacements(to: text))
+        if cleanedAccepted { result.cleaned = text }
         if style == .terminal, text.hasSuffix("."), !text.hasSuffix("..") {
             text.removeLast()
         }

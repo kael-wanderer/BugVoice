@@ -1,7 +1,7 @@
 import Foundation
 
-/// Parsed `vocabulary.txt`: one term per line, `spoken => written` for exact
-/// replacements, `#` for comments. `\n` in `written` means a newline.
+/// Words, heard-as replacements and snippets used by a dictation. Built from
+/// the Dictionary; `parse` reads the old `vocabulary.txt` format.
 public struct Vocabulary: Sendable, Equatable {
     public struct Replacement: Sendable, Equatable {
         public var spoken: String
@@ -15,10 +15,22 @@ public struct Vocabulary: Sendable, Equatable {
 
     public var terms: [String]
     public var replacements: [Replacement]
+    public var snippets: [Snippet]
 
-    public init(terms: [String] = [], replacements: [Replacement] = []) {
+    public init(terms: [String] = [], replacements: [Replacement] = [], snippets: [Snippet] = []) {
         self.terms = terms
         self.replacements = replacements
+        self.snippets = snippets
+    }
+
+    public init(dictionary: DictionaryFile) {
+        self.init(
+            terms: dictionary.words.reversed().map(\.word),
+            replacements: dictionary.words.flatMap { word in
+                word.heardAs.map { Replacement(spoken: $0, written: word.word) }
+            },
+            snippets: dictionary.snippets
+        )
     }
 
     public static func parse(_ text: String) -> Vocabulary {
