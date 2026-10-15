@@ -183,7 +183,7 @@ public struct DictationPipeline: Sendable {
             built.maxTokens = min(1024, 2 * protected.text.count + 50)
             let request = built
             do {
-                let output = try await withTimeout(seconds: cleanup.timeoutSeconds) {
+                let output = try await withTimeout(seconds: CleanupTimeout.limit(base: cleanup.timeoutSeconds, raw: protected.text)) {
                     try await cleanup.model.clean(request)
                 }
                 switch OutputSanitizer.sanitize(output, raw: protected.text) {

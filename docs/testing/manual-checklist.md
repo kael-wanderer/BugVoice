@@ -210,6 +210,8 @@ Run after building with `Scripts/build-app.sh`. Results stay blank until run on 
 | 121 | Upload | Upload 6 or more files; page with Newer/Older; press Clear history | 5 per page, newest first; Clear history empties finished rows and every meeting stays in Meetings | |
 | 122 | Meetings | Right-click a meeting row; choose Delete…; confirm. Check More beside the title is a compact button | Meeting is gone from list and disk; right-click offers no Delete while recording | |
 | 123 | Meetings | Right-click a meeting row; choose Rename…; save. Click a row on its badge, status, time or last line | New title shows in list and details; clicking anywhere on the card selects it | |
+| 124 | Notes | Dictate twice at the end of a note | The second dictation starts after a space, never glued to the last word | |
+| 125 | Notes / Dictation | With a local 27B model and a 3 s limit, dictate about 45 words into a note and into Notion | Both are cleaned (punctuation, no fillers), not raw; short dictations stay as fast as before | |
 
 Review-focus inputs: zero-length file; 48 kHz stereo or 5.1; video track only;
 source removed/moved while reading; three-hour-or-longer file. A reader already

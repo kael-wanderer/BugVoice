@@ -166,6 +166,19 @@ struct DictationPipelineTests {
         #expect(Date().timeIntervalSince(start) < 2)
     }
 
+    @Test func longDictationGetsMoreTimeToClean() async {
+        let raw = Array(repeating: "note", count: 20).joined(separator: " ")
+        let cleaned = "Note " + Array(repeating: "note", count: 19).joined(separator: " ") + "."
+        // 0.2 s base + 0.1 s per word = 2.2 s, so a 1 s model still finishes.
+        let r = await pipeline(
+            transcriber: FakeTranscriber(text: raw),
+            model: FakeModel(output: cleaned, delay: 1),
+            timeout: 0.2
+        ).run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })
+        #expect(r.rawReason == nil)
+        #expect(r.finalText == cleaned)
+    }
+
     @Test func modelErrorFallsBackToRaw() async {
         let r = await pipeline(model: FakeModel(error: ProviderError.http(status: 500, body: "x"))).run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })
         #expect(r.rawReason == .modelError)

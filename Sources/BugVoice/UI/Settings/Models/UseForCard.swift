@@ -32,7 +32,7 @@ struct UseForCard: View {
 
     private func subtitle(_ feature: ModelFeature) -> String {
         switch feature {
-        case .dictation: "Answer within \(Int(model.settings.models.dictationTimeoutSeconds)) s or raw text is pasted"
+        case .dictation: "Answer within \(Int(model.settings.models.dictationTimeoutSeconds)) s, plus 0.1 s per word, or raw text is pasted"
         case .notes: "Same time limit"
         case .meetings: "Summary and action items. No time limit."
         }
