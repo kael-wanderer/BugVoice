@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scratchpad Editor</title>
+<style>
+/* Roadmap item 8: Scratchpad on the Notes page (option A of proposal-scratchpad.html).
+   States: Markdown view, Doc view, Transforms menu, Transform preview, Ask, Copy as menu,
+   and Send to Scratchpad from a meeting. Deep link: #<state>-<theme>, e.g. #doc-dark. */
+:root {
+  --page: #e9ebf0; --win: #ffffff; --side: #f2f3f6; --card: #ffffff; --line: #e1e4ea; --chip: #eceef2;
+  --fg: #1c1f26; --muted: #6a7080; --mark: #a3a9b6; --accent: #3a6ff0; --accent-soft: #e4ebfd; --ok: #1f8a4c; --bad: #c2412d;
+  --add: #dff3e6; --del: #fbe3df; --code: #f1f2f5; --tag: #efe7fb; --tag-fg: #6b3fb8;
+  --red: #ff5f57; --yellow: #febc2e; --green: #28c840;
+  --app: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --page: #0d0e11; --win: #1b1d22; --side: #16181c; --card: #212329; --line: #2d3037; --chip: #272a31;
+  --fg: #e9ebf0; --muted: #9298a6; --mark: #5d6370; --accent: #6e93ff; --accent-soft: #23304f; --ok: #4cc27f; --bad: #ff7a66;
+  --add: #1d3a2a; --del: #45241f; --code: #262930; --tag: #2e2540; --tag-fg: #c4a6ff;
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --page: #0d0e11; --win: #1b1d22; --side: #16181c; --card: #212329; --line: #2d3037; --chip: #272a31;
+  --fg: #e9ebf0; --muted: #9298a6; --mark: #5d6370; --accent: #6e93ff; --accent-soft: #23304f; --ok: #4cc27f; --bad: #ff7a66;
+  --add: #1d3a2a; --del: #45241f; --code: #262930; --tag: #2e2540; --tag-fg: #c4a6ff;
+  color-scheme: dark }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--fg); font-family: var(--app); font-size: 13px; line-height: 1.45; padding: 28px 16px 48px; }
+.frame { max-width: 1240px; margin: 0 auto; display: grid; gap: 14px; }
+.caption { color: var(--muted); font-size: 12.5px; max-width: 110ch; margin: 0; }
+.caption b { color: var(--fg); }
+.bar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+.pills { display: inline-flex; flex-wrap: wrap; background: var(--chip); border-radius: 999px; padding: 3px; gap: 2px; }
+.pills button { font: inherit; border: 0; background: transparent; color: var(--muted); padding: 5px 12px; border-radius: 999px; cursor: pointer; }
+.pills button[aria-pressed="true"] { background: var(--card); color: var(--fg); font-weight: 600; box-shadow: 0 1px 2px rgb(0 0 0 / .14); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.scroll { overflow-x: auto; border-radius: 12px; }
+
+/* Window */
+.win { display: grid; grid-template-columns: 190px 250px minmax(620px, 1fr); background: var(--win); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; box-shadow: 0 20px 50px rgb(0 0 0 / .14); min-height: 680px; min-width: 1080px; }
+.side { background: var(--side); border-right: 1px solid var(--line); padding: 14px 10px; display: flex; flex-direction: column; gap: 2px; }
+.lights { display: flex; gap: 8px; padding: 0 6px 18px; }
+.lights i { width: 12px; height: 12px; border-radius: 50%; }
+.lights i:nth-child(1) { background: var(--red); } .lights i:nth-child(2) { background: var(--yellow); } .lights i:nth-child(3) { background: var(--green); }
+.nav { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 7px; }
+.nav svg { width: 16px; height: 16px; stroke: var(--muted); fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.nav.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.nav.on svg { stroke: var(--accent); }
+.side .spacer { flex: 1; }
+.list { border-right: 1px solid var(--line); padding: 14px 10px; display: grid; align-content: start; gap: 4px; }
+.list .top { display: flex; align-items: center; justify-content: space-between; padding: 0 4px 6px; }
+.list .top b { font-size: 15px; }
+.search { border: 1px solid var(--line); border-radius: 7px; padding: 5px 9px; color: var(--muted); background: var(--card); }
+.filters { display: flex; gap: 6px; margin: 2px 0 6px; }
+.chipbtn { border: 1px solid var(--line); background: var(--card); border-radius: 6px; padding: 3px 8px; font-size: 12px; display: inline-flex; gap: 5px; align-items: center; }
+.row { padding: 8px 10px; border-radius: 8px; display: grid; gap: 2px; }
+.row b { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px; }
+.row span { color: var(--muted); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row.on { background: var(--accent-soft); }
+.row .open { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex: none; }
+.tagc { display: inline-block; background: var(--tag); color: var(--tag-fg); border-radius: 999px; padding: 0 7px; font-size: 11px; margin-right: 3px; }
+.pane { display: grid; grid-template-rows: auto auto auto auto auto 1fr auto; min-width: 0; position: relative; }
+
+/* Tabs + view switch */
+.tabs { display: flex; align-items: flex-end; gap: 2px; padding: 8px 12px 0; border-bottom: 1px solid var(--line); background: var(--side); }
+.tab { display: flex; align-items: center; gap: 8px; padding: 6px 10px 7px 12px; border: 1px solid transparent; border-bottom: 0; border-radius: 8px 8px 0 0; color: var(--muted); font-size: 12.5px; max-width: 170px; white-space: nowrap; }
+.tab span { overflow: hidden; text-overflow: ellipsis; }
+.tab.on { background: var(--win); border-color: var(--line); color: var(--fg); font-weight: 600; margin-bottom: -1px; }
+.tab .x { color: var(--muted); font-size: 11px; opacity: .7; }
+.tabs .plus { padding: 4px 10px 8px; color: var(--muted); font-size: 15px; }
+.tabs .sp { flex: 1; }
+.seg { display: inline-flex; background: var(--chip); border-radius: 7px; padding: 2px; margin-bottom: 6px; }
+.seg span { padding: 3px 10px; border-radius: 5px; font-size: 12px; color: var(--muted); display: inline-flex; gap: 5px; align-items: center; }
+.seg span.on { background: var(--card); color: var(--fg); font-weight: 600; box-shadow: 0 1px 2px rgb(0 0 0 / .14); }
+.seg svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Title + labels */
+.head { display: flex; align-items: center; gap: 8px; padding: 14px 24px 2px; }
+.head h1 { font-size: 20px; margin: 0; flex: 1; letter-spacing: -.01em; }
+.meta { padding: 0 24px 8px; color: var(--muted); font-size: 11.5px; }
+.labels { margin: 0 24px 8px; border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px; display: grid; grid-template-columns: 54px 1fr; gap: 6px 10px; font-size: 12px; }
+.labels .k { color: var(--muted); }
+.labels .add { color: var(--muted); }
+
+/* Toolbar */
+.fmt { display: flex; align-items: center; gap: 2px; padding: 6px 18px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.fmt .b { min-width: 28px; height: 26px; padding: 0 6px; border-radius: 6px; display: grid; place-items: center; color: var(--fg); font-size: 12.5px; }
+.fmt .b.on { background: var(--chip); }
+.fmt .b svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.fmt .sep { width: 1px; height: 18px; background: var(--line); margin: 0 6px; }
+.fmt .sp { flex: 1; }
+.fmt .hint { color: var(--muted); font-size: 11.5px; }
+.btn { font: inherit; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--card); color: var(--fg); padding: 4px 10px; border-radius: 7px; font-size: 12.5px; white-space: nowrap; margin-left: 4px; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.btn.on { border-color: var(--accent); color: var(--accent); }
+.btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.btn.mic { color: var(--accent); }
+.icon { border: 0; background: transparent; color: var(--muted); padding: 4px; display: inline-grid; }
+.icon svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Markdown view: source text, styled, marks grey */
+.editor { padding: 18px 28px 40px; position: relative; min-height: 360px; }
+.md { font-family: var(--app); font-size: 13.5px; line-height: 1.75; white-space: pre-wrap; max-width: 76ch; }
+.md .m { color: var(--mark); font-weight: 400; font-style: normal; text-decoration: none; }
+.md .h2 { font-size: 16px; font-weight: 700; }
+.md strong { font-weight: 700; }
+.md em { font-style: italic; }
+.md code { font-family: var(--mono); font-size: 12.5px; background: var(--code); border-radius: 4px; padding: 0 3px; }
+.md .done { color: var(--muted); text-decoration: line-through; }
+.md .q { color: var(--muted); }
+.md .lk { color: var(--accent); }
+.sel { background: var(--accent-soft); border-radius: 2px; box-shadow: 0 0 0 2px var(--accent-soft); }
+.caret { display: inline-block; width: 2px; height: 1.1em; background: var(--accent); vertical-align: -2px; animation: blink 1s steps(2) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+/* Doc view: rendered */
+.doc { max-width: 70ch; font-size: 14px; line-height: 1.6; }
+.doc h2 { font-size: 17px; margin: 18px 0 6px; }
+.doc p { margin: 0 0 10px; }
+.doc ul { margin: 0 0 10px; padding-left: 20px; }
+.doc li { margin: 3px 0; }
+.doc .task { list-style: none; margin-left: -20px; display: flex; gap: 8px; align-items: baseline; }
+.doc .task i { width: 13px; height: 13px; border: 1.5px solid var(--muted); border-radius: 3px; flex: none; transform: translateY(2px); cursor: pointer; }
+.doc .task.done i { background: var(--accent); border-color: var(--accent); }
+.doc .task.done span { color: var(--muted); text-decoration: line-through; }
+.doc blockquote { margin: 0 0 10px; padding: 2px 12px; border-left: 3px solid var(--line); color: var(--muted); }
+.doc code { font-family: var(--mono); font-size: 12.5px; background: var(--code); border-radius: 4px; padding: 1px 4px; }
+.doc a { color: var(--accent); text-decoration: none; }
+
+.status { display: flex; gap: 14px; align-items: center; padding: 7px 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11.5px; }
+.status .sp { flex: 1; }
+.status .ok { color: var(--ok); }
+
+/* Popovers */
+.menu { position: absolute; z-index: 3; background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 12px 30px rgb(0 0 0 / .18); padding: 5px; min-width: 240px; }
+.menu .h { padding: 5px 10px 3px; color: var(--muted); font-size: 11px; }
+.menu .i { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 6px; }
+.menu .i.hl { background: var(--accent); color: #fff; }
+.menu .i.hl kbd, .menu .i.hl small { color: #fff; opacity: .85; }
+.menu .i kbd { margin-left: auto; font-family: var(--app); color: var(--muted); font-size: 11.5px; }
+.menu .i small { margin-left: auto; color: var(--muted); font-size: 11px; }
+.menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 2px; }
+.menu .foot { padding: 5px 10px 3px; color: var(--muted); font-size: 11px; }
+.preview { position: absolute; z-index: 3; background: var(--card); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 14px 34px rgb(0 0 0 / .2); padding: 12px 14px; display: grid; gap: 10px; left: 28px; right: 28px; }
+.preview .t { display: flex; gap: 8px; align-items: center; font-weight: 600; }
+.preview .t small { font-weight: 400; color: var(--muted); }
+.preview .t .sp { flex: 1; }
+.diff { font-size: 12.5px; line-height: 1.6; }
+.diff del { background: var(--del); text-decoration: line-through; color: var(--muted); border-radius: 2px; }
+.diff ins { background: var(--add); text-decoration: none; border-radius: 2px; }
+.preview .acts { display: flex; gap: 4px; justify-content: flex-end; flex-wrap: wrap; }
+.ask { display: flex; gap: 8px; align-items: center; border: 1px solid var(--accent); border-radius: 8px; padding: 6px 10px; background: var(--win); }
+.ask input { flex: 1; border: 0; background: transparent; font: inherit; color: var(--fg); outline: none; min-width: 0; }
+.answer { font-size: 12.5px; line-height: 1.55; }
+.answer ol { margin: 4px 0 0; padding-left: 18px; }
+.toast { position: absolute; z-index: 4; bottom: 46px; left: 50%; transform: translateX(-50%); background: var(--fg); color: var(--win); border-radius: 8px; padding: 7px 14px; font-size: 12.5px; }
+
+/* Meetings screen */
+.mlist .row .badge { background: var(--chip); border-radius: 4px; padding: 0 5px; font-size: 10.5px; color: var(--muted); font-weight: 600; }
+.mdetail { padding: 18px 26px; display: grid; gap: 12px; align-content: start; position: relative; }
+.mdetail h1 { font-size: 20px; margin: 0; }
+.mdetail .meta { padding: 0; }
+.section { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: grid; gap: 8px; }
+.section .sh { display: flex; align-items: center; gap: 6px; }
+.section .sh b { flex: 1; }
+.section p { margin: 0; color: var(--fg); font-size: 12.5px; }
+.section ul { margin: 0; padding-left: 18px; font-size: 12.5px; }
+
+.screen { display: none; }
+.screen.on { display: block; }
+.notes-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 12px; }
+.note { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; font-size: 12.5px; }
+.note b { display: block; margin-bottom: 4px; }
+.note ul { margin: 4px 0 0; padding-left: 18px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="bar">
+    <div class="pills" role="group" aria-label="State" id="states">
+      <button data-s="markdown">Markdown view</button>
+      <button data-s="doc">Doc view</button>
+      <button data-s="menu">Transforms menu</button>
+      <button data-s="preview">Transform preview</button>
+      <button data-s="ask">Ask a question</button>
+      <button data-s="copy">Copy as</button>
+      <button data-s="send">Send to Scratchpad</button>
+    </div>
+    <div class="pills" role="group" aria-label="Theme" id="theme">
+      <button data-t="light" aria-pressed="false">Light</button>
+      <button data-t="dark" aria-pressed="false">Dark</button>
+    </div>
+  </div>
+  <p class="caption" id="cap"></p>
+
+  <!-- Scratchpad page -->
+  <div class="scroll screen on" id="pad">
+    <div class="win">
+      <div class="side" data-side="pad"></div>
+      <div class="list">
+        <div class="top"><b>Notes</b><button class="btn" tabindex="-1">New note</button></div>
+        <div class="search">Search notes</div>
+        <div class="filters"><span class="chipbtn">All notes ▾</span><span class="chipbtn">Tags ▾</span></div>
+        <div class="row on"><b><i class="open" title="Open in a tab"></i>Sprint ideas</b><span>Today 19:30 · 96 words</span><span><i class="tagc">#planning</i></span></div>
+        <div class="row"><b><i class="open" title="Open in a tab"></i>Standup notes</b><span>Today 09:12 · 40 words</span></div>
+        <div class="row"><b><i class="open" title="Open in a tab"></i>Acme sync · Summary</b><span>Today 08:40 · 120 words</span><span><i class="tagc">#acme</i></span></div>
+        <div class="row"><b>Untitled</b><span>Oct 14 · 45 words</span></div>
+        <div class="row"><b>Reading list</b><span>Oct 12 · 210 words</span></div>
+      </div>
+      <div class="pane">
+        <div class="tabs">
+          <div class="tab on"><span>Sprint ideas</span><span class="x">✕</span></div>
+          <div class="tab"><span>Standup notes</span><span class="x">✕</span></div>
+          <div class="tab" data-sent-tab><span>Acme sync · Summary</span><span class="x">✕</span></div>
+          <div class="plus">+</div>
+          <span class="sp"></span>
+          <div class="seg" role="group" aria-label="View" data-seg>
+            <span data-v="markdown"><svg viewBox="0 0 24 24"><path d="M3 6h18v12H3zM6 15V9l3 3 3-3v6M16 9v6M14 13l2 2 2-2"/></svg>Markdown</span>
+            <span data-v="doc"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6M8 13h8M8 17h5"/></svg>Doc</span>
+          </div>
+        </div>
+        <div class="head"><h1>Sprint ideas</h1>
+          <button class="btn" tabindex="-1">Export…</button>
+          <button class="icon" tabindex="-1" aria-label="Delete note"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></button>
+        </div>
+        <div class="meta">Markdown · saved to Notes/sprint-ideas.md</div>
+        <div class="labels"><span class="k">Folder</span><span>▭ Product ▾</span><span class="k">Tags</span><span><i class="tagc">#planning</i><span class="add">+ Add tag</span></span></div>
+        <div class="fmt" data-fmt></div>
+        <div class="editor" data-editor></div>
+        <div class="status"><span class="ok">Saved</span><span>96 words</span><span class="sp"></span><span>Transforms use the Notes model: Qwen3.8 27B (local)</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Meetings page: Send to Scratchpad -->
+  <div class="scroll screen" id="meet">
+    <div class="win">
+      <div class="side" data-side="meet"></div>
+      <div class="list mlist">
+        <div class="top"><b>Meetings</b><button class="btn" tabindex="-1">●</button></div>
+        <div class="filters"><span class="chipbtn">▭ Clients ▾</span><span class="chipbtn">Tags ▾</span></div>
+        <div class="search">Search meetings</div>
+        <div class="row on"><b>Acme sync</b><span>Today 08:00 · 38:12</span><span><i class="tagc">#acme</i></span></div>
+        <div class="row"><b>Acme kickoff <span class="badge">Uploaded</span></b><span>Oct 10 · 51:40</span></div>
+      </div>
+      <div class="mdetail">
+        <h1>Acme sync</h1>
+        <div class="meta">Today 08:00 · 38:12 · You and Others</div>
+        <div class="labels" style="margin:0"><span class="k">Folder</span><span>▭ Clients ▾</span><span class="k">Tags</span><span><i class="tagc">#acme</i><span class="add">+ Add tag</span></span></div>
+        <div class="section">
+          <div class="sh"><b>Summary</b><button class="btn" tabindex="-1">Copy</button><button class="btn on" tabindex="-1">Send to Scratchpad</button><button class="btn" tabindex="-1">Regenerate</button></div>
+          <p>Acme confirmed the October scope. Upload paging ships this week; the Scratchpad editor follows. Pricing review moves to next Tuesday.</p>
+        </div>
+        <div class="section">
+          <div class="sh"><b>Action items</b><button class="btn" tabindex="-1">Copy</button><button class="btn" tabindex="-1">Send to Scratchpad</button></div>
+          <ul><li>Send the revised timeline to Acme</li><li>Book the pricing review</li></ul>
+        </div>
+        <div class="section">
+          <div class="sh"><b>Transcript</b><button class="btn" tabindex="-1">Copy</button><button class="btn" tabindex="-1">Send to Scratchpad</button></div>
+          <p style="color:var(--muted)">00:12 You · Let's start with the October scope…</p>
+        </div>
+        <div class="toast">Sent to Scratchpad as “Acme sync · Summary”</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="notes-grid">
+    <div class="note"><b>Two views, one file</b>
+      <ul>
+        <li>Markdown: the file's text, styled. Headings larger, bold bold, marks (#, **, -, [ ]) in grey. Fully editable.</li>
+        <li>Doc: rendered like a document, no marks. Read only; clicking a checkbox ticks it in the file.</li>
+        <li>Switch at the top right of the tab bar. The choice is remembered for all notes.</li>
+        <li>Dictate in Doc view switches to Markdown and inserts at the end of the note.</li>
+      </ul>
+    </div>
+    <div class="note"><b>Toolbar (Markdown view)</b>
+      <ul>
+        <li>H1, H2 · Bold ⌘B, Italic ⌘I, Strike · bullets, numbers, checklist · quote, code, link ⌘K.</li>
+        <li>Each click adds or removes the Markdown marks; one undo step.</li>
+        <li>Doc view shows only Copy as and Transforms.</li>
+      </ul>
+    </div>
+    <div class="note"><b>Notes model</b>
+      <ul>
+        <li>Transforms and Ask use the selection, or the whole note when nothing is selected. Title and folder/tags are never sent.</li>
+        <li>Preview first; Replace is one undo step.</li>
+        <li>Copy as a Style rewrites with that Style's rules and copies; the note is not changed.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<template id="sidebar">
+  <div class="lights"><i></i><i></i><i></i></div>
+  <div class="nav"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Dictation</div>
+  <div class="nav"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Insights</div>
+  <div class="nav"><svg viewBox="0 0 24 24"><path d="M6 3h11a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6z"/><path d="M4 7h3M4 12h3M4 17h3"/></svg>Dictionary</div>
+  <div class="nav"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h7"/></svg>Style</div>
+  <div class="nav" data-nav="meet"><svg viewBox="0 0 24 24"><path d="M3 12h2M7 8v8M11 5v14M15 8v8M19 11v2"/></svg>Meetings</div>
+  <div class="nav"><svg viewBox="0 0 24 24"><path d="M12 15V4M7 9l5-5 5 5M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></svg>Upload</div>
+  <div class="nav" data-nav="pad"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg>Scratchpad</div>
+  <div class="spacer"></div>
+  <div class="nav"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>Settings</div>
+</template>
+
+<template id="fmt-markdown">
+  <span class="b" title="Heading">H1</span><span class="b" title="Subheading">H2</span><span class="sep"></span>
+  <span class="b" title="Bold ⌘B"><b>B</b></span><span class="b" title="Italic ⌘I"><i>I</i></span><span class="b" title="Strikethrough"><s>S</s></span><span class="sep"></span>
+  <span class="b" title="Bulleted list"><svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg></span>
+  <span class="b" title="Numbered list"><svg viewBox="0 0 24 24"><path d="M10 6h10M10 12h10M10 18h10M4 4v4M3 18h3l-3 3h3"/></svg></span>
+  <span class="b" title="Checklist"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="6" height="6" rx="1"/><path d="M12 7h9M12 17h9M3 17l2 2 4-4"/></svg></span>
+  <span class="b" title="Quote"><svg viewBox="0 0 24 24"><path d="M5 6v12M10 8h10M10 12h10M10 16h6"/></svg></span>
+  <span class="b" title="Code"><svg viewBox="0 0 24 24"><path d="m8 8-4 4 4 4M16 8l4 4-4 4"/></svg></span>
+  <span class="b" title="Link ⌘K"><svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 6 0l3-3a4 4 0 0 0-6-6l-1 1M14 10a4 4 0 0 0-6 0l-3 3a4 4 0 0 0 6 6l1-1"/></svg></span>
+  <span class="sp"></span>
+  <button class="btn mic" tabindex="-1"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Dictate</button>
+  <button class="btn" tabindex="-1" data-copy>Copy as ▾</button>
+  <button class="btn" tabindex="-1" data-tx>✦ Transforms ▾</button>
+</template>
+
+<template id="fmt-doc">
+  <span class="hint">Doc view is read only. Switch to Markdown to edit.</span>
+  <span class="sp"></span>
+  <button class="btn mic" tabindex="-1"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Dictate</button>
+  <button class="btn" tabindex="-1" data-copy>Copy as ▾</button>
+  <button class="btn" tabindex="-1" data-tx>✦ Transforms ▾</button>
+</template>
+
+<template id="ed-markdown">
+<div class="md"><span class="m">## </span><span class="h2">Idea</span>
+Today I want to write down the idea that we need to improve the <strong><span class="m">**</span>Power UI<span class="m">**</span></strong> for the app. <span data-selwrap>Also add the menu bar and the huddle so I think we need to rearrange everything, and also I need to have more features like a quick note you can open anywhere.</span>
+
+<span class="m">## </span><span class="h2">Next</span>
+<span class="m">- [x] </span><span class="done">Upload paging and Clear history</span>
+<span class="m">- [ ] </span>Notes spacing between dictations
+<span class="m">- [ ] </span>Scratchpad editor, see <span class="m">[</span><span class="lk">mockup</span><span class="m">](docs/design/proposal-scratchpad-editor.html)</span>
+
+<span class="m">&gt; </span><span class="q"><em><span class="m">_</span>Keep notes plain Markdown so Obsidian can open them.<span class="m">_</span></em></span>
+
+Run <code><span class="m">`</span>Scripts/run-dev-app.sh<span class="m">`</span></code> to try it.<span class="caret"></span></div>
+</template>
+
+<template id="ed-doc">
+<div class="doc">
+  <h2>Idea</h2>
+  <p>Today I want to write down the idea that we need to improve the <b>Power UI</b> for the app. Also add the menu bar and the huddle so I think we need to rearrange everything, and also I need to have more features like a quick note you can open anywhere.</p>
+  <h2>Next</h2>
+  <ul>
+    <li class="task done"><i></i><span>Upload paging and Clear history</span></li>
+    <li class="task"><i></i><span>Notes spacing between dictations</span></li>
+    <li class="task"><i></i><span>Scratchpad editor, see <a>mockup</a></span></li>
+  </ul>
+  <blockquote><em>Keep notes plain Markdown so Obsidian can open them.</em></blockquote>
+  <p>Run <code>Scripts/run-dev-app.sh</code> to try it.</p>
+</div>
+</template>
+
+<template id="menu">
+  <div class="menu" data-pop style="top:-4px; right:18px">
+    <div class="h">Selection · 31 words</div>
+    <div class="i hl">Polish<kbd>⌘1</kbd></div>
+    <div class="i">More concise<kbd>⌘2</kbd></div>
+    <div class="i">More professional<kbd>⌘3</kbd></div>
+    <div class="i">Bullet points<kbd>⌘4</kbd></div>
+    <hr>
+    <div class="i">Ask a question…<kbd>⌘J</kbd></div>
+    <div class="foot">Notes model · Qwen3.8 27B (local)</div>
+  </div>
+</template>
+
+<template id="copy">
+  <div class="menu" data-pop style="top:-4px; right:132px">
+    <div class="h">Copy whole note</div>
+    <div class="i">Markdown<small>as written</small></div>
+    <div class="i">Plain text<small>marks removed</small></div>
+    <hr>
+    <div class="h">Rewrite with a Style, then copy</div>
+    <div class="i">Personal messages</div>
+    <div class="i hl">Work messages</div>
+    <div class="i">Email</div>
+    <div class="i">Document</div>
+    <div class="i">Terminal</div>
+    <div class="i">Other</div>
+    <div class="foot">Notes model · the note is not changed</div>
+  </div>
+</template>
+
+<template id="preview">
+  <div class="preview" data-pop style="top:96px">
+    <div class="t">Polish <small>· 31 words → 24</small><span class="sp"></span><small>Qwen3.8 27B · 2.4 s</small></div>
+    <div class="diff"><del>Also add the menu bar and the huddle so I think we need to rearrange everything, and also I need to have more features like</del><ins>We should also add the menu bar and the huddle, which means rearranging the layout. I also want more features, such as</ins> a quick note you can open anywhere.</div>
+    <div class="acts"><button class="btn" tabindex="-1">Discard</button><button class="btn" tabindex="-1">Insert below</button><button class="btn primary" tabindex="-1">Replace</button></div>
+  </div>
+</template>
+
+<template id="ask">
+  <div class="preview" data-pop style="top:96px">
+    <div class="ask"><span style="color:var(--accent)">✦</span><input value="What are the open tasks, in priority order?" aria-label="Question" tabindex="-1"></div>
+    <div class="answer"><b>From this note:</b>
+      <ol><li>Notes spacing between dictations</li><li>Scratchpad editor</li></ol>
+      Upload paging is already done.</div>
+    <div class="acts"><button class="btn" tabindex="-1">Copy</button><button class="btn" tabindex="-1">Insert below</button><button class="btn primary" tabindex="-1">Done</button></div>
+  </div>
+</template>
+
+<script>
+const caps = {
+  markdown: '<b>Markdown view.</b> The note as written, styled: headings larger, bold bold, links blue, and the Markdown marks in grey. A dot on a list row means the note is open in a tab. Closing a tab never deletes the note.',
+  doc: '<b>Doc view.</b> The same file rendered like a document, as in Obsidian Reading view or a VS Code preview. Read only; ticking a checkbox writes [x] to the file. Formatting buttons are hidden.',
+  menu: '<b>Transforms menu.</b> Works on the selection, or the whole note when nothing is selected. Each item has a shortcut.',
+  preview: '<b>Transform preview.</b> Old and new text side by side with word counts, model and time. Replace is one undo step. Editing the note while the preview is open discards it.',
+  ask: '<b>Ask a question.</b> Answers only from this note. Copy, Insert below, or Done.',
+  copy: '<b>Copy as.</b> Markdown or plain text copy at once. A Style rewrites the selection or note with that Style\'s rules through the Notes model, then copies it. The note is not changed.',
+  send: '<b>Send to Scratchpad.</b> Summary, Action items and Transcript each have it. The text becomes a new note "&lt;meeting&gt; · Summary" in the meeting\'s folder with its tags, and opens as a tab in Scratchpad.'
+};
+let state = 'markdown';
+function sidebar(root, page) {
+  const s = root.querySelector('[data-side]');
+  s.innerHTML = document.getElementById('sidebar').innerHTML;
+  s.querySelector('[data-nav="' + page + '"]').classList.add('on');
+}
+function render() {
+  document.querySelectorAll('#states button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.s === state)));
+  document.getElementById('cap').innerHTML = caps[state];
+  const meeting = state === 'send';
+  document.getElementById('pad').classList.toggle('on', !meeting);
+  document.getElementById('meet').classList.toggle('on', meeting);
+  sidebar(document.getElementById('pad'), 'pad');
+  sidebar(document.getElementById('meet'), 'meet');
+  if (meeting) return;
+  const view = state === 'doc' ? 'doc' : 'markdown';
+  document.querySelectorAll('[data-seg] span').forEach(s => s.classList.toggle('on', s.dataset.v === view));
+  const pad = document.getElementById('pad');
+  pad.querySelector('[data-fmt]').innerHTML = document.getElementById('fmt-' + view).innerHTML;
+  const ed = pad.querySelector('[data-editor]');
+  ed.innerHTML = document.getElementById('ed-' + view).innerHTML;
+  const wrap = ed.querySelector('[data-selwrap]');
+  if (wrap && ['menu', 'preview', 'ask', 'copy'].includes(state) && state !== 'copy') wrap.classList.add('sel');
+  if (['menu', 'preview', 'ask', 'copy'].includes(state)) {
+    ed.insertAdjacentHTML('beforeend', document.getElementById(state).innerHTML);
+    if (state === 'menu') pad.querySelector('[data-tx]').classList.add('on');
+    if (state === 'copy') pad.querySelector('[data-copy]').classList.add('on');
+  }
+}
+document.querySelectorAll('#states button').forEach(b => b.addEventListener('click', () => { state = b.dataset.s; render(); }));
+document.querySelectorAll('#theme button').forEach(b => b.addEventListener('click', () => {
+  document.documentElement.dataset.theme = b.dataset.t;
+  document.querySelectorAll('#theme button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+}));
+const [hs, ht] = location.hash.slice(1).split('-');
+if (caps[hs]) state = hs;
+if (ht) document.documentElement.dataset.theme = ht;
+render();
+</script>
+</body>
+</html>
