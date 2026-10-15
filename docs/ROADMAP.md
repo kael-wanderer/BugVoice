@@ -31,8 +31,9 @@ implementation, like Dictation, Meetings and Notes before it.
   Anthropic-compatible APIs with the key in Keychain. Item 3 starts by checking that.
 - Coding CLIs take several seconds per call: fine for summaries and Ask AI,
   too slow for dictation cleanup.
-- Item 2 extends `vocabulary.txt` (WhisperKit spelling hints) rather than
-  replacing it.
+- Item 2 replaced `vocabulary.txt` with `dictionary.json` (words, heard-as
+  forms, snippets); an existing `vocabulary.txt` is migrated once and renamed
+  `vocabulary.migrated.txt`.
 
 ## Dropped
 

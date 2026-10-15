@@ -143,3 +143,23 @@ blank until the maintainer runs each check.
 | 78 | Clear history | Settings → Storage → Dictation history → Clear… | Insights numbers unchanged | |
 | 79 | Reset insights | Settings → Storage → Insights → Reset… → Reset; quit and relaunch | Everything zero; relaunch does not refill from history | |
 | 80 | Window chrome | Visit every page | No title text; sidebar full height with window buttons on it; no page content under the title bar | |
+
+
+## Dictionary and Style
+
+Run these after building with `Scripts/build-app.sh`. Keep the Result column
+blank until the maintainer runs each check.
+
+| # | Where | Do | Expect | Result |
+|---|---|---|---|---|
+| 81 | Dictionary page | Add "OpenWhispr, Supabase" in one go | Both rows appear at the top, newest first | |
+| 82 | Heard as | Add heard-as "open whisper" to OpenWhispr; dictate "open whisper is great" in TextEdit | "OpenWhispr is great" | |
+| 83 | Snippet in Slack | Add snippet "my linkedin" → URL; dictate "here is my linkedin" in Slack | Cleaned Work sentence with the exact URL | |
+| 84 | Multi-line snippet | Add "sign off" with two lines; dictate it in Mail | Line breaks kept | |
+| 85 | Model off | Quit LM Studio; dictate "here is my linkedin" | Snippet still expanded | |
+| 86 | Style page | Open Style; dictate in Slack and in Zalo | Slack under Work, Zalo under Personal; each dictation shows that tone | |
+| 87 | Move app | Move Telegram to Work; dictate in Telegram; then Reset | Work tone; after Reset it is under Personal again | |
+| 88 | Tone | Edit the Work tone, then Reset to default | Default text restored | |
+| 89 | Migration | Quit; put a term and a `=>` line in `vocabulary.txt`; delete `dictionary.json`; launch | Word and snippet appear; file renamed `vocabulary.migrated.txt` | |
+| 90 | Settings | Open Settings | No Vocabulary or Styles tab; Speech reads "Use Dictionary words as hints" | |
+| 91 | Bundle IDs | For WhatsApp, Messenger, Teams, Lark, run `osascript -e 'id of app "Name"'` | IDs match `StyleRouter.defaultApps`; fix any that differ | |
