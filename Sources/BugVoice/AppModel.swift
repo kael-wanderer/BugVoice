@@ -15,13 +15,14 @@ private enum MeetingGenerationError: LocalizedError {
 
 /// Main-window pages, in sidebar order.
 enum Page: String, CaseIterable, Identifiable {
-    case dictation, insights, dictionary, meetings, notes, settings
+    case dictation, insights, dictionary, style, meetings, notes, settings
     var id: String { rawValue }
     var title: String {
         switch self {
         case .dictation: "Dictation"
         case .insights: "Insights"
         case .dictionary: "Dictionary"
+        case .style: "Style"
         case .meetings: "Meetings"
         case .notes: "Notes"
         case .settings: "Settings"
@@ -32,6 +33,7 @@ enum Page: String, CaseIterable, Identifiable {
         case .dictation: "mic"
         case .insights: "chart.bar"
         case .dictionary: "character.book.closed"
+        case .style: "paintbrush.pointed"
         case .meetings: "waveform.path"
         case .notes: "note.text"
         case .settings: "gearshape"

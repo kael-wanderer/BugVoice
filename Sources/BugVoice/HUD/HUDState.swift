@@ -31,7 +31,7 @@ enum HUDState: Equatable {
             return .warning(title: "Could not save dictation", detail: "Open Notes to copy the text")
         case .insertedInNote:
             return .done(
-                style: Style.document.rawValue.capitalized,
+                style: Style.document.title,
                 words: r.finalText.split(whereSeparator: \.isWhitespace).count,
                 seconds: (r.timings.releaseToText * 10).rounded() / 10
             )
@@ -44,7 +44,7 @@ enum HUDState: Equatable {
             case .cleanupOff, .none:
                 let words = r.finalText.split(whereSeparator: \.isWhitespace).count
                 return .done(
-                    style: r.style.rawValue.capitalized,
+                    style: r.style.title,
                     words: words,
                     seconds: (r.timings.releaseToText * 10).rounded() / 10
                 )
