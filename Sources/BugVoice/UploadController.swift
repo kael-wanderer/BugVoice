@@ -1,8 +1,8 @@
 import AppKit
+import BugVoiceMac
 import Foundation
 import Observation
 import VoiceCore
-import BugVoiceMac
 
 @MainActor
 @Observable
@@ -93,7 +93,9 @@ final class UploadController {
     func submit() {
         guard accepting, !probing else { return }
         let jobs = drafts.map { draft in
-            let job = UploadJob(fileName: draft.metadata.fileName, kind: draft.metadata.kind, duration: draft.metadata.duration, byteSize: draft.metadata.byteSize)
+            let job = UploadJob(
+                fileName: draft.metadata.fileName, kind: draft.metadata.kind,
+                duration: draft.metadata.duration, byteSize: draft.metadata.byteSize)
             inputs[job.id] = draft
             return job
         }
@@ -116,13 +118,16 @@ final class UploadController {
 
     func retry(_ meeting: MeetingManifest) {
         guard meeting.source == .upload, meeting.state == .transcribing,
-              !queue.jobs.contains(where: { $0.meetingID == meeting.id && !$0.state.isTerminal }) else { return }
+            !queue.jobs.contains(where: { $0.meetingID == meeting.id && !$0.state.isTerminal })
+        else { return }
         appendRecovery(meeting)
         pump()
     }
 
     private func appendRecovery(_ meeting: MeetingManifest) {
-        var job = UploadJob(fileName: meeting.sourceFileName ?? meeting.title, kind: .audio, duration: meeting.duration, byteSize: 0)
+        var job = UploadJob(
+            fileName: meeting.sourceFileName ?? meeting.title, kind: .audio, duration: meeting.duration,
+            byteSize: 0)
         job.meetingID = meeting.id
         restored[job.id] = meeting
         queue.append([job])
@@ -135,6 +140,20 @@ final class UploadController {
     func open(_ id: MeetingID) {
         model.selectedMeetingID = id
         model.openMainWindow(.meetings)
+    }
+
+    func renameSession(id: MeetingID, title: String) async throws -> Bool {
+        guard activeDirectory?.lastPathComponent == id.rawValue, let session else { return false }
+        try await session.rename(title: title)
+        return true
+    }
+
+    func saveGeneratedTextToSession(id: MeetingID, text: String, kind: MeetingTextKind) async throws
+        -> Bool
+    {
+        guard activeDirectory?.lastPathComponent == id.rawValue, let session else { return false }
+        try await session.saveGeneratedText(text, kind: kind)
+        return true
     }
 
     func setSleeping(_ value: Bool) {
@@ -229,11 +248,14 @@ final class UploadController {
                 )
                 try await MeetingStore(root: model.paths.meetings).save(manifest)
                 let decoding = Task.detached(priority: .utility) { [controller = self] in
-                    try await MediaAudioDecoder.decode(draft.url, metadata: draft.metadata, writer: writer, boundary: {
-                        try await controller.waitForReadingBoundary()
-                    }, progress: { value in
-                        await controller.readingProgress(value, id: job.id)
-                    })
+                    try await MediaAudioDecoder.decode(
+                        draft.url, metadata: draft.metadata, writer: writer,
+                        boundary: {
+                            try await controller.waitForReadingBoundary()
+                        },
+                        progress: { value in
+                            await controller.readingProgress(value, id: job.id)
+                        })
                 }
                 decoder = decoding
                 try await withTaskCancellationHandler {
@@ -261,15 +283,17 @@ final class UploadController {
             if UploadFailure.isDiskFull(error) {
                 failure = .diskFull
                 await removeFailedImport(directory)
-            } else if let upload = error as? UploadFailure, upload == .transcript || upload == .audioSave {
+            } else if let upload = error as? UploadFailure, upload == .transcript || upload == .audioSave
+            {
                 failure = upload
             } else if saved != nil, error as? UploadFailure == .missingJournal {
                 failure = .missingJournal
                 var failed = saved!
                 failed.state = .failed
                 failed.transcriptionError = failure.localizedDescription
-                do { try await MeetingStore(root: model.paths.meetings).save(failed) }
-                catch { model.saveError = error.localizedDescription }
+                do { try await MeetingStore(root: model.paths.meetings).save(failed) } catch {
+                    model.saveError = error.localizedDescription
+                }
             } else {
                 failure = (error as? UploadFailure) == .noAudio ? .noAudio : .unreadable
                 await removeFailedImport(directory)
@@ -286,7 +310,8 @@ final class UploadController {
 
     func refreshProgress() async {
         guard !stopping, let id = activeID, queue.active?.state == .transcribing,
-              let manifest = await session?.snapshot() else { return }
+            let manifest = await session?.snapshot()
+        else { return }
         queue.apply(id: id, event: .progress(manifest.transcriptProgress))
     }
 
@@ -297,6 +322,7 @@ final class UploadController {
                 let directory = model.paths.meetings.appendingPathComponent(meeting.id.rawValue)
                 do {
                     try markForRemoval(directory)
+                    await model.cancelMeetingText(id: meeting.id)
                     try FileManager.default.removeItem(at: directory)
                 } catch {
                     queue.apply(id: id, event: .cleanupFailed)
@@ -317,6 +343,9 @@ final class UploadController {
             return
         }
         stopping = true
+        if let meetingID = job.meetingID {
+            await model.cancelMeetingText(id: meetingID)
+        }
         await session?.invalidateUpload()
         worker?.cancel()
         decoder?.cancel()
