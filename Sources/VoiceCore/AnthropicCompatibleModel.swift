@@ -6,13 +6,15 @@ public struct AnthropicCompatibleModel: TextModel {
     public var model: String
     public var apiKey: String?
     public var version: String
+    public var requestTimeout: TimeInterval
     public var session: URLSession
 
-    public init(baseURL: URL, model: String, apiKey: String? = nil, version: String = "2023-06-01", session: URLSession = .shared) {
+    public init(baseURL: URL, model: String, apiKey: String? = nil, version: String = "2023-06-01", requestTimeout: TimeInterval = 60, session: URLSession = HTTP.noRedirectSession) {
         self.baseURL = baseURL
         self.model = model
         self.apiKey = apiKey
         self.version = version
+        self.requestTimeout = requestTimeout
         self.session = session
     }
 
@@ -40,8 +42,8 @@ public struct AnthropicCompatibleModel: TextModel {
             system: request.system,
             messages: [.init(role: "user", content: request.user)]
         )
-        let urlRequest = try HTTP.jsonRequest(url: Endpoint.join(baseURL, "messages"), body: body, headers: headers)
-        let reply = try HTTP.decode(Reply.self, from: try await HTTP.send(urlRequest, session: session))
+        let urlRequest = try HTTP.jsonRequest(url: Endpoint.join(baseURL, "messages"), body: body, headers: headers, timeout: requestTimeout)
+        let reply = try HTTP.decode(Reply.self, from: try await HTTP.send(urlRequest, session: session, redactBody: !(apiKey ?? "").isEmpty))
         return reply.content.filter { $0.type == "text" }.compactMap(\.text).joined()
     }
 }
