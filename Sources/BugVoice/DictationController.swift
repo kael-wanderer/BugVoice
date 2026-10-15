@@ -255,6 +255,7 @@ final class DictationController {
                 hud.hide()
             } else {
                 if let state = HUDState.from(result) { hud.show(state) } else { hud.hide() }
+                await model.recordInsights(result, noteID: notesCapture?.noteID)
                 if notesCapture == nil { await model.record(result) }
             }
             isBusy = false
