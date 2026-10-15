@@ -16,7 +16,8 @@ Success: a long video becomes a timestamped meeting with an Uploaded badge,
 Speaker labels, playable audio, Summary and Action items on demand, and exports.
 Only extracted audio is retained; the original stays where it is and is never
 copied or modified. Import and speech recognition send no audio or text off this
-Mac. On-demand meeting text generation follows the user's configured Meeting
+Mac unless Settings › Speech already uses a server the user configured, exactly
+as for recorded meetings. On-demand meeting text generation follows the user's configured Meeting
 notes provider; only an explicitly configured remote provider receives text.
 
 ### Out of scope
@@ -53,16 +54,16 @@ pure state. A selection is a draft until Transcribe admits it to the queue.
 ### 3.1 Manifest and compatibility
 
 Add `MeetingSource` (VoiceCore, Codable): `recording` or `upload`.
-Add `MeetingManifest.source: MeetingSource` and
-`MeetingManifest.sourceFileName: String?`. New recorded meetings default to
-`.recording` and nil. Uploaded meetings store the original last path component,
+Add `MeetingManifest.source: MeetingSource`,
+`MeetingManifest.sourceFileName: String?` and `MeetingManifest.importedAt: Date?`.
+New recorded meetings default to `.recording`, nil and nil. Uploaded meetings store the original last path component,
 including extension, without its parent path. The name is display metadata, not
 a path used for storage or recovery.
 
 Keep `MeetingManifest.currentSchemaVersion == 1`. These are additive fields:
 synthesized Decodable ignores unknown keys in older builds. The new manifest
 decoder must explicitly default a missing `source` to `.recording` and a missing
-`sourceFileName` to nil; Swift property defaults alone do not provide that
+`sourceFileName` and `importedAt` to nil; Swift property defaults alone do not provide that
 Codable migration. All existing manifest fields retain their decoding semantics.
 
 This is forward compatibility for recorded meetings, not downgrade support for
@@ -78,8 +79,10 @@ For an upload:
   else the import clock's current date. Invalid metadata falls through.
 - `duration`: finite, positive asset duration, independent of decode time or
   time spent waiting. Align the extracted audio to that media timeline.
-- `endedAt`: `startedAt + duration`; retention uses the same media end time as a
-  recorded meeting. An old uploaded recording can already be outside retention.
+- `endedAt`: `startedAt + duration` (media end time, for display).
+- `importedAt`: the import clock's date when the job is admitted. Retention
+  counts from `importedAt ?? endedAt`, so an old recording imported today is
+  kept for the full retention period, not pruned at the next launch.
 - `audioFormat`: existing `MeetingAudioFormat`, 16 kHz mono, signed Int16
   little-endian journal PCM and final AAC.
 - Every chunk and segment uses `.file`; marks are empty. `summary` and
@@ -108,7 +111,8 @@ On success the folder contains `meeting.json` and `audio.m4a` (16 kHz mono AAC).
 Finalize durably, save ready, then call `cleanupCapture()`. Never create
 `mic.m4a` or `system.m4a` for an upload. Temporary output files and journals are
 removed after their durable replacements succeed. Transcription failure also
-produces `audio.m4a` before claiming the audio is saved (§7).
+produces `audio.m4a` before claiming the audio is saved, and keeps the journal
+for Retry (§7).
 
 Queue drafts and waiting file URLs are session-only; they do not survive quit.
 Committed transcribing uploads are restored from manifests at launch. Recover
@@ -250,7 +254,8 @@ Open in Meetings selects that meeting ID and navigates to `.meetings`.
 without a source filter. Uploaded meetings group by their media `startedAt`.
 
 Settings › Meetings **Delete ready meetings after** applies equally to uploads
-through `MeetingRetention.pruneCandidates`; it excludes active, staging and
+through `MeetingRetention.pruneCandidates`, measured from `importedAt` for
+uploads and `endedAt` for recordings; it excludes active, staging and
 retryable transcribing entries. Pruning deletes the whole folder, including
 uploaded audio. Storage includes upload audio and active journals under Meetings.
 If retention or manual deletion removes a ready result, clear its stale queue
@@ -270,12 +275,12 @@ the sidebar name Meetings. The Upload sidebar item shows a progress ring while
 a job runs, including when another page is selected.
 
 - Page title **Upload**, heading **Upload a recording**. Under the heading:
-  "Transcribed on this Mac with <speech model>"; the model link opens
-  Settings › Speech. Use the selected local speech model, never a remote speech
-  adapter. Hold a job queued until that local model is available; expose the
-  reason beside Waiting and let the link resolve it. Do not silently fall back
-  to cloud transcription. Keep one model for a running job and update the label
-  for the next job when settings change.
+  "Transcribed on this Mac with <speech model>" when Settings › Speech uses
+  WhisperKit, or "Transcribed by <server host> with <model>" when it uses an
+  OpenAI-compatible server the user configured. The link opens Settings › Speech.
+  Uploads use `AppModel.transcriptionRouter`, the same transcriber as Meetings,
+  so they follow the configured engine and never pick a server on their own.
+  The label updates when settings change.
 - Empty drop zone: "Drop an audio or video file, or click to browse" and
   "MP3, WAV, M4A, AIFF, CAF, MP4, MOV, M4V". Hint: "You can drop several files;
   they are transcribed one at a time. Uploads appear in Meetings when they are
@@ -285,7 +290,8 @@ a job runs, including when another page is selected.
   folder. The video stays where it is."
 - Progress card: file name, percentage, **Cancel**, two phase indicators
   **1 Reading file** / **2 Transcribing locally**. Active heading is
-  "Reading file…" then "Transcribing locally…". Explain that leaving the page
+  "Reading file…" then "Transcribing locally…" ("Transcribing…" when the
+  speech engine is a configured server). Explain that leaving the page
   is safe, meetings take priority, and transcription continues on next launch.
 - Queue: compact "Drop more files, or click to browse" zone, file count,
   **Clear finished**, metadata per row. Waiting rows say **Waiting**, active
@@ -362,17 +368,18 @@ unit tests before implementation.
 
 `MeetingSession.finishTranscription` currently leaves `.transcribing` on failure
 without finalizing audio. Extend the upload branch: on a recognition failure,
-finalize audio, persist the error and completed chunks in a transcribing manifest,
-then clean the PCM journal. The upload queue is failed even though this durable
-manifest stays retryable. If saving audio fails, retain the journal and report
-"Could not save the audio. Retry transcript in Meetings." Do not claim saved
-playable audio until it exists; disk-full errors take the deletion path above.
+finalize `audio.m4a` so the meeting plays and exports, persist the error and
+completed chunks in a transcribing manifest, and keep the `.capture` journal.
+`cleanupCapture()` runs only after the meeting is saved ready. The upload queue
+is failed even though this durable manifest stays retryable. If saving audio
+fails, report "Could not save the audio. Retry transcript in Meetings." Do not
+claim saved playable audio until it exists; disk-full errors take the deletion
+path above.
 
-Retry after PCM cleanup streams `audio.m4a` through `MediaAudioDecoder` into a
-fresh `.file` journal, using the same meeting ID and metadata. Keep the saved AAC
-until its durable replacement succeeds. Reuse valid chunk results and process
-missing/failed ones. This retry remains `.transcribing`, not discardable staging:
-its saved audio is already a recovery source.
+Retry transcript reads the kept journal, reuses valid chunk results and
+processes missing/failed ones. The journal costs about 115 MB per hour of audio
+until the upload is ready or deleted. Never decode `audio.m4a` back into a
+journal: it is lossy and a second code path.
 
 Extend `AppModel.recoverUnfinishedMeetings()` before its recording-state sweep:
 discard `.upload` + `.interrupted` staging folders, then enqueue `.upload` +
@@ -381,8 +388,10 @@ discard `.upload` + `.interrupted` staging folders, then enqueue `.upload` +
 interrupted; automatic upload continuation is new work, not existing behavior.
 Dispatch by source before constructing session dependencies. Upload recovery and
 Retry transcript must never call `MeetingController.recover(id:)` with its
-microphone/system sources. If a journal remains, recover its committed bounds;
-otherwise rebuild from saved AAC. Neither route needs the original file.
+microphone/system sources. Recover the journal's committed bounds; the original file is not needed.
+A transcribing upload whose journal is missing or unreadable is marked failed
+with the retained-audio message replaced by "The transcript cannot be retried.
+The audio is saved." and stays playable if `audio.m4a` exists.
 
 Cancellation must prevent late progress/save callbacks from recreating a deleted
 folder. Persist a hidden `.upload-cancelled` marker in the meeting folder before
@@ -409,26 +418,27 @@ VoiceCore (failing test first, then implementation; `swift test` before commits)
 - `UploadQueue`: ordered batch admission, one active job, invalid transitions,
   progress clamping, cancellation in every active state, stale callbacks,
   failure advances queue, Clear finished preserves meetings, live meeting gate
-  and resume without reordering. Local model unavailable leaves jobs queued.
+  and resume without reordering.
 - `MeetingSession` with fake audio/scheduler/finalizer/store: upload never calls
   capture start; media dates/duration survive transcription, recover and retry;
   commit boundary precedes recognition; final chunks persist before progress;
   merged overlap has no duplicate lines; failed records trigger retained audio;
   empty/silent chunks can finish ready.
 - Recovery cases: discard upload staging, continue transcribing via file-only
-  dependencies, marker wins over recovery, AAC fallback when journals are gone;
+  dependencies, marker wins over recovery, missing journal marks failed;
   recorded recovery unchanged. Cancellation drains before deletion and late
-  callbacks cannot save. Failed finalization retains recoverable journals.
+  callbacks cannot save. Transcript failure keeps the journal; only ready cleans it.
 - `MeetingChunkPlanner` and merger: partial last chunk, long media, deterministic
   track order, chunk reuse by ID/range, timestamps aligned with audio timeline.
 - `MeetingListProjection.matches`: uploaded title and transcript, grouped media
-  date. `MeetingRetention`: identical source behavior, media end-time boundary,
+  date. `MeetingRetention`: uploads expire from `importedAt` (a 2024 file
+  imported today survives a 30-day policy), recordings from `endedAt`,
   active/staging exclusion. No upload completion/retry emits Insights usage.
 
 BugVoiceMac/app tests use fixture assets and fake decoder/session boundaries:
 bounded PCM production and writer backpressure, resampling/downmix, EOF flush,
 read errors and cancellation, disk-full classification, `.file`-only AAC,
-source-specific recovery construction and local-only transcriber selection.
+source-specific recovery construction and use of the shared transcription router.
 Keep device-dependent checks in the manual checklist.
 
 ### 8.2 Manual checklist
@@ -441,19 +451,19 @@ spec does not modify that file. Results remain blank until run on device.
 |---|---|---|---|---|
 | 103 | Sidebar / Upload | Open Upload and click the speech model link | Upload follows Meetings; empty drop copy matches mockup; Settings › Speech opens | |
 | 104 | Upload | Browse, then drop several supported files over different parts of the page; cancel a draft | Multiple selection allowed; cards show name, Audio/Video, duration and size; draft Cancel creates no folder | |
-| 105 | Upload | Transcribe MP3, WAV, M4A, AIFF, CAF, MP4, MOV and M4V fixtures | Reading file… then Transcribing locally…; each becomes ready with local speech model | |
+| 105 | Upload | Transcribe MP3, WAV, M4A, AIFF, CAF, MP4, MOV and M4V fixtures | Reading file… then Transcribing locally…; each becomes ready with the configured speech engine | |
 | 106 | Upload / sidebar | Queue three files, leave page and close/reopen main window | FIFO, one active job; Waiting / Transcribing N% / Open in Meetings; ring follows current phase; work continues | |
 | 107 | Upload / Meetings | Open ready result and Clear finished | Uploaded badge in row and title; metadata says from original name; clearing queue keeps meeting | |
 | 108 | Meeting detail | Play, scrub, change speed and click transcript lines | Correct audio and seek/highlight timing; every row says Speaker | |
 | 109 | Meeting detail | Generate Summary and Action items with Meeting notes model; export Markdown, SRT and audio | No automatic generation; configured model used; Speaker in text exports; audio export is audio.m4a | |
 | 110 | Finder / Storage | Inspect saved upload and original file | Only audio.m4a retained as audio; no mic/system files or completed capture journal; original bytes/location unchanged; Meetings storage includes upload | |
 | 111 | Upload / Meetings | Start meeting during upload transcription; pause, resume and stop meeting; submit another upload while recording | Meeting starts; upload yields between chunks, stays held through pause/final pass, then resumes; new upload waits | |
-| 112 | Upload / dictation | Dictate while upload transcribes | Dictation has priority; upload continues between requests; local import makes no network speech request or capture permission request | |
+| 112 | Upload / dictation | Dictate while upload transcribes | Dictation has priority; upload continues between requests; with WhisperKit, import makes no network request; no capture permission request | |
 | 113 | Upload | Cancel during reading, transcription and while waiting | Workers stop; corresponding meeting folder removed; original untouched; next job advances | |
 | 114 | Quit / relaunch | Quit once during reading and once during transcription | Reading staging discarded; transcription resumes from durable work without mic/system capture or source file | |
-| 115 | Upload / Meetings | Induce recognition failure, then Retry transcript | Exact retained-audio error; audio plays/exports; retry uses same meeting and works from AAC after journal cleanup | |
+| 115 | Upload / Meetings | Induce recognition failure, then Retry transcript | Exact retained-audio error; audio plays/exports; retry uses same meeting and the kept journal; journal removed once ready | |
 | 116 | Upload | Try unsupported/DRM file and simulate disk full | Exact unreadable/disk-full sentence; partial folders removed; next queued file runs | |
-| 117 | Meetings / Settings / Insights | Search uploaded title and transcript, apply Delete ready meetings after, compare Insights | Search finds both; same retention applies by media end time; active uploads kept; upload minutes/counts do not change Insights | |
+| 117 | Meetings / Settings / Insights | Search uploaded title and transcript, apply Delete ready meetings after, compare Insights | Search finds both; uploads expire counted from import time, not media date; active uploads kept; upload minutes/counts do not change Insights | |
 | 118 | Upload | Import fixtures with metadata date, filesystem date only and neither usable date | Date fallback order correct; title drops extension; duration comes from asset | |
 | 119 | Upload / Activity Monitor | Run the five review-focus inputs below; sleep/wake during a long job | Expected errors or ready result; bounded buffers; no dictation time cap; wake resumes upload | |
 
