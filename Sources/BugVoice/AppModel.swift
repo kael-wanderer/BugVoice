@@ -13,6 +13,8 @@ private enum MeetingGenerationError: LocalizedError {
     var errorDescription: String? { "Choose a model for Meeting notes in Settings → Models." }
 }
 
+enum ConnectionStatus: Equatable { case reachable(models: [String]); case failed(String) }
+
 
 /// Main-window pages, in sidebar order.
 enum Page: String, CaseIterable, Identifiable {
@@ -83,6 +85,7 @@ final class AppModel {
     var page: Page = .dictation
     var speechState: WhisperKitTranscriber.LoadState = .notLoaded
     var cliInfo: [CLITool: CLIInfo] = [:]
+    var connectionStatus: [String: ConnectionStatus] = [:]
     var hotkeyActive = false
     /// Global shortcuts another app already holds, e.g. "⌃⌥V Paste last".
     var unavailableShortcuts: [String] = []
@@ -315,6 +318,17 @@ final class AppModel {
             catch { saveError="Could not move the API key: \(error.localizedDescription)" }
         }
         settings.models.pendingKeyMoves=[]
+    }
+
+    func testConnection(_ connection: ModelConnection) async {
+        guard let url=ConnectionAddress.baseURL(for:connection) else {
+            connectionStatus[connection.id] = .failed(ConnectionAddress.problem(connection.baseURL) ?? "The address is not valid.")
+            return
+        }
+        do {
+            let models=try await ModelCatalog.list(baseURL:url,apiKey:keychain.read(connection.keychainAccount),anthropic:connection.kind.usesAnthropicAPI)
+            connectionStatus[connection.id] = .reachable(models:models)
+        } catch { connectionStatus[connection.id] = .failed(error.localizedDescription) }
     }
 
 
