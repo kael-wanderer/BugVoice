@@ -9,6 +9,8 @@ public struct PromptBuilder: Sendable {
     Keep names, product names, code identifiers, file paths, and numbers exactly as spoken.
     """
 
+    static let placeholderRule = "Tokens like ⟦S1⟧ are placeholders. Keep every one exactly once, unchanged, where it belongs."
+
     public static func defaultRules(for style: Style) -> String {
         switch style {
         case .terminal:
@@ -32,10 +34,11 @@ public struct PromptBuilder: Sendable {
         self.customRules = customRules
     }
 
-    public func systemPrompt(style: Style, vocabulary: Vocabulary, focus: FocusSnapshot) -> String {
+    public func systemPrompt(style: Style, vocabulary: Vocabulary, focus: FocusSnapshot, hasPlaceholders: Bool = false) -> String {
         var parts = [Self.sharedRules]
         let rules = customRules[style.rawValue].flatMap { $0.isEmpty ? nil : $0 } ?? Self.defaultRules(for: style)
         parts.append("Style: \(rules)")
+        if hasPlaceholders { parts.append(Self.placeholderRule) }
         if !vocabulary.terms.isEmpty {
             parts.append("Spell these terms exactly: \(vocabulary.terms.joined(separator: ", "))")
         }
@@ -62,7 +65,10 @@ public struct PromptBuilder: Sendable {
             user += "\n\n/no_think"
         }
         return CleanupRequest(
-            system: systemPrompt(style: style, vocabulary: vocabulary, focus: focus),
+            system: systemPrompt(
+                style: style, vocabulary: vocabulary, focus: focus,
+                hasPlaceholders: !SnippetExpander.placeholders(in: raw).isEmpty
+            ),
             user: user,
             disableThinking: suppressThinking
         )

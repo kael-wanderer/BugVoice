@@ -39,7 +39,7 @@ enum HUDState: Equatable {
             switch r.rawReason {
             case .modelError, .modelTimeout:
                 return .warning(title: "Raw — model unavailable", detail: "raw text pasted")
-            case .emptyOutput, .tooLong:
+            case .emptyOutput, .tooLong, .placeholderLost:
                 return .warning(title: "Raw — model unavailable", detail: "model output rejected")
             case .cleanupOff, .none:
                 let words = r.finalText.split(whereSeparator: \.isWhitespace).count

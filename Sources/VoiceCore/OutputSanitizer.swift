@@ -1,7 +1,7 @@
 import Foundation
 
 public enum RawReason: String, Codable, Sendable {
-    case cleanupOff, modelError, modelTimeout, emptyOutput, tooLong
+    case cleanupOff, modelError, modelTimeout, emptyOutput, tooLong, placeholderLost
 }
 
 public enum SanitizeResult: Equatable, Sendable {

@@ -3,6 +3,11 @@ import Testing
 @testable import VoiceCore
 
 struct DictationPipelineTests {
+    static let dictionaryVocab = Vocabulary(
+        terms: ["OpenWhispr"],
+        replacements: [.init(spoken: "open whisper", written: "OpenWhispr")],
+        snippets: [Snippet(trigger: "my linkedin", text: "linkedin.com/in/kael")]
+    )
     func pipeline(
         transcriber: any Transcriber = FakeTranscriber(),
         model: (any TextModel)? = FakeModel(),
@@ -329,6 +334,70 @@ struct DictationPipelineTests {
         let r = await pipeline(model: model, settings: s).run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })
         #expect(r.rawReason == .modelTimeout)
         #expect(await model.wasCancelled)
+    }
+
+    @Test func heardAsIsFixedBeforeCleanupAndRawStaysOriginal() async {
+        let model = RecordingModel()
+        let r = await pipeline(transcriber: FakeTranscriber(text: "open whisper is great"), model: model, vocabulary: Self.dictionaryVocab)
+            .run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })
+        #expect(await model.requests.first?.user.contains("OpenWhispr is great") == true)
+        #expect(r.raw == "open whisper is great")
+        #expect(r.finalText == "OpenWhispr is great")
+    }
+
+    @Test func snippetSurvivesCleanupAndNeverReachesModel() async {
+        let model = RecordingModel(output: "Here is ⟦S1⟧.")
+        let r = await pipeline(transcriber: FakeTranscriber(text: "here is my linkedin"), model: model, vocabulary: Self.dictionaryVocab)
+            .run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })
+        let request = await model.requests.first
+        #expect(request?.user.contains("⟦S1⟧") == true)
+        #expect(request?.user.contains("linkedin.com") == false)
+        #expect(request?.system.contains("linkedin.com") == false)
+        #expect(request?.system.contains("Tokens like ⟦S1⟧ are placeholders") == true)
+        #expect(r.rawReason == nil)
+        #expect(r.cleaned == "Here is linkedin.com/in/kael.")
+        #expect(r.finalText == "Here is linkedin.com/in/kael.")
+        #expect(r.raw == "here is my linkedin")
+    }
+
+    @Test(arguments: ["Here is my profile.", "Here is ⟦S1⟧ ⟦S1⟧.", "Here is [S1].", "Here is ⟦S1⟧ and ⟦S2⟧."])
+    func mangledPlaceholderDiscardsCleanedText(output: String) async {
+        let insertion = RecordingInsertion()
+        let r = await pipeline(transcriber: FakeTranscriber(text: "here is my linkedin"), model: FakeModel(output: output), insertion: insertion, vocabulary: Self.dictionaryVocab)
+            .run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })
+        #expect(r.outcome == .inserted)
+        #expect(r.rawReason == .placeholderLost)
+        #expect(r.cleaned == nil)
+        #expect(r.finalText == "here is linkedin.com/in/kael")
+        #expect(await insertion.inserted == ["here is linkedin.com/in/kael"])
+    }
+
+    @Test func cleanupOffStillFillsSnippet() async {
+        var s = AppSettings()
+        s.cleanupEnabled = false
+        let r = await pipeline(transcriber: FakeTranscriber(text: "here is my linkedin"), settings: s, vocabulary: Self.dictionaryVocab)
+            .run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })
+        #expect(r.rawReason == .cleanupOff)
+        #expect(r.finalText == "here is linkedin.com/in/kael")
+    }
+
+    @Test func terminalFillsSnippetWithoutModelCall() async {
+        let model = RecordingModel()
+        let r = await pipeline(transcriber: FakeTranscriber(text: "open my linkedin"), model: model, focusAtInsert: terminalFocus, vocabulary: Self.dictionaryVocab)
+            .run(clip: speechClip, startFocus: terminalFocus, startedAt: Date(), onStage: { _ in })
+        #expect(await model.requests.isEmpty)
+        #expect(r.finalText == "open linkedin.com/in/kael")
+    }
+
+    @Test func secureFieldCopiesFilledTextOnly() async {
+        let insertion = RecordingInsertion()
+        let r = await pipeline(transcriber: FakeTranscriber(text: "here is my linkedin"), model: nil, insertion: insertion,
+                               focusAtInsert: FocusSnapshot(bundleID: "com.apple.Safari", isSecure: true), vocabulary: Self.dictionaryVocab)
+            .run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })
+        #expect(r.outcome == .copiedSecureField)
+        #expect(r.historyEntry == nil)
+        #expect(await insertion.inserted.isEmpty)
+        #expect(await insertion.copied == ["here is linkedin.com/in/kael"])
     }
 }
 

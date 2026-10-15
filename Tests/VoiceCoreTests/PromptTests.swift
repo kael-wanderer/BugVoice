@@ -48,6 +48,13 @@ struct PromptTests {
         #expect(!r2.disableThinking)
     }
 
+    @Test func placeholderLineOnlyWhenRequestHasPlaceholder() {
+        let with = PromptBuilder().request(raw: "here is ⟦S1⟧", style: .work, focus: .unknown, vocabulary: Vocabulary(), modelID: "m", disableThinking: false)
+        #expect(with.system.contains("Tokens like ⟦S1⟧ are placeholders. Keep every one exactly once, unchanged, where it belongs."))
+        let without = PromptBuilder().request(raw: "here is it", style: .work, focus: .unknown, vocabulary: Vocabulary(), modelID: "m", disableThinking: false)
+        #expect(!without.system.contains("placeholders"))
+    }
+
     // Sanitizer
     @Test func stripsClosedThinkBlock() {
         #expect(OutputSanitizer.sanitize("<think>hmm</think>\nHello.", raw: "hello") == .accepted("Hello."))
