@@ -117,6 +117,7 @@ public struct SpeechTranscriberConfiguration: Equatable, Sendable {
     }
 }
 
+/// The old single text-model setting. Read once to migrate into `ModelSettings`.
 public struct TextModelSettings: Codable, Equatable, Sendable {
     public var provider: TextModelProvider = .openAICompatible
     public var baseURL = "http://localhost:1234"
@@ -126,25 +127,6 @@ public struct TextModelSettings: Codable, Equatable, Sendable {
     public var anthropicVersion = "2023-06-01"
 
     public init() {}
-}
-
-extension TextModelSettings {
-    /// A short label for the HUD, e.g. *Cleaning (Qwen)*: the model id's
-    /// leading word, capitalized, without an organization prefix. Nil when
-    /// cleanup has no model.
-    public var shortName: String? {
-        switch provider {
-        case .none: return nil
-        case .appleIntelligence: return "Apple Intelligence"
-        case .openAICompatible, .anthropicCompatible: break
-        }
-        let id = model.trimmingCharacters(in: .whitespaces)
-        guard !id.isEmpty else { return nil }
-        let base = id.split(separator: "/").last.map(String.init) ?? id
-        let word = base.prefix { $0.isLetter }
-        guard !word.isEmpty else { return id }
-        return word.prefix(1).uppercased() + word.dropFirst()
-    }
 }
 
 public struct StyleSettings: Codable, Equatable, Sendable {
@@ -174,7 +156,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var historyRetention: Retention = .forever
     public var meetings = MeetingSettings()
     public var speech = SpeechSettings()
-    public var textModel = TextModelSettings()
+    public var models = ModelSettings()
     public var styles = StyleSettings()
 
     public init() {}
@@ -246,6 +228,7 @@ extension StyleSettings {
 }
 
 extension AppSettings {
+    private enum LegacyKeys: String, CodingKey { case textModel }
     public init(from decoder: Decoder) throws {
         self.init()
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -259,7 +242,11 @@ extension AppSettings {
         historyRetention = c.value(.historyRetention, default: historyRetention)
         meetings = c.value(.meetings, default: meetings)
         speech = c.value(.speech, default: speech)
-        textModel = c.value(.textModel, default: textModel)
+        if c.contains(.models) {
+            models = c.value(.models, default: models)
+        } else if let legacy = try? decoder.container(keyedBy: LegacyKeys.self).decodeIfPresent(TextModelSettings.self, forKey: .textModel) {
+            models = LegacyTextModelMigration.migrate(legacy)
+        }
         styles = c.value(.styles, default: styles)
     }
 }

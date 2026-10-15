@@ -236,9 +236,10 @@ final class DictationController {
         } else {
             insertion = inserter
         }
-        let pipeline = model.makePipeline(insertion: insertion)
+        let feature: ModelFeature = notesCapture == nil ? .dictation : .notes
+        let pipeline = model.makePipeline(insertion: insertion, feature: feature)
         let language = Self.languageLabel(model.settings.speech.language)
-        let modelName = model.settings.textModel.shortName
+        let modelName = model.plan(for: feature).shortName
         Task { [self] in
             let result = await pipeline.run(
                 clip: clip,

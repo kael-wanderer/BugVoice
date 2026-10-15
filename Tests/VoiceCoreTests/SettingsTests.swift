@@ -15,10 +15,7 @@ struct SettingsTests {
         #expect(s.handsFreeLimitMinutes == 10)
         #expect(s.cleanupEnabled)
         #expect(s.speech.whisperModel == "large-v3-v20240930_turbo")
-        #expect(s.textModel.provider == .openAICompatible)
-        #expect(s.textModel.baseURL == "http://localhost:1234")
-        #expect(s.textModel.model == "qwen3.8-27b-mlx")
-        #expect(s.textModel.timeoutSeconds == 3)
+        #expect(s.models == ModelSettings())
         #expect(s.styles.isCleanupEnabled(for: .terminal) == false)
         #expect(s.styles.isCleanupEnabled(for: .document))
     }
@@ -33,14 +30,24 @@ struct SettingsTests {
         #expect(store.load() == s)
     }
 
-    @Test func missingKeysFallBackToDefaults() throws {
+    @Test func legacyTextModelMigratesToModels() throws {
         let url = tempDir().appendingPathComponent("settings.json")
-        try Data(#"{"hotkey":"fn","textModel":{"model":"other"}}"#.utf8).write(to: url)
+        try Data(#"{"hotkey":"fn","textModel":{"model":"other","timeoutSeconds":5}}"#.utf8).write(to: url)
         let s = SettingsStore(url: url).load()
         #expect(s.hotkey == .fn)
-        #expect(s.textModel.model == "other")
-        #expect(s.textModel.baseURL == "http://localhost:1234")
-        #expect(s.speech.language == SpeechSettings().language)
+        #expect(s.models.connections == [ModelConnection(id:"migrated-1",name:"LM Studio",kind:.openAICompatible,baseURL:"http://localhost:1234",model:"other")])
+        #expect(s.models.dictationTimeoutSeconds == 5)
+        #expect(s.models.pendingKeyMoves == [KeyMove(from:"openai",to:"connection-migrated-1")])
+        try SettingsStore(url:url).save(s)
+        let saved=try String(contentsOf:url,encoding:.utf8)
+        #expect(!saved.contains("textModel"));#expect(saved.contains("\"models\""))
+    }
+
+    @Test func modelsWinOverLegacyTextModel() throws {
+        let url=tempDir().appendingPathComponent("settings.json")
+        try Data(#"{"textModel":{"model":"old"},"models":{"connections":[],"dictation":{"engine":"none"}}}"#.utf8).write(to:url)
+        let s=SettingsStore(url:url).load()
+        #expect(s.models.connections.isEmpty);#expect(s.models.dictation.engine == ModelEngine.none);#expect(s.models.pendingKeyMoves.isEmpty)
     }
 
     @Test func unknownEnumValueFallsBackToDefault() throws {

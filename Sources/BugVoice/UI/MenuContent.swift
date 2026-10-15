@@ -40,11 +40,10 @@ struct MenuContent: View {
             Text("Vietnamese").tag(SpeechLanguage.vi)
             Text("English").tag(SpeechLanguage.en)
         }
-        Picker("Text model", selection: $model.settings.textModel.provider) {
-            Text("\(model.settings.textModel.model) (OpenAI-compatible)").tag(TextModelProvider.openAICompatible)
-            Text("Anthropic-compatible").tag(TextModelProvider.anthropicCompatible)
-            Text("Apple Intelligence").tag(TextModelProvider.appleIntelligence)
-            Text("None").tag(TextModelProvider.none)
+        Picker("Dictation model", selection: $model.settings.models.dictation.engine) {
+            ForEach(model.settings.models.connections) { Text($0.name).tag(ModelEngine.connection($0.id)) }
+            if model.appleIntelligenceAvailable { Text("Apple Intelligence").tag(ModelEngine.appleIntelligence) }
+            Text("None").tag(ModelEngine.none)
         }
         Divider()
         Button("Meetings…") { model.openMainWindow(.meetings) }
