@@ -17,7 +17,11 @@ struct SecureFocusPolicyTests {
     @Test func secureSubroleIsSecure() { #expect(decide(subrole: .value("AXSecureTextField"))) }
     @Test func secureRoleIsSecure() { #expect(decide(role: .value("AXSecureTextField"))) }
     @Test func untrustedFailsClosed() { #expect(decide(trusted: false)) }
-    @Test func unreadableFocusFailsClosed() { #expect(decide(readable: false)) }
+    // Electron apps (VS Code) hide their focused element; a real password
+    // field there turns on Secure Event Input, so off means paste.
+    @Test func unreadableFocusWithoutSecureInputIsNotSecure() { #expect(!decide(readable: false, role: .failed, subrole: .failed)) }
+    @Test func unreadableFocusWithSecureInputElsewhereFailsClosed() { #expect(decide(readable: false, role: .failed, subrole: .failed, input: .owner(7))) }
+    @Test func unreadableFocusUntrustedFailsClosed() { #expect(decide(trusted: false, readable: false)) }
     @Test func failedSubroleReadFailsClosed() { #expect(decide(subrole: .failed)) }
     @Test func failedRoleReadFailsClosed() { #expect(decide(role: .failed)) }
     @Test func secureInputOwnedByFrontmostIsSecure() { #expect(decide(input: .owner(100))) }

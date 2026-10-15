@@ -22,7 +22,8 @@ public enum SecureInputState: Sendable, Equatable {
 }
 
 /// Decides whether the focus must be treated as a secure field. Fails closed:
-/// only a successful read showing a non-secure role and subrole yields false.
+/// only a successful read showing a non-secure role and subrole, or an
+/// unreadable focus while no app holds Secure Event Input, yields false.
 public enum SecureFocusPolicy {
     public static func isSecure(
         axTrusted: Bool,
@@ -37,7 +38,11 @@ public enum SecureFocusPolicy {
         case .ownerUnknown: return true
         case .owner(let pid): if pid == frontmostPID { return true }
         }
-        guard axTrusted, focusedElementReadable else { return true }
+        guard axTrusted else { return true }
+        // Electron apps such as VS Code expose no focused element. A password
+        // field there still turns on Secure Event Input, so with it off the
+        // focus is treated as plain text.
+        guard focusedElementReadable else { return secureInput != .off }
         if role == .failed || subrole == .failed { return true }
         return role == .value("AXSecureTextField") || subrole == .value("AXSecureTextField")
     }
