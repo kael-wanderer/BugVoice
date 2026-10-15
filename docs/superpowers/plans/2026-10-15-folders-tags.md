@@ -719,7 +719,8 @@ Replace `parse(data:filename:)` and `serialize(title:body:)` in `NotesMarkdownDo
 
     /// Returns nil when the file does not start with a closed `---` block.
     private static func splitFrontMatter(_ source: String) -> (NoteFrontMatter, String)? {
-        let lines = source.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+        // Not split(separator:): Swift treats "\r\n" as one Character.
+        let lines = source.components(separatedBy: "\n")
         guard let first = lines.first, stripCR(first) == "---", lines.count > 1 else { return nil }
         guard let close = lines.indices.dropFirst().first(where: { stripCR(lines[$0]) == "---" }) else { return nil }
 
@@ -764,7 +765,13 @@ Replace `parse(data:filename:)` and `serialize(title:body:)` in `NotesMarkdownDo
     }
 ```
 
-Note: a CRLF file's heading/body is parsed by the existing `parseHeading`, which already strips `\r` from the heading and the CRLF after it; the body keeps its CRLFs (as today).
+In the existing `parseHeading(_:)`, `firstIndex(of: "\n")` misses a `"\r\n"` Character, so CRLF headings are not found. Replace its first line with:
+
+```swift
+        let firstLineEnd = source.firstIndex(where: { $0 == "\n" || $0 == "\r\n" }) ?? source.endIndex
+```
+
+The body keeps its CRLFs.
 
 In `Sources/VoiceCore/Notes.swift`:
 
