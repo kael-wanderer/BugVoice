@@ -206,6 +206,9 @@ Run after building with `Scripts/build-app.sh`. Results stay blank until run on 
 | 117 | Meetings / Settings / Insights | Search uploaded title and transcript, apply Delete ready meetings after, compare Insights | Search finds both; uploads expire counted from import time, not media date; active uploads kept; upload minutes/counts do not change Insights | |
 | 118 | Upload | Import fixtures with metadata date, filesystem date only and neither usable date | Date fallback order correct; title drops extension; duration comes from asset | |
 | 119 | Upload / Activity Monitor | Run the five review-focus inputs below; sleep/wake during a long job | Expected errors or ready result; bounded buffers; no dictation time cap; wake resumes upload | |
+| 120 | Upload | Upload a music-only MP3 | No Russian/Japanese subtitle credits or "Music" lines in the transcript | |
+| 121 | Upload | Upload 6 or more files; page with Newer/Older; press Clear history | 5 per page, newest first; Clear history empties finished rows and every meeting stays in Meetings | |
+| 122 | Meetings | Right-click a meeting row; choose Delete…; confirm. Check More beside the title is a compact button | Meeting is gone from list and disk; right-click offers no Delete while recording | |
 
 Review-focus inputs: zero-length file; 48 kHz stereo or 5.1; video track only;
 source removed/moved while reading; three-hour-or-longer file. A reader already

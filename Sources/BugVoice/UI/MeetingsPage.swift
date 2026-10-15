@@ -16,6 +16,7 @@ private enum MeetingExportKind {
 struct MeetingsPage: View {
     @Bindable var model: AppModel
     @State private var player = MeetingPlayerModel()
+    @State private var pendingDelete: MeetingManifest?
 
     private var groups: [MeetingDayGroup] {
         MeetingListProjection.groups(meetings: model.meetingManifests, query: model.meetingSearchQuery)
@@ -76,6 +77,11 @@ struct MeetingsPage: View {
                                     ) {
                                         model.selectedMeetingID = meeting.id
                                     }
+                                    .contextMenu {
+                                        if meeting.state != .recording, meeting.state != .paused {
+                                            Button("Delete…", role: .destructive) { pendingDelete = meeting }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -85,6 +91,16 @@ struct MeetingsPage: View {
             }
         }
         .padding(14)
+        .confirmationDialog(
+            "Delete this meeting?",
+            isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }),
+            titleVisibility: .visible,
+            presenting: pendingDelete
+        ) { meeting in
+            Button("Delete meeting", role: .destructive) { Task { await model.deleteMeeting(id: meeting.id) } }
+        } message: { _ in
+            Text("The transcript and audio files will be deleted.")
+        }
     }
 }
 
@@ -255,6 +271,7 @@ private struct MeetingDetails: View {
                 Divider()
                 Button("Delete…", role: .destructive) { showDelete = true }
             }
+            .fixedSize()
         }
     }
 

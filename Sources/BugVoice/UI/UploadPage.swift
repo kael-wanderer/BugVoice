@@ -28,6 +28,9 @@ struct UploadRing: View {
 struct UploadPage: View {
     @Bindable var model: AppModel
     @State private var targeted = false
+    @State private var page = 0
+
+    private static let pageSize = 5
 
     var body: some View {
         ScrollView {
@@ -74,14 +77,32 @@ struct UploadPage: View {
                             .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
                         }
                         if !controller.queue.jobs.isEmpty {
+                            // Newest first, so older files sit on later pages.
+                            let jobs = Array(controller.queue.jobs.reversed())
+                            let paging = ListPaging(count: jobs.count, pageSize: Self.pageSize)
+                            let current = paging.clamp(page)
                             HStack {
-                                Text("\(controller.queue.jobs.count) files")
+                                Text(jobs.count == 1 ? "1 file" : "\(jobs.count) files")
                                 Spacer()
-                                Button("Clear finished") { controller.clearFinished() }
+                                Button("Clear history") {
+                                    controller.clearFinished()
+                                    page = 0
+                                }
+                                .help("Removes finished files from this list. Their meetings stay in Meetings.")
                             }
                             .font(.caption).foregroundStyle(.secondary)
-                            ForEach(controller.queue.jobs) { job in
+                            ForEach(jobs[paging.range(page: current)]) { job in
                                 queueRow(job, controller: controller)
+                            }
+                            if paging.pageCount > 1 {
+                                HStack {
+                                    Button("Newer") { page = current - 1 }
+                                        .disabled(current == 0)
+                                    Text("Page \(current + 1) of \(paging.pageCount)")
+                                        .font(.caption).foregroundStyle(.secondary)
+                                    Button("Older") { page = current + 1 }
+                                        .disabled(current == paging.pageCount - 1)
+                                }
                             }
                         }
                     }
