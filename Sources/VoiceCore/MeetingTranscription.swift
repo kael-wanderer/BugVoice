@@ -320,7 +320,7 @@ public enum MeetingTranscriptMerger {
     }
 
     private static func trackOrder(_ track: MeetingTrack) -> Int {
-        track == .mic ? 0 : 1
+        track.order
     }
 
     private static func words(_ text: String) -> [String] {
