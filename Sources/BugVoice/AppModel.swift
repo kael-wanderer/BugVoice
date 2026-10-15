@@ -15,10 +15,26 @@ private enum MeetingGenerationError: LocalizedError {
 
 /// Main-window pages. Notes are reserved for sub-project 3.
 enum Page: String, CaseIterable, Identifiable {
-    case dictation, meetings, notes, settings
+    case dictation, insights, meetings, notes, settings
     var id: String { rawValue }
-    var title: String { switch self { case .dictation: "Dictation"; case .meetings: "Meetings"; case .notes: "Notes"; case .settings: "Settings" } }
-    var symbol: String { switch self { case .dictation: "mic"; case .meetings: "waveform.path"; case .notes: "note.text"; case .settings: "gearshape" } }
+    var title: String {
+        switch self {
+        case .dictation: "Dictation"
+        case .insights: "Insights"
+        case .meetings: "Meetings"
+        case .notes: "Notes"
+        case .settings: "Settings"
+        }
+    }
+    var symbol: String {
+        switch self {
+        case .dictation: "mic"
+        case .insights: "chart.bar"
+        case .meetings: "waveform.path"
+        case .notes: "note.text"
+        case .settings: "gearshape"
+        }
+    }
 }
 
 @MainActor
