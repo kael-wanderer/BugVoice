@@ -13,6 +13,8 @@ public struct AppPaths: Sendable {
     }
 
     public var settings: URL { root.appendingPathComponent("settings.json") }
+    /// API keys, owner-only. See `CredentialStore`.
+    public var credentials: URL { root.appendingPathComponent("credentials.json") }
     /// Dictionary words and snippets.
     public var dictionary: URL { root.appendingPathComponent("dictionary.json") }
     /// The old word list. Read once to migrate into `dictionary.json`.
