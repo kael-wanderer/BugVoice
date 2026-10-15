@@ -804,10 +804,18 @@ final class AppModel {
         try Task.checkCancellation()
         if let uploads, try await uploads.saveGeneratedTextToSession(id: id, text: text, kind: kind) {
             await reloadMeetings()
+            if kind == .summary {
+                let suggestionModel = textModel
+                Task { await suggestTags(for: id, summary: text, model: suggestionModel) }
+            }
             return text
         }
         if let meetings, try await meetings.saveGeneratedTextToSession(id: id, text: text, kind: kind) {
             await reloadMeetings()
+            if kind == .summary {
+                let suggestionModel = textModel
+                Task { await suggestTags(for: id, summary: text, model: suggestionModel) }
+            }
             return text
         }
         var current = try await meetingStore.load(id: id)
@@ -815,7 +823,23 @@ final class AppModel {
         if kind == .summary { current.summary = text } else { current.actionItems = text }
         try await meetingStore.save(current)
         await reloadMeetings()
+        if kind == .summary {
+            let suggestionModel = textModel
+            Task { await suggestTags(for: id, summary: text, model: suggestionModel) }
+        }
         return text
+    }
+
+    /// Asks the Meetings model for up to 3 existing tags. Failures stay silent.
+    private func suggestTags(for id: MeetingID, summary: String, model textModel: any TextModel) async {
+        let allowed = allTagCatalog.map(\.name)
+        guard !allowed.isEmpty, !summary.isEmpty,
+              let meeting = meetingManifests.first(where: { $0.id == id }) else { return }
+        guard let answer = try? await textModel.clean(TagSuggestion.request(summary: summary, allowed: allowed)) else { return }
+        let suggestions = TagSuggestion.parse(answer, allowed: allowed, existing: meeting.tags)
+        guard !suggestions.isEmpty else { return }
+        let current = meetingManifests.first(where: { $0.id == id }) ?? meeting
+        await setMeetingLabels(id: id, folderID: current.folderID, tags: current.tags, suggestedTags: suggestions)
     }
 
     /// Drops entries older than the retention window, then reloads.
