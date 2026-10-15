@@ -9,7 +9,8 @@ public struct AnthropicCompatibleModel: TextModel {
     public var requestTimeout: TimeInterval
     public var session: URLSession
 
-    public init(baseURL: URL, model: String, apiKey: String? = nil, version: String = "2023-06-01", requestTimeout: TimeInterval = 60, session: URLSession = HTTP.noRedirectSession) {
+    public init(baseURL: URL, model: String, apiKey: String? = nil, version: String = "2023-06-01",
+                requestTimeout: TimeInterval = 60, session: URLSession = HTTP.noRedirectSession) {
         self.baseURL = baseURL
         self.model = model
         self.apiKey = apiKey

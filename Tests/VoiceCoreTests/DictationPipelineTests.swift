@@ -18,8 +18,9 @@ struct DictationPipelineTests {
         timeout: Double = 3
     ) -> DictationPipeline {
         DictationPipeline(
-            transcriber: transcriber, cleanup: model.map { CleanupModel(model:$0,modelID:"qwen3.8-27b-mlx",shortName:"Qwen",disableThinking:true,timeoutSeconds:timeout) }, insertion: insertion,
-            focus: FixedFocus(focus: focusAtInsert), settings: settings, vocabulary: vocabulary
+            transcriber: transcriber,
+            cleanup: model.map { CleanupModel(model: $0, modelID: "qwen3.8-27b-mlx", shortName: "Qwen", disableThinking: true, timeoutSeconds: timeout) },
+            insertion: insertion, focus: FixedFocus(focus: focusAtInsert), settings: settings, vocabulary: vocabulary
         )
     }
 
@@ -159,7 +160,7 @@ struct DictationPipelineTests {
 
     @Test func slowModelTimesOutToRaw() async {
         let start = Date()
-        let r = await pipeline(model: FakeModel(delay: 5), timeout:0.2).run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })
+        let r = await pipeline(model: FakeModel(delay: 5), timeout: 0.2).run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })
         #expect(r.rawReason == .modelTimeout)
         #expect(r.finalText == "hello world")
         #expect(Date().timeIntervalSince(start) < 2)
@@ -279,16 +280,25 @@ struct DictationPipelineTests {
     }
 
     @Test func cleanupUsesResolvedModelIDAndThinkingFlag() async {
-        let model=RecordingModel()
-        let p=DictationPipeline(transcriber:FakeTranscriber(),cleanup:CleanupModel(model:model,modelID:"llama-3",disableThinking:false,timeoutSeconds:3),insertion:RecordingInsertion(),focus:FixedFocus(focus:notionFocus),settings:AppSettings(),vocabulary:Vocabulary())
-        let stages=StageRecorder();_ = await p.run(clip:speechClip,startFocus:notionFocus,startedAt:Date(),onStage:{stages.add($0)})
-        let request=await model.requests.first
-        #expect(request?.disableThinking == false);#expect(request?.user.hasSuffix("/no_think") == false);#expect(stages.all.contains(.cleaning(model:"llama-3")))
+        let model = RecordingModel()
+        let p = DictationPipeline(
+            transcriber: FakeTranscriber(), cleanup: CleanupModel(model: model, modelID: "llama-3", disableThinking: false, timeoutSeconds: 3),
+            insertion: RecordingInsertion(), focus: FixedFocus(focus: notionFocus), settings: AppSettings(), vocabulary: Vocabulary()
+        )
+        let stages = StageRecorder()
+        _ = await p.run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { stages.add($0) })
+        let request = await model.requests.first
+        #expect(request?.disableThinking == false)
+        #expect(request?.user.hasSuffix("/no_think") == false)
+        #expect(stages.all.contains(.cleaning(model: "llama-3")))
     }
 
     @Test func unavailableModelPastesRawWithModelError() async {
-        let r=await pipeline(model:FakeModel(error:ProviderError.unavailable("The connection for Dictation cleanup was deleted. Choose another in Settings → Models."))).run(clip:speechClip,startFocus:notionFocus,startedAt:Date(),onStage:{_ in})
-        #expect(r.rawReason == .modelError);#expect(r.finalText == "hello world")
+        let reason = "The connection for Dictation cleanup was deleted. Choose another in Settings → Models."
+        let r = await pipeline(model: FakeModel(error: ProviderError.unavailable(reason)))
+            .run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })
+        #expect(r.rawReason == .modelError)
+        #expect(r.finalText == "hello world")
     }
 
     @Test func whisperPlaceholdersAreStrippedBeforePasting() async {
@@ -341,7 +351,7 @@ struct DictationPipelineTests {
 
     @Test func timeoutCancelsInFlightModelCall() async {
         let model = RecordingModel(delay: 5)
-        let r = await pipeline(model: model, timeout:0.1).run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })
+        let r = await pipeline(model: model, timeout: 0.1).run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })
         #expect(r.rawReason == .modelTimeout)
         #expect(await model.wasCancelled)
     }

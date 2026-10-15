@@ -35,19 +35,22 @@ struct SettingsTests {
         try Data(#"{"hotkey":"fn","textModel":{"model":"other","timeoutSeconds":5}}"#.utf8).write(to: url)
         let s = SettingsStore(url: url).load()
         #expect(s.hotkey == .fn)
-        #expect(s.models.connections == [ModelConnection(id:"migrated-1",name:"LM Studio",kind:.openAICompatible,baseURL:"http://localhost:1234",model:"other")])
+        #expect(s.models.connections == [ModelConnection(id: "migrated-1", name: "LM Studio", kind: .openAICompatible, baseURL: "http://localhost:1234", model: "other")])
         #expect(s.models.dictationTimeoutSeconds == 5)
-        #expect(s.models.pendingKeyMoves == [KeyMove(from:"openai",to:"connection-migrated-1")])
-        try SettingsStore(url:url).save(s)
-        let saved=try String(contentsOf:url,encoding:.utf8)
-        #expect(!saved.contains("textModel"));#expect(saved.contains("\"models\""))
+        #expect(s.models.pendingKeyMoves == [KeyMove(from: "openai", to: "connection-migrated-1")])
+        try SettingsStore(url: url).save(s)
+        let saved = try String(contentsOf: url, encoding: .utf8)
+        #expect(!saved.contains("textModel"))
+        #expect(saved.contains("\"models\""))
     }
 
     @Test func modelsWinOverLegacyTextModel() throws {
-        let url=tempDir().appendingPathComponent("settings.json")
-        try Data(#"{"textModel":{"model":"old"},"models":{"connections":[],"dictation":{"engine":"none"}}}"#.utf8).write(to:url)
-        let s=SettingsStore(url:url).load()
-        #expect(s.models.connections.isEmpty);#expect(s.models.dictation.engine == ModelEngine.none);#expect(s.models.pendingKeyMoves.isEmpty)
+        let url = tempDir().appendingPathComponent("settings.json")
+        try Data(#"{"textModel":{"model":"old"},"models":{"connections":[],"dictation":{"engine":"none"}}}"#.utf8).write(to: url)
+        let s = SettingsStore(url: url).load()
+        #expect(s.models.connections.isEmpty)
+        #expect(s.models.dictation.engine == ModelEngine.none)
+        #expect(s.models.pendingKeyMoves.isEmpty)
     }
 
     @Test func unknownEnumValueFallsBackToDefault() throws {

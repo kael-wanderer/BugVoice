@@ -1,7 +1,14 @@
 import Foundation
 
+/// Refuses every redirect: following one would re-send the key to whatever
+/// host the response named.
 public final class NoRedirectDelegate: NSObject, URLSessionTaskDelegate, Sendable {
-    public func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest) async -> URLRequest? { nil }
+    public func urlSession(
+        _ session: URLSession, task: URLSessionTask,
+        willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest
+    ) async -> URLRequest? {
+        nil
+    }
 }
 
 enum Endpoint {
@@ -16,6 +23,9 @@ enum Endpoint {
 
 public enum HTTP {
     public static let noRedirectSession = URLSession(configuration: .default, delegate: NoRedirectDelegate(), delegateQueue: nil)
+
+    /// `redactBody`: drop the response body from errors when the request
+    /// carried a key; providers echo the request back.
     static func send(_ request: URLRequest, session: URLSession, redactBody: Bool = false) async throws -> Data {
         let (data, response) = try await session.data(for: request)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0

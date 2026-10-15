@@ -1,10 +1,20 @@
 import Foundation
 
 /// `POST {base}/v1/chat/completions`. LM Studio, Ollama, MLX servers, vLLM,
-/// llama.cpp server.
+/// llama.cpp server, OpenAI, OpenRouter.
 public struct OpenAICompatibleModel: TextModel {
-    public enum Flavor: Sendable, Equatable { case local, openAI, openRouter }
+    public enum Flavor: Sendable, Equatable {
+        /// Local or self-hosted server: `max_tokens`, `temperature`, and
+        /// `chat_template_kwargs` to turn thinking off.
+        case local
+        /// api.openai.com: newer models reject `max_tokens` and `temperature`;
+        /// reasoning tokens count against `max_completion_tokens`.
+        case openAI
+        case openRouter
+    }
+
     static let openAIMinimumCompletionTokens = 2048
+
     public var baseURL: URL
     public var model: String
     public var apiKey: String?
@@ -12,7 +22,8 @@ public struct OpenAICompatibleModel: TextModel {
     public var requestTimeout: TimeInterval
     public var session: URLSession
 
-    public init(baseURL: URL, model: String, apiKey: String? = nil, flavor: Flavor = .local, requestTimeout: TimeInterval = 60, session: URLSession = HTTP.noRedirectSession) {
+    public init(baseURL: URL, model: String, apiKey: String? = nil, flavor: Flavor = .local,
+                requestTimeout: TimeInterval = 60, session: URLSession = HTTP.noRedirectSession) {
         self.baseURL = baseURL
         self.model = model
         self.apiKey = apiKey
