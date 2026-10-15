@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BugVoice Folders and Tags</title>
+<style>
+/* Roadmap item 9: Folders and tags, shared by Notes, Meetings and Upload.
+   Folders are one level; an item sits in one folder or in Unfiled. Tags are many per item.
+   Folders are labels inside BugVoice: files never move on disk.
+   Screens: Meetings (folder menu, tags row, AI tag suggestions), right-click Move to folder,
+   Notes, Upload folder picker, Manage folders. */
+:root {
+  --page: #e9ebf0; --win: #ffffff; --side: #f2f3f6; --card: #ffffff; --line: #e1e4ea; --chip: #eceef2;
+  --fg: #1c1f26; --muted: #6a7080; --accent: #3a6ff0; --accent-soft: #e4ebfd; --ok: #1f8a4c; --bad: #c2412d;
+  --sugg: #f3eefd; --sugg-fg: #6b46c1;
+  --red: #ff5f57; --yellow: #febc2e; --green: #28c840;
+  --app: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --page: #0d0e11; --win: #1b1d22; --side: #16181c; --card: #212329; --line: #2d3037; --chip: #272a31;
+  --fg: #e9ebf0; --muted: #9298a6; --accent: #6e93ff; --accent-soft: #23304f; --ok: #4cc27f; --bad: #ff7a66;
+  --sugg: #2c2440; --sugg-fg: #b9a2f5;
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --page: #0d0e11; --win: #1b1d22; --side: #16181c; --card: #212329; --line: #2d3037; --chip: #272a31;
+  --fg: #e9ebf0; --muted: #9298a6; --accent: #6e93ff; --accent-soft: #23304f; --ok: #4cc27f; --bad: #ff7a66;
+  --sugg: #2c2440; --sugg-fg: #b9a2f5;
+  color-scheme: dark }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--fg); font-family: var(--app); font-size: 13px; line-height: 1.45; padding: 28px 16px 48px; }
+.frame { max-width: 1180px; margin: 0 auto; display: grid; gap: 14px; }
+.caption { color: var(--muted); font-size: 12.5px; max-width: 95ch; margin: 0; }
+.caption b { color: var(--fg); }
+.bar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+.pills { display: inline-flex; flex-wrap: wrap; background: var(--chip); border-radius: 999px; padding: 3px; gap: 2px; }
+.pills button { font: inherit; border: 0; background: transparent; color: var(--muted); padding: 5px 13px; border-radius: 999px; cursor: pointer; }
+.pills button[aria-pressed="true"] { background: var(--card); color: var(--fg); font-weight: 600; box-shadow: 0 1px 2px rgb(0 0 0 / .14); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.scroll { overflow-x: auto; border-radius: 12px; }
+
+.win { position: relative; display: grid; grid-template-columns: 190px 300px minmax(560px, 1fr); background: var(--win); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; box-shadow: 0 20px 50px rgb(0 0 0 / .14); min-height: 660px; min-width: 1060px; }
+.win.two { grid-template-columns: 190px minmax(760px, 1fr); }
+.side { background: var(--side); border-right: 1px solid var(--line); padding: 14px 10px; display: flex; flex-direction: column; gap: 2px; }
+.lights { display: flex; gap: 8px; padding: 0 6px 18px; }
+.lights i { width: 12px; height: 12px; border-radius: 50%; }
+.lights i:nth-child(1) { background: var(--red); } .lights i:nth-child(2) { background: var(--yellow); } .lights i:nth-child(3) { background: var(--green); }
+.nav { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 7px; }
+.nav svg { width: 16px; height: 16px; stroke: var(--muted); fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.nav.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.nav.on svg { stroke: var(--accent); }
+.side .spacer { flex: 1; }
+
+.list { border-right: 1px solid var(--line); padding: 14px 12px; display: grid; align-content: start; gap: 8px; position: relative; }
+.list .top { display: flex; align-items: center; justify-content: space-between; }
+.list .top b { font-size: 18px; }
+.filters { display: flex; gap: 6px; flex-wrap: wrap; }
+.btn { font: inherit; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--card); color: var(--fg); padding: 4px 10px; border-radius: 7px; font-size: 12.5px; white-space: nowrap; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.btn.danger { color: var(--bad); }
+.btn.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+.btn svg, .ico { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.search { border: 1px solid var(--line); border-radius: 7px; padding: 5px 9px; color: var(--muted); background: var(--card); }
+.group { color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .05em; margin-top: 6px; }
+.row { padding: 9px 10px; border-radius: 9px; display: grid; gap: 3px; }
+.row.on { background: var(--accent-soft); }
+.row .l1 { display: flex; align-items: center; gap: 6px; }
+.row .l1 b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .l1 .st { margin-left: auto; color: var(--muted); font-size: 11.5px; }
+.row .m { color: var(--muted); font-size: 11.5px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.badge { font-size: 10.5px; font-weight: 600; padding: 1px 6px; border-radius: 4px; background: var(--accent-soft); color: var(--accent); }
+.fchip { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); }
+.fchip .ico { width: 12px; height: 12px; }
+.tag { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; padding: 1px 7px; border-radius: 999px; background: var(--chip); color: var(--fg); }
+.tag .x { color: var(--muted); font-size: 10px; }
+.tag.sugg { background: var(--sugg); color: var(--sugg-fg); border: 1px dashed var(--sugg-fg); }
+.tag.add { background: transparent; border: 1px dashed var(--line); color: var(--muted); }
+
+.detail { padding: 18px 24px; display: grid; gap: 12px; align-content: start; position: relative; min-width: 0; }
+.dhead { display: flex; align-items: center; gap: 10px; }
+.dhead h2 { margin: 0; font-size: 19px; }
+.dhead .sp { flex: 1; }
+.meta { color: var(--muted); }
+.org { display: grid; grid-template-columns: 70px 1fr; gap: 8px 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
+.org .k { color: var(--muted); font-size: 12px; }
+.org .v { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.org .hint { color: var(--muted); font-size: 11.5px; }
+.wave { height: 54px; border-radius: 8px; background: repeating-linear-gradient(90deg, var(--line) 0 2px, transparent 2px 5px); opacity: .9; }
+.seg { display: grid; grid-template-columns: 90px 70px 1fr; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.seg .t { color: var(--muted); font-variant-numeric: tabular-nums; }
+.seg .s { font-weight: 600; }
+.seg-tabs { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--chip); border-radius: 8px; padding: 2px; text-align: center; }
+.seg-tabs span { padding: 4px; border-radius: 6px; color: var(--muted); }
+.seg-tabs span.on { background: var(--card); color: var(--fg); font-weight: 600; }
+
+.menu { position: absolute; z-index: 5; background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 12px 30px rgb(0 0 0 / .2); padding: 5px; min-width: 220px; }
+.menu .i { display: flex; align-items: center; gap: 9px; padding: 6px 10px; border-radius: 6px; }
+.menu .i .n { margin-left: auto; color: var(--muted); font-size: 11.5px; }
+.menu .i.hl { background: var(--accent); color: #fff; }
+.menu .i.hl .n, .menu .i.hl .ico { color: #fff; }
+.menu .i .chk { width: 12px; color: var(--accent); }
+.menu .i.hl .chk { color: #fff; }
+.menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 2px; }
+.menu .h { padding: 5px 10px 3px; color: var(--muted); font-size: 11px; }
+.menu .field { margin: 3px 4px 5px; border: 1px solid var(--accent); border-radius: 6px; padding: 4px 8px; }
+
+.editor { padding: 0; display: grid; grid-template-rows: auto auto 1fr; min-width: 0; }
+.editor .org { margin: 0 24px; }
+.editor .body { padding: 6px 24px; }
+.editor .body h1 { font-size: 21px; margin: 6px 0 10px; }
+.editor .body p { margin: 0 0 10px; max-width: 70ch; }
+
+.upload { display: grid; justify-items: center; gap: 16px; padding: 30px 24px; align-content: start; }
+.upload h2 { margin: 16px 0 0; font-size: 22px; }
+.upload .using { color: var(--muted); }
+.fcard { width: min(600px, 100%); background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: grid; gap: 12px; }
+.fcard .top { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; }
+.fcard .fi { width: 44px; height: 44px; border-radius: 10px; background: var(--accent-soft); display: grid; place-items: center; color: var(--accent); }
+.fcard .fi .ico { width: 22px; height: 22px; }
+.fcard b { display: block; font-size: 14px; }
+.fcard .m { color: var(--muted); font-size: 12px; }
+.fcard .org { border: 0; padding: 0; background: transparent; }
+.acts { display: flex; gap: 8px; justify-content: center; }
+.note-s { color: var(--muted); font-size: 12px; text-align: center; max-width: 60ch; }
+
+.sheet-bg { position: absolute; inset: 0; background: rgb(0 0 0 / .28); display: grid; place-items: start center; padding-top: 70px; z-index: 6; }
+.sheet { width: 440px; background: var(--win); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 24px 60px rgb(0 0 0 / .35); padding: 18px; display: grid; gap: 12px; }
+.sheet h3 { margin: 0; font-size: 15px; }
+.frow { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); }
+.frow .c { color: var(--muted); font-size: 11.5px; }
+.frow.edit { border-color: var(--accent); }
+.sheet .foot { display: flex; gap: 8px; justify-content: space-between; align-items: center; }
+.sheet .warn { color: var(--muted); font-size: 11.5px; }
+.screen { display: none; }
+.screen.on { display: block; }
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="bar">
+    <div class="pills" role="group" aria-label="Screen" id="states">
+      <button data-s="meetings" aria-pressed="true">Meetings</button>
+      <button data-s="move" aria-pressed="false">Move to folder</button>
+      <button data-s="notes" aria-pressed="false">Notes</button>
+      <button data-s="upload" aria-pressed="false">Upload</button>
+      <button data-s="manage" aria-pressed="false">Manage folders</button>
+    </div>
+    <div class="pills" role="group" aria-label="Theme" id="theme">
+      <button data-t="light" aria-pressed="false">Light</button>
+      <button data-t="dark" aria-pressed="false">Dark</button>
+    </div>
+  </div>
+  <p class="caption" id="cap"></p>
+  <div class="scroll"><div id="stage"></div></div>
+</div>
+
+<template id="side">
+  <div class="side">
+    <div class="lights"><i></i><i></i><i></i></div>
+    <div class="nav"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Dictation</div>
+    <div class="nav"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Insights</div>
+    <div class="nav"><svg viewBox="0 0 24 24"><path d="M6 3h11a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6z"/><path d="M4 7h3M4 12h3M4 17h3"/></svg>Dictionary</div>
+    <div class="nav"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h7"/></svg>Style</div>
+    <div class="nav" data-n="meetings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5"/></svg>Meetings</div>
+    <div class="nav" data-n="upload"><svg viewBox="0 0 24 24"><path d="M12 15V4M7 9l5-5 5 5M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></svg>Upload</div>
+    <div class="nav" data-n="notes"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg>Notes</div>
+    <div class="spacer"></div>
+    <div class="nav"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>Settings</div>
+  </div>
+</template>
+
+<template id="folder-ico"><svg class="ico" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></template>
+<template id="tag-ico"><svg class="ico" viewBox="0 0 24 24"><path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="8" cy="8" r="1.5"/></svg></template>
+
+<!-- Meetings list (shared by meetings + move screens) -->
+<template id="meet-list">
+  <div class="list">
+    <div class="top"><b>Meetings</b><button class="btn primary" tabindex="-1">●</button></div>
+    <div class="filters">
+      <button class="btn on" tabindex="-1" id="fbtn">{F} Project A ▾</button>
+      <button class="btn" tabindex="-1">{T} Tags ▾</button>
+      <span class="tag">#decision <span class="x">✕</span></span>
+    </div>
+    <div class="search">Search meetings</div>
+    <div class="group">TODAY</div>
+    <div class="row on" id="r1"><div class="l1"><b>Sprint planning</b><span class="st">Ready</span></div>
+      <div class="m">10:02 · 42:10 <span class="tag">#decision</span><span class="tag">#sprint</span></div></div>
+    <div class="row" id="r2"><div class="l1"><b>Client sync — Acme</b><span class="badge">Uploaded</span><span class="st">Ready</span></div>
+      <div class="m">08:30 · 28:44 <span class="tag">#decision</span><span class="tag">#acme</span></div></div>
+    <div class="group">OCT 13</div>
+    <div class="row"><div class="l1"><b>Architecture review</b><span class="st">Ready</span></div>
+      <div class="m">15:10 · 55:02 <span class="tag">#decision</span></div></div>
+  </div>
+</template>
+
+<template id="folder-menu">
+  <div class="menu" style="left:12px; top:84px; width:250px">
+    <div class="i"><span class="chk"></span>All meetings<span class="n">14</span></div>
+    <div class="i"><span class="chk"></span>Unfiled<span class="n">3</span></div>
+    <hr>
+    <div class="i"><span class="chk"></span>{F} IT team<span class="n">5</span></div>
+    <div class="i hl"><span class="chk">✓</span>{F} Project A<span class="n">4</span></div>
+    <div class="i"><span class="chk"></span>{F} Finance / client<span class="n">2</span></div>
+    <div class="i"><span class="chk"></span>{F} Personal<span class="n">0</span></div>
+    <hr>
+    <div class="i"><span class="chk"></span>New folder…</div>
+    <div class="i"><span class="chk"></span>Manage folders…</div>
+  </div>
+</template>
+
+<template id="meet-detail">
+  <div class="detail">
+    <div class="dhead"><h2>Sprint planning</h2><span class="sp"></span><button class="btn" tabindex="-1">More ▾</button></div>
+    <div class="meta">15 October 2026 at 10:02 · 42:10</div>
+    <div class="org">
+      <span class="k">Folder</span>
+      <div class="v"><button class="btn" tabindex="-1">{F} Project A ▾</button></div>
+      <span class="k">Tags</span>
+      <div class="v"><span class="tag">#decision <span class="x">✕</span></span><span class="tag">#sprint <span class="x">✕</span></span><span class="tag add">+ Add tag</span></div>
+      <span class="k">Suggested</span>
+      <div class="v"><span class="tag sugg">+ #todo</span><span class="tag sugg">+ #acme</span><span class="hint">From the summary · Qwen3.8 27B · click to add</span></div>
+    </div>
+    <div class="wave"></div>
+    <div class="seg-tabs"><span class="on">Transcript</span><span>Summary</span><span>Action items</span></div>
+    <div>
+      <div class="seg"><span class="t">0:00 – 0:12</span><span class="s">Me</span><span>Let's lock the scope for the next sprint.</span></div>
+      <div class="seg"><span class="t">0:12 – 0:31</span><span class="s">Others</span><span>Upload paging is done; folders come next, then Scratchpad.</span></div>
+      <div class="seg"><span class="t">0:31 – 0:50</span><span class="s">Me</span><span>Agreed. Acme wants the export by Friday.</span></div>
+    </div>
+  </div>
+</template>
+
+<template id="move-menu">
+  <div class="menu" style="left:220px; top:236px; width:190px">
+    <div class="i">Rename…</div>
+    <div class="i hl">Move to folder<span class="n">›</span></div>
+    <div class="i">Tags…</div>
+    <hr>
+    <div class="i" style="color:var(--bad)">Delete…</div>
+  </div>
+  <div class="menu" style="left:414px; top:262px; width:210px">
+    <div class="i"><span class="chk"></span>Unfiled</div>
+    <hr>
+    <div class="i"><span class="chk"></span>{F} IT team</div>
+    <div class="i"><span class="chk">✓</span>{F} Project A</div>
+    <div class="i hl"><span class="chk"></span>{F} Finance / client</div>
+    <div class="i"><span class="chk"></span>{F} Personal</div>
+    <hr>
+    <div class="i"><span class="chk"></span>New folder…</div>
+  </div>
+</template>
+
+<template id="notes">
+  <div class="list">
+    <div class="top"><b>Notes</b><button class="btn" tabindex="-1">New</button></div>
+    <div class="filters"><button class="btn on" tabindex="-1">{F} IT team ▾</button><button class="btn" tabindex="-1">{T} Tags ▾</button></div>
+    <div class="search">Search notes</div>
+    <div class="row on"><div class="l1"><b>VPN rollout ideas</b></div><div class="m">Today 19:30 <span class="tag">#idea</span><span class="tag">#vpn</span></div></div>
+    <div class="row"><div class="l1"><b>Laptop refresh list</b></div><div class="m">Yesterday <span class="tag">#todo</span></div></div>
+    <div class="row"><div class="l1"><b>On-call handover</b></div><div class="m">Oct 12</div></div>
+  </div>
+  <div class="editor">
+    <div class="dhead" style="padding:16px 24px 10px"><h2>VPN rollout ideas</h2><span class="sp"></span><button class="btn" tabindex="-1">More ▾</button></div>
+    <div class="org">
+      <span class="k">Folder</span>
+      <div class="v"><button class="btn" tabindex="-1">{F} IT team ▾</button></div>
+      <span class="k">Tags</span>
+      <div class="v"><span class="tag">#idea <span class="x">✕</span></span><span class="tag">#vpn <span class="x">✕</span></span>
+        <span class="tag add" style="border-color:var(--accent);color:var(--fg)">#onb|</span></div>
+    </div>
+    <div class="body" style="position:relative">
+      <div class="menu" style="left:290px; top:-14px; width:200px">
+        <div class="h">Existing tags</div>
+        <div class="i hl">#onboarding<span class="n">6</span></div>
+        <div class="i">#onboard-checklist<span class="n">1</span></div>
+        <hr>
+        <div class="i">Create tag "#onb"</div>
+      </div>
+      <p style="margin-top:14px">Move everyone to the new VPN profile before the office move. Start with the IT team, then onboarding for new hires.</p>
+    </div>
+  </div>
+</template>
+
+<template id="upload">
+  <div class="upload">
+    <h2>Upload a recording</h2>
+    <div class="using">Transcribed on this Mac with large-v3-v20240930_turbo</div>
+    <div class="fcard">
+      <div class="top"><div class="fi"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 5v14M17 5v14M3 9h4M3 15h4M17 9h4M17 15h4"/></svg></div>
+        <div><b>acme-client-sync.mp4</b><span class="m">Video · 28:44 · 312 MB</span></div></div>
+      <div class="org" style="position:relative">
+        <span class="k">Save to</span>
+        <div class="v"><button class="btn on" tabindex="-1">{F} Finance / client ▾</button><span class="hint">Last used</span></div>
+        <span class="k">Tags</span>
+        <div class="v"><span class="tag">#acme <span class="x">✕</span></span><span class="tag add">+ Add tag</span></div>
+      </div>
+    </div>
+    <div class="acts"><button class="btn" tabindex="-1">Cancel</button><button class="btn primary" tabindex="-1">Transcribe</button></div>
+    <div class="note-s">Dropping several files gives each file its own card; "Apply to all" copies this folder and these tags to the rest.</div>
+  </div>
+</template>
+
+<template id="manage">
+  <div class="sheet-bg">
+    <div class="sheet">
+      <h3>Folders</h3>
+      <div class="frow"><span>{F} IT team</span><span class="c">5 meetings · 3 notes</span><button class="btn" tabindex="-1">Rename</button></div>
+      <div class="frow edit"><span style="border-bottom:1px solid var(--accent)">Project Atlas|</span><span class="c">4 meetings · 6 notes</span><button class="btn primary" tabindex="-1">Save</button></div>
+      <div class="frow"><span>{F} Finance / client</span><span class="c">2 meetings · 0 notes</span><button class="btn" tabindex="-1">Rename</button></div>
+      <div class="frow"><span>{F} Personal</span><span class="c">0 meetings · 1 note</span><button class="btn danger" tabindex="-1">Delete</button></div>
+      <div class="foot"><button class="btn" tabindex="-1">+ New folder</button><button class="btn primary" tabindex="-1">Done</button></div>
+      <div class="warn">Deleting a folder moves its meetings and notes to Unfiled. Nothing is deleted, and files on disk never move.</div>
+    </div>
+  </div>
+</template>
+
+<script>
+const caps = {
+  meetings: '<b>Meetings.</b> A folder menu and a tag filter sit above the list (here: Project A, tag #decision). The details show the folder picker, tags, and up to 3 suggested existing tags from the summary; a suggestion is only added when clicked.',
+  move: '<b>Right-click a meeting.</b> Move to folder lists every folder plus Unfiled; Tags… opens the tag field. Notes rows get the same menu.',
+  notes: '<b>Notes.</b> Same folder menu and tags as Meetings, sharing one folder list. Typing a tag autocompletes from existing tags; a new tag is created only on explicit choice. A new note goes into the folder being viewed.',
+  upload: '<b>Upload.</b> Each file card has Save to (remembers the last folder) and Tags. The meeting is created in that folder.',
+  manage: '<b>Manage folders.</b> Create, rename, delete. Counts show what each folder holds. Delete moves items to Unfiled; files on disk never move.'
+};
+const F = document.getElementById('folder-ico').innerHTML;
+const T = document.getElementById('tag-ico').innerHTML;
+const fill = html => html.replaceAll('{F}', F).replaceAll('{T}', T);
+const tpl = id => fill(document.getElementById(id).innerHTML);
+let state = 'meetings';
+function render() {
+  document.querySelectorAll('#states button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.s === state)));
+  document.getElementById('cap').innerHTML = caps[state];
+  const nav = state === 'notes' ? 'notes' : state === 'upload' ? 'upload' : 'meetings';
+  let inner;
+  if (state === 'upload') inner = `<div class="win two">${tpl('side')}${tpl('upload')}</div>`;
+  else if (state === 'notes') inner = `<div class="win">${tpl('side')}${tpl('notes')}</div>`;
+  else {
+    const extra = state === 'meetings' ? tpl('folder-menu') : state === 'move' ? tpl('move-menu') : tpl('manage');
+    inner = `<div class="win">${tpl('side')}${tpl('meet-list')}${tpl('meet-detail')}${extra}</div>`;
+  }
+  const stage = document.getElementById('stage');
+  stage.innerHTML = inner;
+  stage.querySelector(`[data-n="${nav}"]`).classList.add('on');
+  if (state === 'move') { stage.querySelector('#r1').classList.remove('on'); stage.querySelector('#r2').classList.add('on'); }
+}
+document.querySelectorAll('#states button').forEach(b => b.addEventListener('click', () => { state = b.dataset.s; render(); }));
+document.querySelectorAll('#theme button').forEach(b => b.addEventListener('click', () => {
+  document.documentElement.dataset.theme = b.dataset.t;
+  document.querySelectorAll('#theme button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+}));
+// Deep link for screenshots: #upload-dark
+const [hs, ht] = location.hash.slice(1).split('-');
+if (caps[hs]) state = hs;
+if (ht) document.documentElement.dataset.theme = ht;
+render();
+</script>
+</body>
+</html>
