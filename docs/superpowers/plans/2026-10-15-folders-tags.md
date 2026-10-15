@@ -1673,8 +1673,8 @@ Add to `AppModel`:
     func deleteFolder(_ id: FolderID) async {
         guard !libraryReadOnly else { return }
         LibraryFolders.delete(id, in: &library)
-        if case .folder(id) = FolderFilter(rawValue: settings.library.meetingsFolderFilter) { meetingsFolderFilter = .all }
-        if case .folder(id) = FolderFilter(rawValue: settings.library.notesFolderFilter) { notesFolderFilter = .all }
+        if FolderFilter(rawValue: settings.library.meetingsFolderFilter) == .folder(id) { meetingsFolderFilter = .all }
+        if FolderFilter(rawValue: settings.library.notesFolderFilter) == .folder(id) { notesFolderFilter = .all }
         await saveLibrary()
     }
 
