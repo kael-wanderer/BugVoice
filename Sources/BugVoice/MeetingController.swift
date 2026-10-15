@@ -193,6 +193,7 @@ final class MeetingController {
 
     func stop() async {
         guard let session, isRecording || isPaused else { return }
+        let recordedSeconds = elapsed
         onRecordingStopped?()
         monitorTask?.cancel()
         monitorTask = nil
@@ -208,6 +209,7 @@ final class MeetingController {
             statusMessage = "Transcript could not be completed. Your meeting audio is saved. \(error.localizedDescription)"
         }
         await model.reloadMeetings()
+        await model.recordMeetingInsights(seconds: recordedSeconds)
     }
 
     func renameSession(id: MeetingID, title: String) async throws -> Bool {
@@ -237,6 +239,7 @@ final class MeetingController {
 
     func stopAndKeepForQuit() async throws {
         guard let session, isRecording || isPaused else { return }
+        let recordedSeconds = elapsed
         onRecordingStopped?()
         monitorTask?.cancel()
         monitorTask = nil
@@ -245,6 +248,8 @@ final class MeetingController {
         isTranscribing = false
         _ = try await session.cancel()
         await model.reloadMeetings()
+        // The audio is kept and finished on next launch, so it counts now.
+        await model.recordMeetingInsights(seconds: recordedSeconds)
     }
 
     private func startMonitor() {

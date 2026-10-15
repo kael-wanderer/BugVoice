@@ -9,24 +9,11 @@ struct MainWindow: View {
             List(Page.allCases, selection: $model.page) { page in
                 Label(page.title, systemImage: page.symbol).tag(page)
             }
-            .safeAreaInset(edge: .top) {
-                HStack(spacing: 8) {
-                    Image(nsImage: NSApp.applicationIconImage)
-                        .resizable()
-                        .frame(width: 20, height: 20)
-                    Text("BugVoice").font(.headline)
-                    Text("Local")
-                        .font(.caption2.weight(.semibold))
-                        .padding(.horizontal, 6).padding(.vertical, 1)
-                        .background(Color.accentColor.opacity(0.15), in: Capsule())
-                    Spacer()
-                }
-                .padding(.horizontal, 14).padding(.vertical, 8)
-            }
             .navigationSplitViewColumnWidth(200)
         } detail: {
             switch model.page {
             case .dictation: DictationHistoryView(model: model)
+            case .insights: InsightsPage(model: model)
             case .meetings: MeetingsPage(model: model)
             case .notes: NotesPage(model: model)
             case .settings: SettingsView(model: model)
@@ -76,6 +63,10 @@ final class MainWindowController: NSObject, NSWindowDelegate {
             defer: false
         )
         window.title = "BugVoice"
+        // Title stays for the Window menu and Mission Control but is not drawn;
+        // the sidebar runs under the transparent title bar.
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
         window.identifier = AppWindow.main
         window.contentViewController = NSHostingController(rootView: MainWindow(model: model))
         window.isReleasedWhenClosed = false

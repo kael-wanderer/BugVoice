@@ -15,10 +15,26 @@ private enum MeetingGenerationError: LocalizedError {
 
 /// Main-window pages. Notes are reserved for sub-project 3.
 enum Page: String, CaseIterable, Identifiable {
-    case dictation, meetings, notes, settings
+    case dictation, insights, meetings, notes, settings
     var id: String { rawValue }
-    var title: String { switch self { case .dictation: "Dictation"; case .meetings: "Meetings"; case .notes: "Notes"; case .settings: "Settings" } }
-    var symbol: String { switch self { case .dictation: "mic"; case .meetings: "waveform.path"; case .notes: "note.text"; case .settings: "gearshape" } }
+    var title: String {
+        switch self {
+        case .dictation: "Dictation"
+        case .insights: "Insights"
+        case .meetings: "Meetings"
+        case .notes: "Notes"
+        case .settings: "Settings"
+        }
+    }
+    var symbol: String {
+        switch self {
+        case .dictation: "mic"
+        case .insights: "chart.bar"
+        case .meetings: "waveform.path"
+        case .notes: "note.text"
+        case .settings: "gearshape"
+        }
+    }
 }
 
 @MainActor
@@ -30,6 +46,7 @@ final class AppModel {
     @ObservationIgnored let notesController: NotesController
     @ObservationIgnored let store = SettingsStore(url: AppPaths.standard().settings)
     @ObservationIgnored let historyLog = HistoryLog(url: AppPaths.standard().history)
+    @ObservationIgnored let insightsStore = InsightsStore(url: AppPaths.standard().insights)
     @ObservationIgnored private var meetingStore: MeetingStore { MeetingStore(root: paths.meetings) }
     @ObservationIgnored private(set) var whisper: WhisperKitTranscriber
     @ObservationIgnored private(set) var priorityTranscriber: PriorityTranscriber
@@ -45,6 +62,10 @@ final class AppModel {
     var vocabularyText = ""
     var vocabulary = Vocabulary()
     var history: [HistoryEntry] = []
+    /// Daily usage totals for the Insights page.
+    var insights = InsightsFile()
+    /// True when `insights.json` was written by a newer BugVoice: shown, never written.
+    var insightsReadOnly = false
     var meetingManifests: [MeetingManifest] = []
     var selectedMeetingID: MeetingID?
     var meetingSearchQuery = ""
@@ -118,6 +139,7 @@ final class AppModel {
         }
         vocabularyText = (try? String(contentsOf: paths.vocabulary, encoding: .utf8)) ?? ""
         vocabulary = Vocabulary.parse(vocabularyText)
+        await loadInsights()
         startDictation()
         registerShortcut(kVK_ANSI_N, letter: "N", name: "New note") { [weak self] in
             self?.createNoteAndShow()
@@ -307,6 +329,58 @@ final class AppModel {
 
     func reloadHistory() async {
         history = await historyLog.load()
+    }
+
+    // MARK: Insights
+
+    /// Loads `insights.json` and fills it from history the first time.
+    /// Must finish before dictation starts, or a new dictation would be
+    /// counted twice (once live, once from history).
+    func loadInsights() async {
+        let (file, issue) = await insightsStore.load()
+        insights = file
+        switch issue {
+        case .none:
+            break
+        case .rebuiltFromCorrupt:
+            saveError = "Insights file was damaged and has been rebuilt from history."
+        case .newerVersion:
+            insightsReadOnly = true
+            return
+        }
+        do {
+            insights = try await insightsStore.backfillIfNeeded(from: historyLog.load())
+        } catch {
+            saveError = "Could not save insights: \(error.localizedDescription)"
+        }
+    }
+
+    func recordInsights(_ result: DictationResult, noteID: NoteID?) async {
+        guard let delta = InsightsDelta.dictation(result, noteID: noteID) else { return }
+        await addInsights(delta, at: result.startedAt)
+    }
+
+    func recordMeetingInsights(seconds: TimeInterval) async {
+        guard let delta = InsightsDelta.meeting(seconds: seconds) else { return }
+        await addInsights(delta, at: Date())
+    }
+
+    func resetInsights() async {
+        guard !insightsReadOnly else { return }
+        do {
+            insights = try await insightsStore.reset()
+        } catch {
+            saveError = "Could not reset insights: \(error.localizedDescription)"
+        }
+    }
+
+    private func addInsights(_ delta: InsightsDelta, at date: Date) async {
+        guard !insightsReadOnly else { return }
+        do {
+            insights = try await insightsStore.add(delta, at: date)
+        } catch {
+            saveError = "Could not save insights: \(error.localizedDescription)"
+        }
     }
 
     func deleteHistory(id: UUID) async {

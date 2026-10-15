@@ -58,7 +58,7 @@ public struct HistoryEntry: Codable, Equatable, Sendable, Identifiable {
     }
 
     public var wordCount: Int {
-        text.split(whereSeparator: { $0.isWhitespace || $0.isNewline }).count
+        InsightsDelta.wordCount(text)
     }
 }
 

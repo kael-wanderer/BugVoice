@@ -45,6 +45,8 @@ recovery and playback are **UNVERIFIED on device**.
 
 ## Next steps
 
+Insights built on `feat/insights`; run checklist 73–80 after review.
+
 1. **Maintainer: benchmark gate.** Record six clips in `bench/clips/` per its
    README, run `Scripts/stt-bench.sh > docs/bench/$(date +%F)-stt-bench.md`,
    pick the default language (lowest mean WER on `mix-*`) and the cleanup
