@@ -20,7 +20,6 @@ struct MeetingsPage: View {
     @State private var pendingRename: MeetingManifest?
     @State private var renameTitle = ""
     @State private var managingFolders = false
-    @State private var tagEditMeetingID: MeetingID?
 
     private var visibleMeetings: [MeetingManifest] {
         LibraryProjection.filter(
