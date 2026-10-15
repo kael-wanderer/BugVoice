@@ -24,12 +24,6 @@ enum StyleApps {
         return apps + sites
     }
 
-    static func summary(for style: Style, overrides: [String: Style]) -> String {
-        if style == .other { return "Every app not listed" }
-        let names = entries(for: style, overrides: overrides).filter { $0.bundleID != nil }.prefix(4).map(\.name)
-        return names.isEmpty ? "No apps" : names.joined(separator: ", ")
-    }
-
     static func appName(_ bundleID: String) -> String {
         guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return bundleID }
         let name = FileManager.default.displayName(atPath: url.path)
@@ -42,31 +36,19 @@ struct StylePage: View {
     @State private var selected: Style = .personal
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Style").font(.title2.weight(.semibold))
-            Text("Each app is matched to a style when you start dictating. The style sets how the text model cleans your words.")
-                .foregroundStyle(.secondary)
-            HStack(alignment: .top, spacing: 16) {
-                VStack(spacing: 4) {
-                    ForEach(Style.allCases, id: \.self) { style in
-                        Button { selected = style } label: {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(style.title).fontWeight(.semibold)
-                                Text(StyleApps.summary(for: style, overrides: model.settings.styles.appOverrides))
-                                    .font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 10).padding(.vertical, 7)
-                            .background(RoundedRectangle(cornerRadius: 8).fill(selected == style ? Color.primary.opacity(0.08) : .clear))
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .frame(width: 230)
-                ScrollView { StyleDetailView(model: model, style: selected) }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Style").font(.title2.weight(.semibold))
+                Text("Each app is matched to a style when you start dictating. The style sets how the text model cleans your words.")
+                    .foregroundStyle(.secondary)
+                PillTabs(
+                    items: Style.allCases.map { .init(value: $0, title: $0.title) },
+                    selection: $selected
+                )
+                StyleDetailView(model: model, style: selected)
             }
+            .padding(22)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(22)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
