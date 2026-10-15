@@ -1688,7 +1688,7 @@ public enum ScratchpadSendKind: String, CaseIterable, Sendable {
 **Replace in** `Sources/VoiceCore/MeetingExport.swift`:
 
 ````swift
-    private static func ordered(
+    private static func ordered(_ segments: [MeetingSegment]) -> [MeetingSegment] {
 ````
 
 **with:**
@@ -1701,7 +1701,7 @@ public enum ScratchpadSendKind: String, CaseIterable, Sendable {
         }.joined(separator: "\n")
     }
 
-    private static func ordered(
+    private static func ordered(_ segments: [MeetingSegment]) -> [MeetingSegment] {
 ````
 
 - [ ] **Step 4: Run test to verify it passes**
@@ -3644,14 +3644,14 @@ git commit -m "feat(app): Send to Scratchpad from Meetings" -m "Co-Authored-By: 
 ````markdown
 | 125 | Notes / Dictation | With a local 27B model and a 3 s limit, dictate about 45 words into a note and into Notion | Both are cleaned (punctuation, no fillers), not raw; short dictations stay as fast as before | |
 
-| 126 |
+| 126 | Meetings / Notes | Folder menu → New folder… "Project A"; Manage folders… rename it "Project Atlas"; try "unfiled" and a duplicate | Folder appears on both pages; rename keeps its items; reserved and duplicate names show the message | |
 ````
 
 **with:**
 
 ````markdown
 | 125 | Notes / Dictation | With a local 27B model and a 3 s limit, dictate about 45 words into a note and into Notion | Both are cleaned (punctuation, no fillers), not raw; short dictations stay as fast as before | |
-| 126 |
+| 126 | Meetings / Notes | Folder menu → New folder… "Project A"; Manage folders… rename it "Project Atlas"; try "unfiled" and a duplicate | Folder appears on both pages; rename keeps its items; reserved and duplicate names show the message | |
 ````
 
 **Replace in** `docs/testing/manual-checklist.md`:
