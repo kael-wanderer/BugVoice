@@ -281,6 +281,116 @@ struct MeetingSessionTests {
         #expect(await rig.finalizer.cleanupObservedReadyManifest)
     }
 
+    @Test func uploadPreservesMediaTimeAndNeverStartsCapture() async throws {
+        let rig = SessionRig()
+        let session = rig.makeSession()
+        let startedAt = Date(timeIntervalSince1970: 10)
+        let meeting = MeetingManifest(
+            startedAt: startedAt,
+            endedAt: startedAt.addingTimeInterval(90),
+            duration: 90,
+            state: .transcribing,
+            source: .upload,
+            sourceFileName: "old.mov",
+            importedAt: rig.clock.now()
+        )
+        let ready = try await session.transcribeUpload(meeting)
+        #expect(ready.startedAt == startedAt)
+        #expect(ready.endedAt == meeting.endedAt)
+        #expect(ready.duration == 90)
+        #expect(ready.importedAt == meeting.importedAt)
+        #expect(await rig.audio.started.isEmpty)
+        #expect(await rig.audio.stopCount == 0)
+        #expect(await rig.store.saved.first?.state == .transcribing)
+    }
+
+    @Test func uploadFailedRecordsFinalizeKeepJournalAndCanRetry() async throws {
+        let failed = MeetingChunkProcessingResult(
+            record: MeetingChunkRecord(id: "file-final-0", track: .file, offset: 0, duration: 30, requestedLanguage: .auto, state: .failed),
+            segments: []
+        )
+        let rig = SessionRig(finalChunks: [failed])
+        let session = rig.makeSession()
+        await rig.scheduler.bind(session)
+        var meeting = MeetingManifest(startedAt: Date(), duration: 30, state: .transcribing)
+        meeting.source = .upload
+        do {
+            _ = try await session.transcribeUpload(meeting)
+            Issue.record("Expected retained transcript failure")
+        } catch {
+            #expect(error as? UploadFailure == .transcript)
+        }
+        #expect(await rig.finalizer.callCount == 1)
+        #expect(await session.snapshot()?.chunks.first?.state == .failed)
+        #expect(await session.snapshot()?.state == .transcribing)
+        #expect(await session.snapshot()?.transcriptionError == UploadFailure.transcript.localizedDescription)
+        #expect(await rig.finalizer.cleanupObservedReadyManifest == false)
+        #expect(MeetingRecoveryPolicy.action(for: meeting) == .retryTranscription)
+        meeting.state = .interrupted
+        #expect(MeetingRecoveryPolicy.action(for: meeting) == nil)
+    }
+
+    @Test func uploadRecoveryAndRetryPreserveDates() async throws {
+        let rig = SessionRig(blockTranscription: true, failTranscription: true)
+        let session = rig.makeSession()
+        let start = Date(timeIntervalSince1970: 100)
+        let meeting = MeetingManifest(
+            startedAt: start, endedAt: start.addingTimeInterval(61), duration: 61,
+            state: .transcribing, source: .upload, sourceFileName: "historic.mov",
+            importedAt: Date(timeIntervalSince1970: 1_000)
+        )
+        try await rig.store.save(meeting)
+        let recovering = Task { try await session.recover(id: meeting.id) }
+        await rig.scheduler.waitUntilStarted()
+        await rig.scheduler.release()
+        do { _ = try await recovering.value } catch {}
+        rig.clock.advance(5_000)
+        do { _ = try await session.retryTranscription() } catch {}
+        let saved = try #require(await session.snapshot())
+        #expect(saved.startedAt == meeting.startedAt)
+        #expect(saved.endedAt == meeting.endedAt)
+        #expect(saved.duration == 61)
+        #expect(saved.importedAt == meeting.importedAt)
+        #expect(await rig.audio.started.isEmpty)
+    }
+
+    @Test func invalidatedUploadCannotPublishLateProgressOrFinalChunks() async throws {
+        let rig = SessionRig(blockTranscription: true)
+        let session = rig.makeSession()
+        let manifest = MeetingManifest(startedAt: Date(), duration: 60, state: .transcribing, source: .upload)
+        let running = Task { try await session.transcribeUpload(manifest) }
+        await rig.scheduler.waitUntilStarted()
+        await session.invalidateUpload()
+        await rig.scheduler.release()
+        await #expect(throws: CancellationError.self) { try await running.value }
+        let late = MeetingChunkProcessingResult(
+            record: MeetingChunkRecord(id: "late", track: .file, offset: 0, duration: 30, requestedLanguage: .auto, state: .empty),
+            segments: []
+        )
+        await #expect(throws: MeetingSessionError.invalidState) {
+            try await session.persistFinal(late)
+        }
+        #expect(await rig.finalizer.callCount == 0)
+        #expect(await rig.store.saved.allSatisfy { $0.state != .ready })
+    }
+
+    @Test func uploadFinalPersistenceReplacesChunkAndSilentReadyCleansAfterSave() async throws {
+        let empty = MeetingChunkProcessingResult(
+            record: MeetingChunkRecord(id: "file-final-0", track: .file, offset: 0, duration: 30, requestedLanguage: .auto, state: .empty),
+            segments: []
+        )
+        let rig = SessionRig(finalChunks: [empty])
+        let session = rig.makeSession()
+        await rig.scheduler.bind(session)
+        await rig.finalizer.observe(rig.store)
+        let meeting = MeetingManifest(startedAt: Date(), duration: 30, state: .transcribing, source: .upload)
+        let ready = try await session.transcribeUpload(meeting)
+        #expect(ready.state == .ready)
+        #expect(ready.segments.isEmpty)
+        #expect(ready.chunks.count == 1)
+        #expect(await rig.finalizer.cleanupObservedReadyManifest)
+    }
+
     private func chunk(_ id: String, track: MeetingTrack, segments: [MeetingSegment]) -> MeetingChunkProcessingResult {
         MeetingChunkProcessingResult(record: MeetingChunkRecord(
             id: id, track: track, offset: 0, duration: 30,
@@ -376,6 +486,7 @@ private actor SchedulerProbe: MeetingTranscriptionScheduler {
     private var progressContinuation: CheckedContinuation<Void, Never>?
     private var didReportProgress = false
     private var waiters: [CheckedContinuation<Void, Never>] = []
+    private var session: MeetingSession?
     init(block: Bool, chunks: [MeetingChunkProcessingResult], failTranscription: Bool = false) {
         self.block = block
         self.chunks = chunks
@@ -386,6 +497,9 @@ private actor SchedulerProbe: MeetingTranscriptionScheduler {
         cancelContinuation?.resume()
         cancelContinuation = nil
     }
+    func bind(_ session: MeetingSession) {
+        self.session = session
+    }
     func transcribeFinal(
         _ manifest: MeetingManifest,
         chunkSeconds: TimeInterval,
@@ -395,6 +509,12 @@ private actor SchedulerProbe: MeetingTranscriptionScheduler {
         inFlight = true
         startedContinuation?.resume()
         startedContinuation = nil
+        if let session {
+            for chunk in chunks {
+                try await session.persistFinal(chunk)
+                try await session.persistFinal(chunk)
+            }
+        }
         await progress(0.5)
         didReportProgress = true
         progressContinuation?.resume()

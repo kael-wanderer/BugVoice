@@ -10,7 +10,6 @@ public enum MeetingAudioFinalizationError: Error, Equatable {
 }
 
 public struct MeetingAudioFinalizer: MeetingAudioFinalizerProtocol {
-    private static let blockFrames = 16_000
     private let meetingDirectory: URL
 
     public init(meetingDirectory: URL) {
@@ -21,12 +20,12 @@ public struct MeetingAudioFinalizer: MeetingAudioFinalizerProtocol {
         let journal = MeetingPCMJournalWriter(directory: meetingDirectory.appendingPathComponent(".capture", isDirectory: true))
         let mic = try journal.makeReader(for: .mic)
         let system = try journal.makeReader(for: .system)
-        try writeAAC(
+        try MeetingAACWriter.write(
             sampleCount: mic.totalSampleCount,
             readBlock: { _, count in try mic.readSamples(maxCount: count) },
             to: meetingDirectory.appendingPathComponent("mic.m4a")
         )
-        try writeAAC(
+        try MeetingAACWriter.write(
             sampleCount: system.totalSampleCount,
             readBlock: { _, count in try system.readSamples(maxCount: count) },
             to: meetingDirectory.appendingPathComponent("system.m4a")
@@ -35,7 +34,7 @@ public struct MeetingAudioFinalizer: MeetingAudioFinalizerProtocol {
         let micForMix = try journal.makeReader(for: .mic)
         let systemForMix = try journal.makeReader(for: .system)
         let mixCount = max(micForMix.totalSampleCount, systemForMix.totalSampleCount)
-        try writeAAC(sampleCount: mixCount, readBlock: { _, count in
+        try MeetingAACWriter.write(sampleCount: mixCount, readBlock: { _, count in
             let micSamples = try micForMix.readSamples(maxCount: count)
             let systemSamples = try systemForMix.readSamples(maxCount: count)
             return (0..<count).map { index in
@@ -54,11 +53,13 @@ public struct MeetingAudioFinalizer: MeetingAudioFinalizerProtocol {
         let captureDirectory = meetingDirectory.appendingPathComponent(".capture", isDirectory: true)
         if FileManager.default.fileExists(atPath: captureDirectory.path) {
             try FileManager.default.removeItem(at: captureDirectory)
-            try syncDirectory(meetingDirectory)
+            try MeetingAACWriter.syncDirectory(meetingDirectory)
         }
     }
+}
 
-    private func writeAAC(
+enum MeetingAACWriter {
+    static func write(
         sampleCount: Int,
         readBlock: (_ offset: Int, _ count: Int) throws -> [Float],
         to destination: URL
@@ -77,7 +78,7 @@ public struct MeetingAudioFinalizer: MeetingAudioFinalizerProtocol {
             let finalFrameCount = max(1, sampleCount)
             var offset = 0
             while offset < finalFrameCount {
-                let count = sampleCount == 0 ? 1 : min(Self.blockFrames, sampleCount - offset)
+                let count = sampleCount == 0 ? 1 : min(16_000, sampleCount - offset)
                 let samples = sampleCount == 0 ? [] : try readBlock(offset, count)
                 guard samples.count == (sampleCount == 0 ? 0 : count),
                       let buffer = AVAudioPCMBuffer(pcmFormat: outputFormat, frameCapacity: AVAudioFrameCount(count)),
@@ -104,7 +105,7 @@ public struct MeetingAudioFinalizer: MeetingAudioFinalizerProtocol {
         }
     }
 
-    private func syncDirectory(_ url: URL) throws {
+    static func syncDirectory(_ url: URL) throws {
         let descriptor = open(url.path, O_RDONLY)
         guard descriptor >= 0 else { throw NSError(domain: NSPOSIXErrorDomain, code: Int(errno)) }
         let status = fsync(descriptor)

@@ -49,14 +49,14 @@ public actor MeetingAudioCaptureCoordinator: MeetingAudioSourceControl {
     }
 
     public func pause() async throws {
-        for track in MeetingTrack.allCases where started.contains(track) {
+        for track in MeetingTrack.recordingTracks where started.contains(track) {
             try await sources[track]?.pause()
         }
         lastCheckpoint = try writer.checkpoint()
     }
 
     public func resume() async throws {
-        for track in MeetingTrack.allCases where started.contains(track) {
+        for track in MeetingTrack.recordingTracks where started.contains(track) {
             try await sources[track]?.resume()
         }
     }
@@ -70,7 +70,7 @@ public actor MeetingAudioCaptureCoordinator: MeetingAudioSourceControl {
 
     public func stop() async throws {
         var firstError: Error?
-        for track in MeetingTrack.allCases where started.contains(track) {
+        for track in MeetingTrack.recordingTracks where started.contains(track) {
             do { try await sources[track]?.stop() } catch { if firstError == nil { firstError = error } }
         }
         started.removeAll()

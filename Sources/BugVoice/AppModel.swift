@@ -1,6 +1,6 @@
 import AppKit
-import Carbon
 import BugVoiceMac
+import Carbon
 import Foundation
 import Observation
 import ServiceManagement
@@ -21,7 +21,7 @@ enum ConnectionStatus: Equatable {
 
 /// Main-window pages, in sidebar order.
 enum Page: String, CaseIterable, Identifiable {
-    case dictation, insights, dictionary, style, meetings, notes, settings
+    case dictation, insights, dictionary, style, meetings, upload, notes, settings
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -30,6 +30,7 @@ enum Page: String, CaseIterable, Identifiable {
         case .dictionary: "Dictionary"
         case .style: "Style"
         case .meetings: "Meetings"
+        case .upload: "Upload"
         case .notes: "Notes"
         case .settings: "Settings"
         }
@@ -41,6 +42,7 @@ enum Page: String, CaseIterable, Identifiable {
         case .dictionary: "character.book.closed"
         case .style: "paintbrush.pointed"
         case .meetings: "waveform.path"
+        case .upload: "square.and.arrow.up"
         case .notes: "note.text"
         case .settings: "gearshape"
         }
@@ -72,6 +74,7 @@ final class AppModel {
             settingsDidChange(from: oldValue)
         }
     }
+    var settingsTab: SettingsTab = .general
     var dictionary = DictionaryFile()
     var dictionaryReadOnly = false
     var vocabulary = Vocabulary()
@@ -115,15 +118,18 @@ final class AppModel {
     /// Created by `bootstrap()` once settings are loaded.
     @ObservationIgnored private(set) var dictation: DictationController?
     @ObservationIgnored private(set) var meetings: MeetingController?
+    private(set) var uploads: UploadController?
     @ObservationIgnored private var isLoadingSettings = false
     @ObservationIgnored private var preparingEngine: WhisperKitTranscriber?
     @ObservationIgnored private var speechAPIKeyGeneration: UInt64 = 0
+    @ObservationIgnored private var meetingTextTasks: [MeetingID: Task<String, Error>] = [:]
 
     init() {
         let notesStore = NotesStore(directory: AppPaths.standard().notes)
         self.notesStore = notesStore
         notesController = NotesController(store: notesStore)
-        let engine = WhisperKitTranscriber(modelName: AppSettings().speech.whisperModel, downloadBase: AppPaths.standard().models)
+        let engine = WhisperKitTranscriber(
+            modelName: AppSettings().speech.whisperModel, downloadBase: AppPaths.standard().models)
         whisper = engine
         let priority = PriorityTranscriber(base: engine)
         priorityTranscriber = priority
@@ -139,8 +145,10 @@ final class AppModel {
         await notesController.reloadList()
         let loaded = store.load()
         importKeychainKeys(connections: loaded.models.connections)
-        whisper = WhisperKitTranscriber(modelName: loaded.speech.whisperModel, downloadBase: paths.models)
-        priorityTranscriber = PriorityTranscriber(base: ProviderFactory.transcriber(loaded.speech, whisper: whisper, credentials: credentials))
+        whisper = WhisperKitTranscriber(
+            modelName: loaded.speech.whisperModel, downloadBase: paths.models)
+        priorityTranscriber = PriorityTranscriber(
+            base: ProviderFactory.transcriber(loaded.speech, whisper: whisper, credentials: credentials))
         await transcriptionRouter.replace(with: priorityTranscriber)
         // Loading is not a change: no save, no model reload, no login-item call.
         isLoadingSettings = true
@@ -158,6 +166,7 @@ final class AppModel {
             Task { @MainActor in self?.meetings?.toggleRecording() }
         }
         meetings = MeetingController(model: self)
+        uploads = UploadController(model: self)
         refreshPermissions()
         if !permissionsGranted { openPermissionsWindow() }
         await applyRetention()
@@ -180,6 +189,11 @@ final class AppModel {
     func openMainWindow(_ page: Page? = nil) {
         if let page { self.page = page }
         presentMainWindow?()
+    }
+
+    func openSpeechSettings() {
+        settingsTab = .speech
+        openMainWindow(.settings)
     }
 
     func createNoteAndShow() {
@@ -206,8 +220,11 @@ final class AppModel {
         } catch {
             saveError = "Could not save settings: \(error.localizedDescription)"
         }
-        if SpeechTranscriberConfiguration(settings: settings.speech, speechAPIKeyGeneration: speechAPIKeyGeneration)
-            != SpeechTranscriberConfiguration(settings: old.speech, speechAPIKeyGeneration: speechAPIKeyGeneration) {
+        if SpeechTranscriberConfiguration(
+            settings: settings.speech, speechAPIKeyGeneration: speechAPIKeyGeneration)
+            != SpeechTranscriberConfiguration(
+                settings: old.speech, speechAPIKeyGeneration: speechAPIKeyGeneration)
+        {
             rebuildSpeechTranscriber()
         }
         if settings.launchAtLogin != old.launchAtLogin { applyLaunchAtLogin() }
@@ -222,8 +239,11 @@ final class AppModel {
 
     private func rebuildSpeechTranscriber() {
         let speech = settings.speech
-        let replacementWhisper = WhisperKitTranscriber(modelName: speech.whisperModel, downloadBase: paths.models)
-        let replacement = PriorityTranscriber(base: ProviderFactory.transcriber(speech, whisper: replacementWhisper, credentials: credentials))
+        let replacementWhisper = WhisperKitTranscriber(
+            modelName: speech.whisperModel, downloadBase: paths.models)
+        let replacement = PriorityTranscriber(
+            base: ProviderFactory.transcriber(
+                speech, whisper: replacementWhisper, credentials: credentials))
         speechState = speech.engine == .whisperKit ? .notLoaded : .ready
         Task { [weak self] in
             guard let self else { return }
@@ -290,7 +310,8 @@ final class AppModel {
         DictationPipeline(
             transcriber: transcriptionRouter,
             cleanup: ProviderFactory.cleanupModel(
-                plan(for: feature), credentials: credentials, fallbackTimeout: settings.models.dictationTimeoutSeconds
+                plan(for: feature), credentials: credentials,
+                fallbackTimeout: settings.models.dictationTimeoutSeconds
             ),
             insertion: insertion,
             focus: FocusInspector(),
@@ -303,7 +324,7 @@ final class AppModel {
 
     var appleIntelligenceAvailable: Bool {
         #if canImport(FoundationModels)
-        if #available(macOS 26.0, *) { return AppleIntelligenceModel.isAvailable }
+            if #available(macOS 26.0, *) { return AppleIntelligenceModel.isAvailable }
         #endif
         return false
     }
@@ -346,7 +367,8 @@ final class AppModel {
     /// Lists the server's models; never asks for a generation.
     func testConnection(_ connection: ModelConnection) async {
         guard let url = ConnectionAddress.baseURL(for: connection) else {
-            connectionStatus[connection.id] = .failed(ConnectionAddress.problem(connection.baseURL) ?? "The address is not valid.")
+            connectionStatus[connection.id] = .failed(
+                ConnectionAddress.problem(connection.baseURL) ?? "The address is not valid.")
             return
         }
         do {
@@ -362,7 +384,8 @@ final class AppModel {
 
     func captureNotesDictation(startFocus: FocusSnapshot) -> NotesDictationCapture? {
         let frontmostPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
-        let bugVoiceIsFrontmost = NSApp.isActive
+        let bugVoiceIsFrontmost =
+            NSApp.isActive
             && frontmostPID == ProcessInfo.processInfo.processIdentifier
             && startFocus.bundleID == Bundle.main.bundleIdentifier
         let firstResponderEditorID = (NSApp.keyWindow?.firstResponder as? NotesTextView)?.editorID
@@ -374,7 +397,9 @@ final class AppModel {
     }
 
     /// Registers a ⌃⌥ shortcut and records it when another app holds it.
-    func registerShortcut(_ keyCode: Int, letter: String, name: String, action: @escaping @MainActor () -> Void) {
+    func registerShortcut(
+        _ keyCode: Int, letter: String, name: String, action: @escaping @MainActor () -> Void
+    ) {
         let registered = GlobalShortcuts.shared.register(
             keyCode: UInt32(keyCode),
             modifiers: GlobalShortcuts.controlOption,
@@ -485,7 +510,31 @@ final class AppModel {
 
     func reloadMeetings() async {
         do {
-            meetingManifests = try await meetingStore.list()
+            let directories = try FileManager.default.contentsOfDirectory(
+                at: paths.meetings,
+                includingPropertiesForKeys: [.isDirectoryKey],
+                options: [.skipsHiddenFiles]
+            )
+            var listed: [MeetingManifest] = []
+            for directory in directories {
+                guard (try? directory.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true,
+                    !FileManager.default.fileExists(
+                        atPath: directory.appendingPathComponent(".upload-cancelled").path),
+                    FileManager.default.fileExists(
+                        atPath: directory.appendingPathComponent("meeting.json").path)
+                else { continue }
+                do {
+                    let meeting = try await meetingStore.load(
+                        id: MeetingID(rawValue: directory.lastPathComponent))
+                    if !(meeting.source == .upload && meeting.state == .interrupted) {
+                        listed.append(meeting)
+                    }
+                } catch {
+                    saveError = "Could not load meetings: \(error.localizedDescription)"
+                }
+            }
+            meetingManifests = listed.sorted { $0.startedAt > $1.startedAt }
+            uploads?.reconcile(meetingManifests)
             if let selectedMeetingID, !meetingManifests.contains(where: { $0.id == selectedMeetingID }) {
                 self.selectedMeetingID = nil
             }
@@ -497,6 +546,17 @@ final class AppModel {
     func renameMeeting(id: MeetingID, title: String) async {
         let cleaned = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleaned.isEmpty else { return }
+        if let uploads {
+            do {
+                if try await uploads.renameSession(id: id, title: cleaned) {
+                    await reloadMeetings()
+                    return
+                }
+            } catch {
+                saveError = "Could not rename meeting: \(error.localizedDescription)"
+                return
+            }
+        }
         if let meetings {
             do {
                 if try await meetings.renameSession(id: id, title: cleaned) {
@@ -508,7 +568,9 @@ final class AppModel {
                 return
             }
         }
-        guard !cleaned.isEmpty, var meeting = meetingManifests.first(where: { $0.id == id }) else { return }
+        guard !cleaned.isEmpty, var meeting = meetingManifests.first(where: { $0.id == id }) else {
+            return
+        }
         meeting.title = cleaned
         do {
             try await meetingStore.save(meeting)
@@ -519,7 +581,23 @@ final class AppModel {
     }
 
     func deleteMeeting(id: MeetingID) async {
+        if let uploads,
+            let job = uploads.queue.jobs.first(where: { $0.meetingID == id && !$0.state.isTerminal })
+        {
+            await uploads.cancel(job.id)
+            return
+        }
         do {
+            if meetingManifests.first(where: { $0.id == id })?.source == .upload {
+                let directory = paths.meetings.appendingPathComponent(id.rawValue)
+                let marker = directory.appendingPathComponent(".upload-cancelled")
+                try Data().write(to: marker)
+                let handle = try FileHandle(forWritingTo: marker)
+                try handle.synchronize()
+                try handle.close()
+                try UploadCancellationMarker.sync(directory)
+            }
+            await cancelMeetingText(id: id)
             try await meetingStore.delete(id: id)
             if selectedMeetingID == id { selectedMeetingID = nil }
             await reloadMeetings()
@@ -528,12 +606,49 @@ final class AppModel {
         }
     }
 
+    func retryMeeting(_ meeting: MeetingManifest) {
+        if meeting.source == .upload {
+            uploads?.retry(meeting)
+        } else {
+            Task { await meetings?.recover(id: meeting.id) }
+        }
+    }
+
     func generateMeetingText(
         id: MeetingID,
         kind: MeetingTextKind,
         progress: @escaping @Sendable (MeetingTextProgress) -> Void
     ) async throws -> String {
-        var meeting = try await meetingStore.load(id: id)
+        let directory = paths.meetings.appendingPathComponent(id.rawValue)
+        guard meetingTextTasks[id] == nil,
+            FileManager.default.fileExists(atPath: directory.appendingPathComponent("meeting.json").path),
+            !FileManager.default.fileExists(
+                atPath: directory.appendingPathComponent(".upload-cancelled").path)
+        else {
+            throw CancellationError()
+        }
+        let task = Task { try await self.performMeetingText(id: id, kind: kind, progress: progress) }
+        meetingTextTasks[id] = task
+        defer { meetingTextTasks[id] = nil }
+        return try await withTaskCancellationHandler {
+            try await task.value
+        } onCancel: {
+            task.cancel()
+        }
+    }
+
+    func cancelMeetingText(id: MeetingID) async {
+        let task = meetingTextTasks[id]
+        task?.cancel()
+        _ = try? await task?.value
+    }
+
+    private func performMeetingText(
+        id: MeetingID,
+        kind: MeetingTextKind,
+        progress: @escaping @Sendable (MeetingTextProgress) -> Void
+    ) async throws -> String {
+        let original = try await meetingStore.load(id: id)
         if case .cli(let tool) = settings.models.meetings.engine, cliInfo[tool] == nil {
             await refreshCLIs()
         }
@@ -545,19 +660,25 @@ final class AppModel {
             textModel = ThinkingOverride(base: textModel, disableThinking: true)
         }
         let text = try await MeetingTextGenerator().generate(
-            transcript: meeting.segments,
+            transcript: original.segments,
             kind: kind,
             budget: MeetingTextBudget(settings: settings.meetings),
             model: textModel,
             progress: progress
         )
-        if kind == .summary { meeting.summary = text }
-        else { meeting.actionItems = text }
+        try Task.checkCancellation()
+        if let uploads, try await uploads.saveGeneratedTextToSession(id: id, text: text, kind: kind) {
+            await reloadMeetings()
+            return text
+        }
         if let meetings, try await meetings.saveGeneratedTextToSession(id: id, text: text, kind: kind) {
             await reloadMeetings()
             return text
         }
-        try await meetingStore.save(meeting)
+        var current = try await meetingStore.load(id: id)
+        try Task.checkCancellation()
+        if kind == .summary { current.summary = text } else { current.actionItems = text }
+        try await meetingStore.save(current)
         await reloadMeetings()
         return text
     }
@@ -576,21 +697,93 @@ final class AppModel {
 
     private func recoverUnfinishedMeetings() async {
         do {
-            for var meeting in try await meetingStore.list() where meeting.state == .recording || meeting.state == .paused {
+            // Scan marker paths BEFORE decoding manifests, even if a manifest is corrupt.
+            let directories = try FileManager.default.contentsOfDirectory(
+                at: paths.meetings,
+                includingPropertiesForKeys: [.isDirectoryKey],
+                options: [.skipsHiddenFiles]
+            )
+            var blocked: Set<MeetingID> = []
+            for directory in directories {
+                guard (try? directory.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true else {
+                    continue
+                }
+                let marker = directory.appendingPathComponent(".upload-cancelled")
+                if FileManager.default.fileExists(atPath: marker.path) {
+                    do {
+                        try FileManager.default.removeItem(at: directory)
+                    } catch {
+                        blocked.insert(MeetingID(rawValue: directory.lastPathComponent))
+                        saveError = UploadFailure.cleanup.localizedDescription
+                    }
+                }
+            }
+            // Load individually: a marked folder is never loaded; one corrupt folder cannot stop all recovery.
+            var all: [MeetingManifest] = []
+            for directory in directories {
+                let id = MeetingID(rawValue: directory.lastPathComponent)
+                guard !blocked.contains(id),
+                    FileManager.default.fileExists(
+                        atPath: directory.appendingPathComponent("meeting.json").path)
+                else { continue }
+                do {
+                    all.append(try await meetingStore.load(id: id))
+                } catch {
+                    saveError = "Could not recover meetings: \(error.localizedDescription)"
+                }
+            }
+            let plan = UploadRecoveryPlan(all)
+            for id in plan.discard {
+                let directory = paths.meetings.appendingPathComponent(id.rawValue)
+                // Mark before removing, so an unsuccessful cleanup remains excluded on the next launch.
+                let marker = directory.appendingPathComponent(".upload-cancelled")
+                do {
+                    try Data().write(to: marker)
+                    let handle = try FileHandle(forWritingTo: marker)
+                    try handle.synchronize()
+                    try handle.close()
+                    try UploadCancellationMarker.sync(directory)
+                    try await meetingStore.delete(id: id)
+                } catch {
+                    blocked.insert(id)
+                    saveError = UploadFailure.cleanup.localizedDescription
+                }
+            }
+            for meeting in plan.ready {
+                let directory = paths.meetings.appendingPathComponent(meeting.id.rawValue)
+                let audio = directory.appendingPathComponent("audio.m4a")
+                // Validate the durable replacement before discarding a redundant journal.
+                if let metadata = try? await MediaAudioDecoder.probe(audio),
+                    abs(metadata.duration - meeting.duration) < 0.2
+                {
+                    do {
+                        try await UploadAudioFinalizer(meetingDirectory: directory).cleanupCapture()
+                    } catch {
+                        saveError = "Could not remove redundant upload audio: \(error.localizedDescription)"
+                    }
+                }
+            }
+            for var meeting in all
+            where meeting.source == .recording
+                && (meeting.state == .recording || meeting.state == .paused)
+            {
                 meeting.state = .interrupted
                 meeting.endedAt = meeting.endedAt ?? Date()
                 try await meetingStore.save(meeting)
             }
+            uploads?.restore(plan.resume.filter { !blocked.contains($0.id) })
             await reloadMeetings()
         } catch {
             saveError = "Could not recover meetings: \(error.localizedDescription)"
+            uploads?.restore([])
         }
     }
 
     private func applyMeetingRetention() async {
+        await reloadMeetings()
         do {
-            let meetings = try await meetingStore.list()
-            let expired = MeetingRetention.pruneCandidates(meetings, policy: settings.meetings.deleteAfter, now: Date())
+            let expired = MeetingRetention.pruneCandidates(
+                meetingManifests, policy: settings.meetings.deleteAfter, now: Date())
             for id in expired { try await meetingStore.delete(id: id) }
             await reloadMeetings()
         } catch {
@@ -670,7 +863,8 @@ final class AppModel {
     func refreshPermissions() {
         var status: [PermissionKind: Bool] = [:]
         for kind in PermissionKind.allCases {
-            status[kind] = kind == .systemAudioRecording ? systemAudioGrantedThisRun : Permissions.isGranted(kind)
+            status[kind] =
+                kind == .systemAudioRecording ? systemAudioGrantedThisRun : Permissions.isGranted(kind)
         }
         if permissionStatus != status { permissionStatus = status }
         let granted = Permissions.allGranted

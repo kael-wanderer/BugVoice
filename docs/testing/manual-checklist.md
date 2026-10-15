@@ -182,3 +182,32 @@ blank until the maintainer runs each check.
 | 100 | Cancel | Start a CLI-backed summary and cancel it | The process ends within 2 s | |
 | 101 | Menu bar | Switch "Dictation model" in the menu | The Dictation row in Settings → Models changes to match | |
 | 102 | Keys | Launch over a build that kept keys in Keychain; allow each prompt; quit; rebuild; launch again | Prompts once per saved key, never again; `credentials.json` is `-rw-------`; Keychain Access shows no BugVoice items | |
+
+## Upload audio/video
+
+Run after building with `Scripts/build-app.sh`. Results stay blank until run on device.
+
+| # | Where | Do | Expect | Result |
+|---|---|---|---|---|
+| 103 | Sidebar / Upload | Open Upload and click the speech model link | Upload follows Meetings; empty drop copy matches mockup; Settings › Speech opens | |
+| 104 | Upload | Browse, then drop several supported files over different parts of the page; cancel a draft | Multiple selection allowed; cards show name, Audio/Video, duration and size; draft Cancel creates no folder | |
+| 105 | Upload | Transcribe MP3, WAV, M4A, AIFF, CAF, MP4, MOV and M4V fixtures | Reading file… then Transcribing locally…; each becomes ready with the configured speech engine | |
+| 106 | Upload / sidebar | Queue three files, leave page and close/reopen main window | FIFO, one active job; Waiting / Transcribing N% / Open in Meetings; ring follows current phase; work continues | |
+| 107 | Upload / Meetings | Open ready result and Clear finished | Uploaded badge in row and title; metadata says from original name; clearing queue keeps meeting | |
+| 108 | Meeting detail | Play, scrub, change speed and click transcript lines | Correct audio and seek/highlight timing; every row says Speaker | |
+| 109 | Meeting detail | Generate Summary and Action items with Meeting notes model; export Markdown, SRT and audio | No automatic generation; configured model used; Speaker in text exports; audio export is audio.m4a | |
+| 110 | Finder / Storage | Inspect saved upload and original file | Only audio.m4a retained as audio; no mic/system files or completed capture journal; original bytes/location unchanged; Meetings storage includes upload | |
+| 111 | Upload / Meetings | Start meeting during upload transcription; pause, resume and stop meeting; submit another upload while recording | Meeting starts; upload yields between chunks, stays held through pause/final pass, then resumes; new upload waits | |
+| 112 | Upload / dictation | Dictate while upload transcribes | Dictation has priority; upload continues between requests; with WhisperKit, import makes no network request; no capture permission request | |
+| 113 | Upload | Cancel during reading, transcription and while waiting | Workers stop; corresponding meeting folder removed; original untouched; next job advances | |
+| 114 | Quit / relaunch | Quit once during reading and once during transcription | Reading staging discarded; transcription resumes from durable work without mic/system capture or source file | |
+| 115 | Upload / Meetings | Induce recognition failure, then Retry transcript | Exact retained-audio error; audio plays/exports; retry uses same meeting and the kept journal; journal removed once ready | |
+| 116 | Upload | Try unsupported/DRM file and simulate disk full | Exact unreadable/disk-full sentence; partial folders removed; next queued file runs | |
+| 117 | Meetings / Settings / Insights | Search uploaded title and transcript, apply Delete ready meetings after, compare Insights | Search finds both; uploads expire counted from import time, not media date; active uploads kept; upload minutes/counts do not change Insights | |
+| 118 | Upload | Import fixtures with metadata date, filesystem date only and neither usable date | Date fallback order correct; title drops extension; duration comes from asset | |
+| 119 | Upload / Activity Monitor | Run the five review-focus inputs below; sleep/wake during a long job | Expected errors or ready result; bounded buffers; no dictation time cap; wake resumes upload | |
+
+Review-focus inputs: zero-length file; 48 kHz stereo or 5.1; video track only;
+source removed/moved while reading; three-hour-or-longer file. A reader already
+holding an open file may complete after its pathname disappears; a read failure
+must never produce truncated ready audio.

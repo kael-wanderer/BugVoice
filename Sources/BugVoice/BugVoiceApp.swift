@@ -24,6 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var permissionsWindow = PermissionsWindowController(model: model)
     private var meetingRecorderPanel: MeetingRecorderPanel?
     private var sleepObserver: NSObjectProtocol?
+    private var wakeObserver: NSObjectProtocol?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         model.presentMainWindow = { [weak self] in self?.mainWindow.show() }
@@ -34,7 +35,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            Task { @MainActor [weak self] in await self?.model.meetings?.pauseForSleep() }
+            Task { @MainActor [weak self] in
+                self?.model.uploads?.setSleeping(true)
+                await self?.model.meetings?.pauseForSleep()
+            }
+        }
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.model.uploads?.setSleeping(false) }
         }
         Task {
             await model.bootstrap()
@@ -65,7 +76,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         edit.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
         edit.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
         edit.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
-        edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        edit.addItem(
+            withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
         let item = NSMenuItem(title: "Edit", action: nil, keyEquivalent: "")
         item.submenu = edit
         main.addItem(item)
@@ -74,7 +86,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Clicking the Dock icon (shown while the main window is open, or when
     /// launched from Finder again) brings the window back.
-    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool
+    {
         model.openMainWindow()
         return false
     }
@@ -85,14 +98,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if meetingIsActive {
             let alert = NSAlert()
             alert.messageText = "A meeting is recording"
-            alert.informativeText = "Stop the recording and keep the audio before quitting? The transcript can finish later."
+            alert.informativeText =
+                "Stop the recording and keep the audio before quitting? The transcript can finish later."
             alert.addButton(withTitle: "Stop and keep")
             alert.addButton(withTitle: "Cancel")
             guard alert.runModal() == .alertFirstButtonReturn else { return .terminateCancel }
-        } else if !model.notesController.hasUnsavedChanges {
+        } else if !model.notesController.hasUnsavedChanges && model.uploads?.isBusy != true {
             return .terminateNow
         }
-
         Task { [weak self] in
             guard let self else {
                 NSApp.reply(toApplicationShouldTerminate: false)
@@ -100,14 +113,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             do {
                 guard await model.notesController.flushAll() else {
-                    model.saveError = "Could not save notes before quitting. Resolve the note changes and try again."
+                    model.saveError =
+                        "Could not save notes before quitting. Resolve the note changes and try again."
                     NSApp.reply(toApplicationShouldTerminate: false)
                     return
                 }
                 if meetingIsActive, let meetings { try await meetings.stopAndKeepForQuit() }
+                await model.uploads?.quiesceForQuit()
                 NSApp.reply(toApplicationShouldTerminate: true)
             } catch {
-                model.saveError = meetingIsActive
+                model.saveError =
+                    meetingIsActive
                     ? "Could not checkpoint the meeting before quitting: \(error.localizedDescription)"
                     : "Could not save notes before quitting: \(error.localizedDescription)"
                 NSApp.reply(toApplicationShouldTerminate: false)

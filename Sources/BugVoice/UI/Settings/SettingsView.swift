@@ -4,7 +4,6 @@ enum SettingsTab: Hashable { case general, speech, models, meetings, storage }
 
 struct SettingsView: View {
     @Bindable var model: AppModel
-    @State private var tab: SettingsTab = .general
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -17,10 +16,10 @@ struct SettingsView: View {
                     .init(value: SettingsTab.meetings, title: "Meetings"),
                     .init(value: SettingsTab.storage, title: "Storage"),
                 ],
-                selection: $tab
+                selection: $model.settingsTab
             )
             Group {
-                switch tab {
+                switch model.settingsTab {
                 case .general: GeneralTab(model: model)
                 case .speech: SpeechTab(model: model)
                 case .models: ModelsTab(model: model)

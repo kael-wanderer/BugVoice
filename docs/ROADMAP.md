@@ -11,6 +11,7 @@ implementation, like Dictation, Meetings and Notes before it.
 | Meetings | Built (You/Others tracks, transcript, Summary, Action items). Untested on device; waits for a real meeting and the system-audio spike. |
 | Notes | Built, but failed when tried. On hold until item 0. |
 | Insights | Built (Usage tab). Device checks 73–80 pending. |
+| Upload audio/video | Implemented (Upload queue, local media extraction, file-only transcription, recovery and uploaded Meetings). Device checks 103–119 pending. |
 
 ## Order
 
@@ -37,6 +38,9 @@ implementation, like Dictation, Meetings and Notes before it.
 - Item 2 replaced `vocabulary.txt` with `dictionary.json` (words, heard-as
   forms, snippets); an existing `vocabulary.txt` is migrated once and renamed
   `vocabulary.migrated.txt`.
+- Item 4 follows `docs/superpowers/specs/2026-10-15-upload-design.md` and
+  `docs/superpowers/plans/2026-10-15-upload.md`; only extracted `audio.m4a` is
+  retained after success. URL import and diarization remain deferred.
 
 ## Dropped
 

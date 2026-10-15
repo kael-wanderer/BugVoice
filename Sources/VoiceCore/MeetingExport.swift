@@ -25,8 +25,9 @@ public enum MeetingExporter {
     private static func ordered(_ segments: [MeetingSegment]) -> [MeetingSegment] {
         segments.sorted {
             if $0.start != $1.start { return $0.start < $1.start }
-            if $0.track != $1.track { return $0.track == .mic }
-            return $0.end < $1.end
+            if $0.track != $1.track { return $0.track.order < $1.track.order }
+            if $0.end != $1.end { return $0.end < $1.end }
+            return $0.id < $1.id
         }
     }
 

@@ -43,11 +43,34 @@ public enum MeetingRecoveryPolicy {
         case .ready, .failed: nil
         }
     }
+
+    public static func action(for manifest: MeetingManifest) -> MeetingRecoveryAction? {
+        if manifest.source == .upload {
+            return manifest.state == .transcribing ? .retryTranscription : nil
+        }
+        return action(for: manifest.state)
+    }
+}
+
+public enum MeetingSource: String, Codable, Sendable {
+    case recording
+    case upload
 }
 
 public enum MeetingTrack: String, Codable, Sendable, CaseIterable {
     case mic
     case system
+    case file
+
+    public static let recordingTracks: [MeetingTrack] = [.mic, .system]
+
+    public var order: Int {
+        switch self {
+        case .mic: 0
+        case .system: 1
+        case .file: 2
+        }
+    }
 }
 
 public enum MeetingChunkState: String, Codable, Sendable {
@@ -156,7 +179,13 @@ public struct MeetingSegment: Codable, Equatable, Sendable, Identifiable {
     public var track: MeetingTrack
     public var sourceChunkID: String?
 
-    public var speaker: String { track == .mic ? "You" : "Others" }
+    public var speaker: String {
+        switch track {
+        case .mic: "You"
+        case .system: "Others"
+        case .file: "Speaker"
+        }
+    }
 
     public init(
         id: String = UUID().uuidString,
@@ -227,6 +256,9 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
     public var transcriptionError: String?
     public var summary: String?
     public var actionItems: String?
+    public var source: MeetingSource
+    public var sourceFileName: String?
+    public var importedAt: Date?
 
     public init(
         schemaVersion: Int = MeetingManifest.currentSchemaVersion,
@@ -243,7 +275,10 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
         transcriptProgress: Double? = nil,
         transcriptionError: String? = nil,
         summary: String? = nil,
-        actionItems: String? = nil
+        actionItems: String? = nil,
+        source: MeetingSource = .recording,
+        sourceFileName: String? = nil,
+        importedAt: Date? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.id = id
@@ -260,6 +295,37 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
         self.transcriptionError = transcriptionError
         self.summary = summary
         self.actionItems = actionItems
+        self.source = source
+        self.sourceFileName = sourceFileName
+        self.importedAt = importedAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion, id, title, startedAt, endedAt, duration, state
+        case audioFormat, chunks, marks, segments, transcriptProgress
+        case transcriptionError, summary, actionItems, source, sourceFileName, importedAt
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try c.decode(Int.self, forKey: .schemaVersion)
+        id = try c.decode(MeetingID.self, forKey: .id)
+        title = try c.decode(String.self, forKey: .title)
+        startedAt = try c.decode(Date.self, forKey: .startedAt)
+        endedAt = try c.decodeIfPresent(Date.self, forKey: .endedAt)
+        duration = try c.decode(TimeInterval.self, forKey: .duration)
+        state = try c.decode(MeetingState.self, forKey: .state)
+        audioFormat = try c.decode(MeetingAudioFormat.self, forKey: .audioFormat)
+        chunks = try c.decode([MeetingChunkRecord].self, forKey: .chunks)
+        marks = try c.decode([MeetingMark].self, forKey: .marks)
+        segments = try c.decode([MeetingSegment].self, forKey: .segments)
+        transcriptProgress = try c.decodeIfPresent(Double.self, forKey: .transcriptProgress)
+        transcriptionError = try c.decodeIfPresent(String.self, forKey: .transcriptionError)
+        summary = try c.decodeIfPresent(String.self, forKey: .summary)
+        actionItems = try c.decodeIfPresent(String.self, forKey: .actionItems)
+        source = try c.decodeIfPresent(MeetingSource.self, forKey: .source) ?? .recording
+        sourceFileName = try c.decodeIfPresent(String.self, forKey: .sourceFileName)
+        importedAt = try c.decodeIfPresent(Date.self, forKey: .importedAt)
     }
 
     public static func new(startedAt: Date) -> MeetingManifest {

@@ -1,6 +1,6 @@
 # BugVoice — Handoff
 
-Last updated: 2026-10-14
+Last updated: 2026-10-15
 
 ## Current state
 
@@ -9,6 +9,14 @@ Last updated: 2026-10-14
 **Sub-project 2 (Meetings): merged on `main` (2026-10-14) after whole-branch review and two fix rounds. Device checks pending.**
 
 **Sub-project 3 (Notes): merged on `main` (2026-10-14) after whole-branch review and fixes. Notes manual checks (rows 63–72) pending.**
+
+**Roadmap item 4 (Upload audio/video): implemented.** The Upload page queues local
+files, streams a file-only journal, resumes committed transcription on launch and
+saves uploaded results in Meetings. Source files stay unchanged. Device checklist
+103–119 remains pending; do not mark those rows passed from unit tests. Uploads
+use the configured Speech engine and do not contribute Insights usage. The kept
+retry journal costs about 115 MB per hour until ready/deleted. Schema stays 1;
+older builds cannot decode the new file-track value in uploaded meetings.
 
 **Packaging:** app icon (Antenna Mic) and `Scripts/build-dmg.sh`; current version 0.1.0 build 10.
 
@@ -38,6 +46,10 @@ recovery and playback are **UNVERIFIED on device**.
 | Notes spec | `docs/superpowers/specs/2026-10-14-notes-design.md` | Approved with maintainer amendments |
 | Notes plan | `docs/superpowers/plans/2026-10-14-notes.md` | Approved with maintainer amendments; Tasks 1–7 implemented; merged on `main` |
 | Notes code | `main` (merged from `feat/notes`) | Markdown store, authoritative edit buffers, captured-note dictation, Notes page, settings, menu, lifecycle |
+| Upload spec | `docs/superpowers/specs/2026-10-15-upload-design.md` | Approved |
+| Upload plan | `docs/superpowers/plans/2026-10-15-upload.md` | Tasks 1–11 implemented and committed on `feat/upload`; device checks pending |
+| Upload automated tests | `swift test` on `feat/upload` | VoiceCore 407 tests / 48 suites, BugVoiceMac 70 tests / 14 suites — all pass |
+| Upload app | `Scripts/build-app.sh` on `feat/upload` | Build passed and signed with `Bugler Local Dev`; device checks 103–119 pending |
 | Automated tests | `swift test` on `main` | VoiceCore 229 tests / 31 suites, BugVoiceMac 58 tests / 11 suites — all pass |
 | App | `Scripts/build-app.sh` on `main` | Build passed, signed with `Bugler Local Dev`, launched once and remained running; see `docs/progress/notes-log.md` |
 | Manual checklist | `docs/testing/manual-checklist.md` | Dictation rows 1–44, Meetings rows 45–62, Notes rows 63–72 written; **not run** (needs maintainer checks) |

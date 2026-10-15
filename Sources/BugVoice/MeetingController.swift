@@ -260,7 +260,7 @@ final class MeetingController {
                 guard let self, self.isRecording, let writer = self.writer, let scheduler = self.scheduler, let capture = self.capture, let meetingID = self.meetingID else { continue }
                 self.elapsed = self.elapsedBeforePause + max(0, Date().timeIntervalSince(self.startedAt))
                 do {
-                    for track in MeetingTrack.allCases {
+                    for track in MeetingTrack.recordingTracks {
                         while let range = self.liveChunkCursor.nextReadyRange(
                             track: track,
                             sampleCount: writer.sampleCount(for: track)
@@ -351,7 +351,7 @@ private actor MeetingLiveTranscriptionScheduler: MeetingTranscriptionScheduler {
         defer { isFinalTranscribing = false; resumeWaiters() }
 
         let checkpoint = try writer.storedCheckpoint()
-        let planned = MeetingTrack.allCases.map { track in
+        let planned = MeetingTrack.recordingTracks.map { track in
             MeetingChunkPlanner.plan(
                 sampleCount: checkpoint.track(track)?.sampleCount ?? 0,
                 chunkSeconds: chunkSeconds
@@ -360,7 +360,7 @@ private actor MeetingLiveTranscriptionScheduler: MeetingTranscriptionScheduler {
         let total = max(1, planned.reduce(0) { $0 + $1.count })
         var results: [MeetingChunkProcessingResult] = []
         var completed = 0
-        for (trackIndex, track) in MeetingTrack.allCases.enumerated() {
+        for (trackIndex, track) in MeetingTrack.recordingTracks.enumerated() {
             for (index, range) in planned[trackIndex].enumerated() {
                 if cancelled { break }
                 let samples = try writer.committedSamples(for: track, range: range)

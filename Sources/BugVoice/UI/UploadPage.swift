@@ -1,0 +1,293 @@
+import AppKit
+import BugVoiceMac
+import SwiftUI
+import UniformTypeIdentifiers
+import VoiceCore
+
+struct UploadRing: View {
+    let progress: Double?
+
+    var body: some View {
+        Group {
+            if let progress {
+                ZStack {
+                    Circle().stroke(.secondary.opacity(0.2), lineWidth: 2)
+                    Circle().trim(from: 0, to: min(1, max(0, progress)))
+                        .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                }
+            } else {
+                ProgressView().controlSize(.mini)
+            }
+        }
+        .frame(width: 16, height: 16)
+        .accessibilityLabel("Upload progress")
+    }
+}
+
+struct UploadPage: View {
+    @Bindable var model: AppModel
+    @State private var targeted = false
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                Text("Upload").font(.title2.weight(.semibold))
+                if let controller = model.uploads {
+                    VStack(spacing: 18) {
+                        if controller.active == nil {
+                            Text("Upload a recording").font(.title2.weight(.semibold))
+                            Button(speechLabel) { model.openSpeechSettings() }
+                                .buttonStyle(.link)
+                        }
+                        if controller.probing {
+                            ProgressView()
+                        }
+                        if let error = controller.draftError {
+                            errorCard(
+                                error, name: controller.errorFileName ?? "", meetingID: nil, controller: controller)
+                        }
+                        if !controller.drafts.isEmpty {
+                            ForEach(controller.drafts) { draft in
+                                metadataCard(
+                                    name: draft.metadata.fileName, kind: draft.metadata.kind,
+                                    duration: draft.metadata.duration, bytes: draft.metadata.byteSize)
+                            }
+                            HStack {
+                                Button("Cancel") { controller.clearDraft() }
+                                Button("Transcribe") { controller.submit() }
+                                    .buttonStyle(.borderedProminent)
+                            }
+                            Text(
+                                "Only the audio is kept, as a small audio.m4a in the meeting folder. The video stays where it is."
+                            )
+                            .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                        }
+                        if let active = controller.active {
+                            progressCard(active, controller: controller)
+                        }
+                        dropZone(compact: !controller.queue.jobs.isEmpty)
+                        if controller.queue.jobs.isEmpty && controller.drafts.isEmpty {
+                            Text(
+                                "You can drop several files; they are transcribed one at a time. Uploads appear in Meetings when they are ready."
+                            )
+                            .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                        }
+                        if !controller.queue.jobs.isEmpty {
+                            HStack {
+                                Text("\(controller.queue.jobs.count) files")
+                                Spacer()
+                                Button("Clear finished") { controller.clearFinished() }
+                            }
+                            .font(.caption).foregroundStyle(.secondary)
+                            ForEach(controller.queue.jobs) { job in
+                                queueRow(job, controller: controller)
+                            }
+                        }
+                    }
+                    .frame(maxWidth: 560)
+                    .frame(maxWidth: .infinity)
+                } else {
+                    ProgressView()
+                }
+            }
+            .padding(26)
+            .frame(maxWidth: .infinity, minHeight: 500, alignment: .topLeading)
+        }
+        .background(targeted ? Color.accentColor.opacity(0.06) : Color(nsColor: .windowBackgroundColor))
+        .contentShape(Rectangle())
+        .onDrop(of: [UTType.fileURL.identifier], isTargeted: $targeted) { providers in
+            Task {
+                var urls: [URL] = []
+                for provider in providers {
+                    if let url = await loadURL(provider) { urls.append(url) }
+                }
+                await model.uploads?.choose(urls)
+            }
+            return true
+        }
+    }
+
+    private var speechLabel: String {
+        let speech = model.settings.speech
+        if speech.engine == .whisperKit {
+            return "Transcribed on this Mac with \(speech.whisperModel)"
+        }
+        return
+            "Transcribed by \(URL(string: speech.serverBaseURL)?.host ?? speech.serverBaseURL) with \(speech.serverModel)"
+    }
+
+    private func browse() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = MediaAudioDecoder.extensions.compactMap {
+            UTType(filenameExtension: $0)
+        }
+        panel.allowsOtherFileTypes = false
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.allowsMultipleSelection = true
+        guard panel.runModal() == .OK else { return }
+        Task { await model.uploads?.choose(panel.urls) }
+    }
+
+    private func loadURL(_ provider: NSItemProvider) async -> URL? {
+        await withCheckedContinuation { continuation in
+            provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
+                let url: URL?
+                if let data = item as? Data {
+                    url = URL(dataRepresentation: data, relativeTo: nil)
+                } else if let value = item as? URL {
+                    url = value
+                } else {
+                    url = nil
+                }
+                continuation.resume(returning: url)
+            }
+        }
+    }
+
+    private func dropZone(compact: Bool) -> some View {
+        Button(action: browse) {
+            VStack(spacing: 12) {
+                if !compact { Image(systemName: "square.and.arrow.up").font(.system(size: 28)) }
+                Text(
+                    compact
+                        ? "Drop more files, or click to browse"
+                        : "Drop an audio or video file, or click to browse"
+                )
+                .fontWeight(.medium)
+                Text("MP3, WAV, M4A, AIFF, CAF, MP4, MOV, M4V")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            .padding(compact ? 20 : 38)
+            .frame(maxWidth: .infinity)
+            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14).strokeBorder(
+                    .secondary.opacity(0.3), style: StrokeStyle(lineWidth: 1, dash: [5])))
+        }
+        .buttonStyle(.plain)
+        .disabled(model.uploads?.accepting != true)
+    }
+
+    private func metadataCard(name: String, kind: UploadMediaKind, duration: Double, bytes: Int64)
+        -> some View
+    {
+        HStack(spacing: 14) {
+            Image(systemName: kind == .video ? "film" : "waveform")
+                .font(.title2).foregroundStyle(.tint)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(name).fontWeight(.medium).lineLimit(2)
+                Text(
+                    "\(kind.rawValue) · \(clock(duration)) · \(ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file))"
+                )
+                .font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    private func progressCard(_ job: UploadJob, controller: UploadController) -> some View {
+        VStack(spacing: 12) {
+            if let value = job.progress {
+                ProgressView(value: value)
+            } else {
+                ProgressView()
+            }
+            Text(
+                job.state == .reading
+                    ? "Reading file…"
+                    : (model.settings.speech.engine == .whisperKit
+                        ? "Transcribing locally…" : "Transcribing…")
+            )
+            .font(.headline)
+            Text(job.fileName + (job.progress.map { " · \(Int($0 * 100))%" } ?? ""))
+                .font(.caption).foregroundStyle(.secondary)
+            HStack(spacing: 16) {
+                Text("1 Reading file").foregroundStyle(job.state == .reading ? .primary : .secondary)
+                Text("2 Transcribing locally").foregroundStyle(
+                    job.state == .transcribing ? .primary : .secondary)
+            }
+            .font(.caption)
+            if controller.waitingForMeeting {
+                Text("Waiting for meeting to finish").font(.caption)
+            }
+            Button("Cancel") { Task { await controller.cancel(job.id) } }
+            Text(
+                "You can leave this page; the Upload item in the sidebar shows progress. If a meeting starts, the upload pauses and continues when the meeting stops. If BugVoice quits while transcribing, it continues on next launch."
+            )
+            .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+        }
+        .padding(26)
+        .frame(maxWidth: .infinity)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    @ViewBuilder
+    private func queueRow(_ job: UploadJob, controller: UploadController) -> some View {
+        if job.state == .failed {
+            errorCard(
+                job.errorMessage ?? UploadFailure.unreadable.localizedDescription, name: job.fileName,
+                meetingID: job.meetingID, controller: controller)
+        } else {
+            VStack(alignment: .leading, spacing: 8) {
+                metadataCard(
+                    name: job.fileName, kind: job.kind, duration: job.duration, bytes: job.byteSize)
+                HStack {
+                    switch job.state {
+                    case .queued:
+                        Text("Waiting")
+                        Spacer()
+                        Button("Cancel") { Task { await controller.cancel(job.id) } }
+                    case .reading:
+                        Text("Reading file…")
+                    case .transcribing:
+                        Text("Transcribing \(Int((job.progress ?? 0) * 100))%")
+                    case .ready:
+                        Text("Ready")
+                        if let id = job.meetingID {
+                            if let meeting = model.meetingManifests.first(where: { $0.id == id }) {
+                                Text(
+                                    "\(meeting.title) · \(clock(meeting.duration)) · \(meeting.segments.count) lines")
+                            }
+                            Spacer()
+                            Button("Open in Meetings") { controller.open(id) }
+                        }
+                        Button("Upload another", action: browse)
+                    case .cancelled:
+                        Text("Cancelled")
+                    case .failed:
+                        EmptyView()
+                    }
+                }
+                .font(.caption)
+            }
+        }
+    }
+
+    private func errorCard(
+        _ error: String, name: String, meetingID: MeetingID?, controller: UploadController
+    ) -> some View {
+        VStack(spacing: 12) {
+            Text(error).font(.headline).multilineTextAlignment(.center)
+            Text(name).font(.caption).foregroundStyle(.secondary)
+            HStack {
+                Button("Choose another file", action: browse)
+                if let meetingID {
+                    Button("Open in Meetings") { controller.open(meetingID) }
+                }
+            }
+        }
+        .padding(26)
+        .frame(maxWidth: .infinity)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    private func clock(_ seconds: Double) -> String {
+        let total = max(0, Int(seconds))
+        return String(format: "%d:%02d", total / 60, total % 60)
+    }
+}
