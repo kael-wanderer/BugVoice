@@ -91,6 +91,9 @@ struct PromptTests {
         "Cảm ơn các bạn đã theo dõi.", "...", " ",
         "[BLANK_AUDIO]", " [ Silence ] ", "(breathing)", "[Music] (upbeat music)",
         "[BLANK_AUDIO] Thank you.", "thank.you", "[MUSIC PLAYING]", "(silence)", "[inaudible]",
+        "Music", "♪ Music ♪",
+        // Whisper writes subtitle credits in other scripts over music.
+        "Субтитры сделал DimaTorzok", "Субтитры подогнал «Симон»!", "ご視聴ありがとうございました",
     ])
     func knownHallucinations(text: String) {
         #expect(HallucinationFilter.isHallucination(text))
@@ -99,6 +102,9 @@ struct PromptTests {
     @Test(arguments: [
         "Thank you for the review, merge it.",
         "[BLANK_AUDIO] merge the branch",
+        "Mình muốn deploy cái API này",
+        "The Tokyo office wrote 東京 in the ticket",
+        "play the music again",
     ])
     func realSpeechIsNotHallucination(text: String) {
         #expect(!HallucinationFilter.isHallucination(text))

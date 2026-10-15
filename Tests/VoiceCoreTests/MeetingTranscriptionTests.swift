@@ -110,6 +110,24 @@ struct MeetingTranscriptionTests {
         #expect(result.segments.map(\.text) == ["hello there"])
     }
 
+    @Test func nonLatinCreditSegmentIsRemovedFromEnglishChunk() async throws {
+        let probe = MeetingTranscriberProbe(replies: [.init(
+            text: "hello there Субтитры сделал DimaTorzok",
+            segments: [
+                .init(start: 0, end: 1, text: "hello there"),
+                .init(start: 1, end: 2, text: "Субтитры сделал DimaTorzok")
+            ],
+            language: "en"
+        )])
+
+        let result = try await MeetingChunkProcessor().process(
+            id: "credits", track: .file, offset: 0,
+            clip: speechClip, transcriber: probe
+        )
+
+        #expect(result.segments.map(\.text) == ["hello there"])
+    }
+
     @Test func emptyAutoResultRetriesVietnameseWithoutTimestampsAndOffsetsVadTimes() async throws {
         let probe = MeetingTranscriberProbe(replies: [
             .init(text: "", language: "en"),
