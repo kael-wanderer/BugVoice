@@ -54,7 +54,7 @@ struct SettingsTests {
         let json = #"{"styles":{"appOverrides":{"com.a":"document","com.b":"poem","com.c":"chat"}}}"#
         try Data(json.utf8).write(to: url)
         let overrides = SettingsStore(url: url).load().styles.appOverrides
-        #expect(overrides == ["com.a": .document, "com.c": .chat])
+        #expect(overrides == ["com.a": .document])
     }
 
     @Test func corruptFileIsSetAsideAndDefaultsLoad() throws {

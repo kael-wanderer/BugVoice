@@ -19,9 +19,17 @@ struct PromptTests {
     }
 
     @Test func customRulesReplaceBuiltIn() {
-        let p = PromptBuilder(customRules: ["chat": "Only lowercase."]).systemPrompt(style: .chat, vocabulary: Vocabulary(), focus: .unknown)
+        let p = PromptBuilder(customRules: ["work": "Only lowercase."]).systemPrompt(style: .work, vocabulary: Vocabulary(), focus: .unknown)
         #expect(p.contains("Only lowercase."))
-        #expect(!p.contains(PromptBuilder.defaultRules(for: .chat)))
+        #expect(!p.contains(PromptBuilder.defaultRules(for: .work)))
+    }
+
+    @Test func newDefaultRules() {
+        #expect(PromptBuilder.defaultRules(for: .personal).hasPrefix("Casual and warm."))
+        #expect(PromptBuilder.defaultRules(for: .personal).contains("No greeting or sign-off unless spoken."))
+        #expect(PromptBuilder.defaultRules(for: .work).hasPrefix("Clear and short."))
+        #expect(PromptBuilder.defaultRules(for: .work).contains("when the speaker lists items, use bullets"))
+        #expect(PromptBuilder.defaultRules(for: .other).hasPrefix("Light touch."))
     }
 
     @Test func contextIsTrimmedToTail() {
@@ -32,9 +40,9 @@ struct PromptTests {
     }
 
     @Test func userTurnWrapsDictationAndAddsNoThinkForQwen() {
-        let r = PromptBuilder().request(raw: "hello", style: .chat, focus: .unknown, vocabulary: Vocabulary(), modelID: "qwen3.8-27b-mlx", disableThinking: true)
+        let r = PromptBuilder().request(raw: "hello", style: .personal, focus: .unknown, vocabulary: Vocabulary(), modelID: "qwen3.8-27b-mlx", disableThinking: true)
         #expect(r.user == "<dictation>\nhello\n</dictation>\n\n/no_think")
-        let r2 = PromptBuilder().request(raw: "hello", style: .chat, focus: .unknown, vocabulary: Vocabulary(), modelID: "llama-3", disableThinking: true)
+        let r2 = PromptBuilder().request(raw: "hello", style: .personal, focus: .unknown, vocabulary: Vocabulary(), modelID: "llama-3", disableThinking: true)
         #expect(r2.user == "<dictation>\nhello\n</dictation>")
         #expect(r.disableThinking)
         #expect(!r2.disableThinking)

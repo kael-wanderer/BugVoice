@@ -17,7 +17,11 @@ public struct PromptBuilder: Sendable {
             "Remove filler words (um, uh, like, ờ, à, kiểu, thì là). Apply self-corrections such as \"no, I mean\" or \"à không\" by keeping only the corrected version. Add punctuation and capitalization. Split into paragraphs at topic changes. When the speaker lists items, format them as a Markdown list."
         case .email:
             "Write full sentences with punctuation. Keep greetings and sign-offs as spoken. Remove filler words and apply self-corrections."
-        case .chat, .other:
+        case .personal:
+            "Casual and warm. Remove filler words, add light punctuation, keep slang and the speaker's wording. No greeting or sign-off unless spoken."
+        case .work:
+            "Clear and short. Remove filler words, apply self-corrections such as \"no, I mean\" or \"à không\" by keeping only the corrected version, keep technical terms. One short paragraph; when the speaker lists items, use bullets."
+        case .other:
             "Light touch. Remove filler words, add punctuation, keep the casual tone and wording."
         }
     }

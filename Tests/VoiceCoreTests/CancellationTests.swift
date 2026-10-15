@@ -57,7 +57,7 @@ import Testing
 @Suite struct RecallableResultTests {
     func result(_ outcome: DictationOutcome) -> DictationResult {
         DictationResult(
-            startedAt: Date(), appName: "App", bundleID: "b", style: .chat, language: "en",
+            startedAt: Date(), appName: "App", bundleID: "b", style: .personal, language: "en",
             raw: "secret raw", cleaned: "secret clean", finalText: "secret", outcome: outcome,
             rawReason: nil, errorMessage: nil, timings: StageTimings()
         )

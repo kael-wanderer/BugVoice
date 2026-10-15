@@ -11,11 +11,16 @@ public struct StyleRouter: Sendable {
         "com.apple.iWork.Pages": .document,
         "com.microsoft.Word": .document,
         "com.apple.TextEdit": .document,
-        "com.tinyspeck.slackmacgap": .chat,
-        "com.apple.MobileSMS": .chat,
-        "com.hnc.Discord": .chat,
-        "ru.keepcoder.Telegram": .chat,
-        "com.vng.zalo": .chat,
+        "com.apple.MobileSMS": .personal,
+        "com.vng.zalo": .personal,
+        "net.whatsapp.WhatsApp": .personal,
+        "ru.keepcoder.Telegram": .personal,
+        "com.hnc.Discord": .personal,
+        "com.facebook.archon": .personal, // Messenger
+        "com.tinyspeck.slackmacgap": .work,
+        "com.microsoft.teams2": .work,
+        "com.microsoft.teams": .work,
+        "com.electron.lark": .work,
         "com.apple.mail": .email,
         "com.microsoft.Outlook": .email,
     ]
@@ -32,8 +37,24 @@ public struct StyleRouter: Sendable {
         ("notion.so", .document),
         ("mail.google.com", .email),
         ("outlook.office.com", .email),
-        ("app.slack.com", .chat),
+        ("web.whatsapp.com", .personal),
+        ("messenger.com", .personal),
+        ("discord.com", .personal),
+        ("web.telegram.org", .personal),
+        ("chat.zalo.me", .personal),
+        ("app.slack.com", .work),
+        ("teams.microsoft.com", .work),
+        ("teams.live.com", .work),
+        ("chat.google.com", .work),
     ]
+
+    public static func builtInApps(for style: Style) -> [String] {
+        defaultApps.filter { $0.value == style }.map(\.key).sorted()
+    }
+
+    public static func websites(for style: Style) -> [String] {
+        urlRules.filter { $0.style == style }.map(\.host)
+    }
 
     public var overrides: [String: Style]
 
