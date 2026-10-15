@@ -288,7 +288,11 @@ struct NotesControllerTests {
         controller.updateTitleDraft(id: created.id, title: "New title")
         controller.updateBody(id: created.id, body: "edited body")
 
-        try await Task.sleep(for: .milliseconds(600))
+        // Wait for the autosave; a fixed sleep raced it when the suite ran in parallel.
+        let deadline = ContinuousClock.now + .seconds(3)
+        while try await store.open(id: created.id).body != "edited body", ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(50))
+        }
         #expect(try await store.open(id: created.id).title == "Old title")
         #expect(try await store.open(id: created.id).body == "edited body")
         #expect(FileManager.default.fileExists(atPath: root.appendingPathComponent("old-title.md").path))
