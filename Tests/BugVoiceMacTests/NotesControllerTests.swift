@@ -403,6 +403,35 @@ struct NotesControllerTests {
         #expect(note.frontMatter.folderID == FolderID(rawValue: "f9"))
     }
 
+    @Test func createWithBodySavesTitleBodyAndLabels() async throws {
+        let root = try directory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = NotesStore(directory: root)
+        let controller = NotesController(store: store)
+        let front = NoteFrontMatter(folderID: FolderID(rawValue: "f1"), tags: ["standup"])
+        let note = try await controller.create(title: "Standup · Summary", body: "Shipped.", frontMatter: front)
+        #expect(controller.selectedNoteID == note.id)
+        let persisted = try await store.open(id: note.id)
+        #expect(persisted.title == "Standup · Summary")
+        #expect(persisted.body == "Shipped.")
+        #expect(persisted.frontMatter.folderID == FolderID(rawValue: "f1"))
+        #expect(persisted.frontMatter.tags == ["standup"])
+    }
+
+    @Test func clearSelectionSavesAndDeselects() async throws {
+        let root = try directory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = NotesStore(directory: root)
+        let created = try await store.create(title: "Close", body: "a")
+        let controller = NotesController(store: store)
+        try await controller.select(id: created.id)
+        controller.updateBody(id: created.id, body: "a typed")
+        await controller.clearSelection()
+        #expect(controller.selectedNoteID == nil)
+        #expect(!controller.hasPendingSave(id: created.id))
+        #expect(try await store.open(id: created.id).body == "a typed")
+    }
+
     private func directory() throws -> URL {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("BugVoiceNotesController-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)

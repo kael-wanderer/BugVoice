@@ -72,16 +72,23 @@ public final class NotesController {
     }
 
     @discardableResult
-    public func create(title: String = "Untitled", frontMatter: NoteFrontMatter = NoteFrontMatter()) async throws -> NoteDocument {
+    public func create(title: String = "Untitled", body: String = "", frontMatter: NoteFrontMatter = NoteFrontMatter()) async throws -> NoteDocument {
         if let selectedNoteID {
             guard await flush(id: selectedNoteID) else { throw NotesControllerError.saveFailed(selectedNoteID) }
         }
-        let note = try await store.create(title: title, frontMatter: frontMatter)
+        let note = try await store.create(title: title, body: body, frontMatter: frontMatter)
         loaded[note.id] = LoadedNote(note: note)
         selectedNoteID = note.id
         await reloadList()
         changed()
         return note
+    }
+
+    /// Saves and deselects the current note; the editor shows "Select a note".
+    public func clearSelection() async {
+        if let selectedNoteID { _ = await flush(id: selectedNoteID) }
+        selectedNoteID = nil
+        changed()
     }
 
     public func delete(id: NoteID, confirmed: Bool) async throws {
@@ -287,6 +294,11 @@ public final class NotesController {
     public func isLoaded(id: NoteID) -> Bool {
         _ = changeCounter
         return loaded[id] != nil
+    }
+
+    /// The text view showing the note, if one is on screen.
+    public func attachedEditor(id: NoteID) -> NotesTextView? {
+        loaded[id]?.editor
     }
 
     public func undoManager(for id: NoteID) -> UndoManager? {
