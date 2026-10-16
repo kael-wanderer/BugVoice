@@ -1,4 +1,5 @@
 import Foundation
+import CoreAudio
 import Testing
 @testable import BugVoiceMac
 import VoiceCore
@@ -128,3 +129,39 @@ private actor AudioSourceProbe: MeetingAudioSource {
 }
 
 private enum SourceError: Error { case failed }
+
+struct MeetingTapSampleConverterTests {
+    private static let tapFormat = AudioStreamBasicDescription(
+        mSampleRate: 48_000, mFormatID: kAudioFormatLinearPCM,
+        mFormatFlags: kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked,
+        mBytesPerPacket: 4, mFramesPerPacket: 1, mBytesPerFrame: 4,
+        mChannelsPerFrame: 1, mBitsPerChannel: 32, mReserved: 0
+    )
+
+    @Test func convertsFortyEightKilohertzTapAudioToSixteenKilohertz() throws {
+        let converter = try #require(MeetingTapSampleConverter(tapFormat: Self.tapFormat))
+        let sine = (0..<4_800).map { Float(0.5 * sin(2 * Double.pi * 440 * Double($0) / 48_000)) }
+        var output: [Float] = []
+        for start in stride(from: 0, to: sine.count, by: 512) {
+            let chunk = Array(sine[start..<min(start + 512, sine.count)])
+            output += chunk.withUnsafeBufferPointer { converter.convert($0) }
+        }
+        #expect((1_400...1_700).contains(output.count))
+        #expect(abs(AudioClip(samples: output).rms - 0.354) < 0.05)
+    }
+
+    @Test func rejectsATapFormatThatIsNotFloatPCM() {
+        var integerFormat = Self.tapFormat
+        integerFormat.mFormatFlags = kAudioFormatFlagIsSignedInteger | kAudioFormatFlagIsPacked
+        integerFormat.mBitsPerChannel = 16
+        integerFormat.mBytesPerFrame = 2
+        integerFormat.mBytesPerPacket = 2
+        #expect(MeetingTapSampleConverter(tapFormat: integerFormat) == nil)
+    }
+
+    @Test func emptyInputGivesNoSamples() throws {
+        let converter = try #require(MeetingTapSampleConverter(tapFormat: Self.tapFormat))
+        let output = [Float]().withUnsafeBufferPointer { converter.convert($0) }
+        #expect(output.isEmpty)
+    }
+}

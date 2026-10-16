@@ -451,10 +451,58 @@ public final class MeetingAudioEngineSource: MeetingAudioSource, @unchecked Send
     }
 }
 
+/// Turns one callback's worth of process-tap samples (mono Float32) into 16 kHz mono.
+final class MeetingTapSampleConverter: @unchecked Sendable {
+    private let source: AVAudioFormat
+    private let target = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 16_000, channels: 1, interleaved: false)!
+    private let converter: AVAudioConverter
+
+    init?(tapFormat: AudioStreamBasicDescription) {
+        let description = tapFormat
+        guard description.mFormatID == kAudioFormatLinearPCM,
+              description.mFormatFlags & kAudioFormatFlagIsFloat != 0,
+              description.mBitsPerChannel == 32,
+              description.mChannelsPerFrame == 1,
+              description.mSampleRate > 0,
+              let source = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: description.mSampleRate, channels: 1, interleaved: false),
+              let converter = AVAudioConverter(from: source, to: target) else { return nil }
+        self.source = source
+        self.converter = converter
+    }
+
+    func convert(_ samples: UnsafeBufferPointer<Float>) -> [Float] {
+        guard !samples.isEmpty, let base = samples.baseAddress,
+              let input = AVAudioPCMBuffer(pcmFormat: source, frameCapacity: AVAudioFrameCount(samples.count)),
+              let output = AVAudioPCMBuffer(pcmFormat: target, frameCapacity: AVAudioFrameCount(Double(samples.count) * target.sampleRate / source.sampleRate) + 64),
+              let channel = input.floatChannelData?[0] else { return [] }
+        channel.update(from: base, count: samples.count)
+        input.frameLength = AVAudioFrameCount(samples.count)
+        var supplied = false
+        var error: NSError?
+        converter.convert(to: output, error: &error) { _, status in
+            guard !supplied else { status.pointee = .noDataNow; return nil }
+            supplied = true
+            status.pointee = .haveData
+            return input
+        }
+        guard error == nil, let converted = output.floatChannelData?[0], output.frameLength > 0 else { return [] }
+        return Array(UnsafeBufferPointer(start: converted, count: Int(output.frameLength)))
+    }
+}
+
+/// Records every other app's audio through a Core Audio process tap. The tap's private
+/// aggregate device is read with an IOProc: AVAudioEngine reports the default input's format
+/// for this device and fails or stops, which left the Others track empty.
 public final class CoreAudioProcessTapSource: MeetingAudioSource, @unchecked Sendable {
     public let track: MeetingTrack = .system
+    private let lock = NSLock()
+    private let queue = DispatchQueue(label: "com.bugvoice.meeting.system-audio")
     private var tapID = AudioObjectID(kAudioObjectUnknown)
     private var aggregateID = AudioObjectID(kAudioObjectUnknown)
+    private var ioProcID: AudioDeviceIOProcID?
+    private var bufferHandler: (@Sendable (AudioClip, TimeInterval, Float) -> Void)?
+    private var activeStart: TimeInterval = 0
+    private var activeDuration: TimeInterval = 0
 
     public init() {}
 
@@ -478,6 +526,16 @@ public final class CoreAudioProcessTapSource: MeetingAudioSource, @unchecked Sen
             cleanup()
             throw MeetingAudioCaptureError.coreAudio(operation: "read system audio tap UID", status: readStatus)
         }
+
+        var formatAddress = AudioObjectPropertyAddress(mSelector: kAudioTapPropertyFormat, mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
+        var tapFormat = AudioStreamBasicDescription()
+        var formatSize = UInt32(MemoryLayout<AudioStreamBasicDescription>.size)
+        let formatStatus = AudioObjectGetPropertyData(tapID, &formatAddress, 0, nil, &formatSize, &tapFormat)
+        guard formatStatus == noErr, let converter = MeetingTapSampleConverter(tapFormat: tapFormat) else {
+            cleanup()
+            throw MeetingAudioCaptureError.coreAudio(operation: "read system audio tap format", status: formatStatus == noErr ? -1 : formatStatus)
+        }
+
         let dictionary: [String: Any] = [
             kAudioAggregateDeviceNameKey: "BugVoice Meeting System Audio",
             kAudioAggregateDeviceUIDKey: "com.bugvoice.meeting.\(UUID().uuidString)",
@@ -492,21 +550,55 @@ public final class CoreAudioProcessTapSource: MeetingAudioSource, @unchecked Sen
             throw MeetingAudioCaptureError.coreAudio(operation: "create system audio aggregate device", status: aggregateStatus)
         }
         aggregateID = newAggregate
-        let deviceSource = MeetingAudioEngineSource(track: .system, deviceID: aggregateID)
-        activeDeviceSource = deviceSource
-        try await deviceSource.start(onBuffer: onBuffer)
+
+        lock.withLock { bufferHandler = onBuffer; activeStart = ProcessInfo.processInfo.systemUptime; activeDuration = 0 }
+        var newIOProc: AudioDeviceIOProcID?
+        let ioStatus = AudioDeviceCreateIOProcIDWithBlock(&newIOProc, aggregateID, queue) { [weak self] _, inputData, _, _, _ in
+            let buffers = UnsafeMutableAudioBufferListPointer(UnsafeMutablePointer(mutating: inputData))
+            guard let self, let first = buffers.first, let data = first.mData else { return }
+            let count = Int(first.mDataByteSize) / MemoryLayout<Float>.size
+            let samples = converter.convert(UnsafeBufferPointer(start: data.assumingMemoryBound(to: Float.self), count: count))
+            guard !samples.isEmpty else { return }
+            let clip = AudioClip(samples: samples)
+            let uptime = ProcessInfo.processInfo.systemUptime
+            let (offset, handler) = self.lock.withLock { (self.activeDuration + max(0, uptime - self.activeStart), self.bufferHandler) }
+            handler?(clip, offset, min(1, clip.rms * 8))
+        }
+        guard ioStatus == noErr, let newIOProc else {
+            cleanup()
+            throw MeetingAudioCaptureError.coreAudio(operation: "read system audio", status: ioStatus)
+        }
+        ioProcID = newIOProc
+        let startStatus = AudioDeviceStart(aggregateID, newIOProc)
+        guard startStatus == noErr else {
+            cleanup()
+            throw MeetingAudioCaptureError.coreAudio(operation: "start system audio", status: startStatus)
+        }
     }
 
-    private var activeDeviceSource: MeetingAudioEngineSource?
-    public func pause() async throws { try await activeDeviceSource?.pause() }
-    public func resume() async throws { try await activeDeviceSource?.resume() }
+    public func pause() async throws {
+        lock.withLock { activeDuration += max(0, ProcessInfo.processInfo.systemUptime - activeStart) }
+        if let ioProcID { AudioDeviceStop(aggregateID, ioProcID) }
+    }
+
+    public func resume() async throws {
+        lock.withLock { activeStart = ProcessInfo.processInfo.systemUptime }
+        guard let ioProcID else { return }
+        let status = AudioDeviceStart(aggregateID, ioProcID)
+        guard status == noErr else { throw MeetingAudioCaptureError.coreAudio(operation: "resume system audio", status: status) }
+    }
+
     public func stop() async throws {
-        try await activeDeviceSource?.stop()
-        activeDeviceSource = nil
         cleanup()
+        lock.withLock { bufferHandler = nil }
     }
 
     private func cleanup() {
+        if let ioProcID {
+            AudioDeviceStop(aggregateID, ioProcID)
+            AudioDeviceDestroyIOProcID(aggregateID, ioProcID)
+            self.ioProcID = nil
+        }
         if aggregateID != AudioObjectID(kAudioObjectUnknown) { AudioHardwareDestroyAggregateDevice(aggregateID); aggregateID = AudioObjectID(kAudioObjectUnknown) }
         if tapID != AudioObjectID(kAudioObjectUnknown) { AudioHardwareDestroyProcessTap(tapID); tapID = AudioObjectID(kAudioObjectUnknown) }
     }
