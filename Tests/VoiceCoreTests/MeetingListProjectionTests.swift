@@ -29,6 +29,12 @@ struct MeetingListProjectionTests {
         #expect(MeetingListProjection.matches(item, query: "   "))
     }
 
+    @Test func searchMatchesEnglishLines() {
+        var item = meeting("one", "2026-10-14T08:00:00Z", title: "Reunión")
+        item.segments = [MeetingSegment(start: 4, end: 5, text: "Mover el lanzamiento", track: .system, translation: "Move the launch")]
+        #expect(MeetingListProjection.matches(item, query: "launch"))
+    }
+
     @Test func deletedMeetingIsAbsentFromStoreListingAndSearch() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }

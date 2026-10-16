@@ -36,6 +36,20 @@ struct MeetingExportTests {
         #expect(MeetingExporter.markdown(meeting).contains("## Summary\nSum\n\n## My notes\n- ask Ana\n"))
     }
 
+    @Test func markdownWritesEnglishUnderTranslatedLines() {
+        var translated = segment(start: 5, end: 6, text: "Buenos\ndías", track: .system)
+        translated.translation = "Good morning"
+        var unchanged = segment(start: 7, end: 8, text: "OK", track: .system)
+        unchanged.translation = ""
+        var meeting = manifest(segments: [translated, unchanged, segment(start: 9, end: 10, text: "Hola", track: .system)])
+        meeting.showEnglish = false
+        #expect(MeetingExporter.markdown(meeting).hasSuffix(
+            "## Transcript\n0:05 | Others | Buenos días\n  English: Good morning\n0:07 | Others | OK\n0:09 | Others | Hola"
+        ))
+        #expect(!MeetingExporter.srt(meeting).contains("English"))
+        #expect(!MeetingExporter.transcriptText(meeting).contains("English"))
+    }
+
     private func manifest(segments: [MeetingSegment]) -> MeetingManifest {
         MeetingManifest(
             id: MeetingID(rawValue: "meeting"), title: "Planning",
