@@ -51,6 +51,52 @@ struct MeetingSessionTests {
         #expect(decoded.languages.isEmpty)
     }
 
+    @Test func notesAndLiveSummarySaveWhileRecording() async throws {
+        let rig = SessionRig()
+        let session = rig.makeSession()
+        try await session.start()
+        try await session.setNotes("## Bot results\n- 400 resets")
+        try await session.setLiveSummary("- 400 resets closed", updatedAt: Date(timeIntervalSince1970: 60), cutoff: 180)
+        let saved = await rig.store.meetings.values.first
+        #expect(saved?.notes == "## Bot results\n- 400 resets")
+        #expect(saved?.liveSummary == "- 400 resets closed")
+        #expect(saved?.liveSummaryUpdatedAt == Date(timeIntervalSince1970: 60))
+        #expect(saved?.liveSummaryCutoff == 180)
+    }
+
+    @Test func notesAreRejectedAfterCancel() async throws {
+        let rig = SessionRig()
+        let session = rig.makeSession()
+        try await session.start()
+        try await session.cancel()
+        await #expect(throws: MeetingSessionError.self) { try await session.setNotes("late") }
+    }
+
+    @Test func detectedAppIsSaved() async throws {
+        let rig = SessionRig()
+        let session = rig.makeSession()
+        try await session.start()
+        try await session.setDetectedApp("com.google.Chrome")
+        #expect(await rig.store.meetings.values.first?.detectedApp == "com.google.Chrome")
+    }
+
+    @Test func manifestWithoutNotesFieldsDecodesWithDefaults() throws {
+        var meeting = MeetingManifest(startedAt: Date(timeIntervalSince1970: 0))
+        meeting.notes = "x"
+        meeting.liveSummary = "y"
+        meeting.liveSummaryCutoff = 30
+        meeting.detectedApp = "us.zoom.xos"
+        let roundTrip = try JSONDecoder().decode(MeetingManifest.self, from: JSONEncoder().encode(meeting))
+        #expect(roundTrip == meeting)
+        var object = try JSONSerialization.jsonObject(with: JSONEncoder().encode(meeting)) as! [String: Any]
+        for key in ["notes", "liveSummary", "liveSummaryUpdatedAt", "liveSummaryCutoff", "detectedApp"] { object.removeValue(forKey: key) }
+        let old = try JSONDecoder().decode(MeetingManifest.self, from: JSONSerialization.data(withJSONObject: object))
+        #expect(old.notes == "")
+        #expect(old.liveSummary == nil)
+        #expect(old.liveSummaryCutoff == 0)
+        #expect(old.detectedApp == nil)
+    }
+
     @Test func pauseCheckpointsAndResumeExcludesPausedGap() async throws {
         let rig = SessionRig()
         let session = rig.makeSession()

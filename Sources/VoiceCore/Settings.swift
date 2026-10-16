@@ -73,6 +73,12 @@ public struct MeetingSettings: Codable, Equatable, Sendable {
     public var languages: [SpeechLanguage] = MeetingLanguages.defaults {
         didSet { if languages != MeetingLanguages.normalized(languages) { languages = MeetingLanguages.normalized(languages) } }
     }
+    /// Offer to record when a meeting app starts using the microphone.
+    public var detectMeetings = true
+    /// Bundle IDs chosen with "Don't ask for this app".
+    public var mutedMeetingApps: [String] = []
+    /// The meeting window shows only its top bar.
+    public var windowCollapsed = false
 
     public init() {}
 }
@@ -85,6 +91,9 @@ extension MeetingSettings {
         generationContextTokens = c.value(.generationContextTokens, default: generationContextTokens)
         generationOutputTokens = c.value(.generationOutputTokens, default: generationOutputTokens)
         languages = MeetingLanguages.normalized(c.value(.languages, default: languages))
+        detectMeetings = c.value(.detectMeetings, default: detectMeetings)
+        mutedMeetingApps = c.value(.mutedMeetingApps, default: mutedMeetingApps)
+        windowCollapsed = c.value(.windowCollapsed, default: windowCollapsed)
     }
 }
 

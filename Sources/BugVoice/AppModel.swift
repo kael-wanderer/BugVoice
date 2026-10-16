@@ -123,6 +123,8 @@ final class AppModel {
     var permissionsGranted = Permissions.allGranted
     var permissionStatus: [PermissionKind: Bool] = [:]
     var systemAudioPermissionFailed = false
+    /// Core Audio could not list processes; meeting detection is off for this run.
+    var meetingDetectionUnavailable = false
     /// The latest failure to save something (settings, Dictionary, history,
     /// API key, login item). The UI shows it and sets it back to nil once
     /// the user has seen it. Never cleared by a later success.
@@ -136,6 +138,7 @@ final class AppModel {
     /// Created by `bootstrap()` once settings are loaded.
     @ObservationIgnored private(set) var dictation: DictationController?
     @ObservationIgnored private(set) var meetings: MeetingController?
+    @ObservationIgnored private(set) var meetingDetection: MeetingDetectionController?
     private(set) var uploads: UploadController?
     @ObservationIgnored private var isLoadingSettings = false
     @ObservationIgnored private var preparingEngine: WhisperKitTranscriber?
@@ -186,6 +189,9 @@ final class AppModel {
             Task { @MainActor in self?.meetings?.toggleRecording() }
         }
         meetings = MeetingController(model: self)
+        let detection = MeetingDetectionController(model: self)
+        meetingDetection = detection
+        detection.start()
         uploads = UploadController(model: self)
         refreshPermissions()
         if !permissionsGranted { openPermissionsWindow() }
@@ -391,6 +397,12 @@ final class AppModel {
         } catch {
             connectionStatus[connection.id] = .failed(error.localizedDescription)
         }
+    }
+
+    /// The meeting window's notes editor when it has the keyboard, for Right Option dictation.
+    func meetingNotesEditorWithKeyboard() -> MeetingNotesTextView? {
+        guard let window = NSApp.keyWindow, window.identifier == AppWindow.meeting else { return nil }
+        return window.firstResponder as? MeetingNotesTextView
     }
 
     func captureNotesDictation(startFocus: FocusSnapshot) -> NotesDictationCapture? {
@@ -713,6 +725,23 @@ final class AppModel {
         }
     }
 
+    /// Notes from the meeting detail page. The meeting window's session saves them while it owns the meeting.
+    func setMeetingNotes(id: MeetingID, notes: String) async {
+        do {
+            if let meetings, try await meetings.setNotesInSession(id: id, notes: notes) {
+                await reloadMeetings()
+                return
+            }
+            var meeting = try await meetingStore.load(id: id)
+            guard meeting.notes != notes else { return }
+            meeting.notes = notes
+            try await meetingStore.save(meeting)
+            await reloadMeetings()
+        } catch {
+            saveError = "Could not save notes: \(error.localizedDescription)"
+        }
+    }
+
     func setNoteLabels(id: NoteID, folderID: FolderID?, tags: [String]) async {
         do {
             try await notesController.setLabels(id: id, folderID: folderID, tags: tags)
@@ -790,20 +819,14 @@ final class AppModel {
         progress: @escaping @Sendable (MeetingTextProgress) -> Void
     ) async throws -> String {
         let original = try await meetingStore.load(id: id)
-        if case .cli(let tool) = settings.models.meetings.engine, cliInfo[tool] == nil {
-            await refreshCLIs()
-        }
-        let plan = plan(for: .meetings)
-        guard var textModel = ProviderFactory.textModel(plan, credentials: credentials) else {
+        guard let textModel = await meetingTextModel() else {
             throw MeetingGenerationError.noTextModel
-        }
-        if case .connection(_, _, _, let disableThinking, _) = plan, disableThinking {
-            textModel = ThinkingOverride(base: textModel, disableThinking: true)
         }
         let text = try await MeetingTextGenerator().generate(
             transcript: original.segments,
             kind: kind,
             budget: MeetingTextBudget(settings: settings.meetings),
+            notes: original.notes,
             model: textModel,
             progress: progress
         )
@@ -834,6 +857,19 @@ final class AppModel {
             Task { await suggestTags(for: id, summary: text, model: suggestionModel) }
         }
         return text
+    }
+
+    /// The Meetings model (Settings › Models), or nil when none is set.
+    func meetingTextModel() async -> (any TextModel)? {
+        if case .cli(let tool) = settings.models.meetings.engine, cliInfo[tool] == nil {
+            await refreshCLIs()
+        }
+        let plan = plan(for: .meetings)
+        guard var textModel = ProviderFactory.textModel(plan, credentials: credentials) else { return nil }
+        if case .connection(_, _, _, let disableThinking, _) = plan, disableThinking {
+            textModel = ThinkingOverride(base: textModel, disableThinking: true)
+        }
+        return textModel
     }
 
     /// Asks the Meetings model for up to 3 existing tags. Failures stay silent.

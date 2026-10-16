@@ -12,6 +12,10 @@ public enum MeetingExporter {
         if let summary = meeting.summary, !summary.isEmpty {
             lines += ["## Summary", summary, ""]
         }
+        let notes = meeting.notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !notes.isEmpty {
+            lines += ["## My notes", notes, ""]
+        }
         if let actionItems = meeting.actionItems, !actionItems.isEmpty {
             lines += ["## Action items", actionItems, ""]
         }

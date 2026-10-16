@@ -258,6 +258,22 @@ Run after building with `Scripts/build-app.sh`. Results stay blank until run on 
 | 169 | Meeting audio | Record a meeting while a browser tab plays a video | Others meter turns green while the video plays; `system.m4a` is as long as `mic.m4a`; video speech appears as Others | |
 | 170 | Settings › Meetings | Open Languages; turn Spanish on, then turn every language off | English and Vietnamese on by default; the last language cannot be turned off; choice persists after relaunch | |
 | 171 | Recorder panel | During a meeting open the language chip (EN · VI) and choose English only; pause with "ah… e" fillers; stop | Chip shows EN; no Portuguese or other-language lines; filler-only lines are not in the transcript; final transcript uses the same choice | |
+| 172 | Meeting detection | Join a Google Meet call in Chrome; then a Zoom call; then a Teams call | "Meeting detected" at the top right within 2 s with the app and meeting title; it hides after 15 s; focus stays in the call | |
+| 173 | Meeting detection | In Chrome open a page that uses the mic without a meeting title (for example a voice recorder site) | No popup | |
+| 174 | Meeting detection | On the popup choose ▾ → Don't ask for this app; leave and rejoin the call; Settings › Meetings | No popup on rejoin; the app is under Muted apps; Remove brings the popup back on the next join | |
+| 175 | Meeting detection | Start recording from the popup; leave the call and wait 10 s | Recording starts with the meeting title; "Meeting ended · Google Meet stopped using the mic · m:ss" with Stop recording; it never stops by itself; hides after 30 s | |
+| 176 | Meeting detection | Turn Detect meetings off; join a call | No popup; ⌃⌥M still records | |
+| 177 | Meeting window | Start a meeting with two displays and with one | Window docks to the right third of the screen with the front window, full height; move and resize it, stop, start again: the moved frame comes back | |
+| 178 | Meeting window | In a Meet call click Mark, Pause, Resume, the tabs, the language chip and Collapse | Keyboard focus stays in Meet; Mark shows "Marked at m:ss" for 2 s and a Mark line in the Transcript tab; Collapse leaves only the top bar and is kept after relaunch | |
+| 179 | Meeting window | Click into My notes, type a heading and bullets, press Tab on a bullet, ⌘Z; hold Right Option and speak | Text lands in the notes, styled as Markdown; Tab indents; ⌘Z undoes; the dictation lands at the caret, cleaned; the meeting app gets nothing | |
+| 180 | Meeting window | Click the title, rename, press Return | The new title shows in the window and the Meetings list | |
+| 181 | Meeting window | Transcript tab while people talk; scroll up; Newest; Search; Copy | Lines appear about 30 s after speech with You / Others; it stops following when scrolled up and Newest returns; Search filters; Copy gives `[m:ss] You: text` lines | |
+| 182 | Meeting window | Talk for 3 minutes, open Summary; talk 3 more minutes | First summary after 3 minutes with "So far · updated N min ago · next in N min"; it follows the note headings; it updates after the next 3 minutes | |
+| 183 | Meeting window | Ask "what did we decide?"; press What did I miss?; Add to notes; Copy; ⎋ | Answer card with times as [m:ss]; What did I miss? covers the last 5 minutes; Add to notes appends **Q:** and the answer; ⎋ closes the card | |
+| 184 | Meeting window | Set the Meetings model to none and talk 3 minutes; Ask | Summary tab and the answer card show "Summary needs a Meeting notes model." with Open Settings; recording goes on | |
+| 185 | Meeting window | Stop | Top bar shows Transcribing N%, then Finished; the Summary tab shows the final summary following the note headings; the dock shows Open in Meetings and Close | |
+| 186 | Meeting detail | Open the meeting: My notes tab, edit it; playback timeline; Transcript; Send to Scratchpad › My notes; Export › Markdown | Notes show and save; marks are orange ticks and Mark lines, a click plays from the mark; Send creates "Title · My notes"; the export has `## My notes` | |
+| 187 | Meeting window | Quit BugVoice with Force Quit 5 s after typing notes during a meeting; relaunch | The recovered meeting keeps the notes | |
 
 Review-focus inputs: zero-length file; 48 kHz stereo or 5.1; video track only;
 source removed/moved while reading; three-hour-or-longer file. A reader already

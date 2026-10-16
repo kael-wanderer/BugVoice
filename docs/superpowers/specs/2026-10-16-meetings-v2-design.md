@@ -39,8 +39,8 @@ Not in scope (later sub-projects):
 
 BugVoice watches which processes use audio input. Core Audio lists processes
 (`kAudioHardwarePropertyProcessObjectList`); each process object reports its PID, bundle ID
-and whether it is running input (`kAudioProcessPropertyIsRunningInput`). BugVoice listens for
-changes to the list and to each process's input flag; it does not poll.
+and whether it is running input (`kAudioProcessPropertyIsRunningInput`). BugVoice reads the
+list every 2 seconds; the detector needs regular ticks anyway to time Meeting ended.
 
 A process counts as a meeting when it starts input and:
 
@@ -87,22 +87,23 @@ the muted list (2.3) never counts.
 ### 3.1 Placement and focus
 
 - One window replaces `MeetingRecorderPanel`. It opens when a meeting starts from the popup,
-  the menu, ⌃⌥M or the Meetings page, and when a recovered meeting is transcribing.
-- First open: right third of the visible frame of the screen the meeting started on, full
-  height, 12 pt inset. The owner can move and resize it; frame saved in settings
-  (`meetings.windowFrame`) and restored next time if it fits a screen.
+  the menu, ⌃⌥M or the Meetings page. A meeting recovered at launch finishes without it.
+- First open: right third of the visible frame of the screen with the frontmost window, full
+  height, 12 pt inset. The owner can move and resize it; the frame is kept with AppKit frame
+  autosave (`MeetingWindow`) and restored next time if most of it is on a screen.
 - Floats above other windows on all Spaces, like the Scratchpad window (`ScratchpadPanel`
   pattern: `NSPanel`, `.nonactivatingPanel`, `canBecomeKey` true, `hidesOnDeactivate` false).
 - Clicking Mark, Pause, Resume, Stop, the tabs, the language chip or Collapse does not take
   keyboard focus from the meeting app. Clicking into My notes or the Ask box makes the window
   key; clicking back into the meeting app returns focus.
 - **Collapse** (chevron, top right) leaves only the top bar: red dot, Recording / Paused /
-  Transcribing N%, timer, expand chevron. Collapsed state is saved.
+  Transcribing N%, timer, expand chevron. Collapsed state is saved (`meetings.windowCollapsed`).
 
 ### 3.2 Layout (top to bottom)
 
 1. **Top bar:** state dot and label, timer, Collapse.
-2. **Header:** meeting title (editable, saved on Return or focus loss), start time chip, Add
+2. **Header:** meeting title (click to edit, saved on Return or focus loss; a label until
+   clicked, so the window never opens with the keyboard in it), start time chip, Add
    folder chip (existing folder picker), language chip (existing `toggleLanguage`).
 3. **Meters row:** You and Others level bars, then Mark and Pause/Resume on the right.
    Mark shows "Marked at 12:47" in the mark colour for 2 seconds.
@@ -127,7 +128,7 @@ the muted list (2.3) never counts.
 - Marks show as a line "Mark · 11:52" at their offset.
 - Auto-scrolls to the newest line unless scrolled up; a "Newest" button returns.
 - Bar at the top: elapsed time, Search (filters lines), Copy (copies the transcript as
-  `[mm:ss] You: text` lines).
+  `[m:ss] You: text` lines).
 - "Listening…" under the last line while recording.
 
 ### 3.5 Summary tab
@@ -151,8 +152,9 @@ the muted list (2.3) never counts.
   and at least one transcript line. Then every 3 minutes of active time, only when there are
   transcript lines newer than the last refresh or the notes changed.
 - A refresh never runs while another refresh for this meeting is running.
-- Refreshes use the Meeting notes model (models per feature). They wait behind dictation
-  cleanup on the same model; dictation always goes first.
+- Refreshes use the Meeting notes model (models per feature). A refresh does not start while a
+  dictation is recording or being cleaned; it starts on the next check after, so dictation
+  always goes first.
 
 ### 4.2 Request
 
@@ -256,7 +258,7 @@ Plain English, no hedging, no emoji. Strings as written in this spec and the moc
   decodes with defaults.
 - Session: `setNotes` and `setLiveSummary` save while recording and after ready; rejected
   after cancel.
-- Settings: `detectMeetings`, `mutedMeetingApps`, `windowFrame` decode defaults from older
+- Settings: `detectMeetings`, `mutedMeetingApps`, `windowCollapsed` decode defaults from older
   settings.
 - Export: Markdown includes `## My notes` only when notes exist.
 

@@ -121,6 +121,7 @@ enum AppWindow {
     static let main = NSUserInterfaceItemIdentifier("BugVoiceMain")
     static let permissions = NSUserInterfaceItemIdentifier("BugVoicePermissions")
     static let scratchpad = NSUserInterfaceItemIdentifier("BugVoiceScratchpad")
+    static let meeting = NSUserInterfaceItemIdentifier("BugVoiceMeeting")
 
     static func didClose(_ closing: NSWindow?) {
         let ours: Set<NSUserInterfaceItemIdentifier> = [main, permissions]
@@ -131,16 +132,23 @@ enum AppWindow {
         if !otherVisible { NSApp.setActivationPolicy(.accessory) }
     }
 
-    /// Development runs only (see `DevScreen`): centers a new window on a
-    /// display that is not primary. Does nothing on a normal launch or with
-    /// one display.
-    static func placeForDevelopment(_ window: NSWindow) {
+    /// Development runs only (see `DevScreen`): the display new windows open
+    /// on. Nil on a normal launch or with one display.
+    static func developmentScreen() -> NSScreen? {
         let screens = NSScreen.screens
         let displays = screens.map { DevScreen.Display(x: $0.frame.minX, y: $0.frame.minY) }
         // NSScreen.screens[0] is the display with the menu bar.
         let setting = ProcessInfo.processInfo.environment[DevScreen.environmentKey]
-        guard let index = DevScreen.choose(displays, primary: displays.first, setting: setting) else { return }
-        let visible = screens[index].visibleFrame
+        guard let index = DevScreen.choose(displays, primary: displays.first, setting: setting) else { return nil }
+        return screens[index]
+    }
+
+    /// Development runs only (see `DevScreen`): centers a new window on a
+    /// display that is not primary. Does nothing on a normal launch or with
+    /// one display.
+    static func placeForDevelopment(_ window: NSWindow) {
+        guard let screen = developmentScreen() else { return }
+        let visible = screen.visibleFrame
         let size = NSSize(
             width: min(window.frame.width, visible.width),
             height: min(window.frame.height, visible.height))

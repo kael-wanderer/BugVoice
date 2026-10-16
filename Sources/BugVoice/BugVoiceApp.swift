@@ -23,7 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var mainWindow = MainWindowController(model: model)
     private lazy var permissionsWindow = PermissionsWindowController(model: model)
     private lazy var scratchpadWindow = ScratchpadWindowController(model: model)
-    private var meetingRecorderPanel: MeetingRecorderPanel?
+    private var meetingWindow: MeetingWindowController?
     private var sleepObserver: NSObjectProtocol?
     private var wakeObserver: NSObjectProtocol?
 
@@ -52,10 +52,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task {
             await model.bootstrap()
             guard let controller = model.meetings else { return }
-            let panel = MeetingRecorderPanel(controller: controller)
-            meetingRecorderPanel = panel
-            controller.onRecordingStarted = { [weak panel] in panel?.show() }
-            controller.onRecordingStopped = { [weak panel] in panel?.hide() }
+            let window = MeetingWindowController(model: model, controller: controller)
+            meetingWindow = window
+            controller.onShowWindow = { [weak window] in window?.show() }
         }
     }
 

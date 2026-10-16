@@ -7,6 +7,7 @@ private enum MeetingDetailTab: String, CaseIterable {
     case transcript = "Transcript"
     case summary = "Summary"
     case actionItems = "Action items"
+    case notes = "My notes"
 }
 
 private enum MeetingExportKind {
@@ -291,7 +292,7 @@ private struct MeetingDetails: View {
                 }
             )
             if let audioURL {
-                MeetingPlayer(audioURL: audioURL, model: player)
+                MeetingPlayer(audioURL: audioURL, model: player, marks: meeting.marks.map(\.offset))
                     .padding(.vertical, 4)
             } else {
                 Label(meeting.state == .recording || meeting.state == .paused ? "Audio is recording" : "Audio is unavailable", systemImage: "waveform")
@@ -306,6 +307,7 @@ private struct MeetingDetails: View {
                 case .transcript: transcript
                 case .summary: generatedText(meeting.summary, kind: .summary, emptyMessage: "Generate a summary from this transcript.")
                 case .actionItems: generatedText(meeting.actionItems, kind: .actionItems, emptyMessage: "Find the action items discussed in this meeting.")
+                case .notes: MeetingDetailNotes(model: model, meeting: meeting).id(meeting.id)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -387,8 +389,12 @@ private struct MeetingDetails: View {
                 if let error = meeting.transcriptionError {
                     Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(.orange).padding(8)
                 }
-                ForEach(meeting.segments.sorted { $0.start < $1.start }) { segment in
+                let segments = meeting.segments.sorted { $0.start < $1.start }
+                ForEach(Array(segments.enumerated()), id: \.element.id) { index, segment in
                     let active = activeSegmentID == segment.id
+                    ForEach(marks(from: index == 0 ? -.infinity : segments[index - 1].start, to: segment.start)) { mark in
+                        markRow(mark)
+                    }
                     Button { player.seek(to: MeetingTimeline.seekTime(for: segment)) } label: {
                         HStack(alignment: .top, spacing: 12) {
                             Text("\(clock(segment.start)) – \(clock(segment.end))")
@@ -401,11 +407,34 @@ private struct MeetingDetails: View {
                     }
                     .buttonStyle(.plain)
                 }
+                ForEach(marks(from: segments.last?.start ?? -.infinity, to: .infinity)) { mark in
+                    markRow(mark)
+                }
                 if meeting.segments.isEmpty {
                     ContentUnavailableView("No transcript yet", systemImage: "text.bubble", description: Text("Transcript lines appear as speech is processed."))
                 }
             }
         }
+    }
+
+    /// Marks at or after `start` and before `end`, in time order.
+    private func marks(from start: TimeInterval, to end: TimeInterval) -> [MeetingMark] {
+        meeting.marks.filter { $0.offset >= start && $0.offset < end }.sorted { $0.offset < $1.offset }
+    }
+
+    private func markRow(_ mark: MeetingMark) -> some View {
+        Button { play(from: mark.offset) } label: {
+            Label("Mark · \(clock(mark.offset))", systemImage: "bookmark.fill")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.orange)
+                .padding(.horizontal, 9).padding(.vertical, 4)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func play(from offset: TimeInterval) {
+        player.seek(to: offset)
+        if !player.isPlaying { player.togglePlayback() }
     }
 
     private func generatedText(_ value: String?, kind: MeetingTextKind, emptyMessage: String) -> some View {
@@ -495,5 +524,50 @@ private struct MeetingDetails: View {
     private func clock(_ value: TimeInterval) -> String {
         let whole = max(0, Int(value))
         return String(format: "%d:%02d", whole / 60, whole % 60)
+    }
+}
+
+
+/// The meeting's own notes on the detail page; saved 1 second after typing stops.
+private struct MeetingDetailNotes: View {
+    let model: AppModel
+    let meeting: MeetingManifest
+    @State private var draft = ""
+    @State private var saveTask: Task<Void, Never>?
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            MeetingNotesEditor(text: $draft)
+            if draft.isEmpty {
+                Text("No notes for this meeting.")
+                    .foregroundStyle(.tertiary)
+                    .padding(.horizontal, 15)
+                    .padding(.vertical, 12)
+                    .allowsHitTesting(false)
+            }
+        }
+        .background(Color.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
+        .onAppear { draft = meeting.notes }
+        .onChange(of: meeting.notes) { _, notes in
+            if saveTask == nil { draft = notes }
+        }
+        .onChange(of: draft) { _, notes in
+            guard notes != meeting.notes else { return }
+            saveTask?.cancel()
+            saveTask = Task {
+                try? await Task.sleep(for: .seconds(1))
+                guard !Task.isCancelled else { return }
+                saveTask = nil
+                await model.setMeetingNotes(id: meeting.id, notes: notes)
+            }
+        }
+        .onDisappear {
+            guard saveTask != nil else { return }
+            saveTask?.cancel()
+            saveTask = nil
+            let id = meeting.id
+            let notes = draft
+            Task { await model.setMeetingNotes(id: id, notes: notes) }
+        }
     }
 }

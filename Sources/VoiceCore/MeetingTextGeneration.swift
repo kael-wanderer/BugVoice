@@ -104,6 +104,7 @@ public struct MeetingTextGenerator: Sendable {
         transcript: [MeetingSegment],
         kind: MeetingTextKind,
         budget rawBudget: MeetingTextBudget,
+        notes: String = "",
         model: any TextModel,
         progress: @Sendable (MeetingTextProgress) -> Void = { _ in }
     ) async throws -> String {
@@ -111,13 +112,17 @@ public struct MeetingTextGenerator: Sendable {
         let budget = MeetingTextBudget(contextTokens: rawBudget.contextTokens, outputTokens: rawBudget.outputTokens)
         let parts = MeetingTranscriptPart.split(transcript: transcript, budget: budget)
         guard !parts.isEmpty else { return "" }
+        let notesText = kind == .summary
+            ? String(notes.trimmingCharacters(in: .whitespacesAndNewlines).prefix(LiveSummaryPlanner.maxNotesCharacters))
+            : ""
+        let notesPrefix = notesText.isEmpty ? "" : "My notes:\n\(notesText)\n\n"
 
         var results: [String] = []
         for (index, part) in parts.enumerated() {
             try Task.checkCancellation()
             let answer = try await model.clean(CleanupRequest(
-                system: systemPrompt(kind: kind, stage: .part),
-                user: "Part \(index + 1) of \(parts.count):\n\(part.promptText)",
+                system: systemPrompt(kind: kind, stage: .part, followsNotes: !notesText.isEmpty),
+                user: notesPrefix + "Part \(index + 1) of \(parts.count):\n\(part.promptText)",
                 maxTokens: budget.outputTokens
             ))
             try Task.checkCancellation()
@@ -136,8 +141,8 @@ public struct MeetingTextGenerator: Sendable {
                     throw MeetingTextGenerationError.mergeDidNotReduceToFitContext
                 }
                 let answer = try await model.clean(CleanupRequest(
-                    system: systemPrompt(kind: kind, stage: .merge),
-                    user: "Merge these results (group \(index + 1) of \(groups.count)):\n\(group.joined(separator: "\n"))",
+                    system: systemPrompt(kind: kind, stage: .merge, followsNotes: !notesText.isEmpty),
+                    user: notesPrefix + "Merge these results (group \(index + 1) of \(groups.count)):\n\(group.joined(separator: "\n"))",
                     maxTokens: budget.outputTokens
                 ))
                 try Task.checkCancellation()
@@ -156,12 +161,15 @@ public struct MeetingTextGenerator: Sendable {
 
     private enum Stage { case part, merge }
 
-    private func systemPrompt(kind: MeetingTextKind, stage: Stage) -> String {
+    static let followNotesInstruction = "Follow the user's notes: keep their headings and order; fill in details from the transcript."
+
+    private func systemPrompt(kind: MeetingTextKind, stage: Stage, followsNotes: Bool) -> String {
         let kindInstruction = kind == .summary
             ? "Write a factual meeting summary. Keep names, decisions, and uncertainty faithful to the transcript."
             : "Extract action items as concise Markdown bullets. Include an owner only when stated."
         let stageInstruction = stage == .part ? "Process only the supplied transcript part." : "Combine the supplied partial results without adding facts."
-        return "\(kindInstruction) \(stageInstruction)"
+        let notesInstruction = followsNotes ? " " + Self.followNotesInstruction : ""
+        return "\(kindInstruction) \(stageInstruction)\(notesInstruction)"
     }
 
     private func grouped(_ values: [String], maximumCharacters: Int) -> [[String]] {

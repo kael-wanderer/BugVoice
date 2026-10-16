@@ -102,6 +102,37 @@ public actor MeetingSession {
         try await store.save(meeting)
     }
 
+    /// The owner's notes; allowed while recording, paused, transcribing or ready.
+    public func setNotes(_ notes: String) async throws {
+        guard var meeting = manifest, Self.acceptsNotes(meeting.state) else { throw MeetingSessionError.invalidState }
+        meeting.notes = notes
+        manifest = meeting
+        try await store.save(meeting)
+    }
+
+    public func setLiveSummary(_ summary: String, updatedAt: Date, cutoff: TimeInterval) async throws {
+        guard var meeting = manifest, Self.acceptsNotes(meeting.state) else { throw MeetingSessionError.invalidState }
+        meeting.liveSummary = summary
+        meeting.liveSummaryUpdatedAt = updatedAt
+        meeting.liveSummaryCutoff = cutoff
+        manifest = meeting
+        try await store.save(meeting)
+    }
+
+    public func setDetectedApp(_ bundleID: String?) async throws {
+        guard var meeting = manifest else { throw MeetingSessionError.invalidState }
+        meeting.detectedApp = bundleID
+        manifest = meeting
+        try await store.save(meeting)
+    }
+
+    static func acceptsNotes(_ state: MeetingState) -> Bool {
+        switch state {
+        case .recording, .paused, .transcribing, .ready: true
+        case .interrupted, .failed: false
+        }
+    }
+
     public func saveGeneratedText(_ text: String, kind: MeetingTextKind) async throws {
         guard var meeting = manifest else { throw MeetingSessionError.invalidState }
         if kind == .summary { meeting.summary = text }

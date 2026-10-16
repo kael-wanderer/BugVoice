@@ -6,6 +6,37 @@ struct MeetingsTab: View {
 
     var body: some View {
         SettingsScroll {
+            SettingsCard(title: "Meeting detection") {
+                SettingsRow(title: "Detect meetings") {
+                    Toggle("Detect meetings", isOn: $model.settings.meetings.detectMeetings)
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .controlSize(.small)
+                }
+                Text("Offers to record when Zoom, Teams, Slack, FaceTime, Webex, Discord or a Meet, Teams or Zoom tab in a browser starts using the microphone. It never records by itself.")
+                    .font(.caption).foregroundStyle(.secondary)
+                if model.meetingDetectionUnavailable {
+                    Text("Meeting detection is not available.").font(.caption).foregroundStyle(.orange)
+                }
+                if model.permissionStatus[.accessibility] == false {
+                    HStack {
+                        Text("Browser meetings need Accessibility access.").font(.caption).foregroundStyle(.orange)
+                        Button("Open Settings") { model.openPermissionsWindow() }.controlSize(.small)
+                    }
+                }
+                if !model.settings.meetings.mutedMeetingApps.isEmpty {
+                    Divider()
+                    Text("Muted apps").font(.caption.weight(.semibold))
+                    ForEach(model.settings.meetings.mutedMeetingApps, id: \.self) { bundleID in
+                        SettingsRow(title: MeetingDetector.meetingApps[bundleID] ?? MeetingDetector.browsers[bundleID] ?? bundleID) {
+                            Button("Remove") {
+                                model.settings.meetings.mutedMeetingApps.removeAll { $0 == bundleID }
+                            }
+                            .controlSize(.small)
+                        }
+                    }
+                }
+            }
             SettingsCard(title: "Languages") {
                 ForEach(MeetingLanguages.choices, id: \.self) { language in
                     SettingsRow(title: language.displayName) {
@@ -16,7 +47,7 @@ struct MeetingsTab: View {
                             .disabled(isLastLanguage(language))
                     }
                 }
-                Text("Speech in any other language is transcribed again in one of these. Pick only English for English calls. Applies to meetings and uploads; change it for one meeting on the recorder panel.")
+                Text("Speech in any other language is transcribed again in one of these. Pick only English for English calls. Applies to meetings and uploads; change it for one meeting in the meeting window.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             SettingsCard(title: "Automatic deletion") {

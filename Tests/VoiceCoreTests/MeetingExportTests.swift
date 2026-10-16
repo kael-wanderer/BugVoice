@@ -26,6 +26,16 @@ struct MeetingExportTests {
         #expect(output.contains("0:05 | Others | Xin chào"))
     }
 
+    @Test func markdownAddsMyNotesAfterTheSummaryOnlyWhenPresent() {
+        var meeting = manifest(segments: [])
+        meeting.summary = "Sum"
+        #expect(!MeetingExporter.markdown(meeting).contains("## My notes"))
+        meeting.notes = "  \n"
+        #expect(!MeetingExporter.markdown(meeting).contains("## My notes"))
+        meeting.notes = "- ask Ana\n"
+        #expect(MeetingExporter.markdown(meeting).contains("## Summary\nSum\n\n## My notes\n- ask Ana\n"))
+    }
+
     private func manifest(segments: [MeetingSegment]) -> MeetingManifest {
         MeetingManifest(
             id: MeetingID(rawValue: "meeting"), title: "Planning",
