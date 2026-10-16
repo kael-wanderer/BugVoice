@@ -48,7 +48,7 @@ struct MainWindow: View {
         .alert(
             "Could not save",
             isPresented: Binding(
-                get: { model.saveError != nil },
+                get: { model.saveError != nil && !model.scratchpadWindowIsKey },
                 set: { if !$0 { model.saveError = nil } }
             )
         ) {
@@ -120,6 +120,7 @@ final class MainWindowController: NSObject, NSWindowDelegate {
 enum AppWindow {
     static let main = NSUserInterfaceItemIdentifier("BugVoiceMain")
     static let permissions = NSUserInterfaceItemIdentifier("BugVoicePermissions")
+    static let scratchpad = NSUserInterfaceItemIdentifier("BugVoiceScratchpad")
 
     static func didClose(_ closing: NSWindow?) {
         let ours: Set<NSUserInterfaceItemIdentifier> = [main, permissions]

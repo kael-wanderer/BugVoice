@@ -22,6 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let model = AppModel()
     private lazy var mainWindow = MainWindowController(model: model)
     private lazy var permissionsWindow = PermissionsWindowController(model: model)
+    private lazy var scratchpadWindow = ScratchpadWindowController(model: model)
     private var meetingRecorderPanel: MeetingRecorderPanel?
     private var sleepObserver: NSObjectProtocol?
     private var wakeObserver: NSObjectProtocol?
@@ -29,6 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         model.presentMainWindow = { [weak self] in self?.mainWindow.show() }
         model.presentPermissionsWindow = { [weak self] in self?.permissionsWindow.show() }
+        model.scratchpadWindow = scratchpadWindow
         installEditMenu()
         sleepObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.willSleepNotification,

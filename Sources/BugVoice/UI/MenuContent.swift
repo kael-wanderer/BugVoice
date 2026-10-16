@@ -25,7 +25,7 @@ struct MenuContent: View {
         Divider()
         meetingControls
         Divider()
-        Button("New note") { model.createNoteAndShow() }
+        Button("New note") { Task { await model.openScratchpadWindow(newNote: true) } }
             .keyboardShortcut("n", modifiers: [.control, .option])
         Button("Open BugVoice…") { model.openMainWindow(.dictation) }
             .keyboardShortcut("b", modifiers: [.control, .option])
@@ -47,7 +47,8 @@ struct MenuContent: View {
         }
         Divider()
         Button("Meetings…") { model.openMainWindow(.meetings) }
-        Button("Scratchpad…") { model.openMainWindow(.notes) }
+        Button("Scratchpad…") { Task { await model.openScratchpadWindow(newNote: false) } }
+        Button("Scratchpad page") { model.openMainWindow(.notes) }
         Button("Settings…") { model.openMainWindow(.settings) }.keyboardShortcut(",")
         Button("Permissions…") { model.openPermissionsWindow() }
         Button("Open data folder") { NSWorkspace.shared.open(model.paths.root) }

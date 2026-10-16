@@ -67,10 +67,6 @@ public enum NoteTransformPrompt {
     Keep the passage's language exactly; never translate. Keep names, numbers, links, file paths and code exactly. Keep Markdown formatting.
     """
 
-    static let askRules = """
-    Answer the question using only the note inside <note> tags. If the note does not contain the answer, say so in one sentence. Answer in the language of the question. Be brief; Markdown lists are allowed.
-    """
-
     static let chatRules = """
     You help with the user's note. The text to work on is inside <text> tags. The user's message is either an instruction to change that text or a question about it.
     If it asks for a change, reply with the line CHANGE and then only the changed text: keep its language unless told otherwise, keep names, numbers, links, file paths, code and Markdown formatting.
@@ -128,15 +124,6 @@ public enum NoteTransformPrompt {
             system: sharedRules + "\n\n" + transform.instruction,
             user: withThinkingSwitch("<text>\n\(text)\n</text>", modelID: modelID, disableThinking: disableThinking),
             maxTokens: maxTokens,
-            disableThinking: disableThinking
-        )
-    }
-
-    public static func askRequest(question: String, note: String, modelID: String, disableThinking: Bool) -> CleanupRequest {
-        CleanupRequest(
-            system: askRules,
-            user: withThinkingSwitch("<note>\n\(note)\n</note>\n\nQuestion: \(question)", modelID: modelID, disableThinking: disableThinking),
-            maxTokens: 1_024,
             disableThinking: disableThinking
         )
     }

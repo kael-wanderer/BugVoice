@@ -27,13 +27,6 @@ struct NoteTransformTests {
         #expect(other.disableThinking)
     }
 
-    @Test func askRequestPutsNoteThenQuestion() {
-        let request = NoteTransformPrompt.askRequest(question: "Who owns it?", note: "Kael owns it.", modelID: "m", disableThinking: false)
-        #expect(request.system.hasPrefix("Answer the question using only the note inside <note> tags."))
-        #expect(request.user == "<note>\nKael owns it.\n</note>\n\nQuestion: Who owns it?")
-        #expect(request.maxTokens == 1_024)
-    }
-
     @Test func cleanStripsThinkingTagsFenceAndQuotes() {
         #expect(NoteTransformPrompt.clean("<think>hm</think>\n<text>Done.</text>") == "Done.")
         #expect(NoteTransformPrompt.clean("reasoning</think>Result") == "Result")
