@@ -1,0 +1,501 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scratchpad Window</title>
+<style>
+/* Scratchpad window, final design: the floating window is the only editor; the page lists notes as cards. */
+:root {
+  --page: #e9ebf0; --win: #ffffff; --side: #f4f4f1; --card: #ffffff; --line: #e1e4ea; --chip: #eceef2;
+  --fg: #1c1f26; --muted: #6a7080; --accent: #3a6ff0; --accent-soft: #e4ebfd; --ok: #1f8a4c; --bad: #c2412d;
+  --desk1: #c9d3e6; --desk2: #e6d9ea; --slack: #3f0e40; --slack-fg: #f5eef5; --ink: #111317; --ink-fg: #ffffff;
+  --grey-mark: #a7acb8;
+  --red: #ff5f57; --yellow: #febc2e; --green: #28c840;
+  --app: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --page: #0d0e11; --win: #1b1d22; --side: #16181c; --card: #212329; --line: #2d3037; --chip: #272a31;
+  --fg: #e9ebf0; --muted: #9298a6; --accent: #6e93ff; --accent-soft: #23304f; --ok: #4cc27f; --bad: #ff7a66;
+  --desk1: #1f2a3d; --desk2: #2e2338; --slack: #2a0c2b; --slack-fg: #eadfea; --ink: #f1f2f5; --ink-fg: #111317;
+  --grey-mark: #5d6270;
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --page: #0d0e11; --win: #1b1d22; --side: #16181c; --card: #212329; --line: #2d3037; --chip: #272a31;
+  --fg: #e9ebf0; --muted: #9298a6; --accent: #6e93ff; --accent-soft: #23304f; --ok: #4cc27f; --bad: #ff7a66;
+  --desk1: #1f2a3d; --desk2: #2e2338; --slack: #2a0c2b; --slack-fg: #eadfea; --ink: #f1f2f5; --ink-fg: #111317;
+  --grey-mark: #5d6270;
+  color-scheme: dark }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--fg); font-family: var(--app); font-size: 13px; line-height: 1.45; padding: 28px 16px 48px; }
+.frame { max-width: 1180px; margin: 0 auto; display: grid; gap: 14px; }
+h1 { font-size: 18px; margin: 0; }
+h2.sec { font-size: 13px; margin: 8px 0 0; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.caption { color: var(--muted); font-size: 12.5px; max-width: 100ch; margin: 0; }
+.caption b { color: var(--fg); }
+.bar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+.pills { display: inline-flex; flex-wrap: wrap; background: var(--chip); border-radius: 999px; padding: 3px; gap: 2px; }
+.pills button { font: inherit; border: 0; background: transparent; color: var(--muted); padding: 5px 13px; border-radius: 999px; cursor: pointer; }
+.pills button[aria-pressed="true"] { background: var(--card); color: var(--fg); font-weight: 600; box-shadow: 0 1px 2px rgb(0 0 0 / .14); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.scroll { overflow-x: auto; border-radius: 12px; }
+svg.i { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+kbd { font-family: var(--app); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; font-size: 10.5px; background: var(--card); color: var(--fg); }
+.btn { font: inherit; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--card); color: var(--fg); padding: 4px 10px; border-radius: 7px; font-size: 12.5px; white-space: nowrap; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.btn.ink { background: var(--ink); border-color: var(--ink); color: var(--ink-fg); font-weight: 600; border-radius: 999px; padding: 7px 16px; }
+.btn.round { border-radius: 999px; width: 34px; height: 34px; padding: 0; justify-content: center; }
+.chipbtn { display: inline-flex; align-items: center; gap: 6px; background: var(--chip); border-radius: 999px; padding: 5px 12px; font-size: 12.5px; white-space: nowrap; }
+.lights { display: flex; gap: 7px; }
+.lights i { width: 11px; height: 11px; border-radius: 50%; }
+.lights i:nth-child(1) { background: var(--red); } .lights i:nth-child(2) { background: var(--yellow); } .lights i:nth-child(3) { background: var(--green); }
+.m { color: var(--grey-mark); }
+
+/* Main window */
+.mainwin { display: grid; grid-template-columns: 190px minmax(0, 1fr); background: var(--win); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; box-shadow: 0 20px 50px rgb(0 0 0 / .12); min-height: 470px; min-width: 980px; }
+.nav { background: var(--side); border-right: 1px solid var(--line); padding: 14px 10px; display: flex; flex-direction: column; gap: 2px; }
+.nav .lights { padding: 0 6px 16px; }
+.nav a { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 7px; color: var(--fg); text-decoration: none; }
+.nav a svg { color: var(--muted); }
+.nav a.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.nav a.on svg { color: var(--accent); }
+.content { min-width: 0; display: grid; }
+
+/* Option 1 page: card list */
+.cards { padding: 22px 30px; display: grid; gap: 14px; align-content: start; }
+.cards .head { display: flex; align-items: center; gap: 12px; }
+.cards .head h3 { font-size: 20px; margin: 0; }
+.cards .head .sp { flex: 1; }
+.hero { border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; display: flex; gap: 16px; align-items: center; background: var(--side); }
+.hero p { margin: 0; color: var(--muted); max-width: 60ch; }
+.hero b { color: var(--fg); display: block; font-size: 14px; margin-bottom: 2px; }
+.hero .sp { flex: 1; }
+.filters { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+.filters .sp { flex: 1; }
+.filters .ic { color: var(--muted); display: inline-flex; gap: 14px; }
+.tag { display: inline-flex; align-items: center; padding: 2px 9px; border-radius: 999px; background: var(--chip); font-size: 11.5px; color: var(--muted); }
+.tag.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.card { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: grid; gap: 6px; background: var(--card); position: relative; }
+.card b { font-size: 13.5px; }
+.card p { margin: 0; color: var(--muted); font-size: 12.5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.card .foot { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 11.5px; }
+.card .foot .sp { flex: 1; }
+.card .acts { position: absolute; top: 9px; right: 10px; display: flex; gap: 2px; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 2px; box-shadow: 0 4px 12px rgb(0 0 0 / .08); }
+.card .acts span { width: 26px; height: 24px; display: grid; place-items: center; color: var(--muted); border-radius: 6px; }
+.card .acts .del { color: var(--bad); }
+.card .pin { color: var(--accent); }
+.card.hover { border-color: var(--accent); }
+
+/* Option 2/3 page: today's editor */
+.notespage { display: grid; grid-template-columns: 230px minmax(0, 1fr); min-height: 470px; }
+.nlist { border-right: 1px solid var(--line); padding: 12px 10px; display: grid; gap: 4px; align-content: start; }
+.nlist .search { border: 1px solid var(--line); border-radius: 7px; padding: 5px 9px; color: var(--muted); margin-bottom: 6px; background: var(--card); }
+.nrow { padding: 7px 9px; border-radius: 8px; display: grid; gap: 1px; }
+.nrow b { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nrow b .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-right: 6px; vertical-align: 2px; }
+.nrow span { color: var(--muted); font-size: 11px; }
+.nrow.on { background: var(--accent-soft); }
+.npane { display: grid; grid-template-rows: auto auto 1fr auto; min-width: 0; }
+.ptabs { display: flex; align-items: center; gap: 2px; padding: 6px 10px; border-bottom: 1px solid var(--line); background: var(--side); }
+.ptab { padding: 5px 10px; border-radius: 7px; font-size: 12.5px; color: var(--muted); display: flex; gap: 6px; }
+.ptab.on { background: var(--win); color: var(--fg); font-weight: 600; border: 1px solid var(--line); }
+.ptabs .sp { flex: 1; }
+.seg { display: inline-flex; background: var(--chip); border-radius: 7px; padding: 2px; font-size: 12px; }
+.seg span { padding: 2px 10px; border-radius: 5px; color: var(--muted); }
+.seg span.on { background: var(--card); color: var(--fg); font-weight: 600; }
+.ptools { display: flex; align-items: center; gap: 4px; padding: 6px 12px; border-bottom: 1px solid var(--line); color: var(--fg); flex-wrap: wrap; }
+.ptools .t { min-width: 26px; height: 24px; display: grid; place-items: center; font-size: 12px; font-weight: 600; }
+.ptools .sp { flex: 1; }
+.ptext { padding: 16px 22px; font-size: 13.5px; line-height: 1.6; }
+.ptext p { margin: 0 0 8px; }
+.pbottom { padding: 8px 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11.5px; display: flex; gap: 8px; }
+.pbottom .sp { flex: 1; }
+.badge { white-space: nowrap; display: inline-flex; gap: 6px; align-items: center; padding: 3px 10px; border-radius: 999px; font-size: 11.5px; background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.warn { display: inline-flex; gap: 6px; align-items: center; padding: 3px 10px; border-radius: 999px; font-size: 11.5px; background: color-mix(in srgb, var(--bad) 14%, transparent); color: var(--bad); }
+
+/* Desktop with the floating window */
+.desk { position: relative; border-radius: 12px; overflow: hidden; min-height: 560px; min-width: 980px; background: linear-gradient(135deg, var(--desk1), var(--desk2)); border: 1px solid var(--line); }
+.menubar { height: 24px; background: rgb(255 255 255 / .35); display: flex; align-items: center; gap: 14px; padding: 0 12px; font-size: 12px; }
+:root[data-theme="dark"] .menubar { background: rgb(0 0 0 / .3); }
+.menubar .sp { flex: 1; }
+.menubar .bv { width: 16px; height: 16px; border-radius: 4px; background: var(--accent); display: inline-grid; place-items: center; color: #fff; font-size: 10px; font-weight: 700; }
+.slack { position: absolute; left: 18px; top: 44px; width: 46%; bottom: 18px; background: var(--win); border-radius: 10px; border: 1px solid var(--line); display: grid; grid-template-columns: 110px 1fr; overflow: hidden; box-shadow: 0 10px 30px rgb(0 0 0 / .12); }
+.slack .rail { background: var(--slack); color: var(--slack-fg); padding: 12px 10px; font-size: 12px; display: grid; align-content: start; gap: 6px; }
+.slack .rail .on { background: rgb(255 255 255 / .18); border-radius: 5px; padding: 2px 6px; }
+.slack .chan { display: grid; grid-template-rows: auto 1fr auto; min-width: 0; }
+.slack .chan header { padding: 10px 14px; border-bottom: 1px solid var(--line); font-weight: 700; }
+.slack .msgs { padding: 12px 14px; display: grid; align-content: start; gap: 10px; color: var(--muted); }
+.slack .msgs b { color: var(--fg); }
+.slack .compose { margin: 10px 14px 14px; border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; color: var(--muted); }
+
+/* Floating Scratchpad window (options 1 and 2) */
+.fw { position: absolute; right: 18px; top: 40px; width: 720px; bottom: 18px; background: var(--win); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 26px 60px rgb(0 0 0 / .3); display: grid; grid-template-rows: auto 1fr; overflow: hidden; }
+.fw .top { display: flex; align-items: center; gap: 4px; padding: 8px 12px; background: var(--side); }
+.fw .top .logo { color: var(--accent); margin-right: 8px; }
+.fw .ftab { white-space: nowrap; display: flex; gap: 8px; align-items: center; padding: 4px 10px; border-radius: 7px; font-size: 12.5px; color: var(--muted); }
+.fw .ftab.on { color: var(--fg); font-weight: 600; background: var(--win); }
+.fw .top .sp { flex: 1; }
+.fw .top .ico { width: 26px; height: 26px; display: grid; place-items: center; color: var(--muted); border-radius: 6px; }
+.fw .top .ico.on { color: var(--accent); background: var(--accent-soft); }
+.fw .top { min-width: 0; overflow: hidden; }
+.fw .bodyw { display: grid; grid-template-columns: 180px minmax(0, 1fr); background: var(--side); min-height: 0; }
+.fw .fside { display: grid; grid-template-rows: auto 1fr auto; padding: 4px 0 8px; min-height: 0; }
+.fw .fside .it { display: flex; align-items: center; gap: 10px; padding: 7px 14px; font-size: 12.5px; }
+.fw .fside .it.dim { color: var(--muted); }
+.fw .fside .it.sel { background: var(--chip); }
+.fw .fside .list { border-top: 1px solid var(--line); margin: 6px 10px 0; padding-top: 6px; display: grid; gap: 2px; align-content: start; }
+.fw .fside .list div { padding: 6px 8px; border-radius: 7px; }
+.fw .fside .list div.on { background: var(--chip); }
+.fw .fside .list b { display: block; font-size: 12.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fw .fside .list span { color: var(--muted); font-size: 11px; }
+.fw .fmain { min-width: 0; margin: 0 8px 8px 0; background: var(--win); border-radius: 12px; border: 1px solid var(--line); display: grid; grid-template-rows: 1fr auto auto; min-height: 0; overflow: hidden; }
+.fw .ftext { padding: 16px 20px; font-size: 13.5px; line-height: 1.6; }
+.fw .ftext p { margin: 0 0 8px; }
+.fw .ftext .hint { color: var(--muted); }
+.fw .float { min-width: 0; flex-wrap: wrap; display: flex; gap: 8px; justify-content: flex-end; padding: 0 14px 10px; }
+.fw .dock { min-width: 0; margin: 0 10px 10px; border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; display: grid; gap: 8px; background: var(--card); }
+.fw .dock .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.fw .dock .askin { display: flex; align-items: center; gap: 8px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 8px; }
+.fw .dock .askin .sp { flex: 1; }
+.fw .dock .fmt { display: flex; gap: 2px; justify-content: center; align-items: center; flex-wrap: wrap; }
+.fw .dock .fmt span { min-width: 26px; height: 26px; display: grid; place-items: center; font-weight: 600; font-size: 12.5px; border-radius: 6px; }
+.fw .dock .fmt i { width: 1px; height: 16px; background: var(--line); margin: 0 4px; }
+
+/* Small pad (option 3) */
+.pad { position: absolute; right: 18px; top: 44px; width: 500px; background: var(--win); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 26px 60px rgb(0 0 0 / .3); display: grid; overflow: hidden; }
+.pad .tb { display: flex; align-items: center; gap: 8px; padding: 9px 12px; background: var(--side); border-bottom: 1px solid var(--line); }
+.pad .tb b { font-size: 12.5px; }
+.pad .tb .sp { flex: 1; }
+.pad .body { padding: 14px 16px; min-height: 170px; font-size: 13.5px; line-height: 1.55; }
+.pad .acts { display: flex; gap: 6px; padding: 8px 12px; border-top: 1px solid var(--line); flex-wrap: wrap; align-items: center; }
+.pad .acts .sp { flex: 1; }
+.pad .hintrow { padding: 6px 12px 9px; color: var(--muted); font-size: 11px; display: flex; gap: 10px; flex-wrap: wrap; }
+
+.pc { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 900px) { .pc { grid-template-columns: 1fr; } }
+.pc div { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; font-size: 12.5px; }
+.pc b { display: block; margin-bottom: 4px; }
+.pc .pro b { color: var(--ok); } .pc .con b { color: var(--bad); }
+.pc ul { margin: 0; padding-left: 18px; display: grid; gap: 3px; }
+.rec { border-left: 3px solid var(--accent); padding: 4px 12px; font-size: 12.5px; margin: 0; }
+.caret { display: inline-block; width: 2px; height: 1.1em; background: var(--accent); vertical-align: -2px; animation: blink 1s steps(2) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+</style>
+<style>
+/* Additions for the final design */
+.cards .grid .card { cursor: default; }
+.empty-hint { color: var(--muted); }
+.fw.compact { width: 440px; }
+.fw.compact .bodyw { grid-template-columns: minmax(0, 1fr); }
+.fw.compact .fmain { margin-left: 8px; }
+.fw .titlel { font-size: 17px; font-weight: 700; padding: 14px 20px 0; }
+.fw .labels { display: flex; gap: 6px; padding: 6px 20px 0; align-items: center; color: var(--muted); font-size: 11.5px; flex-wrap: wrap; }
+.fw .chips { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.fw .regen { color: var(--muted); display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 999px; }
+.fw .regen.on { color: var(--fg); }
+.fw .send { width: 24px; height: 24px; border-radius: 50%; display: inline-grid; place-items: center; background: var(--chip); color: var(--muted); }
+.fw .send.on { background: var(--ink); color: var(--ink-fg); }
+.fw .askin input { all: unset; flex: 1; color: var(--fg); }
+.fw .working { display: flex; gap: 10px; align-items: center; color: var(--muted); }
+.spin { width: 13px; height: 13px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.reply { margin: 0 10px 8px; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--side); display: grid; gap: 6px; font-size: 12.5px; }
+.reply .q { color: var(--muted); }
+.reply .acts { display: flex; gap: 6px; justify-content: flex-end; }
+.notice { position: absolute; left: 50%; transform: translateX(-50%); bottom: 150px; background: var(--ink); color: var(--ink-fg); border-radius: 999px; padding: 6px 14px; font-size: 12px; white-space: nowrap; }
+.pop { position: absolute; background: var(--card); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 16px 40px rgb(0 0 0 / .22); padding: 10px; z-index: 3; }
+.tablepick { right: 14px; bottom: 58px; display: grid; gap: 6px; justify-items: center; }
+.tablepick .g { display: grid; grid-template-columns: repeat(8, 20px); gap: 4px; }
+.tablepick .g i { width: 20px; height: 20px; border: 1px solid var(--line); border-radius: 4px; }
+.tablepick .g i.on { border-color: var(--fg); }
+.tablepick span { color: var(--muted); font-size: 12px; }
+.menu { min-width: 230px; padding: 6px; display: grid; gap: 1px; font-size: 12.5px; }
+.menu div { padding: 5px 10px; border-radius: 6px; display: flex; gap: 10px; }
+.menu div .sp { flex: 1; }
+.menu div.hl { background: var(--accent); color: #fff; }
+.menu div.hl .m { color: #fff; }
+.menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 6px; width: auto; }
+.menu .hd { color: var(--muted); font-size: 11px; padding: 4px 10px 2px; }
+.copymenu { right: 14px; top: auto; bottom: 182px; }
+.histmenu { right: 110px; bottom: 182px; width: 290px; }
+.histmenu .row { display: grid; gap: 1px; padding: 6px 10px; border-radius: 7px; }
+.histmenu .row b { font-size: 12.5px; }
+.histmenu .row span { color: var(--muted); font-size: 11.5px; }
+.menu .row.hl { background: var(--accent-soft); color: var(--fg); }
+.menu .row.hl span { color: var(--accent); }
+.tbl { border-collapse: collapse; font-size: 12.5px; margin: 4px 0 8px; }
+.tbl td, .tbl th { border: 1px solid var(--line); padding: 3px 10px; text-align: left; }
+.mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12.5px; }
+.spec { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 10px; }
+.spec div { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; font-size: 12.5px; }
+.spec b { display: block; margin-bottom: 4px; }
+.spec ul { margin: 0; padding-left: 18px; display: grid; gap: 3px; }
+</style>
+</head>
+<body>
+<main class="frame">
+  <h1>Scratchpad window</h1>
+  <p class="caption">The floating window is the only Scratchpad editor. The Scratchpad page lists notes as cards. <kbd>⌃⌥N</kbd> opens the window with a new note from any app; the menu bar item and a card's Edit open it too. Notes stay Markdown files; the buttons write Markdown.</p>
+
+  <div class="bar">
+    <div class="pills" role="group" aria-label="State" id="states"></div>
+    <div class="pills" role="group" aria-label="Theme">
+      <button data-t="light" aria-pressed="false">Light</button>
+      <button data-t="dark" aria-pressed="false">Dark</button>
+    </div>
+  </div>
+
+  <h2 class="sec" id="where"></h2>
+  <div class="scroll" id="stage"></div>
+  <p class="caption" id="note"></p>
+
+  <h2 class="sec">Behavior</h2>
+  <div class="spec">
+    <div><b>AI bar</b><ul>
+      <li>Polish, More professional, More casual work on the selection, or the whole note when nothing is selected.</li>
+      <li>The result replaces the text in the editor at once. <kbd>⌘Z</kbd> undoes it; History keeps the version before.</li>
+      <li>↻ runs the last AI change again on the same original text and replaces its result.</li>
+      <li>The box takes anything: “shorter, add a greeting” changes the note; “what did I promise Linh?” answers above the box and leaves the note alone.</li>
+    </ul></div>
+    <div><b>Formatting bar</b><ul>
+      <li>H1 H2 · Bold Italic Underline Strikethrough Code · Bullets Numbers Checklist · Quote Indent · Link Table.</li>
+      <li>Every button writes Markdown. Underline is saved as <span class="mono">&lt;u&gt;text&lt;/u&gt;</span>.</li>
+      <li>Table opens a grid; the chosen rows × columns insert an empty Markdown table.</li>
+      <li>Indent adds two spaces to list lines; <kbd>⇧</kbd>-click or <kbd>⇧⇥</kbd> removes them.</li>
+    </ul></div>
+    <div><b>Copy</b><ul>
+      <li>Copy puts formatted text and plain text on the clipboard: Slack, Gmail and Notion keep bold and lists; a terminal gets plain text.</li>
+      <li>The ▾ menu has Copy as Markdown, Copy as plain text, and Export….</li>
+      <li><kbd>⌘↩</kbd> copies, closes the window and returns to the app you came from.</li>
+    </ul></div>
+    <div><b>Window</b><ul>
+      <li>Floats over other apps and full-screen apps while Keep on top is on (default).</li>
+      <li>Tabs and the open note come back after a restart. Hide notes collapses the side list.</li>
+      <li>Holding Right Option while the window is in front dictates into the note at the caret.</li>
+    </ul></div>
+  </div>
+</main>
+
+<script>
+const I = {
+  edit: '<svg class="i" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>',
+  pin: '<svg class="i" viewBox="0 0 24 24"><path d="M12 17v5M5 17h14l-2-4V5H7v8z"/></svg>',
+  trash: '<svg class="i" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>',
+  search: '<svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m20 20-4-4"/></svg>',
+  plus: '<svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+  sort: '<svg class="i" viewBox="0 0 24 24"><path d="M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4"/></svg>',
+  refresh: '<svg class="i" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14-4L4 9M4 4v5h5M4 13a8 8 0 0 0 14 4l2-2M20 20v-5h-5"/></svg>',
+  side: '<svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>',
+  new: '<svg class="i" viewBox="0 0 24 24"><path d="M12 4H5v15h15v-7M18 3l3 3-8 8H10v-3z"/></svg>',
+  spark: '<svg class="i" viewBox="0 0 24 24"><path d="M12 3l2 5 5 2-5 2-2 5-2-5-5-2 5-2zM19 15l1 2 2 1-2 1-1 2-1-2-2-1 2-1z"/></svg>',
+  aa: '<svg class="i" viewBox="0 0 24 24"><path d="M3 18 7 6l4 12M4.5 14h5M14 18l3-8 3 8M15 16h4"/></svg>',
+  mic: '<svg class="i" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
+  copy: '<svg class="i" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h10"/></svg>',
+  shrink: '<svg class="i" viewBox="0 0 24 24"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg>',
+  grow: '<svg class="i" viewBox="0 0 24 24"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></svg>',
+  close: '<svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  open: '<svg class="i" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>',
+  link: '<svg class="i" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 6 0l3-3a4 4 0 0 0-6-6l-1 1M14 10a4 4 0 0 0-6 0l-3 3a4 4 0 0 0 6 6l1-1"/></svg>',
+  table: '<svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10"/></svg>',
+  clock: '<svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>',
+  regen: '<svg class="i" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14-4L4 9M4 4v5h5M4 13a8 8 0 0 0 14 4l2-2M20 20v-5h-5"/></svg>',
+  up: '<svg class="i" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg>',
+  logo: '<svg class="i" viewBox="0 0 24 24"><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2"/></svg>',
+  indent: '<svg class="i" viewBox="0 0 24 24"><path d="M4 5h16M11 10h9M11 14h9M4 19h16M4 9l3 3-3 3"/></svg>',
+  quote: '<svg class="i" viewBox="0 0 24 24"><path d="M7 7h4v4c0 3-2 5-4 6M14 7h4v4c0 3-2 5-4 6"/></svg>',
+};
+
+const BEFORE = `<p>we are rearranging the menu bar and huddle controls, power ui change land next sprint i will share date by <span class="m">**</span><b>friday</b><span class="m">**</span><span class="caret"></span></p>
+<p><span class="m">- [ ] </span>Ask Linh for the huddle icons</p>`;
+const AFTER = `<p>We are rearranging the menu bar and the huddle controls. The Power UI change lands next sprint; I will share a date by <span class="m">**</span><b>Friday</b><span class="m">**</span>.<span class="caret"></span></p>
+<p><span class="m">- [ ] </span>Ask Linh for the huddle icons</p>`;
+const TABLE = `<p><span class="m">- [ ] </span>Ask Linh for the huddle icons</p>
+<p class="mono"><span class="m">| </span>Item<span class="m"> | </span>Owner<span class="m"> | </span>Due<span class="m"> |</span><br><span class="m">| --- | --- | --- |</span><br><span class="m">|  |  |  |</span><span class="caret"></span><br><span class="m">|  |  |  |</span></p>`;
+
+const STATES = {
+  page:     { label: 'Page', where: 'Scratchpad page (BugVoice window)', note: 'Cards, newest first, pinned on top. Hover shows Edit, Pin, Delete. Clicking a card opens it in the window. Folder menu and tag chips filter as today.' },
+  ai:       { label: 'AI bar', note: 'Default bottom bar. Chips and the box use the Notes model, as Transforms do today.' },
+  working:  { label: 'Working', note: 'One request at a time. Editing the note while it runs cancels the replace: “The note changed while Polish ran. Run it again.” Esc cancels.' },
+  done:     { label: 'Changed', note: 'Polish replaced the text. ↻ is now active. A short notice offers Undo; ⌘Z works too.' },
+  answer:   { label: 'Answer', note: 'A question gets a reply above the box. Copy, Insert below (end of note), Dismiss. The next message continues the same conversation until you switch notes.' },
+  history:  { label: 'History', note: 'Every AI change keeps the version before it, for this note, until BugVoice quits (last 20). Restore puts it back as one undoable edit.' },
+  format:   { label: 'Formatting', note: 'Same edits as today’s toolbar plus Underline, Indent and Table.' },
+  table:    { label: 'Table', note: 'Grid up to 8 × 8. Header row, separator row, then empty rows; the caret lands in the first cell.' },
+  copy:     { label: 'Copy menu', note: 'Copy: formatted text plus plain text. The menu adds Markdown, plain text and Export….' },
+  empty:    { label: 'New note', note: '⌃⌥N from any app opens the window on a new empty note. Closing it while still empty deletes it.' },
+  compact:  { label: 'Smaller', note: 'Smaller hides the notes list and the window shrinks to 440 pt wide; Larger restores it.' },
+};
+
+function chipsRow(active) {
+  return `<div class="chips">${['Polish', 'More professional', 'More casual'].map(c => `<span class="chipbtn"${c === active ? ' style="background:var(--accent-soft);color:var(--accent);font-weight:600"' : ''}>${c}</span>`).join('')}
+    <span class="regen ${active === 'regen' ? 'on' : ''}" title="Run again">${I.regen}</span></div>`;
+}
+
+function aiDock(s) {
+  if (s === 'working') return `<div class="dock">
+      <div class="working"><span class="spin"></span>Working… Polish · 28 words<span class="sp" style="flex:1"></span><span class="btn">Cancel <kbd>esc</kbd></span></div>
+    </div>`;
+  const typed = s === 'answer' ? '' : '';
+  return `<div class="dock">
+      ${chipsRow(s === 'done' ? 'regen' : '')}
+      <div class="askin"><span>${typed || 'Follow up or ask a question'}</span><span class="sp"></span><span style="font-size:11px">Press Enter or</span><span class="send">${I.up}</span></div>
+    </div>`;
+}
+
+function fmtDock(s) {
+  return `<div class="dock"><div class="fmt">
+      <span>H1</span><span>H2</span><i></i><span>B</span><span><em>I</em></span><span><u>U</u></span><span><s>S</s></span><span>&lt;/&gt;</span><i></i>
+      <span>•≡</span><span>1≡</span><span>☑</span><i></i><span>${I.quote}</span><span>${I.indent}</span><i></i><span>${I.link}</span><span ${s === 'table' ? 'style="background:var(--chip)"' : ''}>${I.table}</span>
+    </div></div>`;
+}
+
+function overlays(s) {
+  if (s === 'table') {
+    const cells = [];
+    for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) cells.push(`<i class="${r < 3 && c < 3 ? 'on' : ''}"></i>`);
+    return `<div class="pop tablepick"><div class="g">${cells.join('')}</div><span>3 × 3</span></div>`;
+  }
+  if (s === 'copy') return `<div class="pop menu copymenu">
+      <div class="hl">Copy<span class="sp"></span><span class="m">⌘⇧C</span></div>
+      <div>Copy and close<span class="sp"></span><span class="m">⌘↩</span></div>
+      <hr><div>Copy as Markdown</div><div>Copy as plain text</div><hr><div>Export…</div></div>`;
+  if (s === 'history') return `<div class="pop menu histmenu"><div class="hd">AI changes in this note</div>
+      <div class="row hl"><b>Before Polish</b><span>09:41 · 28 words · Restore</span></div>
+      <div class="row"><b>Before More professional</b><span>09:36 · 31 words</span></div>
+      <div class="row"><b>Before “shorter, add a greeting”</b><span>09:30 · 54 words</span></div></div>`;
+  if (s === 'done') return `<div class="notice">Polished · 28 words <span style="opacity:.7">·</span> Undo</div>`;
+  return '';
+}
+
+function floatingWindow(s) {
+  const compact = s === 'compact';
+  const empty = s === 'empty';
+  const fmt = s === 'format' || s === 'table';
+  const body = empty
+    ? `<p class="empty-hint">Hold Right Option to dictate, or start typing.<span class="caret"></span></p>`
+    : s === 'table' ? TABLE : (s === 'ai' || s === 'working' || s === 'answer' ? BEFORE : AFTER);
+  const tabs = empty
+    ? `<span class="ftab">Menu bar redesign <span>×</span></span><span class="ftab on">Untitled <span>×</span></span>`
+    : `<span class="ftab on">Menu bar redesign <span>×</span></span>${compact ? '' : '<span class="ftab">Client email <span>×</span></span>'}`;
+  return `<div class="fw${compact ? ' compact' : ''}" aria-label="Scratchpad window">
+    <div class="top">
+      <span class="logo">${I.logo}</span>${tabs}<span class="ftab">${I.plus}</span>
+      <span class="sp"></span>
+      <span class="ico on" title="Keep on top">${I.pin}</span>
+      <span class="ico" title="${compact ? 'Larger' : 'Smaller'}">${compact ? I.grow : I.shrink}</span>
+      <span class="ico" title="Close">${I.close}</span>
+    </div>
+    <div class="bodyw">
+      ${compact ? '' : `<div class="fside">
+        <div>
+          <div class="it">${I.side} Hide notes</div>
+          <div class="it">${I.new} New note <span style="margin-left:auto" class="m">⌘N</span></div>
+          <div class="it dim">${I.search} Search notes…</div>
+        </div>
+        <div class="list">
+          ${empty ? '<div class="on"><b>Untitled</b><span>now</span></div>' : ''}
+          <div class="${empty ? '' : 'on'}"><b>Menu bar redesign</b><span>2 min ago · Project Atlas</span></div>
+          <div><b>Client email</b><span>1 hour ago · Finance</span></div>
+          <div><b>Sprint plan</b><span>yesterday</span></div>
+          <div><b>Standup · Summary</b><span>yesterday</span></div>
+        </div>
+        <div>
+          <div class="it ${fmt ? '' : 'sel'}">${I.spark} AI</div>
+          <div class="it ${fmt ? 'sel' : ''}">${I.aa} Formatting</div>
+        </div>
+      </div>`}
+      <div class="fmain" style="position:relative">
+        <div style="overflow:hidden">
+          <div class="titlel">${empty ? '<span class="m">Untitled</span>' : 'Menu bar redesign'}</div>
+          ${empty ? '' : '<div class="labels"><span>Project Atlas</span><span class="tag">#atlas</span></div>'}
+          <div class="ftext">${body}</div>
+        </div>
+        ${s === 'answer' ? `<div class="reply"><div class="q">What did I promise Linh?</div><div>The note has no promise to Linh. It only has a task: ask Linh for the huddle icons.</div><div class="acts"><span class="btn">Copy</span><span class="btn">Insert below</span><span class="btn">Dismiss</span></div></div>` : ''}
+        <div class="float">
+          <span class="seg" style="margin-right:auto;align-self:center"><span class="on">Markdown</span><span>Doc</span></span>
+          <span class="btn round" title="Dictate">${I.mic}</span>
+          <span class="btn round" title="History">${I.clock}</span>
+          <span class="btn round" title="Move to Trash">${I.trash}</span>
+          <span class="btn ink">${I.copy} Copy ▾</span>
+        </div>
+        ${compact ? aiDock('ai') : fmt ? fmtDock(s) : aiDock(s)}
+        ${overlays(s)}
+      </div>
+    </div>
+  </div>`;
+}
+
+function cardPage() {
+  const cards = [
+    ['Menu bar redesign', 'We are rearranging the menu bar and the huddle controls. The Power UI change lands next sprint…', 'Today 09:41', 'Project Atlas', ['#atlas'], true, true],
+    ['Client email', 'Hi Anna, thanks for the call. Here are the three points we agreed on…', 'Today 08:30', 'Finance', ['#client'], false, false],
+    ['Sprint plan', 'Sprint 14: finish the menu bar redesign, start Power UI, fix the huddle…', 'Yesterday', 'Project Atlas', [], false, false],
+    ['Standup · Summary', 'Everyone is on track. Minh will pair with Linh on the icons…', 'Yesterday', 'IT team', ['#ideas'], false, false],
+  ];
+  return `<div class="mainwin">
+    <nav class="nav" aria-label="BugVoice sections">
+      <div class="lights"><i></i><i></i><i></i></div>
+      ${['Dictation', 'Insights', 'Dictionary', 'Style', 'Meetings', 'Upload'].map(n => `<a>${n}</a>`).join('')}
+      <a class="on">Scratchpad</a><a>Settings</a>
+    </nav>
+    <div class="content"><div class="cards">
+      <div class="head"><h3>Scratchpad</h3><span class="sp"></span><span class="btn">Open window <kbd>⌃⌥N</kbd></span><span class="btn primary">${I.plus} New note</span></div>
+      <div class="filters">
+        <span class="btn">All notes ▾</span><span class="tag on">#atlas</span><span class="tag">#client</span><span class="tag">#ideas</span>
+        <span class="sp"></span>
+        <span class="btn" style="border:0;color:var(--muted)">${I.search} Search</span>
+        <span class="btn" style="border:0;color:var(--muted)">${I.sort} Last edited ▾</span>
+        <span class="btn" style="border:0;color:var(--muted)" title="Reload from disk">${I.refresh}</span>
+      </div>
+      <div class="grid">${cards.map(([t, p, d, f, tags, pinned, hover]) => `
+        <div class="card${hover ? ' hover' : ''}">
+          ${hover ? `<div class="acts"><span title="Edit">${I.edit}</span><span title="Unpin">${I.pin}</span><span class="del" title="Move to Trash">${I.trash}</span></div>` : ''}
+          <b>${pinned ? `<span class="pin">${I.pin}</span> ` : ''}${t}</b>
+          <p>${p}</p>
+          <div class="foot"><span>${d}</span><span>·</span><span>${f}</span>${tags.map(x => `<span class="tag">${x}</span>`).join('')}<span class="sp"></span></div>
+        </div>`).join('')}</div>
+    </div></div>
+  </div>`;
+}
+
+function desk(s) {
+  return `<div class="desk">
+    <div class="menubar"><b>Slack</b><span>File</span><span>Edit</span><span>View</span><span class="sp"></span><span class="bv">B</span><span>Thu 09:41</span></div>
+    <div class="slack">
+      <div class="rail"><b>Acme</b><span># general</span><span class="on"># project-atlas</span><span># it-team</span></div>
+      <div class="chan">
+        <header># project-atlas</header>
+        <div class="msgs"><div><b>Minh</b> · 09:32<br>Can someone sum up where we are with the menu bar redesign?</div></div>
+        <div class="compose">Message #project-atlas</div>
+      </div>
+    </div>
+    ${floatingWindow(s)}
+  </div>`;
+}
+
+let state = 'ai', theme = null;
+function render() {
+  const st = STATES[state];
+  document.getElementById('states').innerHTML = Object.entries(STATES).map(([k, v]) => `<button data-s="${k}" aria-pressed="${k === state}">${v.label}</button>`).join('');
+  document.querySelectorAll('[data-s]').forEach(b => b.addEventListener('click', () => { state = b.dataset.s; render(); }));
+  document.getElementById('where').textContent = st.where || 'Scratchpad window (over Slack)';
+  document.getElementById('stage').innerHTML = state === 'page' ? cardPage() : desk(state);
+  document.getElementById('note').textContent = st.note;
+  history.replaceState(null, '', '#' + [state, theme].filter(Boolean).join('-'));
+}
+function setTheme(t) {
+  theme = t;
+  document.documentElement.dataset.theme = t;
+  document.querySelectorAll('[data-t]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.t === t)));
+  render();
+}
+document.querySelectorAll('[data-t]').forEach(b => b.addEventListener('click', () => setTheme(b.dataset.t)));
+for (const part of location.hash.slice(1).split('-')) {
+  if (STATES[part]) state = part;
+  if (part === 'light' || part === 'dark') theme = part;
+}
+if (theme) setTheme(theme); else render();
+</script>
+</body>
+</html>
