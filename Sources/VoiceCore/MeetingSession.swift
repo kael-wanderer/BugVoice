@@ -391,7 +391,7 @@ public actor MeetingSession {
             if let finalProgressFailure { throw finalProgressFailure }
             meeting = manifest ?? meeting
             meeting.chunks = chunks.map(\.record)
-            meeting.segments = MeetingTranscriptMerger.merge(chunks)
+            meeting.segments = MeetingTranslation.carryOver(from: meeting.segments, to: MeetingTranscriptMerger.merge(chunks))
             meeting.transcriptProgress = 1
             meeting.transcriptionError = nil
             audioAttempted = true

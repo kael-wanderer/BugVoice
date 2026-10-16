@@ -135,6 +135,20 @@ struct MeetingSessionTests {
         #expect(old.segments.first?.translation == nil)
     }
 
+    @Test func stopCarriesLiveEnglishToTheFinalLines() async throws {
+        let rig = SessionRig(finalChunks: [chunk("system-final-0", track: .system, segments: [
+            MeetingSegment(start: 1.4, end: 2, text: "hola a todos", track: .system, sourceChunkID: "system-final-0"),
+            MeetingSegment(start: 5, end: 6, text: "adiós", track: .system, sourceChunkID: "system-final-0")
+        ])])
+        let session = rig.makeSession()
+        try await session.start(languages: [.en, .es])
+        try await session.persistInterim(interim(id: "system-0", track: .system, text: "hola a todos"))
+        let id = try #require(await session.snapshot()?.segments.first?.id)
+        try await session.setTranslations([id: "hello everyone"])
+        let stopped = try await session.stop()
+        #expect(stopped.segments.map(\.translation) == ["hello everyone", nil])
+    }
+
     @Test func pauseCheckpointsAndResumeExcludesPausedGap() async throws {
         let rig = SessionRig()
         let session = rig.makeSession()
