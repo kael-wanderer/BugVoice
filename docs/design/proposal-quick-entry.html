@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BugVoice Quick Pad</title>
+<style>
+/* Floating quick-entry window ("Quick Pad"), follow-up to roadmap item 8.
+   Purpose (agreed 2026-10-16): compose-then-copy over other apps. Shortcut → speak or type →
+   Polish / More professional → Copy as a Style → paste → window hides. Text is saved as a
+   Scratchpad note. Three options for which note the pad shows when it opens. */
+:root {
+  --page: #e9ebf0; --win: #ffffff; --side: #f2f3f6; --card: #ffffff; --line: #e1e4ea; --chip: #eceef2;
+  --fg: #1c1f26; --muted: #6a7080; --accent: #3a6ff0; --accent-soft: #e4ebfd; --ok: #1f8a4c; --bad: #c2412d;
+  --desk1: #c9d3e6; --desk2: #e6d9ea; --slack: #3f0e40; --slack-fg: #f5eef5;
+  --red: #ff5f57; --yellow: #febc2e; --green: #28c840;
+  --app: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --page: #0d0e11; --win: #1b1d22; --side: #16181c; --card: #212329; --line: #2d3037; --chip: #272a31;
+  --fg: #e9ebf0; --muted: #9298a6; --accent: #6e93ff; --accent-soft: #23304f; --ok: #4cc27f; --bad: #ff7a66;
+  --desk1: #1f2a3d; --desk2: #2e2338; --slack: #2a0c2b; --slack-fg: #eadfea;
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --page: #0d0e11; --win: #1b1d22; --side: #16181c; --card: #212329; --line: #2d3037; --chip: #272a31;
+  --fg: #e9ebf0; --muted: #9298a6; --accent: #6e93ff; --accent-soft: #23304f; --ok: #4cc27f; --bad: #ff7a66;
+  --desk1: #1f2a3d; --desk2: #2e2338; --slack: #2a0c2b; --slack-fg: #eadfea;
+  color-scheme: dark }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--fg); font-family: var(--app); font-size: 13px; line-height: 1.45; padding: 28px 16px 48px; }
+.frame { max-width: 1180px; margin: 0 auto; display: grid; gap: 14px; }
+h1 { font-size: 18px; margin: 0; }
+.caption { color: var(--muted); font-size: 12.5px; max-width: 100ch; margin: 0; }
+.caption b { color: var(--fg); }
+.bar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+.pills { display: inline-flex; flex-wrap: wrap; background: var(--chip); border-radius: 999px; padding: 3px; gap: 2px; }
+.pills button { font: inherit; border: 0; background: transparent; color: var(--muted); padding: 5px 13px; border-radius: 999px; cursor: pointer; }
+.pills button[aria-pressed="true"] { background: var(--card); color: var(--fg); font-weight: 600; box-shadow: 0 1px 2px rgb(0 0 0 / .14); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.stage { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 14px; align-items: start; }
+@media (max-width: 900px) { .stage { grid-template-columns: 1fr; } }
+
+/* Desktop with Slack behind the pad */
+.desk { position: relative; border-radius: 12px; overflow: hidden; min-height: 600px; background: linear-gradient(135deg, var(--desk1), var(--desk2)); border: 1px solid var(--line); }
+.menubar { height: 24px; background: rgb(255 255 255 / .35); display: flex; align-items: center; gap: 14px; padding: 0 12px; font-size: 12px; }
+:root[data-theme="dark"] .menubar { background: rgb(0 0 0 / .3); }
+.menubar .sp { flex: 1; }
+.menubar .bv { width: 16px; height: 16px; border-radius: 4px; background: var(--accent); display: inline-grid; place-items: center; color: #fff; font-size: 10px; font-weight: 700; }
+.slack { position: absolute; left: 18px; top: 44px; width: 62%; bottom: 18px; background: var(--win); border-radius: 10px; border: 1px solid var(--line); display: grid; grid-template-columns: 120px 1fr; overflow: hidden; box-shadow: 0 10px 30px rgb(0 0 0 / .12); }
+.slack .rail { background: var(--slack); color: var(--slack-fg); padding: 12px 10px; font-size: 12px; display: grid; align-content: start; gap: 6px; }
+.slack .rail .on { background: rgb(255 255 255 / .18); border-radius: 5px; padding: 2px 6px; }
+.slack .chan { display: grid; grid-template-rows: auto 1fr auto; min-width: 0; }
+.slack .chan header { padding: 10px 14px; border-bottom: 1px solid var(--line); font-weight: 700; }
+.slack .msgs { padding: 12px 14px; display: grid; align-content: start; gap: 10px; color: var(--muted); }
+.slack .msgs b { color: var(--fg); }
+.slack .compose { margin: 10px 14px 14px; border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; color: var(--muted); }
+.slack .compose.pasted { color: var(--fg); border-color: var(--accent); }
+
+/* The pad */
+.pad { position: absolute; right: 18px; top: 44px; width: 380px; background: var(--win); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 26px 60px rgb(0 0 0 / .3); display: grid; overflow: hidden; }
+.pad .tb { display: flex; align-items: center; gap: 8px; padding: 9px 12px; background: var(--side); border-bottom: 1px solid var(--line); }
+.lights { display: flex; gap: 7px; }
+.lights i { width: 11px; height: 11px; border-radius: 50%; }
+.lights i:nth-child(1) { background: var(--red); } .lights i:nth-child(2) { background: var(--yellow); } .lights i:nth-child(3) { background: var(--green); }
+.pad .tb b { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pad .tb .sp { flex: 1; }
+.icon { width: 24px; height: 24px; border-radius: 6px; display: grid; place-items: center; color: var(--muted); }
+.icon svg, .btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.icon.on { color: var(--accent); background: var(--accent-soft); }
+.pad .meta { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 11.5px; }
+.pad .meta .sp { flex: 1; }
+.pad .meta .new { color: var(--accent); font-weight: 600; }
+.pad .body { padding: 14px 16px; min-height: 190px; font-size: 13.5px; line-height: 1.55; }
+.pad .body p { margin: 0 0 8px; }
+.pad .body .old { color: var(--muted); }
+.pad .body .rule { border: 0; border-top: 1px dashed var(--line); margin: 10px 0; }
+.pad .body .stamp { color: var(--muted); font-size: 11px; display: block; margin-bottom: 4px; }
+.caret { display: inline-block; width: 2px; height: 1.1em; background: var(--accent); vertical-align: -2px; animation: blink 1s steps(2) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.placeholder { color: var(--muted); }
+.pad .acts { display: flex; gap: 6px; padding: 8px 12px; border-top: 1px solid var(--line); flex-wrap: wrap; align-items: center; }
+.pad .acts .sp { flex: 1; }
+.btn { font: inherit; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--card); color: var(--fg); padding: 4px 9px; border-radius: 7px; font-size: 12px; white-space: nowrap; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.btn.mic { color: var(--accent); }
+.pad .hint { padding: 6px 12px 9px; color: var(--muted); font-size: 11px; display: flex; gap: 10px; flex-wrap: wrap; }
+kbd { font-family: var(--app); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; font-size: 10.5px; background: var(--card); color: var(--fg); }
+
+/* Right column: what happens over time + Scratchpad list */
+.side { display: grid; gap: 14px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: grid; gap: 8px; }
+.card h2 { font-size: 13px; margin: 0; }
+.steps { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+.steps li { padding-left: 2px; }
+.steps small { color: var(--muted); display: block; }
+.notes { display: grid; gap: 4px; }
+.note { display: flex; gap: 8px; align-items: baseline; padding: 6px 8px; border-radius: 7px; }
+.note.hl { background: var(--accent-soft); }
+.note b { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.note span { color: var(--muted); font-size: 11px; margin-left: auto; white-space: nowrap; }
+.note .bolt { color: var(--accent); }
+.pc { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 900px) { .pc { grid-template-columns: 1fr; } }
+.pc div { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; font-size: 12.5px; }
+.pc b { display: block; margin-bottom: 4px; }
+.pc .pro b { color: var(--ok); } .pc .con b { color: var(--bad); }
+.pc ul { margin: 0; padding-left: 18px; display: grid; gap: 3px; }
+.rec { border-left: 3px solid var(--accent); padding: 4px 12px; font-size: 12.5px; }
+</style>
+</head>
+<body>
+<main class="frame">
+  <h1>Quick Pad: which note does it open?</h1>
+  <p class="caption">A small window on top of other apps for <b>speak → fix → rewrite → copy</b>. Press <kbd>⌃⌥Space</kbd> anywhere, hold Right Option to speak (or type), run Polish or More professional, then <b>Copy as Work message</b> and paste into Slack. <kbd>Esc</kbd> or copying hides the pad. The text is always saved as an ordinary Scratchpad note. The three options differ only in <b>which note the pad shows when it opens</b>.</p>
+
+  <div class="bar">
+    <div class="pills" role="group" aria-label="Option">
+      <button data-o="a" aria-pressed="true">A · Fresh note each time</button>
+      <button data-o="b" aria-pressed="false">B · One running Quick note</button>
+      <button data-o="c" aria-pressed="false">C · Last note + New</button>
+    </div>
+    <div class="pills" role="group" aria-label="Theme">
+      <button data-t="light" aria-pressed="false">Light</button>
+      <button data-t="dark" aria-pressed="false">Dark</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="desk" aria-label="Desktop with Slack and the Quick Pad">
+      <div class="menubar"><b>Slack</b><span>File</span><span>Edit</span><span>View</span><span class="sp"></span><span class="bv">B</span><span>Thu 09:41</span></div>
+      <div class="slack">
+        <div class="rail"><b>Acme</b><span># general</span><span class="on"># project-atlas</span><span># it-team</span><span>Linh Tran</span></div>
+        <div class="chan">
+          <header># project-atlas</header>
+          <div class="msgs">
+            <div><b>Minh</b> · 09:32<br>Can someone sum up where we are with the menu bar redesign?</div>
+            <div><b>Linh</b> · 09:35<br>Also need a date for the Power UI change.</div>
+          </div>
+          <div class="compose" id="compose">Message #project-atlas</div>
+        </div>
+      </div>
+      <div class="pad" id="pad"></div>
+    </div>
+
+    <div class="side">
+      <div class="card"><h2 id="stepsTitle">Three opens in one morning</h2><ol class="steps" id="steps"></ol></div>
+      <div class="card"><h2>Scratchpad list afterwards</h2><div class="notes" id="notes"></div></div>
+    </div>
+  </div>
+
+  <div class="pc">
+    <div class="pro" id="pro"></div>
+    <div class="con" id="con"></div>
+  </div>
+  <p class="rec" id="rec"></p>
+</main>
+
+<script>
+const ICON = {
+  pin: '<svg viewBox="0 0 24 24"><path d="M12 17v5M5 17h14l-2-4V5H7v8z"/></svg>',
+  open: '<svg viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>',
+  mic: '<svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
+  plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+  wand: '<svg viewBox="0 0 24 24"><path d="M4 20 14 10M15 4v3M18.5 5.5l-2 2M20 9h-3"/></svg>',
+  copy: '<svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h10"/></svg>',
+};
+
+const msg = 'We are rearranging the menu bar and the huddle controls. The Power UI change lands next sprint; I will share a date by Friday.<span class="caret"></span>';
+
+function pad({ title, meta, body, newBtn }) {
+  return `
+    <div class="tb">
+      <div class="lights"><i></i><i></i><i></i></div>
+      <b>${title}</b><span class="sp"></span>
+      ${newBtn ? `<span class="icon" title="New note">${ICON.plus}</span>` : ''}
+      <span class="icon on" title="Keep on top">${ICON.pin}</span>
+      <span class="icon" title="Open in BugVoice">${ICON.open}</span>
+    </div>
+    <div class="meta">${meta}</div>
+    <div class="body">${body}</div>
+    <div class="acts">
+      <span class="btn mic">${ICON.mic} Dictate</span>
+      <span class="btn">${ICON.wand} Polish</span>
+      <span class="btn">More professional</span>
+      <span class="sp"></span>
+      <span class="btn primary">${ICON.copy} Copy as Work message ▾</span>
+    </div>
+    <div class="hint"><span><kbd>Right ⌥</kbd> hold to speak</span><span><kbd>⌘1</kbd>–<kbd>⌘4</kbd> Transforms</span><span><kbd>⌘↩</kbd> copy and hide</span><span><kbd>Esc</kbd> hide</span></div>`;
+}
+
+const OPTIONS = {
+  a: {
+    pad: pad({
+      title: 'Quick note · 09:41',
+      meta: '<span>New note</span><span class="sp"></span><span>Saved to Scratchpad</span>',
+      body: `<p>${msg}</p>`,
+    }),
+    steps: [
+      ['09:41 · Reply in #project-atlas', 'Empty pad. Speak, Polish, Copy as Work message. Note "Quick note · 09:41" saved.'],
+      ['09:43 · Esc by mistake, open again', 'Within 5 minutes: the same note comes back, nothing lost.'],
+      ['10:20 · Email to the client', 'Empty pad again. New note "Quick note · 10:20". A pad closed empty leaves no note.'],
+    ],
+    notes: [['Quick note · 10:20', 'Email', true], ['Quick note · 09:41', 'Slack', true], ['Sprint plan', 'yesterday', false], ['Standup · Summary', 'yesterday', false]],
+    pro: ['Every message starts clean: Transforms and Copy work on the whole pad, no selecting.', 'One note per message, so Scratchpad keeps a history of what you sent.', 'Matches the purpose: one quick message, then back to work.'],
+    con: ['Many small notes pile up in Scratchpad (they can live in a "Quick notes" folder).', 'To continue an older message you open it in BugVoice.'],
+    rec: '<b>Recommended.</b> The pad is for one message at a time, and a clean pad makes Polish and Copy act on exactly that message. The 5-minute return covers an accidental Esc. Quick notes go to a "Quick notes" folder so the main list stays tidy.',
+  },
+  b: {
+    pad: pad({
+      title: 'Quick note',
+      meta: '<span>Always the same note</span><span class="sp"></span><span>New text added at the end</span>',
+      body: `<span class="stamp">Yesterday 16:05</span><p class="old">Thanks all, notes from the review are in the folder.</p><hr class="rule"><span class="stamp">Today 08:50</span><p class="old">Can we move the 1:1 to Thursday?</p><hr class="rule"><span class="stamp">Today 09:41</span><p>${msg}</p>`,
+    }),
+    steps: [
+      ['09:41 · Reply in #project-atlas', 'Pad shows the long "Quick note", caret at the end under a new time stamp.'],
+      ['09:43 · Open again', 'Same note, same place.'],
+      ['10:20 · Email to the client', 'Added below the Slack message. Polish and Copy act on the newest block only (from the last time stamp).'],
+    ],
+    notes: [['Quick note', 'today 10:20', true], ['Sprint plan', 'yesterday', false], ['Standup · Summary', 'yesterday', false]],
+    pro: ['One file only; the Scratchpad list never grows.', 'Older messages are right there to scroll back to.'],
+    con: ['The note grows long; the pad has to work out which block is "this message".', 'A Copy that includes yesterday\'s text by mistake is easy to make.', 'Folders and tags fit poorly: one note holds Slack, email and personal text.'],
+    rec: 'Fits a running journal better than one-off messages.',
+  },
+  c: {
+    pad: pad({
+      title: 'Sprint plan',
+      meta: '<span>Last note you used</span><span class="sp"></span><span class="new">+ New note</span>',
+      body: `<p class="old">Sprint 14: finish the menu bar redesign, start Power UI.</p><p>${msg}</p>`,
+      newBtn: true,
+    }),
+    steps: [
+      ['09:41 · Reply in #project-atlas', 'Pad shows the last note used ("Sprint plan"). Press + (⌘N) first for a clean pad.'],
+      ['09:43 · Open again', 'Same note.'],
+      ['10:20 · Email to the client', 'Still "Sprint plan" unless you press + again.'],
+    ],
+    notes: [['Sprint plan', 'today 10:20', true], ['Quick note · 09:41', 'only if + pressed', false], ['Standup · Summary', 'yesterday', false]],
+    pro: ['Doubles as a side panel: keep "Sprint plan" open next to your work.', 'You choose each time; no automatic notes.'],
+    con: ['One extra key press (⌘N) for every quick message.', 'Easy to dictate a Slack reply into the middle of an unrelated note.'],
+    rec: 'Best if you mostly keep one note open beside your work rather than writing quick messages.',
+  },
+};
+
+function render(o) {
+  const x = OPTIONS[o];
+  document.getElementById('pad').innerHTML = x.pad;
+  document.getElementById('steps').innerHTML = x.steps.map(([t, s]) => `<li><b>${t}</b><small>${s}</small></li>`).join('');
+  document.getElementById('notes').innerHTML = x.notes.map(([t, w, hl]) => `<div class="note${hl ? ' hl' : ''}">${hl ? '<span class="bolt" aria-hidden="true">●</span>' : ''}<b>${t}</b><span>${w}</span></div>`).join('');
+  document.getElementById('pro').innerHTML = '<b>For</b><ul>' + x.pro.map(p => `<li>${p}</li>`).join('') + '</ul>';
+  document.getElementById('con').innerHTML = '<b>Against</b><ul>' + x.con.map(p => `<li>${p}</li>`).join('') + '</ul>';
+  document.getElementById('rec').innerHTML = x.rec;
+  document.querySelectorAll('[data-o]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.o === o)));
+  if (location.hash.slice(1).split('-')[0] !== o) history.replaceState(null, '', '#' + o + (theme ? '-' + theme : ''));
+}
+
+let theme = null, option = 'a';
+function setTheme(t) {
+  theme = t;
+  document.documentElement.dataset.theme = t;
+  document.querySelectorAll('[data-t]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.t === t)));
+  history.replaceState(null, '', '#' + option + '-' + t);
+}
+document.querySelectorAll('[data-o]').forEach(b => b.addEventListener('click', () => { option = b.dataset.o; render(option); }));
+document.querySelectorAll('[data-t]').forEach(b => b.addEventListener('click', () => setTheme(b.dataset.t)));
+const [h, t] = location.hash.slice(1).split('-');
+if (OPTIONS[h]) option = h;
+render(option);
+if (t === 'light' || t === 'dark') setTheme(t);
+</script>
+</body>
+</html>
