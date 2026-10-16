@@ -101,10 +101,17 @@ public actor WhisperKitTranscriber: Transcriber {
         let segments = results.flatMap(\.segments).map {
             TranscriptSegment(start: Double($0.start), end: Double($0.end), text: Self.strip($0.text))
         }
+        let language = results.first?.language
+        var languageScores: [String: Float] = [:]
+        if options.language == .auto, !options.expectedLanguages.isEmpty, let language,
+           !options.expectedLanguages.map(\.rawValue).contains(language) {
+            languageScores = (try? await kit.detectLangauge(audioArray: clip.samples).langProbs) ?? [:]
+        }
         return Transcript(
             text: Self.strip(results.map(\.text).joined(separator: " ")),
             segments: segments,
-            language: results.first?.language
+            language: language,
+            languageScores: languageScores
         )
     }
 

@@ -27,11 +27,15 @@ public struct Transcript: Sendable, Equatable {
     public var text: String
     public var segments: [TranscriptSegment]
     public var language: String?
+    /// Whisper's language log probabilities, keyed by language code. Filled
+    /// only when the detected language is not one of `expectedLanguages`.
+    public var languageScores: [String: Float]
 
-    public init(text: String, segments: [TranscriptSegment] = [], language: String? = nil) {
+    public init(text: String, segments: [TranscriptSegment] = [], language: String? = nil, languageScores: [String: Float] = [:]) {
         self.text = text
         self.segments = segments
         self.language = language
+        self.languageScores = languageScores
     }
 }
 
@@ -41,17 +45,23 @@ public struct TranscriptionOptions: Sendable, Equatable {
     public var prompt: String
     public var timestamps: Bool
     public var priority: TranscriptionPriority
+    /// Languages the speaker uses. With automatic detection, a result in
+    /// another language comes back with `Transcript.languageScores` so the
+    /// caller can redo it. Empty = no expectation.
+    public var expectedLanguages: [SpeechLanguage]
 
     public init(
         language: SpeechLanguage = .auto,
         prompt: String = "",
         timestamps: Bool = false,
-        priority: TranscriptionPriority = .dictation
+        priority: TranscriptionPriority = .dictation,
+        expectedLanguages: [SpeechLanguage] = []
     ) {
         self.language = language
         self.prompt = prompt
         self.timestamps = timestamps
         self.priority = priority
+        self.expectedLanguages = expectedLanguages
     }
 }
 

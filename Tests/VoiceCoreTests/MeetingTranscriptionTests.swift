@@ -215,6 +215,102 @@ struct MeetingTranscriptionTests {
     }
 }
 
+struct MeetingLanguageAndFillerTests {
+    @Test func autoMeetingRequestExpectsEnglishAndVietnamese() async throws {
+        let probe = MeetingTranscriberProbe(replies: [.init(text: "hello there", language: "en")])
+        _ = try await MeetingChunkProcessor().process(
+            id: "expected", track: .mic, offset: 0, clip: speechClip, transcriber: probe
+        )
+        #expect(await probe.receivedOptions.first?.expectedLanguages == [.en, .vi])
+    }
+
+    @Test func wrongLanguageChunkIsRedoneInTheBetterScoringOfEnglishAndVietnamese() async throws {
+        let probe = MeetingTranscriberProbe(replies: [
+            .init(text: "E aí", segments: [.init(start: 0, end: 30, text: "E aí")], language: "pt",
+                  languageScores: ["pt": -0.4, "vi": -1.2, "en": -2.5]),
+            .init(text: "Cảm ơn mọi người", language: "vi")
+        ])
+        let result = try await MeetingChunkProcessor().process(
+            id: "wrong-language", track: .mic, offset: 10, clip: speechClip, transcriber: probe
+        )
+
+        let options = await probe.receivedOptions
+        #expect(options.map(\.language) == [.auto, .vi])
+        #expect(options.last?.timestamps == false)
+        #expect(result.record.state == .complete)
+        #expect(result.record.chosenAttempt == 1)
+        #expect(result.segments.map(\.text) == ["Cảm ơn mọi người"])
+    }
+
+    @Test func wrongLanguageWithoutScoresIsRedoneInEnglish() async throws {
+        let probe = MeetingTranscriberProbe(replies: [
+            .init(text: "Hola equipo", language: "es"),
+            .init(text: "Hello team", language: "en")
+        ])
+        let result = try await MeetingChunkProcessor().process(
+            id: "no-scores", track: .system, offset: 0, clip: speechClip, transcriber: probe
+        )
+        #expect(await probe.receivedOptions.map(\.language) == [.auto, .en])
+        #expect(result.segments.map(\.text) == ["Hello team"])
+    }
+
+    @Test func wrongLanguageRedoThatHearsOnlyFillerLeavesTheChunkEmpty() async throws {
+        let probe = MeetingTranscriberProbe(replies: [
+            .init(text: "E aí", language: "pt", languageScores: ["en": -1, "vi": -2]),
+            .init(text: "Ah, e.", language: "en")
+        ])
+        let result = try await MeetingChunkProcessor().process(
+            id: "filler-redo", track: .mic, offset: 0, clip: speechClip, transcriber: probe
+        )
+        #expect(result.record.state == .empty)
+        #expect(result.segments.isEmpty)
+    }
+
+    @Test func configuredLanguageIsNotSecondGuessed() async throws {
+        let probe = MeetingTranscriberProbe(replies: [.init(text: "Olá", language: "pt")])
+        let result = try await MeetingChunkProcessor().process(
+            id: "configured", track: .mic, offset: 0, clip: speechClip, configuredLanguage: .en, transcriber: probe
+        )
+        #expect(await probe.callCount == 1)
+        #expect(await probe.receivedOptions.first?.expectedLanguages == [])
+        #expect(result.record.state == .complete)
+    }
+
+    @Test func fillerOnlySegmentsAreDroppedAndSpeechIsKept() async throws {
+        let probe = MeetingTranscriberProbe(replies: [.init(
+            text: "Um. So the bot answers tickets. Uh, ờ.",
+            segments: [
+                .init(start: 0, end: 1, text: "Um."),
+                .init(start: 1, end: 4, text: "So the bot answers tickets."),
+                .init(start: 4, end: 5, text: "Uh, ờ.")
+            ],
+            language: "en"
+        )])
+        let result = try await MeetingChunkProcessor().process(
+            id: "fillers", track: .mic, offset: 0, clip: speechClip, transcriber: probe
+        )
+        #expect(result.segments.map(\.text) == ["So the bot answers tickets."])
+    }
+
+    @Test func fillerOnlyChunkIsEmptyAndNotRetried() async throws {
+        let probe = MeetingTranscriberProbe(replies: [.init(text: "Uhm... ah, e", language: "en")])
+        let result = try await MeetingChunkProcessor().process(
+            id: "only-filler", track: .mic, offset: 0, clip: speechClip, transcriber: probe
+        )
+        #expect(result.record.state == .empty)
+        #expect(await probe.callCount == 1)
+    }
+
+    @Test func fillerFilterKeepsRealWordsThatLookShort() {
+        #expect(FillerFilter.isOnlyFiller("um, uh... ờ"))
+        #expect(FillerFilter.isOnlyFiller("Ah, e."))
+        #expect(!FillerFilter.isOnlyFiller("ok"))
+        #expect(!FillerFilter.isOnlyFiller("a bot"))
+        #expect(!FillerFilter.isOnlyFiller("Ừ, được"))
+        #expect(!FillerFilter.isOnlyFiller(""))
+    }
+}
+
 private actor MeetingTranscriberProbe: Transcriber {
     let replies: [Transcript]
     private(set) var receivedOptions: [TranscriptionOptions] = []

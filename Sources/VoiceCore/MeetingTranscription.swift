@@ -113,11 +113,18 @@ public struct MeetingChunkProcessor: Sendable {
         }
 
         let autoAttempt: MeetingChunkAttempt
+        var autoTranscript: Transcript?
         do {
             let transcript = try await transcriber.transcribe(
                 clip,
-                options: TranscriptionOptions(language: .auto, timestamps: true, priority: .meeting)
+                options: TranscriptionOptions(
+                    language: .auto,
+                    timestamps: true,
+                    priority: .meeting,
+                    expectedLanguages: configuredLanguage == .auto ? Self.speakerLanguages : []
+                )
             )
+            autoTranscript = transcript
             autoAttempt = makeAttempt(transcript, mode: .timestamped, requestedLanguage: .auto, clip: clip)
         } catch {
             if error is CancellationError { throw error }
@@ -129,6 +136,17 @@ public struct MeetingChunkProcessor: Sendable {
             )
         }
 
+        if configuredLanguage == .auto, autoAttempt.state == .complete, let detected = autoTranscript?.language,
+           !Self.speakerLanguages.map(\.rawValue).contains(detected) {
+            // Whisper guessed a language the speaker does not use, often from a
+            // hesitation sound. Redo the chunk in English or Vietnamese,
+            // whichever Whisper scored higher.
+            return try await forcedRedo(
+                id: id, track: track, offset: offset, clip: clip, previous: autoAttempt,
+                language: Self.betterSpeakerLanguage(autoTranscript?.languageScores ?? [:]),
+                transcriber: transcriber
+            )
+        }
         if autoAttempt.state == .complete {
             return result(id: id, track: track, offset: offset, clip: clip, attempts: [autoAttempt], chosen: 0)
         }
@@ -143,30 +161,52 @@ public struct MeetingChunkProcessor: Sendable {
         }
 
         let retryLanguage: SpeechLanguage = configuredLanguage == .auto ? .vi : configuredLanguage
+        return try await forcedRedo(
+            id: id, track: track, offset: offset, clip: clip,
+            previous: autoAttempt, language: retryLanguage, transcriber: transcriber
+        )
+    }
+
+    static let speakerLanguages: [SpeechLanguage] = [.en, .vi]
+
+    static func betterSpeakerLanguage(_ scores: [String: Float]) -> SpeechLanguage {
+        let english = scores[SpeechLanguage.en.rawValue] ?? -.infinity
+        let vietnamese = scores[SpeechLanguage.vi.rawValue] ?? -.infinity
+        return vietnamese > english ? .vi : .en
+    }
+
+    private func forcedRedo(
+        id: String,
+        track: MeetingTrack,
+        offset: TimeInterval,
+        clip: AudioClip,
+        previous: MeetingChunkAttempt,
+        language: SpeechLanguage,
+        transcriber: any Transcriber
+    ) async throws -> MeetingChunkProcessingResult {
         do {
             let transcript = try await transcriber.transcribe(
                 clip,
-                options: TranscriptionOptions(language: retryLanguage, timestamps: false, priority: .meeting)
+                options: TranscriptionOptions(language: language, timestamps: false, priority: .meeting)
             )
-            let retry = makeAttempt(transcript, mode: .forcedVAD, requestedLanguage: retryLanguage, clip: clip)
-            let attempts = [autoAttempt, retry]
+            let retry = makeAttempt(transcript, mode: .forcedVAD, requestedLanguage: language, clip: clip)
             return result(
                 id: id,
                 track: track,
                 offset: offset,
                 clip: clip,
-                attempts: attempts,
+                attempts: [previous, retry],
                 chosen: retry.state == .complete ? 1 : nil
             )
         } catch {
             if error is CancellationError { throw error }
             let retry = MeetingChunkAttempt(
                 mode: .forcedVAD,
-                requestedLanguage: retryLanguage,
+                requestedLanguage: language,
                 state: .failed,
                 errorMessage: String(describing: error)
             )
-            return result(id: id, track: track, offset: offset, clip: clip, attempts: [autoAttempt, retry], chosen: nil)
+            return result(id: id, track: track, offset: offset, clip: clip, attempts: [previous, retry], chosen: nil)
         }
     }
 
@@ -186,7 +226,7 @@ public struct MeetingChunkProcessor: Sendable {
             text = placeholderStrippedSegments.map(\.text).joined(separator: " ")
         }
 
-        guard !text.isEmpty, !HallucinationFilter.isHallucination(text) else {
+        guard !text.isEmpty, !HallucinationFilter.isHallucination(text), !FillerFilter.isOnlyFiller(text) else {
             return MeetingChunkAttempt(
                 mode: mode,
                 requestedLanguage: requestedLanguage,
@@ -197,7 +237,7 @@ public struct MeetingChunkProcessor: Sendable {
         }
 
         let cleanedSegments = placeholderStrippedSegments.filter {
-            !HallucinationFilter.isHallucination($0.text)
+            !HallucinationFilter.isHallucination($0.text) && !FillerFilter.isOnlyFiller($0.text)
         }
         guard transcript.segments.isEmpty || !cleanedSegments.isEmpty else {
             return MeetingChunkAttempt(
