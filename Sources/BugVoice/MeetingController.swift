@@ -19,6 +19,8 @@ final class MeetingController {
     private(set) var elapsed: TimeInterval = 0
     /// Languages for the meeting being recorded; the recorder panel can change them.
     private(set) var languages: [SpeechLanguage] = MeetingLanguages.defaults
+    /// The app whose microphone use offered this recording, if it came from the popup.
+    private(set) var detected: MeetingCandidate?
     var onRecordingStarted: (() -> Void)?
     var onRecordingStopped: (() -> Void)?
     @ObservationIgnored private var session: MeetingSession?
@@ -56,7 +58,7 @@ final class MeetingController {
         }
     }
 
-    func start() async {
+    func start(detected: MeetingCandidate? = nil) async {
         guard !isActive else { return }
         guard Permissions.isGranted(.microphone) else {
             statusMessage = "Grant Microphone access before recording a meeting."
@@ -95,6 +97,12 @@ final class MeetingController {
                 labels: ItemLabels(folderID: model.meetingsFolderFilter.newItemFolderID),
                 languages: languages
             )
+            if let detected {
+                // The recording matters more than its title.
+                try? await session.rename(title: detected.title)
+                try? await session.setDetectedApp(detected.bundleID)
+            }
+            self.detected = detected
             self.session = session
             self.capture = capture
             self.writer = writer

@@ -123,6 +123,8 @@ final class AppModel {
     var permissionsGranted = Permissions.allGranted
     var permissionStatus: [PermissionKind: Bool] = [:]
     var systemAudioPermissionFailed = false
+    /// Core Audio could not list processes; meeting detection is off for this run.
+    var meetingDetectionUnavailable = false
     /// The latest failure to save something (settings, Dictionary, history,
     /// API key, login item). The UI shows it and sets it back to nil once
     /// the user has seen it. Never cleared by a later success.
@@ -136,6 +138,7 @@ final class AppModel {
     /// Created by `bootstrap()` once settings are loaded.
     @ObservationIgnored private(set) var dictation: DictationController?
     @ObservationIgnored private(set) var meetings: MeetingController?
+    @ObservationIgnored private(set) var meetingDetection: MeetingDetectionController?
     private(set) var uploads: UploadController?
     @ObservationIgnored private var isLoadingSettings = false
     @ObservationIgnored private var preparingEngine: WhisperKitTranscriber?
@@ -186,6 +189,9 @@ final class AppModel {
             Task { @MainActor in self?.meetings?.toggleRecording() }
         }
         meetings = MeetingController(model: self)
+        let detection = MeetingDetectionController(model: self)
+        meetingDetection = detection
+        detection.start()
         uploads = UploadController(model: self)
         refreshPermissions()
         if !permissionsGranted { openPermissionsWindow() }
