@@ -742,6 +742,23 @@ final class AppModel {
         }
     }
 
+    /// Show English from the meeting detail page. Routed like notes.
+    func setMeetingShowEnglish(id: MeetingID, show: Bool) async {
+        do {
+            if let meetings, try await meetings.setShowEnglishInSession(id: id, show: show) {
+                await reloadMeetings()
+                return
+            }
+            var meeting = try await meetingStore.load(id: id)
+            guard meeting.showEnglish != show else { return }
+            meeting.showEnglish = show
+            try await meetingStore.save(meeting)
+            await reloadMeetings()
+        } catch {
+            saveError = "Could not update meeting: \(error.localizedDescription)"
+        }
+    }
+
     func setNoteLabels(id: NoteID, folderID: FolderID?, tags: [String]) async {
         do {
             try await notesController.setLabels(id: id, folderID: folderID, tags: tags)

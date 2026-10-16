@@ -389,6 +389,19 @@ private struct MeetingDetails: View {
                 if let error = meeting.transcriptionError {
                     Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(.orange).padding(8)
                 }
+                if meeting.segments.contains(where: { !($0.translation ?? "").isEmpty }) {
+                    HStack {
+                        Spacer()
+                        Toggle("Show English", isOn: Binding(
+                            get: { meeting.showEnglish },
+                            set: { show in Task { await model.setMeetingShowEnglish(id: meeting.id, show: show) } }
+                        ))
+                        .toggleStyle(.switch)
+                        .controlSize(.mini)
+                        .font(.caption)
+                    }
+                    .padding(.horizontal, 9)
+                }
                 let segments = meeting.segments.sorted { $0.start < $1.start }
                 ForEach(Array(segments.enumerated()), id: \.element.id) { index, segment in
                     let active = activeSegmentID == segment.id
@@ -400,7 +413,13 @@ private struct MeetingDetails: View {
                             Text("\(clock(segment.start)) – \(clock(segment.end))")
                                 .font(.caption.monospacedDigit()).foregroundStyle(.secondary).frame(width: 108, alignment: .leading)
                             Text(segment.speaker).font(.caption.weight(.semibold)).frame(width: 60, alignment: .leading)
-                            Text(segment.text).font(.body).frame(maxWidth: .infinity, alignment: .leading)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(segment.text).font(.body)
+                                if meeting.showEnglish, let english = segment.translation, !english.isEmpty {
+                                    Text(english).font(.callout).foregroundStyle(.secondary)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
                         .padding(.horizontal, 9).padding(.vertical, 7)
                         .background(active ? Color.accentColor.opacity(0.16) : .clear, in: RoundedRectangle(cornerRadius: 6))
