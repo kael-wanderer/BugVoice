@@ -43,6 +43,16 @@ every 3 active minutes, Ask anything about this meeting, final summary after
 Stop that follows the notes). Notes are stored on the meeting manifest. Device
 checks 172–187 pending.
 
+Meetings v2 (5b) implemented: spec
+`docs/superpowers/specs/2026-10-16-meetings-translation-design.md`, plan
+`docs/superpowers/plans/2026-10-16-meetings-translation.md`. When a meeting's
+languages include one other than English, each new line gets its English under
+it, through the Meetings model (12 lines per request, thinking off, one request
+at a time, after dictation and the summaries). English is saved on each line
+(`MeetingSegment.translation`), carried over to the final transcript at Stop,
+shown on the detail page and written to the Markdown export. Show English
+(`MeetingManifest.showEnglish`) hides it. Device checks 188–194 pending.
+
 **Packaging:** app icon (Antenna Mic) and `Scripts/build-dmg.sh`; current version 0.1.0 build 10.
 
 ### Pending maintainer checks (deferred by the maintainer, 2026-10-14)
