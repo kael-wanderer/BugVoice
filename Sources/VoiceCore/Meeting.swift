@@ -266,6 +266,15 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
     public var suggestedTags: [String]
     /// Languages chosen for this meeting; empty for meetings saved before the choice existed.
     public var languages: [SpeechLanguage]
+    /// The owner's own notes, Markdown.
+    public var notes: String
+    /// Running summary written during the meeting.
+    public var liveSummary: String?
+    public var liveSummaryUpdatedAt: Date?
+    /// Meeting time (seconds) up to which transcript lines went into `liveSummary`.
+    public var liveSummaryCutoff: TimeInterval
+    /// Bundle ID of the app whose microphone use offered this recording.
+    public var detectedApp: String?
 
     public init(
         schemaVersion: Int = MeetingManifest.currentSchemaVersion,
@@ -289,7 +298,12 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
         folderID: FolderID? = nil,
         tags: [String] = [],
         suggestedTags: [String] = [],
-        languages: [SpeechLanguage] = []
+        languages: [SpeechLanguage] = [],
+        notes: String = "",
+        liveSummary: String? = nil,
+        liveSummaryUpdatedAt: Date? = nil,
+        liveSummaryCutoff: TimeInterval = 0,
+        detectedApp: String? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.id = id
@@ -313,12 +327,18 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
         self.tags = tags
         self.suggestedTags = suggestedTags
         self.languages = languages
+        self.notes = notes
+        self.liveSummary = liveSummary
+        self.liveSummaryUpdatedAt = liveSummaryUpdatedAt
+        self.liveSummaryCutoff = liveSummaryCutoff
+        self.detectedApp = detectedApp
     }
 
     private enum CodingKeys: String, CodingKey {
         case schemaVersion, id, title, startedAt, endedAt, duration, state
         case audioFormat, chunks, marks, segments, transcriptProgress
         case transcriptionError, summary, actionItems, source, sourceFileName, importedAt, folderID, tags, suggestedTags, languages
+        case notes, liveSummary, liveSummaryUpdatedAt, liveSummaryCutoff, detectedApp
     }
 
     public init(from decoder: Decoder) throws {
@@ -345,6 +365,11 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
         tags = try c.decodeIfPresent([String].self, forKey: .tags) ?? []
         suggestedTags = try c.decodeIfPresent([String].self, forKey: .suggestedTags) ?? []
         languages = try c.decodeIfPresent([SpeechLanguage].self, forKey: .languages) ?? []
+        notes = try c.decodeIfPresent(String.self, forKey: .notes) ?? ""
+        liveSummary = try c.decodeIfPresent(String.self, forKey: .liveSummary)
+        liveSummaryUpdatedAt = try c.decodeIfPresent(Date.self, forKey: .liveSummaryUpdatedAt)
+        liveSummaryCutoff = try c.decodeIfPresent(TimeInterval.self, forKey: .liveSummaryCutoff) ?? 0
+        detectedApp = try c.decodeIfPresent(String.self, forKey: .detectedApp)
     }
 
     public static func new(startedAt: Date) -> MeetingManifest {

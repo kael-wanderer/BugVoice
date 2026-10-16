@@ -9,12 +9,18 @@ struct MeetingRecoveryPolicyTests {
         #expect(old.meetings.generationContextTokens == 8_192)
         #expect(old.meetings.generationOutputTokens == 2_048)
         #expect(old.meetings.languages == [.en, .vi])
+        #expect(old.meetings.detectMeetings)
+        #expect(old.meetings.mutedMeetingApps.isEmpty)
+        #expect(!old.meetings.windowCollapsed)
 
         var current = MeetingSettings()
         current.deleteAfter = .days90
         current.generationContextTokens = 16_384
         current.generationOutputTokens = 4_096
         current.languages = [.en, .es]
+        current.detectMeetings = false
+        current.mutedMeetingApps = ["us.zoom.xos"]
+        current.windowCollapsed = true
         let decoded = try JSONDecoder().decode(MeetingSettings.self, from: JSONEncoder().encode(current))
         #expect(decoded == current)
     }
