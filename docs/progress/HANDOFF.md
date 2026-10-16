@@ -1,6 +1,6 @@
 # BugVoice — Handoff
 
-Last updated: 2026-10-15
+Last updated: 2026-10-16
 
 ## Current state
 
@@ -32,6 +32,16 @@ Scratchpad window merged on `main` (2026-10-16): spec
 the only note editor (a non-activating panel, so typing and dictation reach it
 while another app is in front); the page lists cards. Device checks 151–168
 pending. UI polish later (formatting bar is tight at the 440 pt Smaller width).
+
+Meetings v2 (5a) implemented: spec
+`docs/superpowers/specs/2026-10-16-meetings-v2-design.md`, plan
+`docs/superpowers/plans/2026-10-16-meetings-v2.md`. A popup offers to record
+when a meeting app or a Meet / Teams / Zoom tab starts using the microphone
+(Core Audio process list, polled every 2 s); the meeting window replaces the
+recorder panel (right third, My notes / Transcript / Summary tabs, live summary
+every 3 active minutes, Ask anything about this meeting, final summary after
+Stop that follows the notes). Notes are stored on the meeting manifest. Device
+checks 172–187 pending.
 
 **Packaging:** app icon (Antenna Mic) and `Scripts/build-dmg.sh`; current version 0.1.0 build 10.
 
