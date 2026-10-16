@@ -12,6 +12,22 @@ public final class NotesTextView: NSTextView {
         guard let noteID, let notesController else { return super.undoManager }
         return notesController.undoManager(for: noteID) ?? super.undoManager
     }
+
+    /// ⌘Z and ⌘⇧Z go straight to the note's undo manager. The Edit menu's
+    /// Undo does not reach this view's per-note manager.
+    public override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        guard window?.firstResponder === self, event.charactersIgnoringModifiers?.lowercased() == "z",
+              flags == .command || flags == [.command, .shift], let undoManager else {
+            return super.performKeyEquivalent(with: event)
+        }
+        if flags.contains(.shift) {
+            if undoManager.canRedo { undoManager.redo() }
+        } else if undoManager.canUndo {
+            undoManager.undo()
+        }
+        return true
+    }
 }
 
 /// Insertion adapter bound to one captured note and selection for one run.
