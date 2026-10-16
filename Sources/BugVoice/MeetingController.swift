@@ -8,7 +8,7 @@ import BugVoiceMac
 @MainActor
 @Observable
 final class MeetingController {
-    private unowned let model: AppModel
+    unowned let model: AppModel
     private(set) var isRecording = false
     private(set) var isPaused = false
     private(set) var isTranscribing = false
@@ -38,9 +38,22 @@ final class MeetingController {
     private(set) var notesSaveFailed = false
     /// Opens the meeting window. Set by the app delegate, which owns it.
     var onShowWindow: (() -> Void)?
+    /// Live summary state; written by `MeetingController+Assistant`.
+    var liveSummary: String?
+    var liveSummaryUpdatedAt: Date?
+    /// The summary written after Stop; the Summary tab shows it once it exists.
+    var finalSummary: String?
+    var summaryState: MeetingSummaryState = .waiting
+    var answer: MeetingAnswer?
+    @ObservationIgnored var liveSummaryCutoff: TimeInterval = 0
+    /// Active time at the last refresh; nil before the first.
+    @ObservationIgnored var lastRefreshActiveTime: TimeInterval?
+    @ObservationIgnored var notesAtLastRefresh = ""
+    @ObservationIgnored var summaryTask: Task<Void, Never>?
+    @ObservationIgnored var askTask: Task<Void, Never>?
     @ObservationIgnored private var notesSaveTask: Task<Void, Never>?
     @ObservationIgnored private var markFeedbackTask: Task<Void, Never>?
-    @ObservationIgnored private var session: MeetingSession?
+    @ObservationIgnored private(set) var session: MeetingSession?
     @ObservationIgnored private var capture: MeetingAudioCaptureCoordinator?
     @ObservationIgnored private var writer: MeetingPCMJournalWriter?
     @ObservationIgnored private var scheduler: MeetingLiveTranscriptionScheduler?
@@ -290,6 +303,7 @@ final class MeetingController {
     /// Closes the finished meeting in the window. A recording keeps its window.
     func closeWindow() async {
         guard !isActive else { return }
+        closeAnswer()
         await flushNotes()
         shownMeetingID = nil
         await model.reloadMeetings()
@@ -332,6 +346,14 @@ final class MeetingController {
         notesSaveTask?.cancel()
         notesSaveFailed = false
         markFeedback = nil
+        liveSummary = meeting.liveSummary
+        liveSummaryUpdatedAt = meeting.liveSummaryUpdatedAt
+        liveSummaryCutoff = meeting.liveSummaryCutoff
+        lastRefreshActiveTime = nil
+        notesAtLastRefresh = meeting.notes
+        finalSummary = meeting.summary
+        summaryState = .waiting
+        answer = nil
     }
 
     /// Picks up transcript lines, marks and progress the session saved.
@@ -350,11 +372,13 @@ final class MeetingController {
         isRecording = false
         isPaused = false
         isTranscribing = true
+        var transcribed = false
         do {
             _ = try await session.stop()
             await refreshSnapshot()
             isTranscribing = false
             statusMessage = nil
+            transcribed = true
         } catch {
             isTranscribing = false
             statusMessage = "Transcript could not be completed. Your meeting audio is saved. \(error.localizedDescription)"
@@ -363,6 +387,7 @@ final class MeetingController {
         monitorTask = nil
         await model.reloadMeetings()
         await model.recordMeetingInsights(seconds: recordedSeconds)
+        if transcribed { await generateFinalSummary() }
     }
 
     func renameSession(id: MeetingID, title: String) async throws -> Bool {
@@ -442,6 +467,7 @@ final class MeetingController {
                     if !line.isEmpty { self.latestLine = line }
                     self.youLevel = await capture.level(for: .mic)
                     self.othersLevel = await capture.level(for: .system)
+                    self.refreshLiveSummaryIfDue()
                 } catch {
                     self.statusMessage = "Meeting checkpoint failed: \(error.localizedDescription)"
                 }

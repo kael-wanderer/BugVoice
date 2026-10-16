@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import VoiceCore
 
@@ -15,6 +16,8 @@ struct MeetingWindowView: View {
     let onClose: () -> Void
     @State private var tab: MeetingWindowTab = .notes
     @State private var titleDraft = ""
+    @State private var question = ""
+    @State private var answerHeight: CGFloat = 0
     /// The title is a label until clicked, so the window never opens with the keyboard in it.
     @State private var editingTitle = false
     @FocusState private var titleFocused: Bool
@@ -41,6 +44,7 @@ struct MeetingWindowView: View {
                 Divider()
                 tabContent
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                if let answer = controller.answer { answerCard(answer) }
                 Divider()
                 dock
             }
@@ -219,10 +223,112 @@ struct MeetingWindowView: View {
         }
     }
 
-    private var summary: some View {
-        Text("The first summary comes after 3 minutes of talk.")
+    @ViewBuilder private var summary: some View {
+        if let final = controller.finalSummary, !final.isEmpty {
+            VStack(alignment: .leading, spacing: 0) {
+                summaryCaption("Final summary")
+                MarkdownDocView(text: final, onToggleTask: { _ in })
+            }
+        } else if controller.summaryState == .finalizing {
+            ProgressView("Writing the summary")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if controller.summaryState == .noModel {
+            needsModel
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if let live = controller.liveSummary, !live.isEmpty {
+            VStack(alignment: .leading, spacing: 0) {
+                TimelineView(.periodic(from: .now, by: 30)) { context in
+                    summaryCaption(liveCaption(now: context.date))
+                }
+                MarkdownDocView(text: live, onToggleTask: { _ in })
+            }
+        } else if controller.summaryState == .failed {
+            Text("Not updated: model unavailable").foregroundStyle(.orange)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if controller.summaryState == .refreshing {
+            ProgressView("Writing the summary")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            Text("The first summary comes after 3 minutes of talk.")
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    private func summaryCaption(_ text: String) -> some View {
+        Text(text)
+            .font(.caption)
             .foregroundStyle(.secondary)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.horizontal, 24)
+            .padding(.top, 12)
+    }
+
+    private func liveCaption(now: Date) -> String {
+        var parts = ["So far"]
+        if let updated = controller.liveSummaryUpdatedAt {
+            parts.append("updated \(max(0, Int(now.timeIntervalSince(updated) / 60))) min ago")
+        }
+        if controller.summaryState == .failed {
+            parts.append("Not updated: model unavailable")
+        } else if controller.summaryState == .refreshing {
+            parts.append("updating")
+        } else if controller.isRecording, let last = controller.lastRefreshActiveTime {
+            let next = max(0, LiveSummaryPlanner.interval - (controller.elapsed - last))
+            parts.append("next in \(Int((next / 60).rounded(.up))) min")
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    private var needsModel: some View {
+        VStack(spacing: 8) {
+            Text("Summary needs a Meeting notes model.").foregroundStyle(.secondary)
+            Button("Open Settings") {
+                model.settingsTab = .models
+                model.openMainWindow(.settings)
+            }
+        }
+    }
+
+    // MARK: Answer
+
+    private func answerCard(_ answer: MeetingAnswer) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(answer.question).font(.caption).foregroundStyle(.secondary)
+            switch answer.state {
+            case .loading:
+                ProgressView().controlSize(.small)
+            case .noModel:
+                needsModel
+            case .failed(let message):
+                Text(message).foregroundStyle(.orange)
+            case .done:
+                // Short answers take their own height; long ones scroll.
+                ScrollView {
+                    Text(LocalizedStringKey(answer.text))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.enabled)
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { answerHeight = $0 }
+                }
+                .frame(height: min(220, max(18, answerHeight)))
+            }
+            HStack {
+                if answer.state == .done {
+                    Button("Add to notes") { controller.addAnswerToNotes() }
+                    Button("Copy") {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(answer.text, forType: .string)
+                    }
+                }
+                Spacer()
+                Button("Close") { controller.closeAnswer() }
+                    .keyboardShortcut(.cancelAction)
+            }
+            .controlSize(.small)
+        }
+        .padding(12)
+        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+        .padding(.horizontal, 12)
+        .padding(.bottom, 8)
     }
 
     // MARK: Dock
@@ -245,7 +351,7 @@ struct MeetingWindowView: View {
             } else {
                 Text("Recording stays on this Mac. Tell people you are recording.")
                     .font(.caption).foregroundStyle(.secondary)
-                HStack {
+                HStack(spacing: 8) {
                     Button {
                         Task { await controller.stop() }
                     } label: {
@@ -255,7 +361,20 @@ struct MeetingWindowView: View {
                         }
                     }
                     .disabled(!recording)
-                    Spacer()
+                    HStack(spacing: 6) {
+                        TextField("Ask anything about this meeting", text: $question)
+                            .textFieldStyle(.plain)
+                            .onSubmit {
+                                controller.ask(question)
+                                question = ""
+                            }
+                        Button("What did I miss?") { controller.ask(nil) }
+                            .buttonStyle(.borderless)
+                            .font(.caption)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
                 }
             }
         }

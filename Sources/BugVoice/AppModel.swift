@@ -399,6 +399,12 @@ final class AppModel {
         }
     }
 
+    /// The meeting window's notes editor when it has the keyboard, for Right Option dictation.
+    func meetingNotesEditorWithKeyboard() -> MeetingNotesTextView? {
+        guard let window = NSApp.keyWindow, window.identifier == AppWindow.meeting else { return nil }
+        return window.firstResponder as? MeetingNotesTextView
+    }
+
     func captureNotesDictation(startFocus: FocusSnapshot) -> NotesDictationCapture? {
         let frontmostPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
         // The Scratchpad panel takes the keyboard without making BugVoice the
@@ -796,20 +802,14 @@ final class AppModel {
         progress: @escaping @Sendable (MeetingTextProgress) -> Void
     ) async throws -> String {
         let original = try await meetingStore.load(id: id)
-        if case .cli(let tool) = settings.models.meetings.engine, cliInfo[tool] == nil {
-            await refreshCLIs()
-        }
-        let plan = plan(for: .meetings)
-        guard var textModel = ProviderFactory.textModel(plan, credentials: credentials) else {
+        guard let textModel = await meetingTextModel() else {
             throw MeetingGenerationError.noTextModel
-        }
-        if case .connection(_, _, _, let disableThinking, _) = plan, disableThinking {
-            textModel = ThinkingOverride(base: textModel, disableThinking: true)
         }
         let text = try await MeetingTextGenerator().generate(
             transcript: original.segments,
             kind: kind,
             budget: MeetingTextBudget(settings: settings.meetings),
+            notes: original.notes,
             model: textModel,
             progress: progress
         )
@@ -840,6 +840,19 @@ final class AppModel {
             Task { await suggestTags(for: id, summary: text, model: suggestionModel) }
         }
         return text
+    }
+
+    /// The Meetings model (Settings › Models), or nil when none is set.
+    func meetingTextModel() async -> (any TextModel)? {
+        if case .cli(let tool) = settings.models.meetings.engine, cliInfo[tool] == nil {
+            await refreshCLIs()
+        }
+        let plan = plan(for: .meetings)
+        guard var textModel = ProviderFactory.textModel(plan, credentials: credentials) else { return nil }
+        if case .connection(_, _, _, let disableThinking, _) = plan, disableThinking {
+            textModel = ThinkingOverride(base: textModel, disableThinking: true)
+        }
+        return textModel
     }
 
     /// Asks the Meetings model for up to 3 existing tags. Failures stay silent.

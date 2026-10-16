@@ -19,6 +19,8 @@ final class DictationController {
     private var hotkey: HotkeyMonitor!
     private var startFocus = FocusSnapshot.unknown
     private var notesCapture: NotesDictationCapture?
+    /// The meeting window's notes editor when it had the keyboard at the start.
+    private var meetingNotes: MeetingNotesTextView?
     private var startedAt = Date()
     private var limitTask: Task<Void, Never>?
     private var runCounter = 0
@@ -128,12 +130,14 @@ final class DictationController {
             return
         }
         startFocus = FocusInspector.read()
-        notesCapture = notesOnly ? micCapture : model.captureNotesDictation(startFocus: startFocus)
+        meetingNotes = notesOnly ? nil : model.meetingNotesEditorWithKeyboard()
+        notesCapture = notesOnly ? micCapture : meetingNotes == nil ? model.captureNotesDictation(startFocus: startFocus) : nil
         startedAt = Date()
         do {
             try recorder.start(deviceUID: model.settings.speech.microphoneUID)
         } catch {
             notesCapture = nil
+            meetingNotes = nil
             detector.reset()
             let detail: String
             switch error {
@@ -185,6 +189,7 @@ final class DictationController {
         _ = recorder.stop()
         model.isListening = false
         notesCapture = nil
+        meetingNotes = nil
         model.notesIsListening = false
         model.notesRecordingStartedAt = nil
         hud.hide()
@@ -200,9 +205,11 @@ final class DictationController {
         if model.settings.soundsEnabled { NSSound(named: "Pop")?.play() }
         let capturedNotesRun = notesCapture
         notesCapture = nil
+        let capturedMeetingNotes = meetingNotes
+        meetingNotes = nil
         model.notesIsListening = false
         model.notesRecordingStartedAt = nil
-        if capturedNotesRun == nil {
+        if capturedNotesRun == nil && capturedMeetingNotes == nil {
             if startFocus.isSecure {
                 // Likely a spoken secret: keep no audio of it. An older
                 // last.wav goes too, so Retry last cannot replay another clip.
@@ -215,7 +222,7 @@ final class DictationController {
                 }
             }
         }
-        process(clip, focus: startFocus, startedAt: startedAt, notesCapture: capturedNotesRun)
+        process(clip, focus: startFocus, startedAt: startedAt, notesCapture: capturedNotesRun, meetingNotes: capturedMeetingNotes)
     }
 
     // MARK: Pipeline
@@ -224,7 +231,8 @@ final class DictationController {
         _ clip: AudioClip,
         focus: FocusSnapshot,
         startedAt: Date,
-        notesCapture: NotesDictationCapture? = nil
+        notesCapture: NotesDictationCapture? = nil,
+        meetingNotes: MeetingNotesTextView? = nil
     ) {
         isBusy = true
         runCounter += 1
@@ -233,10 +241,13 @@ final class DictationController {
         let insertion: any InsertionTarget
         if let notesCapture {
             insertion = NotesEditorInsertion(controller: model.notesController, capture: notesCapture)
+        } else if let meetingNotes {
+            insertion = MeetingNotesInsertion(editor: meetingNotes)
         } else {
             insertion = inserter
         }
-        let feature: ModelFeature = notesCapture == nil ? .dictation : .notes
+        let intoNotes = notesCapture != nil || meetingNotes != nil
+        let feature: ModelFeature = intoNotes ? .notes : .dictation
         let pipeline = model.makePipeline(insertion: insertion, feature: feature)
         let language = model.settings.speech.language.displayName
         let modelName = model.plan(for: feature).shortName
@@ -245,7 +256,7 @@ final class DictationController {
                 clip: clip,
                 startFocus: focus,
                 startedAt: startedAt,
-                mode: notesCapture == nil ? .ordinary : .notes
+                mode: intoNotes ? .notes : .ordinary
             ) { stage in
                 Task { @MainActor in
                     self.showStage(stage, run: run, language: language, modelName: modelName, app: focus.appName)
@@ -257,7 +268,7 @@ final class DictationController {
             } else {
                 if let state = HUDState.from(result) { hud.show(state) } else { hud.hide() }
                 await model.recordInsights(result, noteID: notesCapture?.noteID)
-                if notesCapture == nil { await model.record(result) }
+                if !intoNotes { await model.record(result) }
             }
             isBusy = false
         }
