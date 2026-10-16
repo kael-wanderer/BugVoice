@@ -5,15 +5,17 @@ import Foundation
 public struct NoteFrontMatter: Equatable, Sendable {
     public var folderID: FolderID?
     public var tags: [String]
+    public var pinned: Bool
     public var extra: [String]
 
-    public init(folderID: FolderID? = nil, tags: [String] = [], extra: [String] = []) {
+    public init(folderID: FolderID? = nil, tags: [String] = [], pinned: Bool = false, extra: [String] = []) {
         self.folderID = folderID
         self.tags = tags
+        self.pinned = pinned
         self.extra = extra
     }
 
-    public var isEmpty: Bool { folderID == nil && tags.isEmpty && extra.isEmpty }
+    public var isEmpty: Bool { folderID == nil && tags.isEmpty && !pinned && extra.isEmpty }
     public var labels: ItemLabels { ItemLabels(folderID: folderID, tags: tags) }
 }
 
@@ -70,6 +72,7 @@ public enum NotesMarkdownDocument {
             text += "---\n"
             if let folderID = frontMatter.folderID { text += "folder: \(folderID.rawValue)\n" }
             if !frontMatter.tags.isEmpty { text += "tags: [\(frontMatter.tags.joined(separator: ", "))]\n" }
+            if frontMatter.pinned { text += "pinned: true\n" }
             for line in frontMatter.extra { text += line + "\n" }
             text += "---\n"
         }
@@ -91,6 +94,8 @@ public enum NotesMarkdownDocument {
                 front.folderID = value.isEmpty ? nil : FolderID(rawValue: value)
             } else if line.hasPrefix("tags:"), let tags = parseTagList(String(line.dropFirst("tags:".count))) {
                 front.tags = tags
+            } else if line.hasPrefix("pinned:") {
+                front.pinned = unquote(String(line.dropFirst("pinned:".count))).lowercased() == "true"
             } else {
                 front.extra.append(line)
             }

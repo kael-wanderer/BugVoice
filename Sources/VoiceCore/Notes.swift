@@ -36,13 +36,15 @@ public struct NotesListItem: Equatable, Sendable, Identifiable {
     public let body: String
     public let modifiedAt: Date
     public let tags: [String]
+    public let pinned: Bool
 
-    public init(id: NoteID, title: String, body: String, modifiedAt: Date, tags: [String] = []) {
+    public init(id: NoteID, title: String, body: String, modifiedAt: Date, tags: [String] = [], pinned: Bool = false) {
         self.id = id
         self.title = title
         self.body = body
         self.modifiedAt = modifiedAt
         self.tags = tags
+        self.pinned = pinned
     }
 }
 
