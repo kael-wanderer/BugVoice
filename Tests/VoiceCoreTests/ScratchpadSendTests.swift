@@ -24,4 +24,13 @@ struct ScratchpadSendTests {
         #expect(ScratchpadSendKind.actionItems.text(of: meeting()) == nil)
         #expect(ScratchpadSendKind.transcript.text(of: MeetingManifest(startedAt: Date())) == nil)
     }
+
+    @Test func myNotesComeAfterActionItems() {
+        var withNotes = meeting()
+        withNotes.notes = "\n## Decisions\n- Ship Friday\n"
+        #expect(ScratchpadSendKind.allCases == [.summary, .actionItems, .notes, .transcript])
+        #expect(ScratchpadSendKind.notes.noteTitle(meetingTitle: "Standup") == "Standup · My notes")
+        #expect(ScratchpadSendKind.notes.text(of: withNotes) == "## Decisions\n- Ship Friday")
+        #expect(ScratchpadSendKind.notes.text(of: meeting()) == nil)
+    }
 }

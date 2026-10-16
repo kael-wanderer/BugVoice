@@ -114,6 +114,8 @@ final class MeetingPlayerModel {
 struct MeetingPlayer: View {
     let audioURL: URL
     @Bindable var model: MeetingPlayerModel
+    /// Mark offsets in seconds, shown as ticks that play from the mark.
+    var marks: [TimeInterval] = []
 
     private let speeds: [Float] = [0.75, 1, 1.25, 1.5, 2]
 
@@ -162,6 +164,23 @@ struct MeetingPlayer: View {
                 let fraction = min(1, max(0, value.location.x / max(1, geometry.size.width)))
                 model.seek(to: model.duration * fraction)
             })
+            .overlay(alignment: .topLeading) {
+                if model.duration > 0 {
+                    ForEach(Array(marks.enumerated()), id: \.offset) { _, mark in
+                        Button {
+                            model.seek(to: mark)
+                            if !model.isPlaying { model.togglePlayback() }
+                        } label: {
+                            Rectangle().fill(.orange).frame(width: 3, height: geometry.size.height)
+                                .padding(.horizontal, 3)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .help("Play from mark \(clock(mark))")
+                        .position(x: min(1, max(0, mark / model.duration)) * geometry.size.width, y: geometry.size.height / 2)
+                    }
+                }
+            }
         }
     }
 

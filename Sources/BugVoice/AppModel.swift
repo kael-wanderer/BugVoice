@@ -725,6 +725,23 @@ final class AppModel {
         }
     }
 
+    /// Notes from the meeting detail page. The meeting window's session saves them while it owns the meeting.
+    func setMeetingNotes(id: MeetingID, notes: String) async {
+        do {
+            if let meetings, try await meetings.setNotesInSession(id: id, notes: notes) {
+                await reloadMeetings()
+                return
+            }
+            var meeting = try await meetingStore.load(id: id)
+            guard meeting.notes != notes else { return }
+            meeting.notes = notes
+            try await meetingStore.save(meeting)
+            await reloadMeetings()
+        } catch {
+            saveError = "Could not save notes: \(error.localizedDescription)"
+        }
+    }
+
     func setNoteLabels(id: NoteID, folderID: FolderID?, tags: [String]) async {
         do {
             try await notesController.setLabels(id: id, folderID: folderID, tags: tags)
