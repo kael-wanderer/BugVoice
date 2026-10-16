@@ -51,6 +51,16 @@ final class MeetingController {
     @ObservationIgnored var notesAtLastRefresh = ""
     @ObservationIgnored var summaryTask: Task<Void, Never>?
     @ObservationIgnored var askTask: Task<Void, Never>?
+    /// Show English for the shown meeting; written by `MeetingController+Translation`.
+    var showEnglish = true
+    /// The last translation try found no Meetings model.
+    var translationNeedsModel = false
+    @ObservationIgnored var translationTask: Task<Void, Never>?
+    @ObservationIgnored var translationLoop: Task<Void, Never>?
+    /// No translation before this time after a failed request.
+    @ObservationIgnored var translationRetryAt: Date?
+    /// True from Stop until the final summary is written.
+    @ObservationIgnored var translationHeld = false
     @ObservationIgnored private var notesSaveTask: Task<Void, Never>?
     @ObservationIgnored private var markFeedbackTask: Task<Void, Never>?
     @ObservationIgnored private(set) var session: MeetingSession?
@@ -152,6 +162,7 @@ final class MeetingController {
             statusMessage = nil
             model.setSystemAudioCaptureObserved(true)
             startMonitor()
+            startTranslationLoop()
             onShowWindow?()
         } catch {
             isRecording = false
@@ -354,6 +365,13 @@ final class MeetingController {
         finalSummary = meeting.summary
         summaryState = .waiting
         answer = nil
+        showEnglish = meeting.showEnglish
+    }
+
+    /// Shows English the translation loop saved, also after Stop when no snapshot refresh runs.
+    func showTranslations(from meeting: MeetingManifest) {
+        guard meeting.id == shownMeetingID, segments != meeting.segments else { return }
+        segments = meeting.segments
     }
 
     /// Picks up transcript lines, marks and progress the session saved.
@@ -369,6 +387,8 @@ final class MeetingController {
         guard let session, isRecording || isPaused else { return }
         let recordedSeconds = elapsed
         await flushNotes()
+        translationHeld = true
+        defer { translationHeld = false }
         isRecording = false
         isPaused = false
         isTranscribing = true
@@ -413,6 +433,8 @@ final class MeetingController {
         await flushNotes()
         monitorTask?.cancel()
         monitorTask = nil
+        translationLoop?.cancel()
+        translationLoop = nil
         isRecording = false
         isPaused = false
         isTranscribing = false

@@ -216,7 +216,11 @@ struct MeetingWindowView: View {
                 segments: controller.segments,
                 marks: controller.marks,
                 elapsed: controller.elapsed,
-                isListening: controller.isRecording
+                isListening: controller.isRecording,
+                offersEnglish: controller.offersEnglish,
+                showEnglish: controller.showEnglish,
+                englishNeedsModel: controller.translationNeedsModel,
+                onShowEnglish: { show in Task { await controller.setShowEnglish(show) } }
             )
         case .summary:
             summary
