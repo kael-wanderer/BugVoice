@@ -47,7 +47,7 @@ struct MenuContent: View {
         }
         Divider()
         Button("Meetings…") { model.openMainWindow(.meetings) }
-        Button("Notes…") { model.openMainWindow(.notes) }
+        Button("Scratchpad…") { model.openMainWindow(.notes) }
         Button("Settings…") { model.openMainWindow(.settings) }.keyboardShortcut(",")
         Button("Permissions…") { model.openPermissionsWindow() }
         Button("Open data folder") { NSWorkspace.shared.open(model.paths.root) }

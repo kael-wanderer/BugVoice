@@ -31,6 +31,20 @@ struct MainWindow: View {
             }
         }
         .frame(minWidth: 820, minHeight: 560)
+        .overlay(alignment: .bottom) {
+            if let notice = model.notice {
+                Text(notice)
+                    .font(.callout)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 7)
+                    .background(.regularMaterial, in: Capsule())
+                    .overlay(Capsule().stroke(Color.secondary.opacity(0.25)))
+                    .padding(.bottom, 56)
+                    .transition(.opacity)
+                    .accessibilityAddTraits(.updatesFrequently)
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: model.notice)
         .alert(
             "Could not save",
             isPresented: Binding(

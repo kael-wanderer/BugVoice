@@ -31,7 +31,7 @@ enum Page: String, CaseIterable, Identifiable {
         case .style: "Style"
         case .meetings: "Meetings"
         case .upload: "Upload"
-        case .notes: "Notes"
+        case .notes: "Scratchpad"
         case .settings: "Settings"
         }
     }
@@ -109,6 +109,11 @@ final class AppModel {
     var notesIsListening = false
     var notesRecordingStartedAt: Date?
     var notesFocusRequest: UInt64 = 0
+    /// Open Scratchpad tabs. Saved to `settings.scratchpad` by slug.
+    var scratchpadTabs = ScratchpadTabs()
+    /// The capsule at the bottom of the main window; see `showNotice`.
+    var notice: String?
+    @ObservationIgnored var noticeTask: Task<Void, Never>?
     var permissionsGranted = Permissions.allGranted
     var permissionStatus: [PermissionKind: Bool] = [:]
     var systemAudioPermissionFailed = false
@@ -162,6 +167,7 @@ final class AppModel {
         settings = loaded
         isLoadingSettings = false
         applyPendingKeyMoves()
+        await restoreScratchpadTabs()
 
         await loadDictionary()
         await loadInsights()
@@ -208,7 +214,7 @@ final class AppModel {
         openMainWindow(.notes)
         Task { @MainActor in
             do {
-                _ = try await notesController.create(
+                try await createScratchpadNote(
                     frontMatter: NoteFrontMatter(folderID: notesFolderFilter.newItemFolderID))
                 notesFocusRequest &+= 1
             } catch {
