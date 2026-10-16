@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meeting Translation</title>
+<style>
+/* Meetings v2 (5b): live English translation under each transcript line. Spec: docs/superpowers/specs/2026-10-16-meetings-translation-design.md */
+:root {
+  --page: #e9ebf0; --win: #fcfcfb; --card: #ffffff; --line: #e6e4df; --chip: #f1efea;
+  --fg: #1c1f26; --muted: #737680; --faint: #b3b0a8; --accent: #3a6ff0; --accent-soft: #e4ebfd; --rec: #e5484d;
+  --you: #3a6ff0; --others: #8a57d6; --mark: #c27c00; --warn: #c76a00;
+  --app: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+  --serif: "New York", "Iowan Old Style", Georgia, serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --page: #0d0e11; --win: #1b1c1f; --card: #222327; --line: #2f3035; --chip: #2a2b30;
+  --fg: #ecebe8; --muted: #9a9ca5; --faint: #5f6068; --accent: #6e93ff; --accent-soft: #23304f; --rec: #ff6b6b;
+  --you: #6e93ff; --others: #b48cf0; --mark: #f0b23c; --warn: #f0a050;
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --page: #0d0e11; --win: #1b1c1f; --card: #222327; --line: #2f3035; --chip: #2a2b30;
+  --fg: #ecebe8; --muted: #9a9ca5; --faint: #5f6068; --accent: #6e93ff; --accent-soft: #23304f; --rec: #ff6b6b;
+  --you: #6e93ff; --others: #b48cf0; --mark: #f0b23c; --warn: #f0a050;
+  color-scheme: dark }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--fg); font-family: var(--app); font-size: 13px; line-height: 1.45; padding: 28px 16px 48px; }
+.frame { max-width: 1240px; margin: 0 auto; display: grid; gap: 14px; }
+h1 { font-size: 18px; margin: 0; }
+h2.sec { font-size: 13px; margin: 18px 0 0; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.caption { color: var(--muted); font-size: 12.5px; max-width: 110ch; margin: 0; }
+.caption b { color: var(--fg); }
+.bar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+.pills { display: inline-flex; flex-wrap: wrap; background: var(--chip); border-radius: 999px; padding: 3px; gap: 2px; }
+.pills button { font: inherit; border: 0; background: transparent; color: var(--muted); padding: 5px 13px; border-radius: 999px; cursor: pointer; }
+.pills button[aria-pressed="true"] { background: var(--card); color: var(--fg); font-weight: 600; box-shadow: 0 1px 2px rgb(0 0 0 / .14); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.row { display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-start; }
+.btn { font: inherit; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--chip); color: var(--fg); padding: 3px 9px; border-radius: 7px; font-size: 11.5px; white-space: nowrap; }
+
+/* Meeting window (right third), Transcript tab */
+.win { width: 400px; max-width: 100%; height: 640px; background: var(--win); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 18px 50px rgb(0 0 0 / .18); display: grid; grid-template-rows: auto auto auto auto 1fr auto; overflow: hidden; }
+.top { display: flex; align-items: center; gap: 8px; padding: 10px 12px 6px; }
+.lights { display: flex; gap: 6px; }
+.lights i { width: 10px; height: 10px; border-radius: 50%; background: #ff5f57; }
+.lights i:nth-child(2) { background: #febc2e; } .lights i:nth-child(3) { background: #28c840; }
+.sp { flex: 1; }
+.rec { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--rec); }
+.clock { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--muted); }
+.head { padding: 2px 16px 6px; font-family: var(--serif); font-size: 22px; }
+.tabs { display: flex; justify-content: center; padding: 0 12px 8px; }
+.tbar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.tbar .search { flex: 1; min-width: 80px; border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; color: var(--faint); font-size: 12px; background: var(--card); }
+.switch { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; white-space: nowrap; cursor: pointer; user-select: none; }
+.switch i { width: 26px; height: 15px; border-radius: 999px; background: var(--faint); position: relative; transition: background .15s; }
+.switch i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 11px; height: 11px; border-radius: 50%; background: #fff; transition: left .15s; }
+.switch[aria-checked="true"] i { background: var(--accent); }
+.switch[aria-checked="true"] i::after { left: 13px; }
+.note { width: 100%; font-size: 11px; color: var(--warn); }
+.lines { overflow: auto; padding: 12px; display: grid; gap: 8px; align-content: start; }
+.ln { display: grid; grid-template-columns: 44px 46px 1fr; column-gap: 8px; }
+.ln .t { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; padding-top: 1px; }
+.ln .s { font-size: 11px; font-weight: 600; color: var(--muted); padding-top: 1px; }
+.ln .s.you { color: var(--you); }
+.ln .en { grid-column: 3; font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+.hide-en .en { display: none; }
+.mk { font-size: 11px; font-weight: 600; color: var(--mark); }
+.listen { color: var(--muted); font-size: 12.5px; }
+.ask { border-top: 1px solid var(--line); padding: 10px 12px; display: flex; gap: 8px; }
+.ask div { flex: 1; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; color: var(--faint); background: var(--card); }
+
+/* Detail page */
+.detail { flex: 1; min-width: 320px; max-width: 760px; background: var(--win); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; display: grid; gap: 12px; align-content: start; }
+.detail .title { font-size: 20px; font-weight: 600; }
+.player { height: 34px; border-radius: 8px; background: var(--chip); display: flex; align-items: center; padding: 0 12px; gap: 10px; color: var(--muted); font-size: 12px; }
+.player i { flex: 1; height: 4px; border-radius: 2px; background: linear-gradient(90deg, var(--accent) 30%, var(--line) 30%); }
+.dline { display: grid; grid-template-columns: 108px 60px 1fr; column-gap: 12px; padding: 7px 9px; border-radius: 6px; }
+.dline.active { background: var(--accent-soft); }
+.dline .t { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.dline .s { font-size: 11.5px; font-weight: 600; }
+.dline .en { grid-column: 3; font-size: 12px; color: var(--muted); margin-top: 2px; }
+.dtop { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+pre.export { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; font-size: 12px; overflow-x: auto; margin: 0; }
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="bar">
+    <h1>Meetings v2 (5b): live English translation</h1>
+    <div class="pills" role="group" aria-label="Theme">
+      <button data-theme-btn="auto" aria-pressed="true">Auto</button>
+      <button data-theme-btn="light" aria-pressed="false">Light</button>
+      <button data-theme-btn="dark" aria-pressed="false">Dark</button>
+    </div>
+  </div>
+  <p class="caption">Each non-English line gets its English in a smaller grey line under it, a few seconds after it appears. English lines get none. <b>Show English</b> hides the English and stops new requests. Uses the Meetings model; saved with the meeting.</p>
+
+  <h2 class="sec">Meeting window · Transcript tab</h2>
+  <div class="row">
+    <div>
+      <p class="caption" style="margin-bottom:8px"><b>A.</b> Show English on (click the switch to try off).</p>
+      <div class="win" id="winA">
+        <div class="top"><div class="lights"><i></i><i></i><i></i></div><span class="sp"></span><span class="rec"><span class="dot"></span>Recording</span><span class="clock">14:32</span></div>
+        <div class="head">Reunión mensual</div>
+        <div class="tabs"><div class="pills"><button>My notes</button><button aria-pressed="true">Transcript</button><button>Summary</button></div></div>
+        <div class="tbar">
+          <span class="clock">14:32</span><span class="search">Search</span><span class="btn">Copy</span>
+          <span class="switch" role="switch" aria-checked="true" tabindex="0" data-target="winA"><i></i>Show English</span>
+        </div>
+        <div class="lines">
+          <div class="ln"><span class="t">12:58</span><span class="s">Others</span><span>Buenos días a todos, empecemos con el presupuesto.</span><span class="en">Good morning everyone, let's start with the budget.</span></div>
+          <div class="ln"><span class="t">13:06</span><span class="s you">You</span><span>Sounds good, I have the numbers ready.</span></div>
+          <div class="ln"><span class="t">13:15</span><span class="s">Others</span><span>El gasto de marketing subió un quince por ciento en septiembre.</span><span class="en">Marketing spend went up fifteen percent in September.</span></div>
+          <div class="mk">Mark · 13:40</div>
+          <div class="ln"><span class="t">13:41</span><span class="s">Others</span><span>¿Podemos mover el lanzamiento a noviembre?</span><span class="en">Can we move the launch to November?</span></div>
+          <div class="ln"><span class="t">13:52</span><span class="s you">You</span><span>Yes, if the QA build is ready by the 20th.</span></div>
+          <div class="ln"><span class="t">14:20</span><span class="s">Others</span><span>Perfecto, entonces lo dejamos para la próxima semana.</span></div>
+          <div class="listen">Listening…</div>
+        </div>
+        <div class="ask"><div>Ask anything about this meeting</div><span class="btn">What did I miss?</span></div>
+      </div>
+      <p class="caption" style="margin-top:8px;max-width:400px">The 14:20 line arrived a moment ago; its English shows when the next request returns. No per-line spinner.</p>
+    </div>
+    <div>
+      <p class="caption" style="margin-bottom:8px"><b>B.</b> No Meetings model set.</p>
+      <div class="win">
+        <div class="top"><div class="lights"><i></i><i></i><i></i></div><span class="sp"></span><span class="rec"><span class="dot"></span>Recording</span><span class="clock">03:10</span></div>
+        <div class="head">Họp nhóm</div>
+        <div class="tabs"><div class="pills"><button>My notes</button><button aria-pressed="true">Transcript</button><button>Summary</button></div></div>
+        <div class="tbar">
+          <span class="clock">03:10</span><span class="search">Search</span><span class="btn">Copy</span>
+          <span class="switch" role="switch" aria-checked="true" tabindex="0"><i></i>Show English</span>
+          <span class="note">English needs a Meetings model.</span>
+        </div>
+        <div class="lines">
+          <div class="ln"><span class="t">2:41</span><span class="s">Others</span><span>Tuần này mình cần chốt bản thiết kế.</span></div>
+          <div class="ln"><span class="t">2:55</span><span class="s you">You</span><span>Ok, để em gửi bản mới chiều nay.</span></div>
+          <div class="listen">Listening…</div>
+        </div>
+        <div class="ask"><div>Ask anything about this meeting</div><span class="btn">What did I miss?</span></div>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="sec">Meeting detail page · Transcript</h2>
+  <p class="caption">Saved English shows under each line. The switch appears when any line has English; it saves on the meeting, so the window and the page agree.</p>
+  <div class="detail" id="detail">
+    <div class="title">Reunión mensual</div>
+    <div class="player">0:00<i></i>42:10</div>
+    <div class="pills" style="justify-self:start"><button aria-pressed="true">Transcript</button><button>Summary</button><button>Action items</button><button>My notes</button></div>
+    <div class="dtop"><span></span><span class="switch" role="switch" aria-checked="true" tabindex="0" data-target="detail"><i></i>Show English</span></div>
+    <div>
+      <div class="dline"><span class="t">12:58 – 13:05</span><span class="s">Others</span><span>Buenos días a todos, empecemos con el presupuesto.</span><span class="en">Good morning everyone, let's start with the budget.</span></div>
+      <div class="dline"><span class="t">13:06 – 13:12</span><span class="s">You</span><span>Sounds good, I have the numbers ready.</span></div>
+      <div class="dline active"><span class="t">13:15 – 13:24</span><span class="s">Others</span><span>El gasto de marketing subió un quince por ciento en septiembre.</span><span class="en">Marketing spend went up fifteen percent in September.</span></div>
+      <div class="dline"><span class="t">13:41 – 13:46</span><span class="s">Others</span><span>¿Podemos mover el lanzamiento a noviembre?</span><span class="en">Can we move the launch to November?</span></div>
+    </div>
+  </div>
+
+  <h2 class="sec">Markdown export</h2>
+  <pre class="export">## Transcript
+12:58 | Others | Buenos días a todos, empecemos con el presupuesto.
+  English: Good morning everyone, let's start with the budget.
+13:06 | You | Sounds good, I have the numbers ready.
+13:15 | Others | El gasto de marketing subió un quince por ciento en septiembre.
+  English: Marketing spend went up fifteen percent in September.</pre>
+</div>
+<script>
+document.querySelectorAll('[data-theme-btn]').forEach(b => b.addEventListener('click', () => {
+  const t = b.dataset.themeBtn;
+  if (t === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.dataset.theme = t;
+  document.querySelectorAll('[data-theme-btn]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+}));
+document.querySelectorAll('.switch').forEach(s => {
+  const flip = () => {
+    const on = s.getAttribute('aria-checked') !== 'true';
+    s.setAttribute('aria-checked', String(on));
+    const target = s.dataset.target && document.getElementById(s.dataset.target);
+    if (target) target.classList.toggle('hide-en', !on);
+  };
+  s.addEventListener('click', flip);
+  s.addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); flip(); } });
+});
+</script>
+</body>
+</html>
