@@ -274,6 +274,13 @@ Run after building with `Scripts/build-app.sh`. Results stay blank until run on 
 | 185 | Meeting window | Stop | Top bar shows Transcribing N%, then Finished; the Summary tab shows the final summary following the note headings; the dock shows Open in Meetings and Close | |
 | 186 | Meeting detail | Open the meeting: My notes tab, edit it; playback timeline; Transcript; Send to Scratchpad › My notes; Export › Markdown | Notes show and save; marks are orange ticks and Mark lines, a click plays from the mark; Send creates "Title · My notes"; the export has `## My notes` | |
 | 187 | Meeting window | Quit BugVoice with Force Quit 5 s after typing notes during a meeting; relaunch | The recovered meeting keeps the notes | |
+| 188 | Meeting translation | Start a meeting with languages EN · ES (or EN · VI); open Transcript; play Spanish speech (`say -v "Eddy (Spanish (Spain))" "Buenos días a todos"`) and English speech | Show English switch in the Transcript bar, on; each Spanish line gets a smaller grey English line under it within about 10 s of appearing; English lines get none | |
+| 189 | Meeting translation | Start a meeting with languages EN only | No Show English switch; no English lines | |
+| 190 | Meeting translation | Turn Show English off, talk, turn it on | Off hides the English and no new lines get it; on shows them again and the new lines get English | |
+| 191 | Meeting translation | Set the Meetings model to none; start an EN · ES meeting | "English needs a Meetings model." under the Transcript bar; recording goes on | |
+| 192 | Meeting translation | Stop | After the final summary, the final lines show English (most carried over at once, the rest within a minute) | |
+| 193 | Meeting detail | Open the meeting: Transcript; Show English off and on; Export › Markdown; search the Meetings list for an English word | English under each translated line; the switch hides it and is kept; the export has `  English: …` under translated lines; search finds the meeting | |
+| 194 | Meeting translation | Hold Right Option and dictate during an EN · ES meeting | Dictation is not slowed; translation waits for it | |
 
 Review-focus inputs: zero-length file; 48 kHz stereo or 5.1; video track only;
 source removed/moved while reading; three-hour-or-longer file. A reader already

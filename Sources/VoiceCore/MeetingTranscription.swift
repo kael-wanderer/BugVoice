@@ -351,6 +351,8 @@ public enum MeetingTranscriptMerger {
                 if overlap == currentWords.count { continue }
                 let pieces = segment.text.split(whereSeparator: \.isWhitespace)
                 segment.text = pieces.dropFirst(overlap).joined(separator: " ")
+                // The English was for the longer text.
+                segment.translation = nil
                 if !segment.text.isEmpty { merged.append(segment) }
             }
             previousChunkByTrack[chunk.record.track] = chunk

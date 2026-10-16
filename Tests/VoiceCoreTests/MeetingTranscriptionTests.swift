@@ -198,6 +198,20 @@ struct MeetingTranscriptionTests {
         #expect(merged.map(\.start) == [28, 28, 29])
     }
 
+    @Test func trimmedLineLosesItsTranslationAndUntouchedLineKeepsIt() {
+        let first = chunkResult("mic-0", track: .mic, offset: 0, duration: 30, segments: [
+            .init(start: 28, end: 29.5, text: "vamos el viernes", track: .mic, sourceChunkID: "mic-0", translation: "let's go Friday")
+        ])
+        let second = chunkResult("mic-1", track: .mic, offset: 29, duration: 30, segments: [
+            .init(start: 29, end: 30, text: "el viernes después", track: .mic, sourceChunkID: "mic-1", translation: "on Friday after")
+        ])
+
+        let merged = MeetingTranscriptMerger.merge([first, second], overlapWindow: 2)
+
+        #expect(merged.map(\.text) == ["vamos el viernes", "después"])
+        #expect(merged.map(\.translation) == ["let's go Friday", nil])
+    }
+
     private func chunkResult(
         _ id: String,
         track: MeetingTrack,

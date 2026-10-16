@@ -20,9 +20,12 @@ public enum MeetingExporter {
             lines += ["## Action items", actionItems, ""]
         }
         lines.append("## Transcript")
-        lines.append(contentsOf: ordered(meeting.segments).map {
-            "\(displayTime($0.start)) | \($0.speaker) | \(flattenNewlines($0.text))"
-        })
+        for segment in ordered(meeting.segments) {
+            lines.append("\(displayTime(segment.start)) | \(segment.speaker) | \(flattenNewlines(segment.text))")
+            if let english = segment.translation, !english.isEmpty {
+                lines.append("  English: \(flattenNewlines(english))")
+            }
+        }
         return lines.joined(separator: "\n")
     }
 
