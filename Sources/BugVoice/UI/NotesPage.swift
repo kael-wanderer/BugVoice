@@ -12,6 +12,9 @@ struct NotesPage: View {
     @State private var confirmDelete = false
     @State private var confirmExternalReload = false
     @State private var managingFolders = false
+    @State private var assistant = ScratchpadAssistant()
+    @State private var caretToEndRequested = false
+    @State private var dictateWhenCaretPlaced = false
 
     private var controller: NotesController { model.notesController }
     private var selectedNote: NoteDocument? {
@@ -80,11 +83,15 @@ struct NotesPage: View {
         }
         .task {
             await controller.reloadList()
-            if controller.selectedNoteID == nil, let first = controller.notes.first {
-                try? await controller.select(id: first.id)
+            model.syncScratchpadTabs()
+            if model.scratchpadTabs.ids.isEmpty, let first = controller.notes.first {
+                try? await model.openNoteTab(first.id)
                 bodyFocusRequested = true
             }
         }
+        .onChange(of: controller.notes) { _, _ in model.syncScratchpadTabs() }
+        .onChange(of: controller.selectedNoteID) { _, _ in assistant.close() }
+        .background { transformShortcuts }
         .onChange(of: model.notesFocusRequest) { _, _ in
             bodyFocusRequested = true
         }
@@ -139,7 +146,7 @@ struct NotesPage: View {
                         Button {
                             Task {
                                 do {
-                                    try await controller.select(id: item.id)
+                                    try await model.openNoteTab(item.id)
                                     bodyFocusRequested = true
                                 }
                                 catch { model.saveError = "Could not save the current note: \(error.localizedDescription)" }
@@ -158,11 +165,11 @@ struct NotesPage: View {
                                     }
                                 }
                             }
-                            Button("Tags…") { Task { try? await controller.select(id: item.id) } }
+                            Button("Tags…") { Task { try? await model.openNoteTab(item.id) } }
                             Divider()
                             Button("Delete…", role: .destructive) {
                                 Task {
-                                    try? await controller.select(id: item.id)
+                                    try? await model.openNoteTab(item.id)
                                     confirmDelete = true
                                 }
                             }
@@ -178,7 +185,13 @@ struct NotesPage: View {
 
     private func noteRow(_ item: NotesListItem) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(item.title).font(.headline).lineLimit(1)
+            HStack(spacing: 6) {
+                if model.scratchpadTabs.isOpen(item.id) {
+                    Circle().fill(Color.accentColor).frame(width: 6, height: 6)
+                        .accessibilityLabel("Open in a tab")
+                }
+                Text(item.title).font(.headline).lineLimit(1)
+            }
             HStack(spacing: 6) {
                 Text(item.modifiedAt.formatted(date: .abbreviated, time: .shortened))
                 Text("·")
@@ -197,7 +210,15 @@ struct NotesPage: View {
         .contentShape(Rectangle())
     }
 
-    @ViewBuilder private var editor: some View {
+    private var editor: some View {
+        VStack(spacing: 0) {
+            ScratchpadTabBar(model: model, onNew: createNote)
+            Divider()
+            noteEditor
+        }
+    }
+
+    @ViewBuilder private var noteEditor: some View {
         if let note = selectedNote {
             VStack(spacing: 0) {
                 HStack(spacing: 10) {
@@ -214,7 +235,6 @@ struct NotesPage: View {
                             Task { await controller.commitTitle(id: note.id, reason: .focusOut) }
                         }
                     }
-                    Button("Copy as Markdown") { copyMarkdown(note) }
                     Button("Export…") { exportMarkdown(note) }
                     Button {
                         confirmDelete = true
@@ -228,7 +248,7 @@ struct NotesPage: View {
                 .padding(.top, 16)
                 .padding(.bottom, 6)
 
-                Text("Markdown · saved to Notes/\(note.slug).md · style: document")
+                Text("Saved to Notes/\(note.slug).md")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -249,13 +269,29 @@ struct NotesPage: View {
 
                 statusRow(for: note)
 
-                NotesBodyEditor(
-                    controller: controller,
-                    noteID: note.id,
-                    body: note.body,
-                    focusRequested: $bodyFocusRequested
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                editorToolbar(for: note)
+                Divider()
+
+                if model.scratchpadView == .markdown {
+                    NotesBodyEditor(
+                        controller: controller,
+                        noteID: note.id,
+                        body: note.body,
+                        focusRequested: $bodyFocusRequested,
+                        caretToEndRequested: $caretToEndRequested,
+                        onCaretPlaced: caretPlaced
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    MarkdownDocView(text: note.body) { line in
+                        if let body = MarkdownCommands.toggleTask(in: note.body, line: line) {
+                            controller.updateBody(id: note.id, body: body)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+
+                TransformPanel(assistant: assistant, model: model, noteID: note.id)
 
                 listeningBar
             }
@@ -268,6 +304,116 @@ struct NotesPage: View {
                 Button("New note") { createNote() }
             }
         }
+    }
+
+    private func editorToolbar(for note: NoteDocument) -> some View {
+        HStack(spacing: 8) {
+            if model.scratchpadView == .markdown {
+                MarkdownToolbar { command in run(command, on: note.id) }
+            } else {
+                Text("Doc view is read only. Switch to Markdown to edit.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 8)
+            NotesMicButton(
+                disabled: model.isListening || model.dictation?.isBusy == true || model.notesIsListening,
+                action: dictate
+            )
+            .fixedSize()
+            copyAsMenu(note)
+            transformsMenu(note)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 6)
+    }
+
+    private func copyAsMenu(_ note: NoteDocument) -> some View {
+        Menu("Copy as") {
+            Section("Copy whole note") {
+                Button("Markdown") { copyMarkdown(note) }
+                Button("Plain text") { copyPlainText(note) }
+            }
+            Section("Rewrite with a Style, then copy") {
+                ForEach(Style.allCases, id: \.self) { style in
+                    Button(style.title) { copyWithStyle(style, note: note) }
+                }
+            }
+        }
+        .fixedSize()
+    }
+
+    private func transformsMenu(_ note: NoteDocument) -> some View {
+        Menu("Transforms") {
+            Section(currentInput(note.id)?.header ?? "Whole note") {
+                ForEach(NoteTransform.allCases, id: \.self) { transform in
+                    Button("\(transform.title)    ⌘\(String(transform.shortcutKey))") { runTransform(transform) }
+                }
+                Button("Ask a question…    ⌘J") { startAsk() }
+            }
+            Section("Notes model · \(model.transformPlan.shortName ?? "none")") {}
+        }
+        .fixedSize()
+        .disabled(assistant.isBusy)
+    }
+
+    /// ⌘1…⌘4 and ⌘J, active while the Scratchpad page is shown.
+    private var transformShortcuts: some View {
+        ZStack {
+            ForEach(NoteTransform.allCases, id: \.self) { transform in
+                Button("") { runTransform(transform) }
+                    .keyboardShortcut(KeyEquivalent(transform.shortcutKey), modifiers: .command)
+            }
+            Button("") { startAsk() }
+                .keyboardShortcut("j", modifiers: .command)
+        }
+        .opacity(0)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    private func currentInput(_ id: NoteID) -> TransformInput? {
+        TransformInput.capture(noteID: id, controller: controller, useSelection: model.scratchpadView == .markdown)
+    }
+
+    private func runTransform(_ transform: NoteTransform) {
+        guard let id = controller.selectedNoteID, let input = currentInput(id) else { return }
+        assistant.run(transform, input: input, model: model)
+    }
+
+    private func startAsk() {
+        guard let id = controller.selectedNoteID, let input = currentInput(id) else { return }
+        assistant.startAsk(input: input)
+    }
+
+    private func run(_ command: MarkdownToolbarCommand, on id: NoteID) {
+        guard let body = controller.note(id: id)?.body else { return }
+        let selection = ScratchpadEditing.selection(of: id, controller: controller)
+        guard selection.isValid(inUTF16Length: (body as NSString).length) else { return }
+        let edit: MarkdownEdit = switch command {
+        case .inline(let marker): MarkdownCommands.toggleInline(marker, in: body, selection: selection)
+        case .line(let format): MarkdownCommands.toggleLineFormat(format, in: body, selection: selection)
+        case .link: MarkdownCommands.insertLink(in: body, selection: selection)
+        }
+        ScratchpadEditing.apply(edit, to: id, controller: controller)
+        bodyFocusRequested = true
+    }
+
+    /// In Doc view, switch to Markdown and put the caret at the end first.
+    private func dictate() {
+        if model.scratchpadView == .doc {
+            model.scratchpadView = .markdown
+            caretToEndRequested = true
+            dictateWhenCaretPlaced = true
+        } else {
+            model.dictation?.toggleNotesRecording()
+        }
+    }
+
+    private func caretPlaced() {
+        guard dictateWhenCaretPlaced else { return }
+        dictateWhenCaretPlaced = false
+        model.dictation?.toggleNotesRecording()
     }
 
     @ViewBuilder private func statusRow(for note: NoteDocument) -> some View {
@@ -319,10 +465,6 @@ struct NotesPage: View {
                 Button("Stop") { model.dictation?.toggleNotesRecording() }
                     .keyboardShortcut(.escape)
             } else {
-                NotesMicButton(
-                    disabled: model.isListening || model.dictation?.isBusy == true,
-                    action: { model.dictation?.toggleNotesRecording() }
-                )
                 Spacer()
                 Text("Hold Right Option to dictate at the caret")
                     .font(.caption)
@@ -337,7 +479,7 @@ struct NotesPage: View {
     private func createNote() {
         Task {
             do {
-                _ = try await controller.create(frontMatter: NoteFrontMatter(folderID: model.notesFolderFilter.newItemFolderID))
+                try await model.createScratchpadNote(frontMatter: NoteFrontMatter(folderID: model.notesFolderFilter.newItemFolderID))
                 bodyFocusRequested = true
             } catch {
                 model.saveError = "Could not create note: \(error.localizedDescription)"
@@ -348,7 +490,7 @@ struct NotesPage: View {
     private func deleteSelected() {
         guard let id = controller.selectedNoteID else { return }
         Task {
-            do { try await controller.delete(id: id, confirmed: true) }
+            do { try await model.deleteNote(id) }
             catch { model.saveError = "Could not move note to the Trash: \(error.localizedDescription)" }
         }
     }
@@ -360,6 +502,26 @@ struct NotesPage: View {
             let text = NotesExporter.markdown(title: latest.title, body: latest.body)
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(text, forType: .string)
+            model.showNotice("Copied as Markdown")
+        }
+    }
+
+    private func copyPlainText(_ note: NoteDocument) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(MarkdownPlainText.convert(note.body), forType: .string)
+        model.showNotice("Copied as plain text")
+    }
+
+    private func copyWithStyle(_ style: Style, note: NoteDocument) {
+        guard let input = currentInput(note.id), !assistant.isBusy else { return }
+        assistant.phase = .running("Working… \(style.title) · \(input.words) words")
+        Task {
+            do {
+                try await model.copyWithStyle(style, text: input.text)
+                assistant.phase = .idle
+            } catch {
+                assistant.phase = .failed(ScratchpadAssistant.message(for: error))
+            }
         }
     }
 
@@ -407,8 +569,8 @@ private struct NotesMicButton: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> NSButton {
-        let button = NonFocusNSButton(title: "Dictate into note", target: context.coordinator, action: #selector(Coordinator.activate))
-        button.image = NSImage(systemSymbolName: "mic", accessibilityDescription: "Dictate into note")
+        let button = NonFocusNSButton(title: "Dictate", target: context.coordinator, action: #selector(Coordinator.activate))
+        button.image = NSImage(systemSymbolName: "mic", accessibilityDescription: "Dictate")
         button.imagePosition = .imageLeading
         button.bezelStyle = .rounded
         button.setButtonType(.momentaryPushIn)
@@ -439,6 +601,8 @@ private struct NotesBodyEditor: NSViewRepresentable {
     let noteID: NoteID
     let body: String
     @Binding var focusRequested: Bool
+    @Binding var caretToEndRequested: Bool
+    let onCaretPlaced: () -> Void
 
     func makeCoordinator() -> Coordinator {
         Coordinator(controller: controller, noteID: noteID)
@@ -450,7 +614,8 @@ private struct NotesBodyEditor: NSViewRepresentable {
         editor.isRichText = false
         editor.importsGraphics = false
         editor.allowsUndo = true
-        editor.font = .monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
+        editor.font = MarkdownTextStyler.bodyFont
+        editor.typingAttributes = [.font: MarkdownTextStyler.bodyFont, .foregroundColor: NSColor.labelColor]
         editor.drawsBackground = false
         editor.textContainerInset = NSSize(width: 8, height: 10)
         editor.string = body
@@ -470,6 +635,7 @@ private struct NotesBodyEditor: NSViewRepresentable {
         scroll.documentView = editor
         controller.attachEditor(editor, to: noteID)
         context.coordinator.editor = editor
+        context.coordinator.restyle()
         return scroll
     }
 
@@ -485,6 +651,16 @@ private struct NotesBodyEditor: NSViewRepresentable {
             let selection = editor.selectedRange()
             editor.string = body
             editor.setSelectedRange(NSRange(location: min(selection.location, (body as NSString).length), length: 0))
+            context.coordinator.restyle()
+        }
+        if caretToEndRequested {
+            let end = NSRange(location: (editor.string as NSString).length, length: 0)
+            editor.setSelectedRange(end)
+            controller.updateSelection(id: noteID, range: end)
+            DispatchQueue.main.async {
+                caretToEndRequested = false
+                onCaretPlaced()
+            }
         }
         if focusRequested, let window = editor.window {
             window.makeFirstResponder(editor)
@@ -511,6 +687,13 @@ private struct NotesBodyEditor: NSViewRepresentable {
         func textDidChange(_ notification: Notification) {
             guard let editor else { return }
             controller.updateBody(id: noteID, body: editor.string)
+            restyle()
+        }
+
+        func restyle() {
+            guard let editor, let storage = editor.textStorage else { return }
+            MarkdownTextStyler.apply(to: storage)
+            editor.typingAttributes = [.font: MarkdownTextStyler.bodyFont, .foregroundColor: NSColor.labelColor]
         }
 
         func textViewDidChangeSelection(_ notification: Notification) {

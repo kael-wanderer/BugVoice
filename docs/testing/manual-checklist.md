@@ -212,7 +212,6 @@ Run after building with `Scripts/build-app.sh`. Results stay blank until run on 
 | 123 | Meetings | Right-click a meeting row; choose Rename…; save. Click a row on its badge, status, time or last line | New title shows in list and details; clicking anywhere on the card selects it | |
 | 124 | Notes | Dictate twice at the end of a note | The second dictation starts after a space, never glued to the last word | |
 | 125 | Notes / Dictation | With a local 27B model and a 3 s limit, dictate about 45 words into a note and into Notion | Both are cleaned (punctuation, no fillers), not raw; short dictations stay as fast as before | |
-
 | 126 | Meetings / Notes | Folder menu → New folder… "Project A"; Manage folders… rename it "Project Atlas"; try "unfiled" and a duplicate | Folder appears on both pages; rename keeps its items; reserved and duplicate names show the message | |
 | 127 | Meetings | Filter by a folder, then add a tag chip; search "#tag" | List shows only matching meetings; counts in the menu match | |
 | 128 | Meetings / Notes | Right-click a row → Move to folder › another folder | Row leaves the filtered list and appears under the new folder | |
@@ -223,6 +222,21 @@ Run after building with `Scripts/build-app.sh`. Results stay blank until run on 
 | 133 | Notes | Tag and file a note, then open its .md file in TextEdit or Obsidian | File starts with --- folder/tags --- then # Title; other apps' keys kept after an edit | |
 | 134 | Meetings | While recording, change the meeting's folder and tags; stop | Labels kept after transcription finishes | |
 | 135 | Notes | Open a note that has text (fresh launch, then select another note and back) | Body text shows in the editor and wraps at the window width (BV-0006) | |
+| 136 | Scratchpad | Open 3 notes from the list; quit and relaunch; rename one, quit and relaunch | Same tabs and active tab after each launch; blue dot on open rows; sidebar and menu say Scratchpad | |
+| 137 | Scratchpad | Close the active middle tab, then the last, then the only one | Right neighbor activates, then the left one, then "Select a note"; notes are saved, not deleted | |
+| 138 | Scratchpad | Delete a note that is open in a tab | Its tab closes; the next tab is shown | |
+| 139 | Scratchpad | Type `# H`, `**b**`, `_i_`, `~~s~~`, `` `c` ``, `[t](https://a.b)`, `- [x] done`, `> q` and a fenced block | Headings sized, marks grey, link blue, done task struck, code monospaced on a tint; text unchanged on disk | |
+| 140 | Scratchpad | Select a word; press ⌘B, ⌘B, ⌘I, Strikethrough, Code, ⌘K; press ⌘Z after each | Wraps then unwraps; link selects https://; each ⌘Z undoes exactly one command | |
+| 141 | Scratchpad | Select 3 lines (one blank); press Numbered, then Numbered again; Checklist on an empty line; H1 on a bullet | 1. 2. skipping the blank, then removed; "- [ ] " added; bullet replaced by "# " | |
+| 142 | Scratchpad | Switch to Doc; click a task box; click a link; switch back | Rendered view; box toggles [ ]/[x] in the file; link opens in the browser; choice remembered after relaunch | |
+| 143 | Scratchpad | Select a Vietnamese paragraph with a typo; Transforms → Polish (⌘1); Replace; ⌘Z | Working… then preview with word diff and model name; Replace swaps the text; one ⌘Z restores it; still Vietnamese | |
+| 144 | Scratchpad | Run More concise with no selection; type in the note before it finishes | Preview says "The note changed. Run the transform again."; Replace and Insert below disabled | |
+| 145 | Scratchpad | Bullet points (⌘4) on a paragraph; Insert below | Blank line, then the list after the paragraph's last line; original kept | |
+| 146 | Scratchpad | Ask a question (⌘J) about a fact in the note and one not in it; Insert below | Short answer under "From this note:"; missing fact says so in one sentence; answer appended at the end | |
+| 147 | Scratchpad | Set the Notes model to none; run Polish. Select over 12,000 characters; run Polish | "Choose a Notes model in Settings → Models." / "Select less text. Transforms handle up to 12,000 characters." | |
+| 148 | Scratchpad | Copy as → Markdown, Plain text, Email; paste each into TextEdit | Markdown has # title; Plain text has no marks and links as text (url); Email rewrite pasted; notice "Copied as Email"; note unchanged | |
+| 149 | Meetings | On a meeting with a summary: Send to Scratchpad; More → Send to Scratchpad → Transcript | Notice "Sent to Scratchpad as “<title> · Summary”"; stays on Meetings; notes have the meeting's folder and tags; transcript lines read m:ss Speaker: text | |
+| 150 | Scratchpad | In Doc view press Dictate and speak; then hold Right Option in Markdown view mid-paragraph | Switches to Markdown and adds the text at the end; second dictation lands at the caret | |
 
 Review-focus inputs: zero-length file; 48 kHz stereo or 5.1; video track only;
 source removed/moved while reading; three-hour-or-longer file. A reader already

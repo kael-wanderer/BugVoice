@@ -22,6 +22,11 @@ Folders and tags (roadmap item 9) merged on `main`: spec
 `docs/superpowers/specs/2026-10-15-folders-tags-design.md`, plan
 `docs/superpowers/plans/2026-10-15-folders-tags.md`. Device checks 126–134 pending.
 
+Scratchpad (roadmap item 8) built on branch `feat/scratchpad`: spec
+`docs/superpowers/specs/2026-10-15-scratchpad-design.md`, plan
+`docs/superpowers/plans/2026-10-15-scratchpad.md`. Awaiting review and merge;
+device checks 136–150 pending.
+
 **Packaging:** app icon (Antenna Mic) and `Scripts/build-dmg.sh`; current version 0.1.0 build 10.
 
 ### Pending maintainer checks (deferred by the maintainer, 2026-10-14)

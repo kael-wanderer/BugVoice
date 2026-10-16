@@ -363,6 +363,12 @@ private struct MeetingDetails: View {
                     Button("SubRip captions…") { export(.srt) }
                     Button("Audio…") { export(.audio) }
                 }
+                Menu("Send to Scratchpad") {
+                    ForEach(ScratchpadSendKind.allCases, id: \.self) { kind in
+                        Button(kind.title) { Task { await model.sendToScratchpad(kind, meeting: meeting) } }
+                            .disabled(kind.text(of: meeting) == nil)
+                    }
+                }
                 Divider()
                 Button("Delete…", role: .destructive) { showDelete = true }
             }
@@ -424,6 +430,11 @@ private struct MeetingDetails: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(meeting.segments.isEmpty)
+                    if let value, !value.isEmpty {
+                        Button("Send to Scratchpad") {
+                            Task { await model.sendToScratchpad(kind == .summary ? .summary : .actionItems, meeting: meeting) }
+                        }
+                    }
                 }
             }
         }

@@ -161,6 +161,36 @@ extension LibrarySettings {
     }
 }
 
+public enum NoteViewMode: String, Codable, Sendable, CaseIterable {
+    case markdown, doc
+
+    public var title: String {
+        switch self {
+        case .markdown: "Markdown"
+        case .doc: "Doc"
+        }
+    }
+}
+
+/// Open Scratchpad tabs by note slug, and the view every note uses.
+public struct ScratchpadSettings: Codable, Equatable, Sendable {
+    public var openTabs: [String] = []
+    public var activeTab: String?
+    public var view: NoteViewMode = .markdown
+
+    public init() {}
+}
+
+extension ScratchpadSettings {
+    public init(from decoder: Decoder) throws {
+        self.init()
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        openTabs = c.value(.openTabs, default: openTabs)
+        activeTab = c.value(.activeTab, default: activeTab)
+        view = c.value(.view, default: view)
+    }
+}
+
 public struct AppSettings: Codable, Equatable, Sendable {
     public var hotkey: HotkeyKey = .rightOption
     public var handsFreeEnabled = true
@@ -176,6 +206,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var models = ModelSettings()
     public var styles = StyleSettings()
     public var library = LibrarySettings()
+    public var scratchpad = ScratchpadSettings()
 
     public init() {}
 }
@@ -267,5 +298,6 @@ extension AppSettings {
         }
         styles = c.value(.styles, default: styles)
         library = c.value(.library, default: library)
+        scratchpad = c.value(.scratchpad, default: scratchpad)
     }
 }
