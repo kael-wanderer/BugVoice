@@ -28,10 +28,16 @@ syncing a note open in two editors (there is only one editor now).
 
 ## 2. Scratchpad window
 
-- One window, `ScratchpadWindowController` in the `BugVoice` target. An `NSWindow` with
-  `.titled, .closable, .resizable, .fullSizeContentView`, hidden title, transparent title
-  bar, system traffic-light buttons hidden (the window draws its own Close). Content is a
-  SwiftUI `ScratchpadWindowView` in an `NSHostingView`. `isReleasedWhenClosed = false`.
+- One window, `ScratchpadWindowController` in the `BugVoice` target. An `NSPanel` subclass
+  (`canBecomeKey` and `canBecomeMain` true) with `.titled, .closable, .resizable,
+  .fullSizeContentView, .nonactivatingPanel`, hidden title, transparent title bar, system
+  traffic-light buttons hidden (the window draws its own Close). BugVoice is a menu bar
+  app, and macOS does not always let it come to the front: neither `NSApp.activate()` nor
+  a click on an ordinary window is enough, and keys then go to the other app. A
+  non-activating panel takes the keyboard without BugVoice becoming frontmost, as
+  Spotlight does. `hidesOnDeactivate = false`, `becomesKeyOnlyIfNeeded = false`. Content
+  is a SwiftUI `ScratchpadWindowView` in an `NSHostingController`, with the top safe area
+  ignored so the tabs sit at the top edge. `isReleasedWhenClosed = false`.
 - **Keep on top** (pin button, on by default, saved): level `.floating` when on, `.normal`
   when off. Collection behavior `.canJoinAllSpaces, .fullScreenAuxiliary`, so it shows over
   a full-screen app.
@@ -41,14 +47,14 @@ syncing a note open in two editors (there is only one editor now).
 - **Smaller / Larger** button: Smaller hides the notes list and sets the width to 440 pt
   (height kept); Larger restores the list and the width before. Saved.
 - **Opening:** the window remembers the app that was frontmost before it opened
-  (`NSWorkspace.shared.frontmostApplication`, ignored when it is BugVoice), then activates
-  BugVoice and becomes key with the caret in the note body.
+  (`NSWorkspace.shared.frontmostApplication`, ignored when it is BugVoice), asks to
+  activate BugVoice, and becomes key with the caret in the note body.
 - **Closing** (Close button; ⌘W closes only the active tab; Esc never closes the window):
   flushes all open notes, then orders out. Tabs stay for next time.
 - **Top bar:** app glyph, tabs (title, × on hover and on the active tab), `+` (new note),
   then Keep on top, Smaller/Larger, Close. Tabs are today's `ScratchpadTabs`, saved in
   `settings.scratchpad.openTabs` / `activeTab` as now.
-- **Side list** (180 pt; hidden by "Hide notes", saved): Hide notes, New note ⌘N, Search
+- **Side list** (190 pt; hidden by "Hide notes", saved): Hide notes, New note ⌘N, Search
   notes (filters the list below by title and body, as `NotesListProjection` does now), the
   notes list newest first with pinned notes on top (title, relative time, folder name), and
   at the bottom two switches: **AI** (sparkle) and **Formatting** (Aa). The chosen one is
@@ -62,8 +68,8 @@ syncing a note open in two editors (there is only one editor now).
 - **Listening bar:** today's "Listening · 00:12 · level · Text will be added to this note ·
   Stop" bar shows above the bottom bar while dictating into the window.
 - **Empty new notes:** a note created in this window whose title is still "Untitled" and
-  whose body is empty or whitespace is deleted (file removed, not trashed) when its tab
-  closes or the window closes. Notes created elsewhere are never deleted this way.
+  whose body is empty or whitespace is moved to the Trash (`deleteNote`) when its tab
+  closes or the window closes. Notes created elsewhere are never removed this way.
 
 ## 3. Scratchpad page
 
@@ -71,7 +77,7 @@ The page loses its editor, tab bar, toolbar and Transform panel. It becomes:
 
 - Header: "Scratchpad", **Open window ⌃⌥N** (opens the window on its last tab), **New note**
   (creates a note in the current folder filter and opens it in the window).
-- Filter row: folder menu and tag chips (as now); on the right Search (field expands),
+- Filter row: folder menu and tag chips (as now); on the right a Search field,
   Sort menu (Last edited, newest first — default; Last edited, oldest first; Title A–Z;
   saved), Refresh (reloads the list from disk).
 - Cards in a two-column grid (one column under 640 pt): title (pin glyph when pinned),
@@ -163,13 +169,13 @@ Any edit, tab switch or another AI change makes it inactive.
 The clock button lists AI changes in this note during this run of BugVoice, newest first,
 at most 20 per note: "Before Polish" / "Before More professional" /
 "Before “<first 40 characters of the message>”", time, word count. Each entry stores the
-whole body before the change. Choosing one shows Restore; Restore replaces the whole body
-with that version as one undoable edit. Kept in memory only; cleared when BugVoice quits.
+whole body before the change. Choosing one replaces the whole body with that version as
+one undoable edit. Kept in memory only; cleared when BugVoice quits.
 With no entries the button is disabled with the tooltip "No AI changes yet".
 
 ### 5.5 The box: follow-ups and questions
 
-- Return sends; Shift-Return adds a line. Empty text does nothing.
+- Return sends. Empty text does nothing.
 - One request. System prompt:
   "You help with the user's note. The text to work on is inside <text> tags. The user's
   message is either an instruction to change that text or a question about it.
@@ -217,10 +223,14 @@ The conversation is cleared on tab switch, note change from outside, or Dismiss.
   responder dictates into the note at the caret, cleaned with the Notes model, exactly as
   the page editor does today. `captureNotesDictation` drops its `page == .notes` condition:
   the condition becomes "the key window's first responder is the selected note's editor".
+  Because the panel takes the keyboard without BugVoice being frontmost, a key Scratchpad
+  window counts as BugVoice being frontmost for this check.
 - The Dictate button in the window starts and stops hands-free note dictation
   (`toggleNotesRecording`), as the page's mic button does today. `captureSelectedNoteForMic`
   requires the Scratchpad window to be visible instead of the Notes page.
-- With the window open but another app in front, dictation goes to that app as usual.
+- With the window open but another app's window key, dictation goes to that app as usual.
+- ⌘Z and ⌘⇧Z in the note body go straight to the note's own undo manager
+  (`NotesTextView.performKeyEquivalent`); the Edit menu's Undo does not reach it.
 
 ## 8. Entry points and shortcuts
 
@@ -229,9 +239,8 @@ The conversation is cleared on tab switch, note change from outside, or Dismiss.
   without opening the main window.
 - Menu bar menu: "Scratchpad…" opens the window on its last tab (or a new note when no tab
   is open). A new item "Scratchpad page" opens the main window on the page.
-- Meetings and Upload "Send to Scratchpad" keep creating the note and showing the notice;
-  the notice text becomes "Sent to Scratchpad as “Title” · Open", and Open shows it in the
-  window.
+- Meetings and Upload "Send to Scratchpad" keep creating the note and showing today's
+  notice.
 - In the window: ⌘N new note, ⌘W close tab, ⌘1–⌘3 chips, ⌘B ⌘I ⌘U ⌘K formatting,
   ⌘⇧C Copy, ⌘↩ Copy and close, ⌘F focus Search notes. ⌘J is removed (Ask moved into the box).
 
