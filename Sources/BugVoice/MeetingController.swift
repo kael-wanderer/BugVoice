@@ -21,8 +21,25 @@ final class MeetingController {
     private(set) var languages: [SpeechLanguage] = MeetingLanguages.defaults
     /// The app whose microphone use offered this recording, if it came from the popup.
     private(set) var detected: MeetingCandidate?
-    var onRecordingStarted: (() -> Void)?
-    var onRecordingStopped: (() -> Void)?
+    /// The meeting the meeting window shows. It stays after Stop until the window closes.
+    private(set) var shownMeetingID: MeetingID?
+    private(set) var title = ""
+    private(set) var meetingStartedAt: Date?
+    private(set) var folderID: FolderID?
+    private(set) var segments: [MeetingSegment] = []
+    private(set) var marks: [MeetingMark] = []
+    private(set) var transcriptProgress: Double = 0
+    /// "Marked at 12:47" for 2 seconds after Mark.
+    private(set) var markFeedback: String?
+    /// The owner's notes in the meeting window; saved 1 second after the last change.
+    var notes = "" {
+        didSet { if notes != oldValue { scheduleNotesSave() } }
+    }
+    private(set) var notesSaveFailed = false
+    /// Opens the meeting window. Set by the app delegate, which owns it.
+    var onShowWindow: (() -> Void)?
+    @ObservationIgnored private var notesSaveTask: Task<Void, Never>?
+    @ObservationIgnored private var markFeedbackTask: Task<Void, Never>?
     @ObservationIgnored private var session: MeetingSession?
     @ObservationIgnored private var capture: MeetingAudioCaptureCoordinator?
     @ObservationIgnored private var writer: MeetingPCMJournalWriter?
@@ -36,6 +53,8 @@ final class MeetingController {
     init(model: AppModel) { self.model = model }
 
     var isActive: Bool { isRecording || isPaused || isTranscribing }
+    /// The window shows a meeting that has finished transcribing.
+    var isFinished: Bool { shownMeetingID != nil && !isActive }
 
     func toggleRecording() {
         if isActive {
@@ -114,12 +133,13 @@ final class MeetingController {
             elapsed = 0
             self.languages = languages
             latestLine = ""
+            showMeeting(await session.snapshot())
             isRecording = true
             isPaused = false
             statusMessage = nil
             model.setSystemAudioCaptureObserved(true)
             startMonitor()
-            onRecordingStarted?()
+            onShowWindow?()
         } catch {
             isRecording = false
             isPaused = false
@@ -215,27 +235,132 @@ final class MeetingController {
 
     func mark() async {
         guard let session else { return }
-        do { _ = try await session.mark() }
-        catch { statusMessage = "Could not mark this moment: \(error.localizedDescription)" }
+        do {
+            let mark = try await session.mark()
+            marks.append(mark)
+            markFeedback = "Marked at \(MeetingTimeText.text(mark.offset))"
+            markFeedbackTask?.cancel()
+            markFeedbackTask = Task { [weak self] in
+                try? await Task.sleep(for: .seconds(2))
+                guard !Task.isCancelled else { return }
+                self?.markFeedback = nil
+            }
+        } catch {
+            statusMessage = "Could not mark this moment: \(error.localizedDescription)"
+        }
+    }
+
+    /// Renames the meeting in the window; an empty title keeps the old one.
+    func rename(_ newTitle: String) async {
+        let trimmed = newTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let session, !trimmed.isEmpty, trimmed != title else { return }
+        do {
+            try await session.rename(title: trimmed)
+            title = trimmed
+        } catch {
+            statusMessage = "Could not rename the meeting: \(error.localizedDescription)"
+        }
+    }
+
+    func setFolder(_ folderID: FolderID?) async {
+        guard let session, let meeting = await session.snapshot() else { return }
+        do {
+            try await session.setLabels(folderID: folderID, tags: meeting.tags, suggestedTags: nil)
+            self.folderID = folderID
+        } catch {
+            statusMessage = "Could not move the meeting: \(error.localizedDescription)"
+        }
+    }
+
+    /// Saves the notes now instead of after the 1-second pause.
+    func flushNotes() async {
+        notesSaveTask?.cancel()
+        notesSaveTask = nil
+        await saveNotes()
+    }
+
+    /// Notes for `id` from the detail page; false when the window's session does not own it.
+    func setNotesInSession(id: MeetingID, notes: String) async throws -> Bool {
+        guard meetingID == id, let session else { return false }
+        try await session.setNotes(notes)
+        if shownMeetingID == id { self.notes = notes }
+        return true
+    }
+
+    /// Closes the finished meeting in the window. A recording keeps its window.
+    func closeWindow() async {
+        guard !isActive else { return }
+        await flushNotes()
+        shownMeetingID = nil
+        await model.reloadMeetings()
+    }
+
+    private func scheduleNotesSave() {
+        guard shownMeetingID != nil else { return }
+        notesSaveTask?.cancel()
+        notesSaveTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(1))
+            guard !Task.isCancelled else { return }
+            await self?.saveNotes()
+        }
+    }
+
+    private func saveNotes() async {
+        guard let session, let meeting = await session.snapshot(), meeting.id == shownMeetingID,
+              meeting.notes != notes else { return }
+        do {
+            try await session.setNotes(notes)
+            notesSaveFailed = false
+        } catch {
+            // The notes stay in the editor; the next change or flush tries again.
+            notesSaveFailed = true
+        }
+    }
+
+    /// Loads the window's fields from a manifest when a meeting starts.
+    private func showMeeting(_ meeting: MeetingManifest?) {
+        guard let meeting else { return }
+        shownMeetingID = meeting.id
+        title = meeting.title
+        meetingStartedAt = meeting.startedAt
+        folderID = meeting.folderID
+        segments = meeting.segments
+        marks = meeting.marks
+        transcriptProgress = meeting.transcriptProgress ?? 0
+        notesSaveTask?.cancel()
+        notes = meeting.notes
+        notesSaveTask?.cancel()
+        notesSaveFailed = false
+        markFeedback = nil
+    }
+
+    /// Picks up transcript lines, marks and progress the session saved.
+    private func refreshSnapshot() async {
+        guard let session, let meeting = await session.snapshot(), meeting.id == shownMeetingID else { return }
+        if segments != meeting.segments { segments = meeting.segments }
+        if marks != meeting.marks { marks = meeting.marks }
+        if let progress = meeting.transcriptProgress, transcriptProgress != progress { transcriptProgress = progress }
+        if title != meeting.title { title = meeting.title }
     }
 
     func stop() async {
         guard let session, isRecording || isPaused else { return }
         let recordedSeconds = elapsed
-        onRecordingStopped?()
-        monitorTask?.cancel()
-        monitorTask = nil
+        await flushNotes()
         isRecording = false
         isPaused = false
         isTranscribing = true
         do {
             _ = try await session.stop()
+            await refreshSnapshot()
             isTranscribing = false
             statusMessage = nil
         } catch {
             isTranscribing = false
             statusMessage = "Transcript could not be completed. Your meeting audio is saved. \(error.localizedDescription)"
         }
+        monitorTask?.cancel()
+        monitorTask = nil
         await model.reloadMeetings()
         await model.recordMeetingInsights(seconds: recordedSeconds)
     }
@@ -260,7 +385,7 @@ final class MeetingController {
 
     func cancel() async {
         guard let session else { return }
-        onRecordingStopped?()
+        await flushNotes()
         monitorTask?.cancel()
         monitorTask = nil
         isRecording = false
@@ -274,7 +399,7 @@ final class MeetingController {
     func stopAndKeepForQuit() async throws {
         guard let session, isRecording || isPaused else { return }
         let recordedSeconds = elapsed
-        onRecordingStopped?()
+        await flushNotes()
         monitorTask?.cancel()
         monitorTask = nil
         isRecording = false
@@ -291,7 +416,9 @@ final class MeetingController {
         monitorTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(1))
-                guard let self, self.isRecording, let writer = self.writer, let scheduler = self.scheduler, let capture = self.capture, let meetingID = self.meetingID else { continue }
+                guard let self else { return }
+                await self.refreshSnapshot()
+                guard self.isRecording, let writer = self.writer, let scheduler = self.scheduler, let capture = self.capture, let meetingID = self.meetingID else { continue }
                 self.elapsed = self.elapsedBeforePause + max(0, Date().timeIntervalSince(self.startedAt))
                 do {
                     for track in MeetingTrack.recordingTracks {

@@ -87,6 +87,7 @@ final class MeetingDetectionController {
 
     /// The display that shows the frontmost app's front window, else the one with the pointer.
     static func frontmostWindowScreen() -> NSScreen? {
+        if let screen = AppWindow.developmentScreen() { return screen }
         if let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier,
            let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]],
            let primaryHeight = NSScreen.screens.first?.frame.height {
