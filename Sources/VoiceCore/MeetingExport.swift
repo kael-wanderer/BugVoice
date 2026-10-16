@@ -22,6 +22,13 @@ public enum MeetingExporter {
         return lines.joined(separator: "\n")
     }
 
+    /// One line per segment, `m:ss Speaker: text`, for Send to Scratchpad.
+    public static func transcriptText(_ meeting: MeetingManifest) -> String {
+        ordered(meeting.segments).map {
+            "\(displayTime($0.start)) \($0.speaker): \(flattenNewlines($0.text))"
+        }.joined(separator: "\n")
+    }
+
     private static func ordered(_ segments: [MeetingSegment]) -> [MeetingSegment] {
         segments.sorted {
             if $0.start != $1.start { return $0.start < $1.start }
