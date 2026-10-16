@@ -46,6 +46,33 @@ struct MeetingTextGenerationTests {
         #expect(events.values.contains { $0.completedParts == $0.totalParts && $0.phase == .merge })
     }
 
+    @Test func summaryFollowsTheNotesInEveryRequest() async throws {
+        let model = MeetingTextModelProbe(responses: ["Part summary"], mergeResponse: "Merged summary")
+        let transcript = [segment(String(repeating: "First sentence. ", count: 900)), segment(String(repeating: "Second sentence. ", count: 900), start: 20)]
+        _ = try await MeetingTextGenerator().generate(
+            transcript: transcript, kind: .summary,
+            budget: .init(contextTokens: 2_048, outputTokens: 512),
+            notes: "## Bot results\n- resets", model: model
+        )
+        let requests = await model.requests
+        #expect(requests.count > 1)
+        #expect(requests.allSatisfy { $0.system.contains(MeetingTextGenerator.followNotesInstruction) })
+        #expect(requests.allSatisfy { $0.user.hasPrefix("My notes:\n## Bot results\n- resets\n\n") })
+    }
+
+    @Test func actionItemsAndEmptyNotesIgnoreNotes() async throws {
+        let model = MeetingTextModelProbe(responses: ["- a"])
+        _ = try await MeetingTextGenerator().generate(
+            transcript: [segment("Short")], kind: .actionItems, budget: .init(), notes: "## Mine", model: model
+        )
+        _ = try await MeetingTextGenerator().generate(
+            transcript: [segment("Short")], kind: .summary, budget: .init(), notes: "  ", model: model
+        )
+        let requests = await model.requests
+        #expect(requests.allSatisfy { !$0.system.contains(MeetingTextGenerator.followNotesInstruction) })
+        #expect(requests.allSatisfy { !$0.user.contains("My notes:") })
+    }
+
     @Test func actionItemMergeDeduplicatesBullets() async throws {
         let model = MeetingTextModelProbe(responses: ["- Alex: Send the draft"], mergeResponse: "- Alex: Send the draft\n- Minh: Book the room")
         let transcript = [segment(String(repeating: "Task detail. ", count: 900)), segment(String(repeating: "Another detail. ", count: 900), start: 20)]
