@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meeting Window Options</title>
+<style>
+/* Meetings v2 (5a): where the live meeting tabs live. Option A: one window replaces the recorder panel. Option B: panel stays, separate notes window. */
+:root {
+  --page: #e9ebf0; --win: #ffffff; --side: #f4f4f1; --card: #ffffff; --line: #e1e4ea; --chip: #eceef2;
+  --fg: #1c1f26; --muted: #6a7080; --accent: #3a6ff0; --accent-soft: #e4ebfd; --ok: #1f8a4c; --rec: #e5484d;
+  --panel: rgb(246 247 250 / .96); --meet: #202124; --meet-tile: #3c4043; --meet-fg: #e8eaed;
+  --you: #3a6ff0; --others: #8a57d6; --mark: #d98a00;
+  --app: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --page: #0d0e11; --win: #1b1d22; --side: #16181c; --card: #212329; --line: #2d3037; --chip: #272a31;
+  --fg: #e9ebf0; --muted: #9298a6; --accent: #6e93ff; --accent-soft: #23304f; --ok: #4cc27f; --rec: #ff6b6b;
+  --panel: rgb(38 40 46 / .97); --you: #6e93ff; --others: #b48cf0; --mark: #f0b23c;
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --page: #0d0e11; --win: #1b1d22; --side: #16181c; --card: #212329; --line: #2d3037; --chip: #272a31;
+  --fg: #e9ebf0; --muted: #9298a6; --accent: #6e93ff; --accent-soft: #23304f; --ok: #4cc27f; --rec: #ff6b6b;
+  --panel: rgb(38 40 46 / .97); --you: #6e93ff; --others: #b48cf0; --mark: #f0b23c;
+  color-scheme: dark }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--fg); font-family: var(--app); font-size: 13px; line-height: 1.45; padding: 28px 16px 48px; }
+.frame { max-width: 1180px; margin: 0 auto; display: grid; gap: 14px; }
+h1 { font-size: 18px; margin: 0; }
+h2.sec { font-size: 13px; margin: 18px 0 0; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.caption { color: var(--muted); font-size: 12.5px; max-width: 100ch; margin: 0; }
+.caption b { color: var(--fg); }
+.bar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+.pills { display: inline-flex; flex-wrap: wrap; background: var(--chip); border-radius: 999px; padding: 3px; gap: 2px; }
+.pills button { font: inherit; border: 0; background: transparent; color: var(--muted); padding: 5px 13px; border-radius: 999px; cursor: pointer; }
+.pills button[aria-pressed="true"] { background: var(--card); color: var(--fg); font-weight: 600; box-shadow: 0 1px 2px rgb(0 0 0 / .14); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.scroll { overflow-x: auto; border-radius: 12px; }
+.btn { font: inherit; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--card); color: var(--fg); padding: 3px 10px; border-radius: 7px; font-size: 12.5px; white-space: nowrap; cursor: pointer; }
+.btn.flash { border-color: var(--mark); color: var(--mark); }
+.chip { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 600; color: var(--muted); background: var(--chip); border-radius: 999px; padding: 2px 9px; }
+.icon { width: 26px; height: 26px; border-radius: 7px; display: inline-grid; place-items: center; color: var(--muted); border: 1px solid transparent; cursor: pointer; background: transparent; font: inherit; }
+.icon:hover { border-color: var(--line); }
+svg.i { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Desktop with Google Meet behind */
+.desk { position: relative; min-width: 1000px; height: 600px; border-radius: 12px; overflow: hidden; background: linear-gradient(135deg, #c9d3e6, #e6d9ea); }
+:root[data-theme="dark"] .desk { background: linear-gradient(135deg, #1f2a3d, #2e2338); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .desk { background: linear-gradient(135deg, #1f2a3d, #2e2338); } }
+.meet { position: absolute; left: 24px; top: 24px; width: 600px; height: 400px; background: var(--meet); border-radius: 10px; color: var(--meet-fg); padding: 12px; display: grid; grid-template-rows: auto 1fr auto; gap: 10px; box-shadow: 0 14px 40px rgb(0 0 0 / .25); }
+.meet .top { font-size: 12px; opacity: .8; }
+.meet .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.meet .tile { background: var(--meet-tile); border-radius: 8px; display: grid; place-items: center; font-size: 12px; }
+.meet .ctl { display: flex; justify-content: center; gap: 10px; }
+.meet .ctl i { width: 30px; height: 30px; border-radius: 50%; background: var(--meet-tile); }
+.meet .ctl i.end { background: #ea4335; width: 44px; border-radius: 16px; }
+
+/* Shared recorder header */
+.panel { position: absolute; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 18px 50px rgb(0 0 0 / .22); backdrop-filter: blur(20px); }
+.hdr { padding: 12px 14px 10px; display: grid; gap: 8px; }
+.row { display: flex; align-items: center; gap: 8px; }
+.sp { flex: 1; }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--rec); }
+.title { font-weight: 600; }
+.clock { font-variant-numeric: tabular-nums; font-size: 16px; }
+.meter { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--muted); }
+.bars { display: inline-flex; gap: 2px; align-items: end; height: 12px; }
+.bars i { width: 3px; border-radius: 1px; background: var(--ok); }
+.bars.off i { background: var(--line); }
+.latest { font-size: 12.5px; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.markmsg { font-size: 11.5px; color: var(--mark); font-weight: 600; }
+
+/* Tabs body */
+.tabs { display: flex; gap: 2px; padding: 0 10px; border-bottom: 1px solid var(--line); }
+.tabs button { font: inherit; border: 0; background: transparent; color: var(--muted); padding: 7px 10px; border-bottom: 2px solid transparent; cursor: pointer; }
+.tabs button[aria-selected="true"] { color: var(--fg); font-weight: 600; border-bottom-color: var(--accent); }
+.body { padding: 10px 14px 12px; overflow: auto; }
+.line { display: grid; grid-template-columns: 42px 54px 1fr; gap: 6px; padding: 3px 0; font-size: 12.5px; }
+.line .t { color: var(--muted); font-variant-numeric: tabular-nums; }
+.who { font-weight: 600; font-size: 11.5px; }
+.who.you { color: var(--you); } .who.others { color: var(--others); }
+.markline { display: flex; align-items: center; gap: 8px; color: var(--mark); font-size: 11.5px; font-weight: 600; padding: 4px 0; }
+.markline::after { content: ""; flex: 1; height: 1px; background: var(--mark); opacity: .4; }
+.notes { border: 1px solid var(--accent); border-radius: 8px; min-height: 150px; padding: 8px 10px; font-size: 12.5px; background: var(--card); }
+.notes ul { margin: 4px 0; padding-left: 18px; }
+.caret { display: inline-block; width: 1px; height: 14px; background: var(--fg); vertical-align: -2px; animation: b 1s steps(1) infinite; }
+@keyframes b { 50% { opacity: 0; } }
+.hint { color: var(--muted); font-size: 11.5px; margin-top: 6px; }
+.sum h4 { margin: 4px 0 2px; font-size: 12.5px; }
+.sum ul { margin: 0 0 6px; padding-left: 18px; font-size: 12.5px; }
+.sum .meta { color: var(--muted); font-size: 11.5px; }
+.label { position: absolute; font-size: 11.5px; font-weight: 600; color: var(--fg); background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px; }
+.cmp { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.cmp div { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.cmp h3 { margin: 0 0 6px; font-size: 14px; }
+.cmp ul { margin: 0; padding-left: 18px; }
+@media (max-width: 720px) { .cmp { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="bar">
+    <h1>Meetings v2: meeting window, option A vs option B</h1>
+    <div class="pills" role="group" aria-label="Theme">
+      <button data-theme-set="light" aria-pressed="false">Light</button>
+      <button data-theme-set="dark" aria-pressed="false">Dark</button>
+    </div>
+  </div>
+  <p class="caption">Same content in both options: a header with timer, You/Others meters, Pause/Mark/Stop and the language chip, then three tabs: <b>Transcript</b> (live, marks inline), <b>My notes</b> (type, or hold Right ⌥ to dictate) and <b>Summary</b> (refreshes every few minutes; rewritten at Stop). Click the tabs, Mark and the collapse button; they work.</p>
+
+  <h2 class="sec">Option A: one window replaces the recorder panel (recommended)</h2>
+  <div class="bar">
+    <p class="caption">The panel grows into the meeting window. <b>Collapse</b> shrinks it back to the header, which is today's panel. One thing on screen.</p>
+    <div class="pills" role="group" aria-label="Option A state">
+      <button data-a="open" aria-pressed="true">Expanded</button>
+      <button data-a="collapsed" aria-pressed="false">Collapsed</button>
+    </div>
+  </div>
+  <div class="scroll"><div class="desk">
+    <div class="meet"><div class="top">Google Meet · Helpdesk bot sync</div><div class="tiles"><div class="tile">You</div><div class="tile">Ana (Mexico)</div><div class="tile">Radu (Romania)</div><div class="tile">Lucía (Colombia)</div></div><div class="ctl"><i></i><i></i><i></i><i class="end"></i></div></div>
+    <div class="panel" id="winA" style="left: 650px; top: 24px; width: 330px;">
+      <div class="hdr">
+        <div class="row"><span class="dot"></span><span class="title">Recording meeting</span><span class="sp"></span><span class="clock">12:47</span>
+          <button class="icon" id="collapseA" title="Collapse"><svg class="i" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg></button></div>
+        <div class="row"><span class="meter">You <span class="bars"><i style="height:4px"></i><i style="height:9px"></i><i style="height:12px"></i><i style="height:6px"></i><i style="height:3px"></i></span></span>
+          <span class="meter">Others <span class="bars"><i style="height:7px"></i><i style="height:11px"></i><i style="height:5px"></i><i style="height:9px"></i><i style="height:4px"></i></span></span></div>
+        <div class="row"><button class="btn">Pause</button><button class="btn markbtn">Mark</button><button class="btn">Stop</button><span class="markmsg" hidden>Marked at 12:47</span><span class="sp"></span><span class="chip">EN · VI ▾</span></div>
+      </div>
+      <div class="expand">
+        <div class="tabs" role="tablist">
+          <button role="tab" aria-selected="true" data-tab="t">Transcript</button>
+          <button role="tab" aria-selected="false" data-tab="n">My notes</button>
+          <button role="tab" aria-selected="false" data-tab="s">Summary</button>
+        </div>
+        <div class="body" style="height: 330px;">
+          <div data-panel="t">
+            <div class="line"><span class="t">10:58</span><span class="who others">Others</span><span>The bot now closes password reset tickets on its own.</span></div>
+            <div class="line"><span class="t">11:20</span><span class="who you">You</span><span>How many tickets did it close last week?</span></div>
+            <div class="line"><span class="t">11:31</span><span class="who others">Others</span><span>Around four hundred, about sixty percent of resets.</span></div>
+            <div class="markline">Mark · 11:52</div>
+            <div class="line"><span class="t">12:05</span><span class="who others">Others</span><span>We agreed to turn on termination requests next sprint.</span></div>
+            <div class="line"><span class="t">12:30</span><span class="who you">You</span><span>Who owns the approval step for terminations?</span></div>
+            <div class="line"><span class="t">12:41</span><span class="who others">Others</span><span>HR approves, IT gets a ticket only when it fails.</span></div>
+            <p class="hint">Live lines arrive in 30-second pieces. Scrolls to the newest line unless you scroll up.</p>
+          </div>
+          <div data-panel="n" hidden>
+            <div class="notes"><b>Helpdesk bot sync</b><ul><li>~400 resets closed last week</li><li>Terminations next sprint, HR approves</li><li>Ask Ana for the rollout date<span class="caret"></span></li></ul></div>
+            <p class="hint">Typing here takes keyboard focus; click back into Meet to give it back. Pause, Mark and Stop never take focus. Notes are saved with the meeting.</p>
+          </div>
+          <div data-panel="s" hidden>
+            <div class="sum">
+              <p class="meta">So far · updated 1 min ago · next update in 2 min</p>
+              <h4>Helpdesk bot sync</h4>
+              <ul><li>The bot closed about 400 password reset tickets last week, around 60% of resets.</li><li>Decision: termination requests go live next sprint; HR approves, IT is ticketed only on failure.</li></ul>
+              <h4>Open</h4>
+              <ul><li>Rollout date: ask Ana (from your notes).</li></ul>
+              <p class="meta">Follows your note headings. Rewritten from the clean transcript when the meeting stops.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <span class="label" style="left: 650px; top: 548px;">Option A · one window</span>
+  </div></div>
+
+  <h2 class="sec">Option B: keep today's panel, open a separate notes window</h2>
+  <p class="caption">The small panel stays as it is and gains an <b>Open notes</b> button. The tabs live in their own window. Two windows to place and keep track of.</p>
+  <div class="scroll"><div class="desk">
+    <div class="meet"><div class="top">Google Meet · Helpdesk bot sync</div><div class="tiles"><div class="tile">You</div><div class="tile">Ana (Mexico)</div><div class="tile">Radu (Romania)</div><div class="tile">Lucía (Colombia)</div></div><div class="ctl"><i></i><i></i><i></i><i class="end"></i></div></div>
+    <div class="panel" style="left: 650px; top: 24px; width: 330px;">
+      <div class="hdr">
+        <div class="row"><span class="dot"></span><span class="title">Recording meeting</span><span class="sp"></span><span class="clock">12:47</span></div>
+        <div class="row"><span class="meter">You <span class="bars"><i style="height:4px"></i><i style="height:9px"></i><i style="height:12px"></i><i style="height:6px"></i><i style="height:3px"></i></span></span>
+          <span class="meter">Others <span class="bars"><i style="height:7px"></i><i style="height:11px"></i><i style="height:5px"></i><i style="height:9px"></i><i style="height:4px"></i></span></span></div>
+        <div class="latest">HR approves, IT gets a ticket only when it fails.</div>
+        <div class="row"><button class="btn">Pause</button><button class="btn markbtn">Mark</button><button class="btn">Stop</button><span class="markmsg" hidden>Marked at 12:47</span><span class="sp"></span><button class="btn">Open notes</button><span class="chip">EN ▾</span></div>
+      </div>
+    </div>
+    <div class="panel" style="left: 360px; top: 200px; width: 420px; height: 370px;">
+      <div class="hdr" style="padding-bottom: 4px;"><div class="row"><span class="title">Helpdesk bot sync</span><span class="sp"></span><span class="meta" style="color: var(--muted); font-size: 11.5px;">Notes window</span></div></div>
+      <div class="tabs" role="tablist"><button role="tab" aria-selected="false">Transcript</button><button role="tab" aria-selected="true">My notes</button><button role="tab" aria-selected="false">Summary</button></div>
+      <div class="body"><div class="notes" style="min-height: 120px;"><ul><li>~400 resets closed last week</li><li>Terminations next sprint, HR approves</li></ul></div>
+        <p class="hint">Covers part of Meet. Moving it does not move the panel.</p></div>
+    </div>
+    <span class="label" style="left: 650px; top: 548px;">Option B · panel + window</span>
+  </div></div>
+
+  <div class="cmp">
+    <div><h3>A · one window</h3><ul><li>One window; collapsed it is today's panel.</li><li>Controls and tabs stay together while you type notes.</li><li>Needs a collapse button and two sizes.</li></ul></div>
+    <div><h3>B · panel + window</h3><ul><li>Today's panel does not change.</li><li>Two windows on screen; the notes window covers more of Meet.</li><li>Pause, Mark and Stop are in a different window from your notes.</li></ul></div>
+  </div>
+</div>
+<script>
+(function () {
+  var root = document.documentElement;
+  var themeButtons = document.querySelectorAll("[data-theme-set]");
+  function setTheme(t) {
+    root.setAttribute("data-theme", t);
+    themeButtons.forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.themeSet === t)); });
+    try { localStorage.setItem("bv-theme", t); } catch (e) {}
+  }
+  var saved = null;
+  try { saved = localStorage.getItem("bv-theme"); } catch (e) {}
+  setTheme(saved || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
+  themeButtons.forEach(function (b) { b.addEventListener("click", function () { setTheme(b.dataset.themeSet); }); });
+
+  var winA = document.getElementById("winA");
+  var expand = winA.querySelector(".expand");
+  var stateButtons = document.querySelectorAll("[data-a]");
+  function setA(s) {
+    expand.hidden = s === "collapsed";
+    stateButtons.forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.a === s)); });
+    document.getElementById("collapseA").innerHTML = s === "collapsed"
+      ? '<svg class="i" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>'
+      : '<svg class="i" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg>';
+  }
+  stateButtons.forEach(function (b) { b.addEventListener("click", function () { setA(b.dataset.a); }); });
+  document.getElementById("collapseA").addEventListener("click", function () { setA(expand.hidden ? "open" : "collapsed"); });
+
+  winA.querySelectorAll("[role=tab]").forEach(function (tab) {
+    tab.addEventListener("click", function () {
+      winA.querySelectorAll("[role=tab]").forEach(function (t) { t.setAttribute("aria-selected", String(t === tab)); });
+      winA.querySelectorAll("[data-panel]").forEach(function (p) { p.hidden = p.dataset.panel !== tab.dataset.tab; });
+    });
+  });
+
+  document.querySelectorAll(".markbtn").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var msg = btn.parentElement.querySelector(".markmsg");
+      btn.classList.add("flash"); msg.hidden = false;
+      setTimeout(function () { btn.classList.remove("flash"); msg.hidden = true; }, 1600);
+    });
+  });
+})();
+</script>
+</body>
+</html>

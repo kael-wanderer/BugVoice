@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meeting Window</title>
+<style>
+/* Meetings v2 (5a), chosen layout: one floating window docked to the right third of the screen; tabs My notes / Transcript / Summary; Ask anything box at the bottom. */
+:root {
+  --page: #e9ebf0; --win: #fcfcfb; --card: #ffffff; --line: #e6e4df; --chip: #f1efea;
+  --fg: #1c1f26; --muted: #737680; --faint: #b3b0a8; --accent: #3a6ff0; --accent-soft: #e4ebfd; --ok: #2f8f63; --rec: #e5484d;
+  --meet: #202124; --meet-tile: #3c4043; --meet-fg: #e8eaed;
+  --you: #3a6ff0; --others: #8a57d6; --mark: #c27c00; --answer: #f5f3ee;
+  --app: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+  --serif: "New York", "Iowan Old Style", Georgia, serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --page: #0d0e11; --win: #1b1c1f; --card: #222327; --line: #2f3035; --chip: #2a2b30;
+  --fg: #ecebe8; --muted: #9a9ca5; --faint: #5f6068; --accent: #6e93ff; --accent-soft: #23304f; --ok: #4cc27f; --rec: #ff6b6b;
+  --you: #6e93ff; --others: #b48cf0; --mark: #f0b23c; --answer: #26272b;
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --page: #0d0e11; --win: #1b1c1f; --card: #222327; --line: #2f3035; --chip: #2a2b30;
+  --fg: #ecebe8; --muted: #9a9ca5; --faint: #5f6068; --accent: #6e93ff; --accent-soft: #23304f; --ok: #4cc27f; --rec: #ff6b6b;
+  --you: #6e93ff; --others: #b48cf0; --mark: #f0b23c; --answer: #26272b;
+  color-scheme: dark }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--fg); font-family: var(--app); font-size: 13px; line-height: 1.45; padding: 28px 16px 48px; }
+.frame { max-width: 1240px; margin: 0 auto; display: grid; gap: 14px; }
+h1 { font-size: 18px; margin: 0; }
+h2.sec { font-size: 13px; margin: 14px 0 0; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.caption { color: var(--muted); font-size: 12.5px; max-width: 110ch; margin: 0; }
+.caption b { color: var(--fg); }
+.bar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+.pills { display: inline-flex; flex-wrap: wrap; background: var(--chip); border-radius: 999px; padding: 3px; gap: 2px; }
+.pills button { font: inherit; border: 0; background: transparent; color: var(--muted); padding: 5px 13px; border-radius: 999px; cursor: pointer; }
+.pills button[aria-pressed="true"] { background: var(--card); color: var(--fg); font-weight: 600; box-shadow: 0 1px 2px rgb(0 0 0 / .14); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.scroll { overflow-x: auto; border-radius: 12px; }
+svg.i { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.btn { font: inherit; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--chip); color: var(--fg); padding: 4px 10px; border-radius: 8px; font-size: 12px; white-space: nowrap; cursor: pointer; }
+.btn.flash { border-color: var(--mark); color: var(--mark); }
+.btn.plain { background: transparent; }
+
+/* Screen: Meet on the left two thirds, BugVoice docked on the right third */
+.screen { position: relative; width: 1200px; height: 700px; border-radius: 12px; overflow: hidden; background: linear-gradient(135deg, #c9d3e6, #e6d9ea); display: grid; grid-template-columns: 2fr 1fr; }
+:root[data-theme="dark"] .screen { background: linear-gradient(135deg, #1f2a3d, #2e2338); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .screen { background: linear-gradient(135deg, #1f2a3d, #2e2338); } }
+.meet { margin: 14px 10px 14px 14px; background: var(--meet); border-radius: 10px; color: var(--meet-fg); padding: 12px; display: grid; grid-template-rows: auto 1fr auto; gap: 10px; }
+.meet .top { font-size: 12px; opacity: .8; }
+.meet .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.meet .tile { background: var(--meet-tile); border-radius: 8px; display: grid; place-items: center; font-size: 12px; }
+.meet .ctl { display: flex; justify-content: center; gap: 10px; }
+.meet .ctl i { width: 30px; height: 30px; border-radius: 50%; background: var(--meet-tile); }
+.meet .ctl i.end { background: #ea4335; width: 44px; border-radius: 16px; }
+.third { position: absolute; top: 4px; left: 800px; width: 400px; text-align: center; font-size: 10.5px; color: var(--muted); }
+
+.win { margin: 14px 14px 14px 0; background: var(--win); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 18px 50px rgb(0 0 0 / .22); display: grid; grid-template-rows: auto auto auto auto 1fr auto; min-height: 0; overflow: hidden; }
+.win.collapsed { grid-template-rows: auto; align-self: start; }
+.win.collapsed > :not(.top) { display: none; }
+.top { display: flex; align-items: center; gap: 8px; padding: 10px 12px 6px; }
+.lights { display: flex; gap: 6px; }
+.lights i { width: 10px; height: 10px; border-radius: 50%; background: #ff5f57; }
+.lights i:nth-child(2) { background: #febc2e; } .lights i:nth-child(3) { background: #28c840; }
+.sp { flex: 1; }
+.rec { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--rec); }
+.clock { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--muted); }
+.icon { width: 26px; height: 26px; border-radius: 7px; display: inline-grid; place-items: center; color: var(--muted); border: 1px solid transparent; cursor: pointer; background: transparent; font: inherit; }
+.icon:hover { border-color: var(--line); }
+.head { padding: 4px 16px 0; display: grid; gap: 8px; }
+.head .title { font-family: var(--serif); font-size: 24px; color: var(--fg); }
+.head .chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.tagchip { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line); border-radius: 7px; padding: 2px 8px; font-size: 11.5px; color: var(--muted); background: var(--card); }
+.tagchip.dash { border-style: dashed; }
+.meters { display: flex; align-items: center; gap: 12px; padding: 8px 16px 0; }
+.meter { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
+.bars { display: inline-flex; gap: 2px; align-items: end; height: 11px; }
+.bars i { width: 3px; border-radius: 1px; background: var(--ok); }
+.ctrls { display: flex; gap: 6px; align-items: center; margin-left: auto; }
+.markmsg { font-size: 11px; color: var(--mark); font-weight: 600; }
+.tabs { display: flex; gap: 16px; padding: 8px 16px 0; border-bottom: 1px solid var(--line); }
+.tabs button { font: inherit; font-size: 13px; border: 0; background: transparent; color: var(--muted); padding: 6px 0 8px; border-bottom: 2px solid transparent; cursor: pointer; display: inline-flex; gap: 5px; align-items: center; }
+.tabs button[aria-selected="true"] { color: var(--fg); font-weight: 600; border-bottom-color: var(--fg); }
+.body { overflow: auto; padding: 12px 16px; min-height: 0; }
+.ph { color: var(--faint); }
+.notes ul { margin: 6px 0; padding-left: 18px; }
+.notes h4 { margin: 0 0 2px; font-size: 13px; }
+.caret { display: inline-block; width: 1px; height: 14px; background: var(--fg); vertical-align: -2px; animation: b 1s steps(1) infinite; }
+@keyframes b { 50% { opacity: 0; } }
+.tbar { display: flex; align-items: center; gap: 8px; background: var(--chip); border-radius: 9px; padding: 6px 10px; color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+.line { display: grid; grid-template-columns: 38px 48px 1fr; gap: 6px; padding: 3px 0; font-size: 12.5px; }
+.line .t { color: var(--muted); font-variant-numeric: tabular-nums; }
+.who { font-weight: 600; font-size: 11px; }
+.who.you { color: var(--you); } .who.others { color: var(--others); }
+.markline { display: flex; align-items: center; gap: 8px; color: var(--mark); font-size: 11px; font-weight: 600; padding: 4px 0; }
+.markline::after { content: ""; flex: 1; height: 1px; background: var(--mark); opacity: .4; }
+.listening { text-align: center; color: var(--muted); font-style: italic; padding: 6px 0; }
+.sum h4 { margin: 6px 0 2px; font-size: 13px; }
+.sum ul { margin: 0 0 4px; padding-left: 18px; font-size: 12.5px; }
+.meta { color: var(--muted); font-size: 11px; }
+.answer { margin: 0 12px 8px; background: var(--answer); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; font-size: 12.5px; display: grid; gap: 6px; }
+.answer .q { color: var(--muted); font-size: 11.5px; }
+.answer .acts { display: flex; gap: 6px; }
+.dock { padding: 8px 12px 12px; display: grid; gap: 6px; }
+.consent { text-align: center; color: var(--muted); font-size: 10.5px; }
+.ask { display: flex; gap: 8px; align-items: center; }
+.stop { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; background: var(--card); font-weight: 600; cursor: pointer; font: inherit; color: var(--fg); }
+.stop i { width: 11px; height: 11px; border-radius: 3px; background: var(--ok); }
+.box { flex: 1; display: flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; padding: 6px 6px 6px 14px; background: var(--card); min-width: 0; }
+.box span { flex: 1; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.miss { border: 0; background: var(--chip); border-radius: 999px; padding: 5px 10px; font: inherit; font-size: 11.5px; color: var(--fg); white-space: nowrap; cursor: pointer; }
+.pop-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.popstage { position: relative; height: 150px; border-radius: 12px; background: linear-gradient(135deg, #c9d3e6, #e6d9ea); padding: 18px; display: flex; justify-content: flex-end; align-items: flex-start; }
+:root[data-theme="dark"] .popstage { background: linear-gradient(135deg, #1f2a3d, #2e2338); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .popstage { background: linear-gradient(135deg, #1f2a3d, #2e2338); } }
+.pop { position: relative; display: flex; align-items: center; gap: 14px; background: #1e1f22; color: #f2f2f2; border-radius: 16px; padding: 12px 12px 12px 16px; box-shadow: 0 14px 40px rgb(0 0 0 / .3); width: 430px; }
+.pop .x { position: absolute; left: -9px; top: -9px; width: 22px; height: 22px; border-radius: 50%; background: #3a3b3f; color: #ddd; display: grid; place-items: center; font-size: 12px; }
+.pop .cam { width: 22px; height: 16px; border-radius: 4px; background: #f2c14e; flex: none; }
+.pop .txt { flex: 1; display: grid; }
+.pop .txt b { font-size: 14px; }
+.pop .txt span { font-size: 11.5px; color: #a9abb2; }
+.pop .go { display: inline-flex; align-items: center; gap: 8px; background: #fbf8e9; color: #1c1f26; border-radius: 10px; padding: 8px 12px; font-weight: 600; font-size: 12.5px; }
+.pop .go i { width: 18px; height: 18px; border-radius: 5px; background: #1c1f26; }
+.pop .more { color: #a9abb2; font-size: 11.5px; }
+.detail { background: var(--win); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; min-width: 860px; display: grid; grid-template-columns: 240px minmax(0, 1fr); }
+.detail .list { border-right: 1px solid var(--line); padding: 12px; display: grid; gap: 6px; align-content: start; }
+.detail .item { padding: 8px 10px; border-radius: 8px; font-size: 12.5px; }
+.detail .item.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.detail .main { padding: 16px 20px; display: grid; gap: 10px; align-content: start; }
+.timeline { position: relative; height: 26px; background: var(--chip); border-radius: 8px; }
+.timeline .played { position: absolute; left: 0; top: 0; bottom: 0; width: 38%; background: var(--accent-soft); border-radius: 8px; }
+.timeline .m { position: absolute; top: 3px; bottom: 3px; width: 3px; border-radius: 2px; background: var(--mark); }
+.notes-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.notes-list div { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.notes-list h3 { margin: 0 0 6px; font-size: 13.5px; }
+.notes-list ul { margin: 0; padding-left: 18px; }
+@media (max-width: 860px) { .notes-list { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="bar">
+    <h1>Meetings v2: meeting window</h1>
+    <div class="pills" role="group" aria-label="Theme">
+      <button data-theme-set="light" aria-pressed="false">Light</button>
+      <button data-theme-set="dark" aria-pressed="false">Dark</button>
+    </div>
+  </div>
+  <p class="caption">Option A, docked: one floating window on the <b>right third</b> of the screen, full height, so Meet keeps the other two thirds. It replaces today's recorder panel. Tabs: <b>My notes</b>, <b>Transcript</b>, <b>Summary</b>. At the bottom: <b>Stop</b> and an <b>Ask anything</b> box with a <b>What did I miss?</b> button. The tabs, Mark, Collapse, the state buttons and What did I miss? work.</p>
+  <div class="bar">
+    <div class="pills" role="group" aria-label="Tab">
+      <button data-show="n" aria-pressed="true">My notes</button>
+      <button data-show="t" aria-pressed="false">Transcript</button>
+      <button data-show="s" aria-pressed="false">Summary</button>
+    </div>
+    <div class="pills" role="group" aria-label="Window">
+      <button data-size="open" aria-pressed="true">Docked</button>
+      <button data-size="collapsed" aria-pressed="false">Collapsed</button>
+    </div>
+  </div>
+
+  <div class="scroll"><div class="screen">
+    <span class="third">right third of the screen</span>
+    <div class="meet"><div class="top">Google Meet · Helpdesk bot sync</div><div class="tiles"><div class="tile">You</div><div class="tile">Ana (Mexico)</div><div class="tile">Radu (Romania)</div><div class="tile">Lucía (Colombia)</div></div><div class="ctl"><i></i><i></i><i></i><i class="end"></i></div></div>
+
+    <div class="win" id="win">
+      <div class="top">
+        <div class="lights"><i></i><i></i><i></i></div>
+        <span class="sp"></span>
+        <span class="rec"><span class="dot"></span>Recording</span><span class="clock">12:47</span>
+        <button class="icon" id="collapse" title="Collapse"><svg class="i" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg></button>
+      </div>
+      <div class="head">
+        <div class="title">Helpdesk bot sync</div>
+        <div class="chips"><span class="tagchip">Today 10:35</span><span class="tagchip dash"><svg class="i" viewBox="0 0 24 24"><path d="M3 7h6l2 2h10v10H3z"/></svg>Add folder</span><span class="tagchip">EN · ES ▾</span></div>
+      </div>
+      <div class="meters">
+        <span class="meter">You <span class="bars"><i style="height:4px"></i><i style="height:9px"></i><i style="height:11px"></i><i style="height:5px"></i></span></span>
+        <span class="meter">Others <span class="bars"><i style="height:7px"></i><i style="height:10px"></i><i style="height:5px"></i><i style="height:8px"></i></span></span>
+        <span class="ctrls"><span class="markmsg" hidden>Marked at 12:47</span><button class="btn" id="mark">Mark</button><button class="btn">Pause</button></span>
+      </div>
+      <div class="tabs" role="tablist">
+        <button role="tab" data-tab="n" aria-selected="true">My notes</button>
+        <button role="tab" data-tab="t" aria-selected="false"><svg class="i" viewBox="0 0 24 24" style="color: var(--ok)"><path d="M8 9v6M12 6v12M16 9v6"/></svg>Transcript</button>
+        <button role="tab" data-tab="s" aria-selected="false"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Summary</button>
+      </div>
+      <div class="body">
+        <div data-panel="n" class="notes">
+          <h4>Bot results</h4>
+          <ul><li>~400 resets closed last week</li><li>Terminations next sprint, HR approves</li></ul>
+          <h4>Follow up</h4>
+          <ul><li>Ask Ana for the rollout date<span class="caret"></span></li></ul>
+          <p class="meta">Type, or hold Right ⌥ to dictate. Saved with the meeting. The summary follows these headings.</p>
+        </div>
+        <div data-panel="t" hidden>
+          <div class="tbar"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>12:47<span class="sp"></span><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4-4"/></svg><svg class="i" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></svg></div>
+          <div class="line"><span class="t">10:58</span><span class="who others">Others</span><span>The bot now closes password reset tickets on its own.</span></div>
+          <div class="line"><span class="t">11:20</span><span class="who you">You</span><span>How many tickets did it close last week?</span></div>
+          <div class="line"><span class="t">11:31</span><span class="who others">Others</span><span>Around four hundred, about sixty percent of resets.</span></div>
+          <div class="markline">Mark · 11:52</div>
+          <div class="line"><span class="t">12:05</span><span class="who others">Others</span><span>We agreed to turn on termination requests next sprint.</span></div>
+          <div class="line"><span class="t">12:30</span><span class="who you">You</span><span>Who owns the approval step for terminations?</span></div>
+          <div class="line"><span class="t">12:41</span><span class="who others">Others</span><span>HR approves, IT gets a ticket only when it fails.</span></div>
+          <div class="listening">Listening…</div>
+          <p class="meta">Lines arrive in 30-second pieces. Final transcript is rebuilt when the meeting stops.</p>
+        </div>
+        <div data-panel="s" class="sum" hidden>
+          <p class="meta">So far · updated 1 min ago · next in 2 min</p>
+          <h4>Bot results</h4>
+          <ul><li>The bot closed about 400 password reset tickets last week, around 60% of resets.</li><li>Termination requests go live next sprint; HR approves, IT is ticketed only on failure.</li></ul>
+          <h4>Follow up</h4>
+          <ul><li>Rollout date: ask Ana.</li></ul>
+          <p class="meta">Rewritten from the full transcript when the meeting stops, then Action items as today.</p>
+        </div>
+      </div>
+      <div>
+        <div class="answer" id="answer" hidden>
+          <div class="q">What did I miss? · last 5 minutes</div>
+          <div>Ana confirmed terminations go live next sprint. HR approves each request; IT only gets a ticket if the approval fails. Nobody gave a rollout date yet.</div>
+          <div class="acts"><button class="btn plain">Add to notes</button><button class="btn plain">Copy</button><span class="sp"></span><button class="btn plain" id="closeAnswer">Close</button></div>
+        </div>
+        <div class="dock">
+          <div class="consent">Recording stays on this Mac. Tell people you are recording.</div>
+          <div class="ask">
+            <button class="stop"><i></i>Stop</button>
+            <div class="box"><span>Ask anything about this meeting</span><button class="miss" id="miss">What did I miss?</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div></div>
+
+  <h2 class="sec">Meeting detected popup</h2>
+  <p class="caption">Appears at the top right when a meeting app starts using the mic. <b>Start recording</b> opens the docked window. The arrow opens <b>Don't ask for this app</b>. Ignored for 15 seconds, it hides. When the app releases the mic during a recording, the same popup offers <b>Stop recording</b>; it never stops by itself.</p>
+  <div class="pop-row">
+    <div class="popstage"><div class="pop"><span class="x">×</span><span class="cam"></span><span class="txt"><b>Meeting detected</b><span>Google Meet · Helpdesk bot sync</span></span><span class="go"><i></i>Start recording</span><span class="more">▾</span></div></div>
+    <div class="popstage"><div class="pop"><span class="x">×</span><span class="cam"></span><span class="txt"><b>Meeting ended</b><span>Google Meet stopped using the mic · 42:10</span></span><span class="go"><i style="background: var(--rec)"></i>Stop recording</span></div></div>
+  </div>
+
+  <h2 class="sec">Meeting detail page after Stop</h2>
+  <p class="caption">New <b>My notes</b> tab next to Transcript, Summary and Action items. Marks show on the playback timeline (orange ticks) and as mark lines in the Transcript; clicking one plays from there.</p>
+  <div class="scroll"><div class="detail">
+    <div class="list"><div class="item on">Helpdesk bot sync · 42 min</div><div class="item">Standup · 15 min</div><div class="item">Upload: MX demo</div></div>
+    <div class="main">
+      <div class="title" style="font-family: var(--serif); font-size: 22px;">Helpdesk bot sync</div>
+      <div class="timeline"><div class="played"></div><span class="m" style="left: 28%"></span><span class="m" style="left: 61%"></span></div>
+      <div class="tabs" style="padding: 0;"><button aria-selected="false">Transcript</button><button aria-selected="true">Summary</button><button aria-selected="false">Action items</button><button aria-selected="false">My notes</button></div>
+      <div class="sum"><h4>Bot results</h4><ul><li>The bot closed about 400 password reset tickets last week, around 60% of resets.</li><li>Termination requests go live next sprint; HR approves, IT is ticketed only on failure.</li></ul><h4>Follow up</h4><ul><li>Rollout date: ask Ana.</li></ul><p class="meta">Written from the full transcript and your notes when the meeting stopped.</p></div>
+    </div>
+  </div></div>
+
+  <div class="notes-list">
+    <div><h3>Window</h3><ul><li>Opens on the right third of the screen the meeting started on, full height; you can move or resize it and it remembers.</li><li>Floats above Meet; clicking Mark, Pause or the tabs does not take focus from Meet. Typing in My notes or Ask does.</li><li>Collapse leaves only the top bar (Recording, timer).</li></ul></div>
+    <div><h3>Ask anything</h3><ul><li>Answers from this meeting's transcript so far plus your notes, with the Meeting notes model.</li><li>What did I miss? asks for the last 5 minutes.</li><li>The answer shows above the box: Add to notes, Copy, Close. Asking all past meetings comes with Ask AI (item 6).</li></ul></div>
+    <div><h3>After Stop</h3><ul><li>The window stays open while the final transcript and summary are written, then shows the finished meeting.</li><li>Notes, marks and the summary appear in the meeting's detail page.</li></ul></div>
+  </div>
+</div>
+<script>
+(function () {
+  var root = document.documentElement;
+  var themeButtons = document.querySelectorAll("[data-theme-set]");
+  function setTheme(t) {
+    root.setAttribute("data-theme", t);
+    themeButtons.forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.themeSet === t)); });
+    try { localStorage.setItem("bv-theme", t); } catch (e) {}
+  }
+  var saved = null;
+  try { saved = localStorage.getItem("bv-theme"); } catch (e) {}
+  setTheme(saved || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
+  themeButtons.forEach(function (b) { b.addEventListener("click", function () { setTheme(b.dataset.themeSet); }); });
+
+  var win = document.getElementById("win");
+  function showTab(id) {
+    win.querySelectorAll("[role=tab]").forEach(function (t) { t.setAttribute("aria-selected", String(t.dataset.tab === id)); });
+    win.querySelectorAll("[data-panel]").forEach(function (p) { p.hidden = p.dataset.panel !== id; });
+    document.querySelectorAll("[data-show]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.show === id)); });
+  }
+  win.querySelectorAll("[role=tab]").forEach(function (t) { t.addEventListener("click", function () { showTab(t.dataset.tab); }); });
+  document.querySelectorAll("[data-show]").forEach(function (b) { b.addEventListener("click", function () { showTab(b.dataset.show); }); });
+
+  function setSize(s) {
+    win.classList.toggle("collapsed", s === "collapsed");
+    document.querySelectorAll("[data-size]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.size === s)); });
+    document.getElementById("collapse").innerHTML = s === "collapsed"
+      ? '<svg class="i" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>'
+      : '<svg class="i" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg>';
+  }
+  document.querySelectorAll("[data-size]").forEach(function (b) { b.addEventListener("click", function () { setSize(b.dataset.size); }); });
+  document.getElementById("collapse").addEventListener("click", function () { setSize(win.classList.contains("collapsed") ? "open" : "collapsed"); });
+
+  var mark = document.getElementById("mark");
+  mark.addEventListener("click", function () {
+    var msg = mark.parentElement.querySelector(".markmsg");
+    mark.classList.add("flash"); msg.hidden = false;
+    setTimeout(function () { mark.classList.remove("flash"); msg.hidden = true; }, 1600);
+  });
+  document.getElementById("miss").addEventListener("click", function () { document.getElementById("answer").hidden = false; });
+  document.getElementById("closeAnswer").addEventListener("click", function () { document.getElementById("answer").hidden = true; });
+})();
+</script>
+</body>
+</html>
