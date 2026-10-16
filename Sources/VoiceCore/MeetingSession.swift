@@ -119,6 +119,23 @@ public actor MeetingSession {
         try await store.save(meeting)
     }
 
+    /// English for transcript lines by segment id; ids no longer in the transcript are ignored.
+    public func setTranslations(_ translations: [String: String]) async throws {
+        guard var meeting = manifest, Self.acceptsNotes(meeting.state) else { throw MeetingSessionError.invalidState }
+        for index in meeting.segments.indices {
+            if let english = translations[meeting.segments[index].id] { meeting.segments[index].translation = english }
+        }
+        manifest = meeting
+        try await store.save(meeting)
+    }
+
+    public func setShowEnglish(_ show: Bool) async throws {
+        guard var meeting = manifest, Self.acceptsNotes(meeting.state) else { throw MeetingSessionError.invalidState }
+        meeting.showEnglish = show
+        manifest = meeting
+        try await store.save(meeting)
+    }
+
     public func setDetectedApp(_ bundleID: String?) async throws {
         guard var meeting = manifest else { throw MeetingSessionError.invalidState }
         meeting.detectedApp = bundleID

@@ -97,6 +97,44 @@ struct MeetingSessionTests {
         #expect(old.detectedApp == nil)
     }
 
+    @Test func translationsAndShowEnglishSaveWhileRecording() async throws {
+        let rig = SessionRig()
+        let session = rig.makeSession()
+        try await session.start(languages: [.en, .es])
+        try await session.persistInterim(interim(id: "system-0", track: .system, text: "hola a todos"))
+        let id = try #require(await session.snapshot()?.segments.first?.id)
+        try await session.setTranslations([id: "hello everyone", "gone": "ignored"])
+        try await session.setShowEnglish(false)
+        let saved = await rig.store.meetings.values.first
+        #expect(saved?.segments.map(\.translation) == ["hello everyone"])
+        #expect(saved?.showEnglish == false)
+    }
+
+    @Test func translationsAreRejectedAfterCancel() async throws {
+        let rig = SessionRig()
+        let session = rig.makeSession()
+        try await session.start()
+        try await session.cancel()
+        await #expect(throws: MeetingSessionError.self) { try await session.setTranslations(["x": "y"]) }
+        await #expect(throws: MeetingSessionError.self) { try await session.setShowEnglish(false) }
+    }
+
+    @Test func manifestWithoutTranslationFieldsDecodesWithDefaults() throws {
+        var meeting = MeetingManifest(startedAt: Date(timeIntervalSince1970: 0))
+        meeting.segments = [MeetingSegment(id: "a", start: 0, end: 1, text: "hola", track: .system, translation: "hello")]
+        meeting.showEnglish = false
+        let roundTrip = try JSONDecoder().decode(MeetingManifest.self, from: JSONEncoder().encode(meeting))
+        #expect(roundTrip == meeting)
+        var object = try JSONSerialization.jsonObject(with: JSONEncoder().encode(meeting)) as! [String: Any]
+        object.removeValue(forKey: "showEnglish")
+        var segment = (object["segments"] as! [[String: Any]])[0]
+        segment.removeValue(forKey: "translation")
+        object["segments"] = [segment]
+        let old = try JSONDecoder().decode(MeetingManifest.self, from: JSONSerialization.data(withJSONObject: object))
+        #expect(old.showEnglish == true)
+        #expect(old.segments.first?.translation == nil)
+    }
+
     @Test func pauseCheckpointsAndResumeExcludesPausedGap() async throws {
         let rig = SessionRig()
         let session = rig.makeSession()

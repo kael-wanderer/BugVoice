@@ -178,6 +178,8 @@ public struct MeetingSegment: Codable, Equatable, Sendable, Identifiable {
     public var text: String
     public var track: MeetingTrack
     public var sourceChunkID: String?
+    /// English for a non-English line: nil until translated, empty when the line needs none.
+    public var translation: String?
 
     public var speaker: String {
         switch track {
@@ -193,7 +195,8 @@ public struct MeetingSegment: Codable, Equatable, Sendable, Identifiable {
         end: TimeInterval,
         text: String,
         track: MeetingTrack,
-        sourceChunkID: String? = nil
+        sourceChunkID: String? = nil,
+        translation: String? = nil
     ) {
         self.id = id
         self.start = start
@@ -201,6 +204,7 @@ public struct MeetingSegment: Codable, Equatable, Sendable, Identifiable {
         self.text = text
         self.track = track
         self.sourceChunkID = sourceChunkID
+        self.translation = translation
     }
 }
 
@@ -275,6 +279,8 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
     public var liveSummaryCutoff: TimeInterval
     /// Bundle ID of the app whose microphone use offered this recording.
     public var detectedApp: String?
+    /// Show English under non-English transcript lines, and translate new ones.
+    public var showEnglish: Bool
 
     public init(
         schemaVersion: Int = MeetingManifest.currentSchemaVersion,
@@ -303,7 +309,8 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
         liveSummary: String? = nil,
         liveSummaryUpdatedAt: Date? = nil,
         liveSummaryCutoff: TimeInterval = 0,
-        detectedApp: String? = nil
+        detectedApp: String? = nil,
+        showEnglish: Bool = true
     ) {
         self.schemaVersion = schemaVersion
         self.id = id
@@ -332,13 +339,14 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
         self.liveSummaryUpdatedAt = liveSummaryUpdatedAt
         self.liveSummaryCutoff = liveSummaryCutoff
         self.detectedApp = detectedApp
+        self.showEnglish = showEnglish
     }
 
     private enum CodingKeys: String, CodingKey {
         case schemaVersion, id, title, startedAt, endedAt, duration, state
         case audioFormat, chunks, marks, segments, transcriptProgress
         case transcriptionError, summary, actionItems, source, sourceFileName, importedAt, folderID, tags, suggestedTags, languages
-        case notes, liveSummary, liveSummaryUpdatedAt, liveSummaryCutoff, detectedApp
+        case notes, liveSummary, liveSummaryUpdatedAt, liveSummaryCutoff, detectedApp, showEnglish
     }
 
     public init(from decoder: Decoder) throws {
@@ -370,6 +378,7 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
         liveSummaryUpdatedAt = try c.decodeIfPresent(Date.self, forKey: .liveSummaryUpdatedAt)
         liveSummaryCutoff = try c.decodeIfPresent(TimeInterval.self, forKey: .liveSummaryCutoff) ?? 0
         detectedApp = try c.decodeIfPresent(String.self, forKey: .detectedApp)
+        showEnglish = try c.decodeIfPresent(Bool.self, forKey: .showEnglish) ?? true
     }
 
     public static func new(startedAt: Date) -> MeetingManifest {
