@@ -90,6 +90,104 @@ public enum MarkdownCommands {
             selection: NotesTextRange(location: location + markLength, length: length))
     }
 
+    /// Wraps the selection in `<u>`…`</u>`, or removes the tags when they sit
+    /// at the ends of the selection or just outside it.
+    public static func toggleUnderline(in text: String, selection: NotesTextRange) -> MarkdownEdit {
+        let ns = text as NSString
+        let open = "<u>", close = "</u>"
+        let location = selection.location, length = selection.length
+        let selected = ns.substring(with: NSRange(location: location, length: length))
+        if length == 0 {
+            return MarkdownEdit(
+                range: selection, replacement: open + close,
+                selection: NotesTextRange(location: location + 3, length: 0))
+        }
+        if length >= 7, selected.hasPrefix(open), selected.hasSuffix(close) {
+            let inner = (selected as NSString).substring(with: NSRange(location: 3, length: length - 7))
+            return MarkdownEdit(
+                range: selection, replacement: inner,
+                selection: NotesTextRange(location: location, length: (inner as NSString).length))
+        }
+        if location >= 3, location + length + 4 <= ns.length,
+           ns.substring(with: NSRange(location: location - 3, length: 3)) == open,
+           ns.substring(with: NSRange(location: location + length, length: 4)) == close {
+            return MarkdownEdit(
+                range: NotesTextRange(location: location - 3, length: length + 7), replacement: selected,
+                selection: NotesTextRange(location: location - 3, length: length))
+        }
+        return MarkdownEdit(
+            range: selection, replacement: open + selected + close,
+            selection: NotesTextRange(location: location + 3, length: length))
+    }
+
+    /// Adds two spaces before every selected list line (bullet, numbered,
+    /// task), or removes up to two (or one tab) with `outdent`. Nil when no
+    /// line changes, so Tab can fall back to typing a tab.
+    public static func indent(in text: String, selection: NotesTextRange, outdent: Bool) -> MarkdownEdit? {
+        let ns = text as NSString
+        let block = lineBlock(in: ns, selection: selection)
+        var lines = block.lines
+        var changed = false
+        var firstDelta = 0
+        for index in lines.indices {
+            let parsed = MarkdownLine.parse(lines[index])
+            switch parsed.kind {
+            case .bullet, .numbered, .task: break
+            default: continue
+            }
+            let before = lines[index]
+            if outdent {
+                if lines[index].hasPrefix("\t") {
+                    lines[index].removeFirst()
+                } else {
+                    var removed = 0
+                    while removed < 2, lines[index].hasPrefix(" ") {
+                        lines[index].removeFirst()
+                        removed += 1
+                    }
+                }
+            } else {
+                lines[index] = "  " + lines[index]
+            }
+            if lines[index] != before {
+                changed = true
+                if index == 0 { firstDelta = (lines[index] as NSString).length - (before as NSString).length }
+            }
+        }
+        guard changed else { return nil }
+        let joined = lines.joined(separator: "\n")
+        let joinedLength = (joined as NSString).length
+        let newSelection = selection.length == 0 && lines.count == 1
+            ? NotesTextRange(location: max(block.range.location, selection.location + firstDelta), length: 0)
+            : NotesTextRange(location: block.range.location, length: joinedLength)
+        return MarkdownEdit(
+            range: block.range, replacement: joined + (block.trailingNewline ? "\n" : ""), selection: newSelection)
+    }
+
+    /// An empty table: a header row, the separator row, then `rows - 1` rows.
+    /// It goes on the caret's line when that line is blank, otherwise after
+    /// it with a blank line between. The caret lands in the first header cell.
+    public static func insertTable(columns: Int, rows: Int, in text: String, selection: NotesTextRange) -> MarkdownEdit {
+        let columns = min(max(columns, 1), 8), rows = min(max(rows, 1), 8)
+        let empty = "|" + String(repeating: "  |", count: columns)
+        let separator = "|" + String(repeating: " --- |", count: columns)
+        let table = ([empty, separator] + Array(repeating: empty, count: rows - 1)).joined(separator: "\n")
+        let ns = text as NSString
+        let caret = min(max(selection.location, 0), ns.length)
+        var lineStart = 0, contentsEnd = 0
+        ns.getLineStart(&lineStart, end: nil, contentsEnd: &contentsEnd, for: NSRange(location: caret, length: 0))
+        let line = ns.substring(with: NSRange(location: lineStart, length: contentsEnd - lineStart))
+        let blank = line.trimmingCharacters(in: .whitespaces).isEmpty
+        let range = blank
+            ? NotesTextRange(location: lineStart, length: contentsEnd - lineStart)
+            : NotesTextRange(location: contentsEnd, length: 0)
+        let lead = blank ? "" : "\n\n"
+        let replacement = lead + table + (contentsEnd < ns.length ? "\n" : "")
+        return MarkdownEdit(
+            range: range, replacement: replacement,
+            selection: NotesTextRange(location: range.location + (lead as NSString).length + 2, length: 0))
+    }
+
     public static func insertLink(in text: String, selection: NotesTextRange) -> MarkdownEdit {
         let ns = text as NSString
         let selected = ns.substring(with: NSRange(location: selection.location, length: selection.length))
