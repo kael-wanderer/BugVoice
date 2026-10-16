@@ -255,6 +255,9 @@ Run after building with `Scripts/build-app.sh`. Results stay blank until run on 
 | 166 | Scratchpad page | Hover a card; Pin; change Sort; type in Search; Refresh; click a card | Edit, Pin, Trash show on hover; pinned card moves first with a pin; sort and search filter the cards; click opens the note in the window | |
 | 167 | Scratchpad page | Move a card to the Trash; check `~/.Trash` | Confirmation, then the note leaves the page and its file is in the Trash | |
 | 168 | Meetings / Upload | Send to Scratchpad, then open the window | Notice as before; the new note is in the window's list | |
+| 169 | Meeting audio | Record a meeting while a browser tab plays a video | Others meter turns green while the video plays; `system.m4a` is as long as `mic.m4a`; video speech appears as Others | |
+| 170 | Settings › Meetings | Open Languages; turn Spanish on, then turn every language off | English and Vietnamese on by default; the last language cannot be turned off; choice persists after relaunch | |
+| 171 | Recorder panel | During a meeting open the language chip (EN · VI) and choose English only; pause with "ah… e" fillers; stop | Chip shows EN; no Portuguese or other-language lines; filler-only lines are not in the transcript; final transcript uses the same choice | |
 
 Review-focus inputs: zero-length file; 48 kHz stereo or 5.1; video track only;
 source removed/moved while reading; three-hour-or-longer file. A reader already
