@@ -31,6 +31,26 @@ struct MeetingSessionTests {
         #expect(await rig.store.deleted.isEmpty)
     }
 
+    @Test func startRecordsTheMeetingLanguagesAndTheyCanChange() async throws {
+        let rig = SessionRig()
+        let session = rig.makeSession()
+        let started = try await session.start(languages: [.en, .es])
+        #expect(started.languages == [.en, .es])
+        try await session.setLanguages([.es])
+        #expect(await session.snapshot()?.languages == [.es])
+        #expect(await rig.store.meetings.values.first?.languages == [.es])
+    }
+
+    @Test func meetingWithoutSavedLanguagesDecodesAsEmpty() throws {
+        var meeting = MeetingManifest(startedAt: Date(timeIntervalSince1970: 0))
+        meeting.languages = [.vi]
+        var object = try JSONSerialization.jsonObject(with: JSONEncoder().encode(meeting)) as! [String: Any]
+        #expect(object["languages"] as? [String] == ["vi"])
+        object.removeValue(forKey: "languages")
+        let decoded = try JSONDecoder().decode(MeetingManifest.self, from: JSONSerialization.data(withJSONObject: object))
+        #expect(decoded.languages.isEmpty)
+    }
+
     @Test func pauseCheckpointsAndResumeExcludesPausedGap() async throws {
         let rig = SessionRig()
         let session = rig.makeSession()

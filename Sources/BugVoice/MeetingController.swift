@@ -17,6 +17,8 @@ final class MeetingController {
     private(set) var youLevel: Float = 0
     private(set) var othersLevel: Float = 0
     private(set) var elapsed: TimeInterval = 0
+    /// Languages for the meeting being recorded; the recorder panel can change them.
+    private(set) var languages: [SpeechLanguage] = MeetingLanguages.defaults
     var onRecordingStarted: (() -> Void)?
     var onRecordingStopped: (() -> Void)?
     @ObservationIgnored private var session: MeetingSession?
@@ -38,6 +40,19 @@ final class MeetingController {
             Task { await stop() }
         } else {
             Task { await start() }
+        }
+    }
+
+    /// Turns one language on or off for the current meeting. The last one stays on.
+    func toggleLanguage(_ language: SpeechLanguage) {
+        var next = languages.contains(language) ? languages.filter { $0 != language } : languages + [language]
+        guard !next.isEmpty else { return }
+        next = MeetingLanguages.choices.filter(next.contains)
+        languages = next
+        guard let session, let scheduler else { return }
+        Task {
+            await scheduler.setLanguages(next)
+            try? await session.setLanguages(next)
         }
     }
 
@@ -65,17 +80,21 @@ final class MeetingController {
             ]
             let capture = MeetingAudioCaptureCoordinator(sources: sources, writer: writer)
             let store = MeetingStore(root: model.paths.meetings)
+            let languages = model.settings.meetings.languages
             let scheduler = MeetingLiveTranscriptionScheduler(
                 writer: writer,
                 transcriber: model.transcriptionRouter,
-                language: model.settings.speech.language
+                languages: languages
             )
             let finalizer = MeetingAudioFinalizer(meetingDirectory: directory)
             let session = MeetingSession(
                 store: store, audio: capture, scheduler: scheduler, finalizer: finalizer, meetingID: id
             )
             await scheduler.bindSession(session)
-            _ = try await session.start(labels: ItemLabels(folderID: model.meetingsFolderFilter.newItemFolderID))
+            _ = try await session.start(
+                labels: ItemLabels(folderID: model.meetingsFolderFilter.newItemFolderID),
+                languages: languages
+            )
             self.session = session
             self.capture = capture
             self.writer = writer
@@ -85,6 +104,7 @@ final class MeetingController {
             startedAt = Date()
             elapsedBeforePause = 0
             elapsed = 0
+            self.languages = languages
             latestLine = ""
             isRecording = true
             isPaused = false
@@ -122,7 +142,7 @@ final class MeetingController {
         let scheduler = MeetingLiveTranscriptionScheduler(
             writer: writer,
             transcriber: model.transcriptionRouter,
-            language: model.settings.speech.language
+            languages: model.settings.meetings.languages
         )
         let finalizer = MeetingAudioFinalizer(meetingDirectory: directory)
         let session = MeetingSession(store: store, audio: capture, scheduler: scheduler, finalizer: finalizer, meetingID: id)
@@ -306,7 +326,7 @@ private actor MeetingLiveTranscriptionScheduler: MeetingTranscriptionScheduler {
 
     private let writer: MeetingPCMJournalWriter
     private let transcriber: any Transcriber
-    private let language: SpeechLanguage
+    private var languages: [SpeechLanguage]
     private let processor = MeetingChunkProcessor()
     private var pending: [Job] = []
     private var submitted: Set<String> = []
@@ -319,11 +339,13 @@ private actor MeetingLiveTranscriptionScheduler: MeetingTranscriptionScheduler {
 
     var latestLine: String { latestSegmentText }
 
-    init(writer: MeetingPCMJournalWriter, transcriber: any Transcriber, language: SpeechLanguage) {
+    init(writer: MeetingPCMJournalWriter, transcriber: any Transcriber, languages: [SpeechLanguage]) {
         self.writer = writer
         self.transcriber = transcriber
-        self.language = language
+        self.languages = languages
     }
+
+    func setLanguages(_ languages: [SpeechLanguage]) { self.languages = languages }
 
     func bindSession(_ session: MeetingSession) { self.session = session }
 
@@ -356,6 +378,7 @@ private actor MeetingLiveTranscriptionScheduler: MeetingTranscriptionScheduler {
         isFinalTranscribing = true
         defer { isFinalTranscribing = false; resumeWaiters() }
 
+        let languages = manifest.languages.isEmpty ? languages : manifest.languages
         let checkpoint = try writer.storedCheckpoint()
         let planned = MeetingTrack.recordingTracks.map { track in
             MeetingChunkPlanner.plan(
@@ -375,7 +398,7 @@ private actor MeetingLiveTranscriptionScheduler: MeetingTranscriptionScheduler {
                     track: track,
                     offset: Double(range.lowerBound) / Double(MeetingPCMJournal.sampleRate),
                     clip: AudioClip(samples: samples),
-                    configuredLanguage: language,
+                    languages: languages,
                     transcriber: transcriber
                 )
                 results.append(result)
@@ -397,7 +420,7 @@ private actor MeetingLiveTranscriptionScheduler: MeetingTranscriptionScheduler {
                     track: job.track,
                     offset: job.offset,
                     clip: job.clip,
-                    configuredLanguage: language,
+                    languages: languages,
                     transcriber: transcriber
                 )
                 latestSegmentText = MeetingRecorderPresentation.latestLine(after: result, previous: latestSegmentText)

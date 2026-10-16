@@ -11,7 +11,7 @@ struct UploadGateTests {
         let clip = AudioClip(samples: Array(repeating: 0.3, count: 16_000))
         let result = try await MeetingChunkProcessor().process(
             id: "file-final-0-16000", track: .file, offset: 0,
-            clip: clip, configuredLanguage: .en, transcriber: transcriber
+            clip: clip, languages: [.en], transcriber: transcriber
         )
         #expect(await probe.calls == 2)
         #expect(result.record.attempts.count == 2)

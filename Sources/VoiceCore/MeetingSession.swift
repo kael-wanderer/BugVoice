@@ -95,6 +95,13 @@ public actor MeetingSession {
         try await store.save(meeting)
     }
 
+    public func setLanguages(_ languages: [SpeechLanguage]) async throws {
+        guard var meeting = manifest else { throw MeetingSessionError.invalidState }
+        meeting.languages = MeetingLanguages.normalized(languages)
+        manifest = meeting
+        try await store.save(meeting)
+    }
+
     public func saveGeneratedText(_ text: String, kind: MeetingTextKind) async throws {
         guard var meeting = manifest else { throw MeetingSessionError.invalidState }
         if kind == .summary { meeting.summary = text }
@@ -158,10 +165,10 @@ public actor MeetingSession {
     }
 
     @discardableResult
-    public func start(labels: ItemLabels = ItemLabels()) async throws -> MeetingManifest {
+    public func start(labels: ItemLabels = ItemLabels(), languages: [SpeechLanguage] = []) async throws -> MeetingManifest {
         guard manifest == nil else { throw MeetingSessionError.invalidState }
         let now = clock.now()
-        var meeting = MeetingManifest(id: meetingID, startedAt: now, state: .recording)
+        var meeting = MeetingManifest(id: meetingID, startedAt: now, state: .recording, languages: languages)
         meeting.folderID = labels.folderID
         meeting.tags = labels.tags
         manifest = meeting

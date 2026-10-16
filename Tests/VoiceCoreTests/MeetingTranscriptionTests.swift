@@ -153,7 +153,7 @@ struct MeetingTranscriptionTests {
         #expect(result.segments.first?.track == .system)
     }
 
-    @Test func configuredEnglishRetriesWithEnglish() async throws {
+    @Test func englishOnlyMeetingRetriesEmptyChunksInEnglish() async throws {
         let probe = MeetingTranscriberProbe(replies: [
             .init(text: "", language: "vi"),
             .init(text: "hello there", language: "en")
@@ -161,7 +161,7 @@ struct MeetingTranscriptionTests {
 
         let result = try await MeetingChunkProcessor().process(
             id: "english-retry", track: .mic, offset: 0,
-            clip: speechClip, configuredLanguage: .en, transcriber: probe
+            clip: speechClip, languages: [.en], transcriber: probe
         )
 
         #expect(await probe.receivedOptions.map(\.language) == [.auto, .en])
@@ -266,14 +266,58 @@ struct MeetingLanguageAndFillerTests {
         #expect(result.segments.isEmpty)
     }
 
-    @Test func configuredLanguageIsNotSecondGuessed() async throws {
-        let probe = MeetingTranscriberProbe(replies: [.init(text: "Olá", language: "pt")])
+    @Test func singleLanguageMeetingRedoesEveryOtherLanguageInIt() async throws {
+        let probe = MeetingTranscriberProbe(replies: [
+            .init(text: "Hola equipo", language: "es", languageScores: ["es": -0.1, "en": -3]),
+            .init(text: "Hello team", language: "en")
+        ])
         let result = try await MeetingChunkProcessor().process(
-            id: "configured", track: .mic, offset: 0, clip: speechClip, configuredLanguage: .en, transcriber: probe
+            id: "english-only", track: .system, offset: 0, clip: speechClip, languages: [.en], transcriber: probe
+        )
+        let options = await probe.receivedOptions
+        #expect(options.first?.expectedLanguages == [.en])
+        #expect(options.map(\.language) == [.auto, .en])
+        #expect(result.segments.map(\.text) == ["Hello team"])
+    }
+
+    @Test func selectedSpanishIsKeptWhenWhisperHearsSpanish() async throws {
+        let probe = MeetingTranscriberProbe(replies: [.init(text: "Hola equipo", language: "es")])
+        let result = try await MeetingChunkProcessor().process(
+            id: "spanish", track: .system, offset: 0, clip: speechClip, languages: [.en, .es], transcriber: probe
         )
         #expect(await probe.callCount == 1)
-        #expect(await probe.receivedOptions.first?.expectedLanguages == [])
-        #expect(result.record.state == .complete)
+        #expect(await probe.receivedOptions.first?.expectedLanguages == [.en, .es])
+        #expect(result.segments.map(\.text) == ["Hola equipo"])
+    }
+
+    @Test func redoPicksTheBestScoringSelectedLanguage() async throws {
+        let probe = MeetingTranscriberProbe(replies: [
+            .init(text: "Olá pessoal", language: "pt", languageScores: ["pt": -0.2, "es": -0.6, "en": -1.5, "vi": -0.1]),
+            .init(text: "Hola a todos", language: "es")
+        ])
+        _ = try await MeetingChunkProcessor().process(
+            id: "best-selected", track: .system, offset: 0, clip: speechClip, languages: [.en, .es], transcriber: probe
+        )
+        #expect(await probe.receivedOptions.map(\.language) == [.auto, .es])
+    }
+
+    @Test func emptyChunkRetriesInFirstLanguageWhenVietnameseIsNotSelected() async throws {
+        let probe = MeetingTranscriberProbe(replies: [
+            .init(text: "", language: "es"),
+            .init(text: "Buenos días", language: "es")
+        ])
+        _ = try await MeetingChunkProcessor().process(
+            id: "empty-spanish", track: .system, offset: 0, clip: speechClip, languages: [.es, .en], transcriber: probe
+        )
+        #expect(await probe.receivedOptions.map(\.language) == [.auto, .es])
+    }
+
+    @Test func meetingLanguagesAreNormalized() {
+        #expect(MeetingLanguages.normalized([]) == MeetingLanguages.defaults)
+        #expect(MeetingLanguages.normalized([.auto]) == MeetingLanguages.defaults)
+        #expect(MeetingLanguages.normalized([.es, .auto, .es, .en]) == [.es, .en])
+        #expect(MeetingLanguages.defaults == [.en, .vi])
+        #expect(MeetingLanguages.choices == [.en, .vi, .es])
     }
 
     @Test func fillerOnlySegmentsAreDroppedAndSpeechIsKept() async throws {

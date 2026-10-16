@@ -5,17 +5,17 @@ import BugVoiceMac
 actor UploadTranscriptionScheduler: MeetingTranscriptionScheduler {
     private let writer: MeetingPCMJournalWriter
     private let transcriber: any Transcriber
-    private let language: SpeechLanguage
+    private let languages: [SpeechLanguage]
     private let gate: @Sendable () async throws -> Void
     private weak var session: MeetingSession?
     private var cancelled = false
     private var running = false
     private var waiters: [CheckedContinuation<Void, Never>] = []
 
-    init(writer: MeetingPCMJournalWriter, transcriber: any Transcriber, language: SpeechLanguage, gate: @escaping @Sendable () async throws -> Void) {
+    init(writer: MeetingPCMJournalWriter, transcriber: any Transcriber, languages: [SpeechLanguage], gate: @escaping @Sendable () async throws -> Void) {
         self.writer = writer
         self.transcriber = transcriber
-        self.language = language
+        self.languages = languages
         self.gate = gate
     }
 
@@ -80,7 +80,7 @@ actor UploadTranscriptionScheduler: MeetingTranscriptionScheduler {
                 var processed = try await MeetingChunkProcessor().process(
                     id: UploadChunkPlan.id(for: range), track: .file,
                     offset: Double(range.lowerBound) / 16_000,
-                    clip: AudioClip(samples: samples), configuredLanguage: language, transcriber: gated
+                    clip: AudioClip(samples: samples), languages: manifest.languages.isEmpty ? languages : manifest.languages, transcriber: gated
                 )
                 for index in processed.segments.indices {
                     processed.segments[index].id = "\(processed.record.id)-\(index)"

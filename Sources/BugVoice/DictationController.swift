@@ -238,7 +238,7 @@ final class DictationController {
         }
         let feature: ModelFeature = notesCapture == nil ? .dictation : .notes
         let pipeline = model.makePipeline(insertion: insertion, feature: feature)
-        let language = Self.languageLabel(model.settings.speech.language)
+        let language = model.settings.speech.language.displayName
         let modelName = model.plan(for: feature).shortName
         Task { [self] in
             let result = await pipeline.run(
@@ -269,14 +269,6 @@ final class DictationController {
         case .transcribing: hud.show(.transcribing(language: language))
         case .cleaning: hud.show(.cleaning(model: modelName, app: app))
         case .inserting: break
-        }
-    }
-
-    private static func languageLabel(_ language: SpeechLanguage) -> String {
-        switch language {
-        case .auto: "Auto"
-        case .en: "English"
-        case .vi: "Vietnamese"
         }
     }
 

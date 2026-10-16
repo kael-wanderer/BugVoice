@@ -264,6 +264,8 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
     public var tags: [String]
     /// Existing tags the Meetings model proposed after the last summary. Shown until clicked or dismissed.
     public var suggestedTags: [String]
+    /// Languages chosen for this meeting; empty for meetings saved before the choice existed.
+    public var languages: [SpeechLanguage]
 
     public init(
         schemaVersion: Int = MeetingManifest.currentSchemaVersion,
@@ -286,7 +288,8 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
         importedAt: Date? = nil,
         folderID: FolderID? = nil,
         tags: [String] = [],
-        suggestedTags: [String] = []
+        suggestedTags: [String] = [],
+        languages: [SpeechLanguage] = []
     ) {
         self.schemaVersion = schemaVersion
         self.id = id
@@ -309,12 +312,13 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
         self.folderID = folderID
         self.tags = tags
         self.suggestedTags = suggestedTags
+        self.languages = languages
     }
 
     private enum CodingKeys: String, CodingKey {
         case schemaVersion, id, title, startedAt, endedAt, duration, state
         case audioFormat, chunks, marks, segments, transcriptProgress
-        case transcriptionError, summary, actionItems, source, sourceFileName, importedAt, folderID, tags, suggestedTags
+        case transcriptionError, summary, actionItems, source, sourceFileName, importedAt, folderID, tags, suggestedTags, languages
     }
 
     public init(from decoder: Decoder) throws {
@@ -340,6 +344,7 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
         folderID = try c.decodeIfPresent(FolderID.self, forKey: .folderID)
         tags = try c.decodeIfPresent([String].self, forKey: .tags) ?? []
         suggestedTags = try c.decodeIfPresent([String].self, forKey: .suggestedTags) ?? []
+        languages = try c.decodeIfPresent([SpeechLanguage].self, forKey: .languages) ?? []
     }
 
     public static func new(startedAt: Date) -> MeetingManifest {

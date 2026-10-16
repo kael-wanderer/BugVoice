@@ -233,7 +233,7 @@ final class UploadController {
         let writer = MeetingPCMJournalWriter(directory: directory.appendingPathComponent(".capture"))
         let scheduler = UploadTranscriptionScheduler(
             writer: writer, transcriber: model.transcriptionRouter,
-            language: model.settings.speech.language,
+            languages: model.settings.meetings.languages,
             gate: { [weak self] in
                 guard let self else { throw CancellationError() }
                 try await self.waitForRecognition()

@@ -98,7 +98,7 @@ public struct MeetingChunkProcessor: Sendable {
         track: MeetingTrack,
         offset: TimeInterval,
         clip: AudioClip,
-        configuredLanguage: SpeechLanguage = .auto,
+        languages: [SpeechLanguage] = MeetingLanguages.defaults,
         transcriber: any Transcriber
     ) async throws -> MeetingChunkProcessingResult {
         guard MeetingSilenceGate.hasSpeech(clip.samples) else {
@@ -112,6 +112,7 @@ public struct MeetingChunkProcessor: Sendable {
             ), segments: [])
         }
 
+        let languages = MeetingLanguages.normalized(languages)
         let autoAttempt: MeetingChunkAttempt
         var autoTranscript: Transcript?
         do {
@@ -121,7 +122,7 @@ public struct MeetingChunkProcessor: Sendable {
                     language: .auto,
                     timestamps: true,
                     priority: .meeting,
-                    expectedLanguages: configuredLanguage == .auto ? Self.speakerLanguages : []
+                    expectedLanguages: languages
                 )
             )
             autoTranscript = transcript
@@ -136,14 +137,14 @@ public struct MeetingChunkProcessor: Sendable {
             )
         }
 
-        if configuredLanguage == .auto, autoAttempt.state == .complete, let detected = autoTranscript?.language,
-           !Self.speakerLanguages.map(\.rawValue).contains(detected) {
-            // Whisper guessed a language the speaker does not use, often from a
-            // hesitation sound. Redo the chunk in English or Vietnamese,
-            // whichever Whisper scored higher.
+        if autoAttempt.state == .complete, let detected = autoTranscript?.language,
+           !languages.map(\.rawValue).contains(detected) {
+            // Whisper guessed a language not chosen for this meeting, often from
+            // a hesitation sound. Redo the chunk in the chosen language Whisper
+            // scored highest.
             return try await forcedRedo(
                 id: id, track: track, offset: offset, clip: clip, previous: autoAttempt,
-                language: Self.betterSpeakerLanguage(autoTranscript?.languageScores ?? [:]),
+                language: Self.bestLanguage(among: languages, scores: autoTranscript?.languageScores ?? [:]),
                 transcriber: transcriber
             )
         }
@@ -160,19 +161,23 @@ public struct MeetingChunkProcessor: Sendable {
             return result(id: id, track: track, offset: offset, clip: clip, attempts: [autoAttempt], chosen: nil)
         }
 
-        let retryLanguage: SpeechLanguage = configuredLanguage == .auto ? .vi : configuredLanguage
+        // Whisper's automatic detection most often returns nothing for Vietnamese.
+        let retryLanguage: SpeechLanguage = languages.contains(.vi) ? .vi : languages[0]
         return try await forcedRedo(
             id: id, track: track, offset: offset, clip: clip,
             previous: autoAttempt, language: retryLanguage, transcriber: transcriber
         )
     }
 
-    static let speakerLanguages: [SpeechLanguage] = [.en, .vi]
-
-    static func betterSpeakerLanguage(_ scores: [String: Float]) -> SpeechLanguage {
-        let english = scores[SpeechLanguage.en.rawValue] ?? -.infinity
-        let vietnamese = scores[SpeechLanguage.vi.rawValue] ?? -.infinity
-        return vietnamese > english ? .vi : .en
+    /// The chosen language with the highest score; the first chosen one when no scores are known.
+    static func bestLanguage(among languages: [SpeechLanguage], scores: [String: Float]) -> SpeechLanguage {
+        var best = languages[0]
+        var bestScore = scores[best.rawValue] ?? -.infinity
+        for language in languages.dropFirst() {
+            let score = scores[language.rawValue] ?? -.infinity
+            if score > bestScore { best = language; bestScore = score }
+        }
+        return best
     }
 
     private func forcedRedo(

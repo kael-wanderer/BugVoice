@@ -8,13 +8,22 @@ struct MeetingRecoveryPolicyTests {
         #expect(old.meetings.deleteAfter == .never)
         #expect(old.meetings.generationContextTokens == 8_192)
         #expect(old.meetings.generationOutputTokens == 2_048)
+        #expect(old.meetings.languages == [.en, .vi])
 
         var current = MeetingSettings()
         current.deleteAfter = .days90
         current.generationContextTokens = 16_384
         current.generationOutputTokens = 4_096
+        current.languages = [.en, .es]
         let decoded = try JSONDecoder().decode(MeetingSettings.self, from: JSONEncoder().encode(current))
         #expect(decoded == current)
+    }
+
+    @Test func savedMeetingLanguagesAreNormalizedOnDecode() throws {
+        let decoded = try JSONDecoder().decode(MeetingSettings.self, from: Data(#"{"languages":["auto","es","es"]}"#.utf8))
+        #expect(decoded.languages == [.es])
+        let none = try JSONDecoder().decode(MeetingSettings.self, from: Data(#"{"languages":[]}"#.utf8))
+        #expect(none.languages == [.en, .vi])
     }
 
     @Test func recoveryActionsSeparateInterruptedCaptureAndPendingTranscription() {

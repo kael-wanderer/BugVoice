@@ -39,6 +39,7 @@ struct MeetingRecorderView: View {
                     button(for: action)
                 }
                 Spacer(minLength: 0)
+                if controller.isRecording || controller.isPaused { languageMenu }
             }
         }
         .padding(16)
@@ -60,6 +61,24 @@ struct MeetingRecorderView: View {
         case .stop:
             Button("Stop") { Task { await controller.stop() } }.buttonStyle(.bordered)
         }
+    }
+
+    private var languageMenu: some View {
+        Menu {
+            ForEach(MeetingLanguages.choices, id: \.self) { language in
+                Toggle(language.displayName, isOn: Binding(
+                    get: { controller.languages.contains(language) },
+                    set: { _ in controller.toggleLanguage(language) }
+                ))
+                .disabled(controller.languages == [language])
+            }
+        } label: {
+            Text(controller.languages.map { $0.rawValue.uppercased() }.joined(separator: " · "))
+                .font(.caption.weight(.medium))
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .help("Languages spoken in this meeting")
     }
 
     private func meter(_ title: String, level: Float) -> some View {

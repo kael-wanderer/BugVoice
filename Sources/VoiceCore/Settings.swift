@@ -69,6 +69,10 @@ public struct MeetingSettings: Codable, Equatable, Sendable {
     public var deleteAfter: MeetingRetentionPolicy = .never
     public var generationContextTokens = 8_192
     public var generationOutputTokens = 2_048
+    /// Languages spoken in meetings and uploads. Always normalized and never empty.
+    public var languages: [SpeechLanguage] = MeetingLanguages.defaults {
+        didSet { if languages != MeetingLanguages.normalized(languages) { languages = MeetingLanguages.normalized(languages) } }
+    }
 
     public init() {}
 }
@@ -80,6 +84,7 @@ extension MeetingSettings {
         deleteAfter = c.value(.deleteAfter, default: deleteAfter)
         generationContextTokens = c.value(.generationContextTokens, default: generationContextTokens)
         generationOutputTokens = c.value(.generationOutputTokens, default: generationOutputTokens)
+        languages = MeetingLanguages.normalized(c.value(.languages, default: languages))
     }
 }
 

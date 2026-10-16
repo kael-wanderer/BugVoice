@@ -1,7 +1,31 @@
 import Foundation
 
 public enum SpeechLanguage: String, Codable, Sendable, CaseIterable {
-    case auto, vi, en
+    /// Spanish is offered for meetings and uploads only; dictation keeps Auto, Vietnamese and English.
+    case auto, vi, en, es
+
+    public var displayName: String {
+        switch self {
+        case .auto: "Auto"
+        case .vi: "Vietnamese"
+        case .en: "English"
+        case .es: "Spanish"
+        }
+    }
+}
+
+/// The languages spoken in a meeting. Whisper's automatic detection is kept
+/// to this set: a chunk it hears in any other language is redone in one of them.
+public enum MeetingLanguages {
+    public static let choices: [SpeechLanguage] = [.en, .vi, .es]
+    public static let defaults: [SpeechLanguage] = [.en, .vi]
+
+    /// Drops Auto and repeats, keeps order; an empty result falls back to the defaults.
+    public static func normalized(_ languages: [SpeechLanguage]) -> [SpeechLanguage] {
+        var seen = Set<SpeechLanguage>()
+        let kept = languages.filter { $0 != .auto && seen.insert($0).inserted }
+        return kept.isEmpty ? defaults : kept
+    }
 }
 
 public enum TranscriptionPriority: Int, Codable, Sendable {

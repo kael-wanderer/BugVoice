@@ -6,6 +6,19 @@ struct MeetingsTab: View {
 
     var body: some View {
         SettingsScroll {
+            SettingsCard(title: "Languages") {
+                ForEach(MeetingLanguages.choices, id: \.self) { language in
+                    SettingsRow(title: language.displayName) {
+                        Toggle(language.displayName, isOn: languageBinding(language))
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                            .controlSize(.small)
+                            .disabled(isLastLanguage(language))
+                    }
+                }
+                Text("Speech in any other language is transcribed again in one of these. Pick only English for English calls. Applies to meetings and uploads; change it for one meeting on the recorder panel.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             SettingsCard(title: "Automatic deletion") {
                 SettingsRow(title: "Delete ready meetings after") {
                     Picker("Delete ready meetings after", selection: $model.settings.meetings.deleteAfter) {
@@ -46,5 +59,21 @@ struct MeetingsTab: View {
                 max(256, context - 1_024)
             )
         }
+    }
+
+    private func isLastLanguage(_ language: SpeechLanguage) -> Bool {
+        model.settings.meetings.languages == [language]
+    }
+
+    private func languageBinding(_ language: SpeechLanguage) -> Binding<Bool> {
+        Binding(
+            get: { model.settings.meetings.languages.contains(language) },
+            set: { isOn in
+                let current = model.settings.meetings.languages
+                let next = isOn ? current + [language] : current.filter { $0 != language }
+                guard !next.isEmpty else { return }
+                model.settings.meetings.languages = MeetingLanguages.choices.filter(next.contains)
+            }
+        )
     }
 }
