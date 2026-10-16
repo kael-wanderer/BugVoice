@@ -26,10 +26,12 @@ Scratchpad (roadmap item 8) merged on `main` (2026-10-16): spec
 `docs/superpowers/specs/2026-10-15-scratchpad-design.md`, plan
 `docs/superpowers/plans/2026-10-15-scratchpad.md`. Device checks 136–150 pending.
 
-Scratchpad window built on branch `feat/scratchpad-window`: spec
+Scratchpad window merged on `main` (2026-10-16): spec
 `docs/superpowers/specs/2026-10-16-scratchpad-window-design.md`, plan
-`docs/superpowers/plans/2026-10-16-scratchpad-window.md`. Awaiting review and
-merge; device checks 151–168 pending.
+`docs/superpowers/plans/2026-10-16-scratchpad-window.md`. The floating window is
+the only note editor (a non-activating panel, so typing and dictation reach it
+while another app is in front); the page lists cards. Device checks 151–168
+pending. UI polish later (formatting bar is tight at the 440 pt Smaller width).
 
 **Packaging:** app icon (Antenna Mic) and `Scripts/build-dmg.sh`; current version 0.1.0 build 10.
 
