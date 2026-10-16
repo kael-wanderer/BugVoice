@@ -63,7 +63,35 @@ struct MarkdownDocView: View {
                 .background(Color.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 6))
         case .rule:
             Divider()
+        case .table(let header, let rows):
+            table(header: header, rows: rows)
         }
+    }
+
+    private func table(header: [String], rows: [[String]]) -> some View {
+        Grid(alignment: .leading, horizontalSpacing: 0, verticalSpacing: 0) {
+            GridRow {
+                ForEach(Array(header.enumerated()), id: \.offset) { _, cell in
+                    tableCell(cell).fontWeight(.semibold)
+                }
+            }
+            .background(Color.secondary.opacity(0.08))
+            ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                GridRow {
+                    ForEach(Array(row.enumerated()), id: \.offset) { _, cell in tableCell(cell) }
+                }
+            }
+        }
+        .overlay(Rectangle().stroke(Color.secondary.opacity(0.3)))
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func tableCell(_ text: String) -> some View {
+        inline(text)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .overlay(Rectangle().stroke(Color.secondary.opacity(0.2)))
     }
 
     private func item(indent: Int, marker: Text, text: String) -> some View {
@@ -75,9 +103,18 @@ struct MarkdownDocView: View {
     }
 
     /// Inline Markdown through Foundation; raw text when it does not parse.
+    /// `<u>`…`</u>` is underlined; the tags are not shown.
     private func inline(_ text: String) -> Text {
         let options = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
-        if let attributed = try? AttributedString(markdown: text, options: options) { return Text(attributed) }
-        return Text(text)
+        var result = AttributedString()
+        for (index, piece) in text.components(separatedBy: "<u>").enumerated() {
+            let parts = index == 0 ? [piece] : piece.components(separatedBy: "</u>")
+            for (offset, part) in parts.enumerated() where !part.isEmpty {
+                var attributed = (try? AttributedString(markdown: part, options: options)) ?? AttributedString(part)
+                if index > 0, offset == 0, parts.count > 1 { attributed.underlineStyle = .single }
+                result += attributed
+            }
+        }
+        return Text(result)
     }
 }

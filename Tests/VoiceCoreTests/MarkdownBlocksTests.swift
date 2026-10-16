@@ -48,4 +48,31 @@ struct MarkdownBlocksTests {
         let text = "# Title\nSee **bold**, _it_, ~~old~~, `code` and [site](https://a.b).\n> quote\n- [ ] task\n```\n**raw**\n```"
         #expect(MarkdownPlainText.convert(text) == "Title\nSee bold, it, old, code and site (https://a.b).\nquote\n- [ ] task\n**raw**")
     }
+
+    @Test func tableWithHeaderSeparatorAndRows() {
+        let text = "Intro\n| Item | Owner |\n| --- | :-: |\n| Icons | Linh |\n| Copy |\n| a | b | c |\nafter"
+        #expect(MarkdownBlocks.parse(text) == [
+            .paragraph("Intro"),
+            .table(header: ["Item", "Owner"], rows: [["Icons", "Linh"], ["Copy", ""], ["a", "b"]]),
+            .paragraph("after"),
+        ])
+    }
+
+    @Test func pipeLinesWithoutASeparatorStayParagraphs() {
+        #expect(MarkdownBlocks.parse("| a | b |\n| c | d |") == [.paragraph("| a | b |\n| c | d |")])
+        #expect(MarkdownBlocks.parse("| --- |") == [.paragraph("| --- |")])
+    }
+
+    @Test func tableInsideAFenceIsCode() {
+        #expect(MarkdownBlocks.parse("```\n| a |\n| --- |\n```") == [.code("| a |\n| --- |")])
+    }
+
+    @Test func emptyTableFromTheToolbarParses() {
+        #expect(MarkdownBlocks.parse("|  |  |\n| --- | --- |\n|  |  |") == [.table(header: ["", ""], rows: [["", ""]])])
+    }
+
+    @Test func plainTextDropsUnderlineTagsAndFlattensTables() {
+        let text = "<u>Key</u> point\n| Item | **Owner** |\n| --- | --- |\n| Icons | Linh |"
+        #expect(MarkdownPlainText.convert(text) == "Key point\nItem | Owner\nIcons | Linh")
+    }
 }

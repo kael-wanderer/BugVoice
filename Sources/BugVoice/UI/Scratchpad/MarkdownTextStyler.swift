@@ -50,6 +50,10 @@ enum MarkdownTextStyler {
                     .foregroundColor: NSColor.tertiaryLabelColor,
                     .strikethroughStyle: NSUnderlineStyle.single.rawValue,
                 ], range: range)
+            case .underline:
+                storage.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: range)
+            case .table:
+                storage.addAttribute(.font, value: NSFont.monospacedSystemFont(ofSize: codeSize, weight: .regular), range: range)
             }
         }
     }
