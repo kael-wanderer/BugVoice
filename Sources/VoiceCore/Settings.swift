@@ -172,11 +172,35 @@ public enum NoteViewMode: String, Codable, Sendable, CaseIterable {
     }
 }
 
-/// Open Scratchpad tabs by note slug, and the view every note uses.
+/// The bar under the editor in the Scratchpad window.
+public enum ScratchpadBottomBar: String, Codable, Sendable, CaseIterable {
+    case ai, formatting
+}
+
+/// Order of the Scratchpad cards and the window's note list. Pinned notes come first.
+public enum NotesSort: String, Codable, Sendable, CaseIterable {
+    case editedNewest, editedOldest, title
+
+    public var title: String {
+        switch self {
+        case .editedNewest: "Last edited, newest first"
+        case .editedOldest: "Last edited, oldest first"
+        case .title: "Title A–Z"
+        }
+    }
+}
+
+/// Open Scratchpad tabs by note slug, the view every note uses, and the
+/// Scratchpad window's layout.
 public struct ScratchpadSettings: Codable, Equatable, Sendable {
     public var openTabs: [String] = []
     public var activeTab: String?
     public var view: NoteViewMode = .markdown
+    public var keepOnTop = true
+    public var sideListHidden = false
+    public var compact = false
+    public var bottomBar: ScratchpadBottomBar = .ai
+    public var sort: NotesSort = .editedNewest
 
     public init() {}
 }
@@ -188,6 +212,11 @@ extension ScratchpadSettings {
         openTabs = c.value(.openTabs, default: openTabs)
         activeTab = c.value(.activeTab, default: activeTab)
         view = c.value(.view, default: view)
+        keepOnTop = c.value(.keepOnTop, default: keepOnTop)
+        sideListHidden = c.value(.sideListHidden, default: sideListHidden)
+        compact = c.value(.compact, default: compact)
+        bottomBar = c.value(.bottomBar, default: bottomBar)
+        sort = c.value(.sort, default: sort)
     }
 }
 

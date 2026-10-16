@@ -237,6 +237,24 @@ Run after building with `Scripts/build-app.sh`. Results stay blank until run on 
 | 148 | Scratchpad | Copy as → Markdown, Plain text, Email; paste each into TextEdit | Markdown has # title; Plain text has no marks and links as text (url); Email rewrite pasted; notice "Copied as Email"; note unchanged | |
 | 149 | Meetings | On a meeting with a summary: Send to Scratchpad; More → Send to Scratchpad → Transcript | Notice "Sent to Scratchpad as “<title> · Summary”"; stays on Meetings; notes have the meeting's folder and tags; transcript lines read m:ss Speaker: text | |
 | 150 | Scratchpad | In Doc view press Dictate and speak; then hold Right Option in Markdown view mid-paragraph | Switches to Markdown and adds the text at the end; second dictation lands at the caret | |
+| 151 | Scratchpad window | With Slack (or any app) in front, press ⌃⌥N | Window floats over Slack with a new note, caret in the body; Slack keeps its window; typing goes to the note | |
+| 152 | Scratchpad window | With another app in front, open the window from the menu; click into the body and type; press ⌘Z and ⌘⇧Z | Text lands in the note, not the other app; ⌘Z removes it, ⌘⇧Z puts it back | |
+| 153 | Scratchpad window | Turn Keep on top off and click another app; turn it on; open a full-screen app and press ⌃⌥N | Off: the window goes behind; on: it stays over other apps, also over the full-screen app | |
+| 154 | Scratchpad window | Press Smaller, then Larger; Hide notes, then Show notes; quit and relaunch | 440 pt wide with no list, then the old width; list hides and shows; size, list and bar choice kept after relaunch | |
+| 155 | Scratchpad window | Formatting bar: H1, H2, B, I, U, S, code, bullets, numbers, checklist, quote, indent, link; Tab and Shift-Tab on a list line | Each changes the Markdown as in the mockup; underline is `<u>…</u>`; Tab indents a list line two spaces, Shift-Tab undoes it; Tab on a plain line types a tab | |
+| 156 | Scratchpad window | Table button: hover to 3 × 4 and click; type in cells; switch to Doc | The picker reads "3 × 4"; a 3-column, 4-row Markdown table is inserted; Doc view shows a grid with a bold header | |
+| 157 | Scratchpad window | Open two notes; switch tabs; press ⌘⇧C and paste into Notes (Apple), Gmail and Terminal | The shown note is copied: formatted in Notes and Gmail (headings, lists, table, links), plain text in Terminal | |
+| 158 | Scratchpad window | Select one paragraph and Copy; Copy ▾ → Copy as Markdown, Copy as plain text, Export… | Only the selection is copied; Markdown has the `# ` title; plain text has no marks; Export saves a .md file | |
+| 159 | Scratchpad window | Open from Slack, type, press ⌘↩ | Text copied, window closes, Slack is in front; ⌘V pastes it | |
+| 160 | Scratchpad window | Click into the note while another app is in front, hold Right Option and speak; press Dictate and speak | Text lands in the note at the caret, cleaned with the Notes model; the Listening bar shows; the other app gets nothing | |
+| 161 | Scratchpad window | AI bar: Polish (⌘1) on a Vietnamese paragraph; Undo in the notice; More professional (⌘2), More casual (⌘3), Run again | Text replaced directly and selected; notice "Polished · N words" with Undo; Undo restores; Run again redoes the last chip on the original text; still Vietnamese | |
+| 162 | Scratchpad window | History (clock) after two changes; choose the older entry; ⌘Z | Entries "Before Polish · time · N words", newest first; choosing one puts that version back; ⌘Z returns to the text before | |
+| 163 | Scratchpad window | Box: "make it shorter" (Return); then "who is mentioned?" | First is applied to the note with notice "Changed"; second shows a reply with Copy, Insert below, Dismiss; the note is unchanged | |
+| 164 | Scratchpad window | Set the Notes model to none; press Polish | "Choose a Notes model in Settings → Models."; the note is unchanged | |
+| 165 | Scratchpad window | ⌘N, type nothing, ⌘W; ⌘N, type, ⌘W | Empty note goes to the Trash; the note with text stays | |
+| 166 | Scratchpad page | Hover a card; Pin; change Sort; type in Search; Refresh; click a card | Edit, Pin, Trash show on hover; pinned card moves first with a pin; sort and search filter the cards; click opens the note in the window | |
+| 167 | Scratchpad page | Move a card to the Trash; check `~/.Trash` | Confirmation, then the note leaves the page and its file is in the Trash | |
+| 168 | Meetings / Upload | Send to Scratchpad, then open the window | Notice as before; the new note is in the window's list | |
 
 Review-focus inputs: zero-length file; 48 kHz stereo or 5.1; video track only;
 source removed/moved while reading; three-hour-or-longer file. A reader already

@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import VoiceCore
 
@@ -96,5 +97,77 @@ struct MarkdownCommandsTests {
         let atEnd = MarkdownCommands.insertBelow("NEW", in: text, after: 12)
         #expect(atEnd.applied(to: text) == "one two\nnext\n\nNEW")
         #expect(MarkdownCommands.insertBelow("A", in: "", after: 0).applied(to: "") == "A")
+    }
+
+    @Test func underlineWrapsUnwrapsAndInsertsPair() {
+        let wrap = MarkdownCommands.toggleUnderline(in: "a word b", selection: range(2, 4))
+        #expect(wrap.applied(to: "a word b") == "a <u>word</u> b")
+        #expect(wrap.selection == range(5, 4))
+        let outside = MarkdownCommands.toggleUnderline(in: "a <u>word</u> b", selection: range(5, 4))
+        #expect(outside.applied(to: "a <u>word</u> b") == "a word b")
+        #expect(outside.selection == range(2, 4))
+        let inside = MarkdownCommands.toggleUnderline(in: "a <u>word</u> b", selection: range(2, 11))
+        #expect(inside.applied(to: "a <u>word</u> b") == "a word b")
+        #expect(inside.selection == range(2, 4))
+        let empty = MarkdownCommands.toggleUnderline(in: "ab", selection: range(1, 0))
+        #expect(empty.applied(to: "ab") == "a<u></u>b")
+        #expect(empty.selection == range(4, 0))
+    }
+
+    @Test func underlineCountsUTF16() {
+        let text = "Việt 😀 x"
+        let edit = MarkdownCommands.toggleUnderline(in: text, selection: range(5, 2))
+        #expect(edit.applied(to: text) == "Việt <u>😀</u> x")
+    }
+
+    @Test func indentOnlyTouchesListLines() {
+        let text = "- a\nplain\n1. b\n- [ ] c"
+        let edit = MarkdownCommands.indent(in: text, selection: range(0, (text as NSString).length), outdent: false)
+        #expect(edit?.applied(to: text) == "  - a\nplain\n  1. b\n  - [ ] c")
+        #expect(edit?.selection == range(0, 28))
+    }
+
+    @Test func indentMovesTheCaretWithItsLine() {
+        let edit = MarkdownCommands.indent(in: "x\n- item", selection: range(5, 0), outdent: false)
+        #expect(edit?.applied(to: "x\n- item") == "x\n  - item")
+        #expect(edit?.selection == range(7, 0))
+        let back = MarkdownCommands.indent(in: "x\n  - item", selection: range(7, 0), outdent: true)
+        #expect(back?.applied(to: "x\n  - item") == "x\n- item")
+        #expect(back?.selection == range(5, 0))
+    }
+
+    @Test func outdentRemovesAtMostTwoSpacesOrOneTab() {
+        let text = "   - a\n\t- b\n- c"
+        let edit = MarkdownCommands.indent(in: text, selection: range(0, (text as NSString).length), outdent: true)
+        #expect(edit?.applied(to: text) == " - a\n- b\n- c")
+    }
+
+    @Test func indentReturnsNilWhenNothingChanges() {
+        #expect(MarkdownCommands.indent(in: "plain", selection: range(2, 0), outdent: false) == nil)
+        #expect(MarkdownCommands.indent(in: "- flush", selection: range(2, 0), outdent: true) == nil)
+    }
+
+    @Test func tableGoesAfterATextLineWithABlankLine() {
+        let text = "Plan\nnext"
+        let edit = MarkdownCommands.insertTable(columns: 3, rows: 2, in: text, selection: range(2, 0))
+        #expect(edit.applied(to: text) == "Plan\n\n|  |  |  |\n| --- | --- | --- |\n|  |  |  |\n\nnext")
+        #expect(edit.selection == range(8, 0))
+    }
+
+    @Test func tableFillsABlankLine() {
+        let text = "a\n\nb"
+        let edit = MarkdownCommands.insertTable(columns: 1, rows: 1, in: text, selection: range(2, 0))
+        #expect(edit.applied(to: text) == "a\n|  |\n| --- |\n\nb")
+        #expect(edit.selection == range(4, 0))
+        let start = MarkdownCommands.insertTable(columns: 2, rows: 1, in: "", selection: range(0, 0))
+        #expect(start.applied(to: "") == "|  |  |\n| --- | --- |")
+        #expect(start.selection == range(2, 0))
+    }
+
+    @Test func tableSizeIsClamped() {
+        let edit = MarkdownCommands.insertTable(columns: 20, rows: 0, in: "", selection: range(0, 0))
+        let lines = edit.replacement.components(separatedBy: "\n")
+        #expect(lines.count == 2)
+        #expect(lines[0] == "|" + String(repeating: "  |", count: 8))
     }
 }

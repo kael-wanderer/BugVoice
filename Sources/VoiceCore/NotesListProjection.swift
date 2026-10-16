@@ -1,12 +1,19 @@
 import Foundation
 
 public enum NotesListProjection {
-    public static func filter(_ items: [NotesListItem], query: String) -> [NotesListItem] {
+    /// Pinned notes first, then `sort`; ties by title, then id.
+    public static func filter(_ items: [NotesListItem], query: String, sort: NotesSort = .editedNewest) -> [NotesListItem] {
         let normalizedQuery = normalize(query.trimmingCharacters(in: .whitespacesAndNewlines))
         let sorted = items.sorted { lhs, rhs in
-            if lhs.modifiedAt != rhs.modifiedAt { return lhs.modifiedAt > rhs.modifiedAt }
+            if lhs.pinned != rhs.pinned { return lhs.pinned }
             let leftTitle = normalize(lhs.title)
             let rightTitle = normalize(rhs.title)
+            switch sort {
+            case .editedNewest where lhs.modifiedAt != rhs.modifiedAt: return lhs.modifiedAt > rhs.modifiedAt
+            case .editedOldest where lhs.modifiedAt != rhs.modifiedAt: return lhs.modifiedAt < rhs.modifiedAt
+            case .title where leftTitle != rightTitle: return leftTitle < rightTitle
+            default: break
+            }
             if leftTitle != rightTitle { return leftTitle < rightTitle }
             return lhs.id.rawValue < rhs.id.rawValue
         }

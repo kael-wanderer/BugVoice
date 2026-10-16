@@ -77,4 +77,17 @@ struct MarkdownStylerTests {
         let spans = MarkdownStyler.spans(in: text)
         #expect(spans.first == MarkdownSpan(.mark, 8, 2))
     }
+
+    @Test func underlineTagsAreMarks() {
+        #expect(styled("a <u>b c</u>") == ["mark:<u>", "underline:b c", "mark:</u>"])
+    }
+
+    @Test func tableLinesAreMonospacedWithGreyPipes() {
+        let spans = styled("| A | **B** |\n| --- | --- |\n| c | d |\nend")
+        #expect(spans.filter { $0.hasPrefix("table:") } == ["table:| A | **B** |", "table:| --- | --- |", "table:| c | d |"])
+        #expect(spans.contains("mark:| --- | --- |"))
+        #expect(spans.filter { $0 == "mark:|" }.count == 6)
+        #expect(spans.contains("bold:B"))
+        #expect(!spans.contains { $0.hasSuffix("end") })
+    }
 }

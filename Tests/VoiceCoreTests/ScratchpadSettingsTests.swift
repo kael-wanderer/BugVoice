@@ -22,4 +22,31 @@ struct ScratchpadSettingsTests {
         #expect(decoded.scratchpad.activeTab == "a")
         #expect(decoded.scratchpad.view == .markdown)
     }
+
+    @Test func windowKeysDefaultAndRoundTrip() throws {
+        let old = #"{"scratchpad":{"openTabs":["a"],"activeTab":"a","view":"doc"}}"#
+        let decoded = try JSONDecoder().decode(AppSettings.self, from: Data(old.utf8))
+        #expect(decoded.scratchpad.view == .doc)
+        #expect(decoded.scratchpad.keepOnTop)
+        #expect(!decoded.scratchpad.sideListHidden)
+        #expect(!decoded.scratchpad.compact)
+        #expect(decoded.scratchpad.bottomBar == .ai)
+        #expect(decoded.scratchpad.sort == .editedNewest)
+        var changed = decoded
+        changed.scratchpad.keepOnTop = false
+        changed.scratchpad.sideListHidden = true
+        changed.scratchpad.compact = true
+        changed.scratchpad.bottomBar = .formatting
+        changed.scratchpad.sort = .title
+        let again = try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(changed))
+        #expect(again.scratchpad == changed.scratchpad)
+    }
+
+    @Test func unknownSortAndBarFallBack() throws {
+        let json = #"{"scratchpad":{"bottomBar":"chat","sort":"size","keepOnTop":false}}"#
+        let decoded = try JSONDecoder().decode(AppSettings.self, from: Data(json.utf8))
+        #expect(decoded.scratchpad.bottomBar == .ai)
+        #expect(decoded.scratchpad.sort == .editedNewest)
+        #expect(!decoded.scratchpad.keepOnTop)
+    }
 }

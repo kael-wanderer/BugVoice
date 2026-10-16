@@ -33,6 +33,24 @@ struct NotesFrontMatterTests {
         #expect(String(decoding: written, as: UTF8.self) == "---\nfolder: f1\ntags: [vpn, idea]\naliases: [VPN]\ncreated: 2026-10-01\n---\n# VPN\n\nText")
     }
 
+    @Test func pinnedRoundTripsAndIsAbsentWhenFalse() throws {
+        let front = NoteFrontMatter(tags: ["a"], pinned: true)
+        let data = NotesMarkdownDocument.serialize(title: "T", body: "B", frontMatter: front)
+        #expect(String(decoding: data, as: UTF8.self) == "---\ntags: [a]\npinned: true\n---\n# T\n\nB")
+        #expect(try NotesMarkdownDocument.parse(data: data, filename: "t.md").frontMatter == front)
+        let plain = NotesMarkdownDocument.serialize(title: "T", body: "B", frontMatter: NoteFrontMatter(pinned: false))
+        #expect(String(decoding: plain, as: UTF8.self) == "# T\n\nB")
+    }
+
+    @Test func pinnedValuesOtherThanTrueMeanNotPinned() throws {
+        for value in ["false", "yes", "\"TRUE\"", ""] {
+            let source = "---\npinned: \(value)\n---\n# T\n\nB"
+            let parsed = try NotesMarkdownDocument.parse(data: Data(source.utf8), filename: "t.md")
+            #expect(parsed.frontMatter.pinned == (value == "\"TRUE\""))
+            #expect(parsed.frontMatter.extra.isEmpty)
+        }
+    }
+
     @Test func crlfFrontMatterIsAccepted() throws {
         let source = "---\r\nfolder: f1\r\ntags: [a]\r\n---\r\n# T\r\n\r\nB"
         let parsed = try NotesMarkdownDocument.parse(data: Data(source.utf8), filename: "t.md")

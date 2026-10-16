@@ -376,6 +376,24 @@ struct NotesControllerTests {
         #expect(renamed.hasPrefix("---\nfolder: f1\ntags: [acme]\n---\n# Plan B"))
     }
 
+    @Test func pinIsSavedInFrontMatterAndListed() async throws {
+        let root = try directory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = NotesStore(directory: root)
+        let created = try await store.create(title: "Plan", body: "body")
+        let controller = NotesController(store: store)
+        await controller.reloadList()
+
+        try await controller.setPinned(id: created.id, pinned: true)
+        #expect(controller.notes.first { $0.id == created.id }?.frontMatter.pinned == true)
+        await controller.flush(id: created.id)
+        #expect(try String(contentsOf: root.appendingPathComponent("plan.md"), encoding: .utf8) == "---\npinned: true\n---\n# Plan\n\nbody")
+
+        try await controller.setPinned(id: created.id, pinned: false)
+        await controller.flush(id: created.id)
+        #expect(try String(contentsOf: root.appendingPathComponent("plan.md"), encoding: .utf8) == "# Plan\n\nbody")
+    }
+
     @Test func labelChangeKeepsUnsavedTyping() async throws {
         let root = try directory()
         defer { try? FileManager.default.removeItem(at: root) }

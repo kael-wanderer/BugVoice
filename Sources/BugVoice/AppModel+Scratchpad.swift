@@ -15,7 +15,7 @@ enum ScratchpadAIError: LocalizedError {
     }
 }
 
-/// One answer from the Notes model for Transforms, Ask and Copy as.
+/// One answer from the Notes model for the AI bar.
 struct ScratchpadAnswer: Sendable {
     let output: String
     let modelName: String
@@ -66,6 +66,74 @@ extension AppModel {
         scratchpadTabs.close(id)
         persistScratchpadTabs()
         await showActiveTab()
+        await discardIfEmpty(id)
+    }
+
+    // MARK: Window
+
+    /// Shows the Scratchpad window, on a new note when asked or when no tab is open.
+    func openScratchpadWindow(newNote: Bool) async {
+        scratchpadWindow?.show()
+        if newNote || scratchpadTabs.active == nil {
+            await newScratchpadNoteInWindow()
+        } else if let active = scratchpadTabs.active, notesController.selectedNoteID != active {
+            try? await notesController.select(id: active)
+        }
+        notesFocusRequest &+= 1
+    }
+
+    /// A new note in the page's current folder, opened in a tab.
+    func newScratchpadNoteInWindow() async {
+        do {
+            let note = try await createScratchpadNote(
+                frontMatter: NoteFrontMatter(folderID: notesFolderFilter.newItemFolderID))
+            scratchpadCreatedHere.insert(note.id)
+            notesFocusRequest &+= 1
+        } catch {
+            saveError = "Could not create note: \(error.localizedDescription)"
+        }
+    }
+
+    /// Edit on a card: the note in a tab of the window.
+    func openNoteInWindow(_ id: NoteID) async {
+        scratchpadWindow?.show()
+        do {
+            try await openNoteTab(id)
+            notesFocusRequest &+= 1
+        } catch {
+            saveError = "Could not save the current note: \(error.localizedDescription)"
+        }
+    }
+
+    func closeScratchpadWindow(returnToPreviousApp: Bool) {
+        scratchpadWindow?.close(returnToPreviousApp: returnToPreviousApp)
+    }
+
+    /// After the window closed: save everything and drop empty new notes.
+    func scratchpadWindowClosed() async {
+        if !(await notesController.flushAll()) {
+            saveError = "Could not save notes when closing the Scratchpad window."
+        }
+        for id in scratchpadTabs.ids { await discardIfEmpty(id) }
+    }
+
+    /// A note made in the window that is still "Untitled" with an empty body
+    /// goes to the Trash. Notes made anywhere else are never touched.
+    func discardIfEmpty(_ id: NoteID) async {
+        guard scratchpadCreatedHere.contains(id),
+              let note = notesController.note(id: id) ?? notesController.notes.first(where: { $0.id == id }),
+              note.title == "Untitled",
+              note.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        scratchpadCreatedHere.remove(id)
+        try? await deleteNote(id)
+    }
+
+    func setNotePinned(_ id: NoteID, pinned: Bool) async {
+        do {
+            try await notesController.setPinned(id: id, pinned: pinned)
+        } catch {
+            saveError = "Could not update note: \(error.localizedDescription)"
+        }
     }
 
     private func showActiveTab() async {
@@ -148,24 +216,5 @@ extension AppModel {
         return ScratchpadAnswer(
             output: output, modelName: plan.shortName ?? "Notes model",
             seconds: max(1, Int(Date().timeIntervalSince(started).rounded())))
-    }
-
-    /// Copy as → a Style: that Style's rules on the text, then the pasteboard.
-    func copyWithStyle(_ style: Style, text: String) async throws {
-        guard !NoteTransformPrompt.isTooLong(text) else { throw ScratchpadAIError.tooLong }
-        let builder = PromptBuilder(customRules: settings.styles.customRules)
-        let answer = try await askNotesModel { modelID, disableThinking in
-            var request = builder.request(
-                raw: text, style: style, focus: FocusSnapshot(), vocabulary: vocabulary,
-                modelID: modelID, disableThinking: disableThinking)
-            request.maxTokens = min(8_192, max(512, NoteTransformPrompt.wordCount(text) * 4))
-            return request
-        }
-        guard case .accepted(let cleaned) = OutputSanitizer.sanitize(answer.output, raw: text) else {
-            throw ScratchpadAIError.empty
-        }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(cleaned, forType: .string)
-        showNotice("Copied as \(style.title)")
     }
 }

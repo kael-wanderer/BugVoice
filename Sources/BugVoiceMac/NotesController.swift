@@ -369,6 +369,18 @@ public final class NotesController {
         changed()
     }
 
+    public func setPinned(id: NoteID, pinned: Bool) async throws {
+        try await load(id: id)
+        guard let state = loaded[id], state.note.frontMatter.pinned != pinned else { return }
+        state.note.frontMatter.pinned = pinned
+        state.note.revision &+= 1
+        state.isDirty = true
+        state.saveError = nil
+        updateListRow(state.note)
+        scheduleSave(id: id)
+        changed()
+    }
+
     /// Inserts into the captured note, regardless of current focus or selected
     /// note. The visible editor is updated from the same authoritative buffer.
     public func insert(capture: NotesDictationCapture, text: String) async -> NotesInsertionResult {

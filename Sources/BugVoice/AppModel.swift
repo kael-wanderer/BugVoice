@@ -111,6 +111,12 @@ final class AppModel {
     var notesFocusRequest: UInt64 = 0
     /// Open Scratchpad tabs. Saved to `settings.scratchpad` by slug.
     var scratchpadTabs = ScratchpadTabs()
+    var scratchpadWindowIsVisible = false
+    var scratchpadWindowIsKey = false
+    /// The floating Scratchpad window. Set by the app delegate, which owns it.
+    @ObservationIgnored weak var scratchpadWindow: ScratchpadWindowController?
+    /// Notes made in the Scratchpad window this run; dropped when closed empty.
+    @ObservationIgnored var scratchpadCreatedHere: Set<NoteID> = []
     /// The capsule at the bottom of the main window; see `showNotice`.
     var notice: String?
     @ObservationIgnored var noticeTask: Task<Void, Never>?
@@ -174,7 +180,7 @@ final class AppModel {
         await loadLibrary()
         startDictation()
         registerShortcut(kVK_ANSI_N, letter: "N", name: "New note") { [weak self] in
-            self?.createNoteAndShow()
+            Task { @MainActor in await self?.openScratchpadWindow(newNote: true) }
         }
         registerShortcut(kVK_ANSI_M, letter: "M", name: "Record meeting") { [weak self] in
             Task { @MainActor in self?.meetings?.toggleRecording() }
@@ -210,19 +216,6 @@ final class AppModel {
         openMainWindow(.settings)
     }
 
-    func createNoteAndShow() {
-        openMainWindow(.notes)
-        Task { @MainActor in
-            do {
-                try await createScratchpadNote(
-                    frontMatter: NoteFrontMatter(folderID: notesFolderFilter.newItemFolderID))
-                notesFocusRequest &+= 1
-            } catch {
-                saveError = "Could not create note: \(error.localizedDescription)"
-            }
-        }
-    }
-
     func openPermissionsWindow() {
         presentPermissionsWindow?()
     }
@@ -248,6 +241,9 @@ final class AppModel {
         }
         if settings.meetings.deleteAfter != old.meetings.deleteAfter {
             Task { await applyMeetingRetention() }
+        }
+        if settings.scratchpad.keepOnTop != old.scratchpad.keepOnTop || settings.scratchpad.compact != old.scratchpad.compact {
+            scratchpadWindow?.applyLayout()
         }
         onSettingsChanged?()
     }
@@ -399,14 +395,18 @@ final class AppModel {
 
     func captureNotesDictation(startFocus: FocusSnapshot) -> NotesDictationCapture? {
         let frontmostPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
+        // The Scratchpad panel takes the keyboard without making BugVoice the
+        // frontmost app, so a key Scratchpad window counts as frontmost.
+        let scratchpadHasKeyboard = NSApp.keyWindow?.identifier == AppWindow.scratchpad
         let bugVoiceIsFrontmost =
-            NSApp.isActive
-            && frontmostPID == ProcessInfo.processInfo.processIdentifier
-            && startFocus.bundleID == Bundle.main.bundleIdentifier
+            scratchpadHasKeyboard
+            || (NSApp.isActive
+                && frontmostPID == ProcessInfo.processInfo.processIdentifier
+                && startFocus.bundleID == Bundle.main.bundleIdentifier)
         let firstResponderEditorID = (NSApp.keyWindow?.firstResponder as? NotesTextView)?.editorID
         return notesController.captureAtStart(
             bugVoiceIsFrontmost: bugVoiceIsFrontmost,
-            notesPageIsSelected: page == .notes,
+            notesPageIsSelected: scratchpadHasKeyboard,
             firstResponderEditorID: firstResponderEditorID
         )
     }
@@ -424,7 +424,7 @@ final class AppModel {
     }
 
     func captureSelectedNoteForMic() -> NotesDictationCapture? {
-        guard page == .notes else { return nil }
+        guard scratchpadWindowIsVisible else { return nil }
         return notesController.captureSelectedNoteForMic()
     }
 

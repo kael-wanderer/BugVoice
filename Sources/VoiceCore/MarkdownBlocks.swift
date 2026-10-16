@@ -11,6 +11,8 @@ public enum MarkdownBlock: Equatable, Sendable {
     case quote(String)
     case code(String)
     case rule
+    /// Every row has as many cells as the header.
+    case table(header: [String], rows: [[String]])
 }
 
 public enum MarkdownBlocks {
@@ -27,7 +29,22 @@ public enum MarkdownBlocks {
             quote = []
         }
 
-        for (index, line) in text.components(separatedBy: "\n").enumerated() {
+        let lines = text.components(separatedBy: "\n")
+        let tables = MarkdownTable.find(in: lines)
+        var skipUntil = -1
+        for (index, line) in lines.enumerated() {
+            if index <= skipUntil { continue }
+            if let table = tables.first(where: { $0.lowerBound == index }) {
+                flush()
+                let header = MarkdownTable.cells(lines[index])
+                let rows = lines[(index + 2)...table.upperBound].map { line in
+                    let cells = MarkdownTable.cells(line)
+                    return Array((cells + Array(repeating: "", count: max(0, header.count - cells.count))).prefix(header.count))
+                }
+                blocks.append(.table(header: header, rows: Array(rows)))
+                skipUntil = table.upperBound
+                continue
+            }
             if MarkdownLine.isFence(line) {
                 if let open = code {
                     blocks.append(.code(open.joined(separator: "\n")))
@@ -100,12 +117,20 @@ public enum MarkdownPlainText {
         (regex(#"~~(?=\S)(.+?)(?<=\S)~~"#), "$1"),
         (regex(#"(?<![*\w])\*(?=[^\s*])(.+?)(?<=[^\s*])\*(?![*\w])"#), "$1"),
         (regex(#"(?<![_\w])_(?=[^\s_])(.+?)(?<=[^\s_])_(?![_\w])"#), "$1"),
+        (regex(#"</?u>"#), ""),
     ]
 
     public static func convert(_ text: String) -> String {
         var inFence = false
         var lines: [String] = []
-        for line in text.components(separatedBy: "\n") {
+        let source = text.components(separatedBy: "\n")
+        let tables = MarkdownTable.find(in: source)
+        for (index, line) in source.enumerated() {
+            if let table = tables.first(where: { $0.contains(index) }) {
+                if index == table.lowerBound + 1 { continue }
+                lines.append(MarkdownTable.cells(line).map(inline).joined(separator: " | "))
+                continue
+            }
             if MarkdownLine.isFence(line) {
                 inFence.toggle()
                 continue
@@ -115,16 +140,22 @@ public enum MarkdownPlainText {
                 continue
             }
             let parsed = MarkdownLine.parse(line)
-            var content = parsed.content
-            for (pattern, template) in replacements {
-                content = pattern.stringByReplacingMatches(
-                    in: content, range: NSRange(location: 0, length: (content as NSString).length), withTemplate: template)
-            }
+            let content = inline(parsed.content)
             switch parsed.kind {
             case .heading, .quote: lines.append(parsed.indent + content)
             default: lines.append(parsed.indent + parsed.prefix + content)
             }
         }
         return lines.joined(separator: "\n")
+    }
+
+    /// Inline marks removed from one line's content.
+    static func inline(_ text: String) -> String {
+        var content = text
+        for (pattern, template) in replacements {
+            content = pattern.stringByReplacingMatches(
+                in: content, range: NSRange(location: 0, length: (content as NSString).length), withTemplate: template)
+        }
+        return content
     }
 }

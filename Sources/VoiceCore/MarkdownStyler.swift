@@ -12,6 +12,9 @@ public enum MarkdownSpanKind: Equatable, Sendable {
     case quote
     case link
     case doneTask
+    case underline
+    /// A whole table line, drawn monospaced.
+    case table
 }
 
 /// A styled range in UTF-16 offsets of the whole text.
@@ -42,15 +45,31 @@ public enum MarkdownStyler {
         (regex(#"(~~)(?=\S)(.+?)(?<=\S)(~~)"#), .strike),
         (regex(#"(?<![*\w])(\*)(?=[^\s*])(.+?)(?<=[^\s*])(\*)(?![*\w])"#), .italic),
         (regex(#"(?<![_\w])(_)(?=[^\s_])(.+?)(?<=[^\s_])(_)(?![_\w])"#), .italic),
+        (regex(#"(<u>)(.+?)(</u>)"#), .underline),
     ]
 
     public static func spans(in text: String) -> [MarkdownSpan] {
         var spans: [MarkdownSpan] = []
         var lineStart = 0
         var inFence = false
-        for line in text.components(separatedBy: "\n") {
+        let lines = text.components(separatedBy: "\n")
+        let tables = MarkdownTable.find(in: lines)
+        for (index, line) in lines.enumerated() {
             let length = (line as NSString).length
             defer { lineStart += length + 1 }
+            if let table = tables.first(where: { $0.contains(index) }) {
+                spans.append(MarkdownSpan(.table, lineStart, length))
+                if index == table.lowerBound + 1 {
+                    spans.append(MarkdownSpan(.mark, lineStart, length))
+                    continue
+                }
+                let ns = line as NSString
+                for offset in 0..<ns.length where ns.character(at: offset) == 0x7C {
+                    spans.append(MarkdownSpan(.mark, lineStart + offset, 1))
+                }
+                spans.append(contentsOf: inlineSpans(in: line, offset: lineStart))
+                continue
+            }
             if MarkdownLine.isFence(line) {
                 spans.append(MarkdownSpan(.codeBlock, lineStart, length))
                 spans.append(MarkdownSpan(.mark, lineStart, length))
