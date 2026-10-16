@@ -150,6 +150,7 @@ Tasks 1–13 and whole-branch review items 1–8 are implemented on `feat/meetin
 - **UNVERIFIED on device:** System audio capture, exclusion of BugVoice's own sound, permission prompt behavior, and denial behavior were not exercised. The aggregate tap dictionary shape and Float32 mono interpretation are compile-checked but runtime-unverified.
 - Decision: compile and sign the spike without launching it; this avoids consuming the maintainer's one-time OS permission decision. Cost if wrong: the first runtime attempt could reveal a compile-clean Core Audio setup error; the spike can be adjusted and rerun before production integration review.
 - Open question for maintainer's later run: does permission denial return an error at tap start or produce silent buffers?
+- **Device result (2026-10-16, macOS 27.0.1 build 26A434):** the maintainer ran the spike twice. Run 1 showed the System Audio Recording prompt; after approval, YouTube playback in the browser produced RMS lines (0.002–0.38) that followed the video. Run 2 did not prompt again; with nothing else playing, the spike's own Glass sound was audible and printed no RMS lines, so self-exclusion works. **Verified:** process-tap capture, aggregate tap dictionary, Float32 mono reading, first-run prompt, self-audio exclusion. **Still unverified:** denial behavior (error versus silent buffers); the deny run was skipped. The production `AVAudioEngine` aggregate-input path is checked by Meetings rows 45–48.
 
 
 ### Task 8b — PCM journals and capture sources

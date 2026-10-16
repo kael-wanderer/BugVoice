@@ -42,10 +42,11 @@ pending. UI polish later (formatting bar is tight at the 440 pt Smaller width).
    approve the prompt, confirm other apps' audio is captured and the spike's
    own Glass sound is excluded, then revoke the permission and record whether
    denial is an error or silent buffers. Steps in `docs/progress/meetings-log.md`.
+   **Passed 2026-10-16** (capture, prompt, self-exclusion); the deny run was skipped.
 2. **Manual checklist**: Meetings rows 45–62 and a dictation regression pass
    (rows 1, 6, 14) in `docs/testing/manual-checklist.md`.
 
-Until both pass, system-audio capture, self-exclusion, denial handling, the
+Until the checklist passes, denial handling, the production aggregate input, the
 `Privacy_ScreenCapture` settings link, recorder focus, sleep/quit/crash
 recovery and playback are **UNVERIFIED on device**.
 
