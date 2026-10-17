@@ -4,7 +4,7 @@ Last updated: 2026-10-17
 
 ## Current state
 
-**MCP server (roadmap item 6, second half): built (2026-10-17), not merged.**
+**MCP server (roadmap item 6, second half): merged and pushed (2026-10-17, `378fc2d`).**
 `bugvoice-mcp` in `Contents/MacOS` speaks MCP over stdio and forwards tool calls
 over `~/Library/Application Support/BugVoice/MCP/bugvoice.sock` to the app's
 `MCPService`; Settings › Agents turns it on (off by default). Twelve tools: read,
@@ -12,12 +12,16 @@ search, ask, create/edit notes, upload recordings, job status, summaries.
 Spec: `docs/superpowers/specs/2026-10-17-mcp-server-design.md`; plan:
 `docs/superpowers/plans/2026-10-17-mcp-server.md`; mockup:
 `docs/design/proposal-mcp.html`; evidence, choices and **34 pending manual
-checks**: `docs/progress/mcp-log.md`. Automated: 844 VoiceCore tests / 91 suites,
-23 MCPKit tests / 2 suites, 92 BugVoiceMac tests / 16 suites pass;
-`Scripts/build-app.sh` exits 0. The app was not launched for this work.
+checks**: `docs/progress/mcp-log.md`. Automated: 858 VoiceCore tests / 93 suites,
+30 MCPKit tests / 2 suites, 93 BugVoiceMac tests / 16 suites pass;
+`Scripts/build-app.sh` exits 0. Device smoke test on the dev build passed: Agents
+tab, MCP off message, reads, search, ask (one meeting), create/append note,
+upload → job → transcript → summary. Not confirmed on device: agent edit refused
+while the owner types in that note. An all-scope Vietnamese `ask` returned
+nothing found. `/Applications/BugVoice.app` is an older build; rebuild and install
+to get MCP. Next roadmap item is 7 (Calendar + export), not started.
 
-**Ask AI (roadmap item 6, Ask part): built on `feat/ask-ai` in
-`../BugVoice-ask-ai` (2026-10-17), not merged.** Tasks 1–8 provide the reviewed
+**Ask AI (roadmap item 6, Ask part): merged and pushed (2026-10-17).** Tasks 1–8 provide the reviewed
 VoiceCore retrieval/pipeline; Tasks 9–13 add local embedding indexing and Search
 settings, per-tab Scratchpad scopes and answer cards, playable/translated citation
 panels, and one-shot navigation into Meetings. This note keeps its existing
