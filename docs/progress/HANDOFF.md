@@ -66,9 +66,14 @@ Automated checks: 641 VoiceCore tests / 76 suites + 84 BugVoiceMac tests /
 16 suites pass. `Scripts/build-app.sh` succeeded and signed with `Bugler Local Dev`.
 App not launched; device checks 195–206 and first-use model download/inference
 remain pending in `docs/progress/meetings-log.md`. Tuning stays nil pending the
-owner's 2-, 3- and 4-person clips. Part 2 (known voices) waits for the same-podcast
-centroid-distance measurement in spec section 8.4; no known-voice store or UI
-has been built. Full task evidence and adaptations are in the meetings log.
+owner's 2-, 3- and 4-person clips. Full task evidence and adaptations are in the meetings log.
+
+**Known voices (Meeting speakers Part 2):** built 2026-10-17 on `feat/known-voices`.
+After a split, unnamed call speakers within cosine distance 0.2 of a saved voice
+(and 0.1 closer than the next) show "Dani?" with Yes and No; names confirmed by a
+rename or Yes are saved per meeting in `voices.json` (0600). Settings › Meetings ›
+Known voices lists and deletes them. The 0.2 rule rests on one video's two
+speakers; checks 209–212 in the meetings log, including a real call, are pending.
 
 **Packaging:** app icon (Antenna Mic) and `Scripts/build-dmg.sh`; current version 0.1.0 build 10.
 
