@@ -4,6 +4,29 @@ Last updated: 2026-10-17
 
 ## Current state
 
+**Ask AI (roadmap item 6, Ask part): built on `feat/ask-ai` in
+`../BugVoice-ask-ai` (2026-10-17), not merged.** Tasks 1–8 provide the reviewed
+VoiceCore retrieval/pipeline; Tasks 9–13 add local embedding indexing and Search
+settings, per-tab Scratchpad scopes and answer cards, playable/translated citation
+panels, and one-shot navigation into Meetings. This note keeps its existing
+CHANGE/ANSWER behavior; the live meeting Ask box is unchanged. MCP is next as a
+separate project.
+
+Spec: `docs/superpowers/specs/2026-10-17-ask-ai-design.md`; plan:
+`docs/superpowers/plans/2026-10-17-ask-ai.md`; mockup:
+`docs/design/proposal-ask-ai.html`; evidence, implementation choices and **40
+pending manual checks**: `docs/progress/ask-log.md`. Start with Stop/late responses,
+wide and 440 pt citation panels, translation shared with open meeting views,
+Open in Meetings seek/play/highlight, indexing pause, dictation deletion and a
+server stopping mid-backfill. Review Focus coverage is mapped in that log.
+
+Automated checks: **775 VoiceCore tests / 86 suites + 84 BugVoiceMac tests /
+16 suites pass**. `Scripts/build-app.sh` exits 0, signed with `Bugler Local Dev`.
+The app was not launched; no owner Application Support data was accessed.
+Local embedding inference, device playback, layout and under-60-second Ask latency
+remain unverified. Maintainer runs GUI/runtime checks; do not infer those passes
+from unit tests or builds.
+
 **Sub-project 1 (Dictation core + app shell): merged on `main`. Its manual checklist and benchmark gate remain pending; deferred findings are fixed.**
 
 **Sub-project 2 (Meetings): merged on `main` (2026-10-14) after whole-branch review and two fix rounds. Device checks pending.**

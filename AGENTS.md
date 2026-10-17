@@ -42,6 +42,10 @@ version and build live in `App/Info.plist`. App icon source is `App/Icon/AppIcon
 - Notes spec: `docs/superpowers/specs/2026-10-14-notes-design.md`
 - Notes plan: `docs/superpowers/plans/2026-10-14-notes.md`
 - Notes execution log: `docs/progress/notes-log.md`
+- Ask AI spec: `docs/superpowers/specs/2026-10-17-ask-ai-design.md`
+- Ask AI plan: `docs/superpowers/plans/2026-10-17-ask-ai.md`
+- Ask AI mockup: `docs/design/proposal-ask-ai.html`
+- Ask AI execution log and manual checks: `docs/progress/ask-log.md`
 - Roadmap (next sub-projects, dropped ideas): `docs/ROADMAP.md`
 
 ## Rules
