@@ -420,6 +420,13 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
         showEnglish = try c.decodeIfPresent(Bool.self, forKey: .showEnglish) ?? true
     }
 
+    public mutating func setGeneratedText(_ text: String, kind: MeetingTextKind) {
+        if kind == .summary {
+            summary = text
+            speakerNamesAtSummary = MeetingSpeakers.names(in: self)
+        } else { actionItems = text }
+    }
+
     public static func new(startedAt: Date) -> MeetingManifest {
         MeetingManifest(startedAt: startedAt)
     }

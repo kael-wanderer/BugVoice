@@ -866,7 +866,7 @@ final class AppModel {
         }
         var current = try await meetingStore.load(id: id)
         try Task.checkCancellation()
-        if kind == .summary { current.summary = text } else { current.actionItems = text }
+        current.setGeneratedText(text, kind: kind)
         try await meetingStore.save(current)
         await reloadMeetings()
         if kind == .summary {

@@ -715,3 +715,41 @@ private struct SessionRig {
 }
 
 private enum TestFailure: Error { case startFailed, transcriptionFailed }
+
+extension MeetingSessionTests {
+    private func readyRecordedSession(lines: [MeetingSegment]) async throws -> (MeetingSession, SessionStoreProbe) {
+        let rig = SessionRig()
+        let session = rig.makeSession()
+        let meeting = MeetingManifest(startedAt: Date(timeIntervalSince1970: 0), state: .ready, segments: lines)
+        try await rig.store.save(meeting)
+        _ = try await session.recover(id: meeting.id)
+        return (session, rig.store)
+    }
+
+    @Test func sessionAppliesSpeakerEdits() async throws {
+        let (session, store) = try await readyRecordedSession(lines: [
+            .init(start: 0, end: 2, text: "Hello", track: .mic),
+            .init(start: 3, end: 5, text: "Hi", track: .system)
+        ])
+        try await session.updateSpeakers { try MeetingSpeakers.apply(.rename(speakerID: "you", name: "Cong"),
+            to: MeetingSpeakers.applySplit(.init(turns: [.init(voice: 0, start: 3, end: 5)], centroids: [:]), to: $0, tracks: [.system])) }
+        let id = try #require(await session.snapshot()?.id)
+        let saved = try await store.load(id: id)
+        #expect(saved.segments.map(\.speaker) == ["Cong", "Other 1"])
+    }
+
+    @Test func speakerEditsRefusedWhenInterrupted() async throws {
+        let rig = SessionRig()
+        let session = rig.makeSession()
+        try await session.start()
+        try await session.cancel()
+        await #expect(throws: MeetingSessionError.invalidState) { try await session.updateSpeakers { $0 } }
+    }
+
+    @Test func summarySaveStampsSpeakerNames() async throws {
+        let (session, _) = try await readyRecordedSession(lines: [.init(start: 0, end: 2, text: "Hello", track: .mic)])
+        try await session.updateSpeakers { MeetingSpeakers.applySplit(.init(turns: [], centroids: [:]), to: $0, tracks: [.system]) }
+        try await session.saveGeneratedText("- Done", kind: .summary)
+        #expect(await session.snapshot()?.speakerNamesAtSummary == ["you": "You"])
+    }
+}
