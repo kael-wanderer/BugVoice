@@ -23,7 +23,11 @@ final class CitationPlayerModel {
             MainActor.assumeIsolated { self?.pause() }
         }
         boundary = player.addBoundaryTimeObserver(forTimes: [NSValue(time: CMTime(seconds: self.end, preferredTimescale: 600))], queue: .main) { [weak self] in
-            MainActor.assumeIsolated { self?.pause() }
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.time = self.end
+                self.pause()
+            }
         }
         periodic = player.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.1, preferredTimescale: 600), queue: .main) { [weak self] time in
             MainActor.assumeIsolated {
@@ -63,8 +67,10 @@ final class CitationPlayerModel {
 
 struct CitationPlayer: View {
     @State private var playback: CitationPlayerModel
+    let pauseRequest: UInt64
 
-    init(url: URL, start: Double, end: Double) {
+    init(url: URL, start: Double, end: Double, pauseRequest: UInt64 = 0) {
+        self.pauseRequest = pauseRequest
         _playback = State(initialValue: CitationPlayerModel(url: url, start: start, end: end))
     }
 
@@ -81,6 +87,7 @@ struct CitationPlayer: View {
                 .font(.caption.monospacedDigit())
         }
         .task { await playback.play() }
+        .onChange(of: pauseRequest) { _, _ in playback.pause() }
         .onDisappear { playback.stop() }
     }
 }

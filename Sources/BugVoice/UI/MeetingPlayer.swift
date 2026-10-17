@@ -13,6 +13,8 @@ final class MeetingPlayerModel {
     var speed: Float = 1
     @ObservationIgnored private var observer: Any?
     @ObservationIgnored private var endObserver: NSObjectProtocol?
+    @ObservationIgnored private var loadGeneration: UInt64 = 0
+    @ObservationIgnored private var loadTask: Task<Void, Never>?
     @ObservationIgnored private var loadedURL: URL?
     @ObservationIgnored private var waveformTask: Task<[Float], Never>?
 
@@ -23,8 +25,18 @@ final class MeetingPlayerModel {
     }
 
     func load(_ url: URL) async {
-        guard loadedURL != url else { return }
+        if loadedURL == url { await loadTask?.value; return }
+        loadTask?.cancel()
+        loadGeneration &+= 1
+        let generation = loadGeneration
         loadedURL = url
+        let task = Task { await performLoad(url) }
+        loadTask = task
+        await task.value
+        if loadGeneration == generation { loadTask = nil }
+    }
+
+    private func performLoad(_ url: URL) async {
         player.pause()
         player.replaceCurrentItem(with: AVPlayerItem(url: url))
         if let endObserver { NotificationCenter.default.removeObserver(endObserver) }
@@ -39,8 +51,11 @@ final class MeetingPlayerModel {
         isPlaying = false
         do {
             let asset = AVURLAsset(url: url)
-            duration = try await asset.load(.duration).seconds
+            let seconds = try await asset.load(.duration).seconds
+            guard loadedURL == url, !Task.isCancelled else { return }
+            duration = seconds.isFinite ? max(0, seconds) : 0
         } catch {
+            guard loadedURL == url, !Task.isCancelled else { return }
             duration = 0
         }
         waveformTask?.cancel()

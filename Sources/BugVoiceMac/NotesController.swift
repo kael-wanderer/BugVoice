@@ -83,6 +83,7 @@ public final class NotesController {
         let note = try await store.create(title: title, body: body, frontMatter: frontMatter)
         loaded[note.id] = LoadedNote(note: note)
         selectedNoteID = note.id
+        onSaved?(note.id)
         await reloadList()
         changed()
         return note

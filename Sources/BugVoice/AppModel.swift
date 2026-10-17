@@ -87,6 +87,21 @@ final class AppModel {
     /// True when `insights.json` was written by a newer BugVoice: shown, never written.
     var insightsReadOnly = false
     var meetingManifests: [MeetingManifest] = []
+    struct MeetingJump: Equatable {
+        var id: MeetingID
+        var start: Double
+        var lineIDs: Set<String>
+    }
+    var pendingMeetingJump: MeetingJump?
+
+    func openMeeting(_ jump: MeetingJump) {
+        guard meetingManifests.contains(where: { $0.id == jump.id }),
+              FileManager.default.fileExists(atPath: paths.meetings.appendingPathComponent(jump.id.rawValue).appendingPathComponent("meeting.json").path) else { return }
+        selectedMeetingID = jump.id
+        pendingMeetingJump = jump
+        openMainWindow(.meetings)
+    }
+
     var selectedMeetingID: MeetingID?
     var meetingSearchQuery = ""
     /// Folders from `library.json`. Notes and meetings carry their own labels.

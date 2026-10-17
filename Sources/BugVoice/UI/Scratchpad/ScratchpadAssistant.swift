@@ -109,6 +109,8 @@ final class ScratchpadAssistant {
         guard self.scope != scope else { return }
         cancel()
         self.scope = scope
+        reply = nil
+        notice = nil
         askHistory = []
     }
 
@@ -124,7 +126,7 @@ final class ScratchpadAssistant {
         askStep = .understanding
         message = ""
         phase = .running("")
-        task = Task {
+        task = Task { [self] in
             do {
                 let outcome = try await model.askAcross(question: question, history: history, scope: scope) { [weak self] step in
                     Task { @MainActor in
@@ -302,7 +304,7 @@ final class ScratchpadAssistant {
     }
 
     func insertReply(controller: NotesController) {
-        guard let reply, let body = controller.note(id: reply.noteID)?.body else { return }
+        guard let reply, scope == .note(reply.noteID), let body = controller.note(id: reply.noteID)?.body else { return }
         ScratchpadEditing.apply(
             MarkdownCommands.insertBelow(reply.text, in: body, after: (body as NSString).length),
             to: reply.noteID, controller: controller)

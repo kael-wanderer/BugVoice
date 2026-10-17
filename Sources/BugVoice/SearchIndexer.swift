@@ -69,6 +69,7 @@ final class SearchIndexer {
                 if queue[source] == nil && (activeSource != source || activePassages != current) { schedule(source) }
             }
         }
+        if !queue.isEmpty { start() }
     }
 
     private func sourcesNewestFirst() -> [AskSource] {
@@ -111,18 +112,20 @@ final class SearchIndexer {
         var done = 0
         defer { activeSource = nil; activePassages = [] }
         while !queue.isEmpty {
-            guard let model, let embedder = ProviderFactory.embedder(settings: model.settings.models, credentials: model.credentials) else {
-                status = .off
-                return
-            }
+            var epoch = generation
             do {
                 try await waitUntilAvailable()
+                guard let model, let embedder = ProviderFactory.embedder(settings: model.settings.models, credentials: model.credentials) else {
+                    status = .off
+                    return
+                }
+                epoch = generation
                 guard let next = queue.min(by: { $0.value < $1.value }) else { break }
                 if next.value > Date() { try await Task.sleep(for: .seconds(min(1, next.value.timeIntervalSinceNow))); continue }
                 let source = next.key
                 activeSource = source
                 queue[source] = nil
-                let revision = revisions[source, default: 0], epoch = generation
+                let revision = revisions[source, default: 0]
                 status = .indexing(done: done, total: done + queue.count + 1)
                 let current = passages(source)
                 activePassages = current
@@ -145,6 +148,8 @@ final class SearchIndexer {
                 if sourcesNewestFirst().contains(source) { try await store.save(file, for: source) }
                 done += 1
             } catch {
+                // A failure from a replaced model must not strand the new rebuild.
+                if generation != epoch { continue }
                 if let activeSource, queue[activeSource] == nil { queue[activeSource] = Date() }
                 status = .unavailable
                 return // A later trigger retries; no partial file is saved.

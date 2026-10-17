@@ -16,6 +16,7 @@ struct CitationPanel: View {
     let selection: AskCitationSelection
     let compact: Bool
     let close: () -> Void
+    @State private var pauseRequest: UInt64 = 0
     @State private var translating = true
     @State private var translationFailed = false
 
@@ -42,7 +43,7 @@ struct CitationPanel: View {
                 Text(meeting.startedAt.formatted(date: .abbreviated, time: .omitted) + " · " + people(meeting))
                     .font(.caption).foregroundStyle(.secondary)
                 if let url = audioURL(meeting.id), let start = selection.citation.start, let end = selection.citation.end {
-                    CitationPlayer(url: url, start: start, end: end).id(selection.id)
+                    CitationPlayer(url: url, start: start, end: end, pauseRequest: pauseRequest).id(selection.id)
                 }
                 ScrollView {
                     VStack(alignment: .leading, spacing: 8) {
@@ -66,7 +67,10 @@ struct CitationPanel: View {
                         }
                     }
                 }
-                Button("Open in Meetings") { model.openAskMeeting(id: meeting.id, citation: selection.citation) }
+                Button("Open in Meetings") {
+                    pauseRequest &+= 1
+                    model.openAskMeeting(id: meeting.id, citation: selection.citation)
+                }
             } else {
                 Text("This meeting was deleted.")
                 Spacer()

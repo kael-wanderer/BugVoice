@@ -320,7 +320,6 @@ extension AppModel {
     func openAskMeeting(id: MeetingID, citation: AskCitation) {
         guard meetingManifests.contains(where: { $0.id == id }),
               FileManager.default.fileExists(atPath: paths.meetings.appendingPathComponent(id.rawValue).appendingPathComponent("meeting.json").path) else { return }
-        selectedMeetingID = id
-        openMainWindow(.meetings)
+        openMeeting(MeetingJump(id: id, start: citation.start ?? 0, lineIDs: Set(citation.lines.map(\.id))))
     }
 }

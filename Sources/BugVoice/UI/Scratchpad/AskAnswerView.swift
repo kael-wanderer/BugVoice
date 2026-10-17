@@ -128,6 +128,12 @@ struct AskAnswerView: View {
                         .lineLimit(2).textSelection(.enabled)
                 }
             }
+            if case .meeting(let id) = card.source, let citation = card.citations.first {
+                Button("Open in Meetings") {
+                    selection = nil
+                    model.openAskMeeting(id: id, citation: citation)
+                }
+            }
         }
         .padding(12).frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))

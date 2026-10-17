@@ -17,6 +17,8 @@ private enum MeetingExportKind {
 struct MeetingsPage: View {
     @Bindable var model: AppModel
     @State private var player = MeetingPlayerModel()
+    @State private var citedLineIDs: Set<String> = []
+    @State private var citationScrollRequest: UInt64 = 0
     @State private var pendingDelete: MeetingManifest?
     @State private var pendingRename: MeetingManifest?
     @State private var renameTitle = ""
@@ -41,13 +43,15 @@ struct MeetingsPage: View {
                 .frame(minWidth: 250, idealWidth: 285, maxWidth: 340)
             Divider()
             if let meeting = model.selectedMeeting {
-                MeetingDetails(model: model, meeting: meeting, player: player)
+                MeetingDetails(model: model, meeting: meeting, player: player, citedLineIDs: $citedLineIDs, citationScrollRequest: citationScrollRequest)
                     .environment(model)
             } else {
                 ContentUnavailableView("No meeting selected", systemImage: "waveform.path", description: Text("Choose a meeting or start a recording."))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+        .simultaneousGesture(TapGesture().onEnded { citedLineIDs = [] })
+        .task(id: model.pendingMeetingJump) { await consumeMeetingJump() }
         .task {
             await model.reloadMeetings()
             while !Task.isCancelled {
@@ -55,6 +59,33 @@ struct MeetingsPage: View {
                 await model.reloadMeetings()
             }
         }
+    }
+
+    private func consumeMeetingJump() async {
+        guard let jump = model.pendingMeetingJump else { return }
+        let directory = model.paths.meetings.appendingPathComponent(jump.id.rawValue)
+        let manifest = directory.appendingPathComponent("meeting.json")
+        guard model.meetingManifests.contains(where: { $0.id == jump.id }),
+              model.selectedMeetingID == jump.id,
+              FileManager.default.fileExists(atPath: manifest.path) else {
+            if model.pendingMeetingJump == jump { model.pendingMeetingJump = nil }
+            return
+        }
+        citedLineIDs = jump.lineIDs
+        citationScrollRequest &+= 1
+        let audio = directory.appendingPathComponent("audio.m4a")
+        let hasAudio = FileManager.default.fileExists(atPath: audio.path)
+        if hasAudio { await player.load(audio) }
+        guard !Task.isCancelled, model.pendingMeetingJump == jump else { return }
+        guard model.selectedMeetingID == jump.id, FileManager.default.fileExists(atPath: manifest.path) else {
+            model.pendingMeetingJump = nil
+            return
+        }
+        if hasAudio {
+            player.seek(to: jump.start)
+            if !player.isPlaying { player.togglePlayback() }
+        }
+        model.pendingMeetingJump = nil
     }
 
     private var library: some View {
@@ -245,6 +276,8 @@ private struct MeetingDetails: View {
     @Bindable var model: AppModel
     let meeting: MeetingManifest
     @Bindable var player: MeetingPlayerModel
+    @Binding var citedLineIDs: Set<String>
+    let citationScrollRequest: UInt64
     @State private var tab: MeetingDetailTab = .transcript
     @State private var showDelete = false
     @State private var showRename = false
@@ -323,6 +356,9 @@ private struct MeetingDetails: View {
         .sheet(isPresented: $showRename) {
             MeetingRenameSheet(model: model, id: meeting.id, title: $renameTitle) { showRename = false }
         }
+        .task(id: citationScrollRequest) {
+            if !citedLineIDs.isEmpty { tab = .transcript }
+        }
         .onChange(of: meeting.id) { _, _ in
             generationTask?.cancel()
             player.stopAndDetach()
@@ -385,7 +421,8 @@ private struct MeetingDetails: View {
 
     private var transcript: some View {
         let activeSegmentID = MeetingTimeline.activeSegment(at: player.currentTime, segments: meeting.segments, isPlaying: player.isPlaying)?.id
-        return ScrollView {
+        return ScrollViewReader { reader in
+        ScrollView {
             // The speaker row sits outside the lazy stack, so its open edits survive scrolling.
             VStack(alignment: .leading, spacing: 3) {
                 if let error = meeting.transcriptionError {
@@ -432,7 +469,8 @@ private struct MeetingDetails: View {
                     }
                     .buttonStyle(.plain)
                     .padding(.horizontal, 8).padding(.vertical, 6)
-                    .background(active ? Color.accentColor.opacity(0.16) : .clear, in: RoundedRectangle(cornerRadius: 6))
+                    .background(citedLineIDs.contains(segment.id) ? Color.accentColor.opacity(0.24) : active ? Color.accentColor.opacity(0.16) : .clear, in: RoundedRectangle(cornerRadius: 6))
+                    .id(segment.id)
                 }
                 ForEach(marks(from: segments.last?.start ?? -.infinity, to: .infinity)) { mark in
                     markRow(mark)
@@ -442,6 +480,12 @@ private struct MeetingDetails: View {
                 }
                 }
             }
+        }
+        .task(id: citationScrollRequest) {
+            if let first = meeting.segments.sorted(by: { $0.start < $1.start }).first(where: { citedLineIDs.contains($0.id) }) {
+                reader.scrollTo(first.id, anchor: .center)
+            }
+        }
         }
     }
 
