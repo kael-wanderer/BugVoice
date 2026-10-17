@@ -58,7 +58,7 @@ struct MeetingTranscriptView: View {
                     .controlSize(.small)
                     .disabled(segments.isEmpty)
                 if offersEnglish {
-                    Toggle("Show English", isOn: Binding(get: { showEnglish }, set: onShowEnglish))
+                    Toggle("Show English", isOn: Binding(get: { showEnglish }, set: { onShowEnglish($0) }))
                         .toggleStyle(.switch)
                         .controlSize(.mini)
                         .font(.caption)
