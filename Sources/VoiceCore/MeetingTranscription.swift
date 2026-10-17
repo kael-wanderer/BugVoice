@@ -221,9 +221,9 @@ public struct MeetingChunkProcessor: Sendable {
         requestedLanguage: SpeechLanguage,
         clip: AudioClip
     ) -> MeetingChunkAttempt {
-        var text = DictationPipeline.stripPlaceholders(transcript.text)
+        var text = HallucinationFilter.strip(DictationPipeline.stripPlaceholders(transcript.text))
         let placeholderStrippedSegments = transcript.segments.compactMap { segment -> TranscriptSegment? in
-            let clean = DictationPipeline.stripPlaceholders(segment.text)
+            let clean = HallucinationFilter.strip(DictationPipeline.stripPlaceholders(segment.text))
             guard !clean.isEmpty else { return nil }
             return TranscriptSegment(start: segment.start, end: segment.end, text: clean)
         }

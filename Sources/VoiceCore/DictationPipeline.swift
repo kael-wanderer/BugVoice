@@ -159,7 +159,7 @@ public struct DictationPipeline: Sendable {
         }
         result.timings.transcribe = Date().timeIntervalSince(mark)
         result.language = transcript.language
-        let raw = Self.stripPlaceholders(transcript.text)
+        let raw = HallucinationFilter.strip(Self.stripPlaceholders(transcript.text))
         result.raw = raw
         guard !raw.isEmpty, !HallucinationFilter.isHallucination(raw) else {
             result.outcome = .nothingHeard

@@ -17,6 +17,31 @@ public enum HallucinationFilter {
         "hẹn gặp lại các bạn trong những video tiếp theo",
     ]
 
+    /// Credits Whisper sometimes writes in the middle of real speech. Only lines nobody
+    /// says in a dictation or a call are listed; "thank you" can be real and stays.
+    static let embedded = [
+        "hãy subscribe cho kênh ghiền mì gõ để không bỏ lỡ những video hấp dẫn",
+        "hẹn gặp lại các bạn trong những video tiếp theo",
+        "subtitles by the amara org community",
+    ]
+
+    private static let embeddedPatterns: [NSRegularExpression] = embedded.compactMap { phrase in
+        let words = phrase.split(separator: " ").map { NSRegularExpression.escapedPattern(for: String($0)) }
+        let pattern = #"\s*"# + words.joined(separator: #"[\s\p{P}\p{S}]+"#) + #"\p{P}*"#
+        return try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive])
+    }
+
+    /// Removes `embedded` credits from inside longer text, ignoring case and punctuation.
+    public static func strip(_ text: String) -> String {
+        var result = text.precomposedStringWithCanonicalMapping
+        for pattern in embeddedPatterns {
+            result = pattern.stringByReplacingMatches(
+                in: result, range: NSRange(result.startIndex..., in: result), withTemplate: " ")
+        }
+        guard result != text.precomposedStringWithCanonicalMapping else { return text }
+        return result.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+    }
+
     public static func isHallucination(_ text: String) -> Bool {
         // Whisper annotations such as `[BLANK_AUDIO]`, `[ Silence ]` or `(breathing)`
         // describe the audio, not speech.
