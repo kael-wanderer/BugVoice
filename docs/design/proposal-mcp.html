@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BugVoice MCP</title>
+<style>
+:root {
+  --page: #e9ebf0; --win: #fcfcfb; --card: #ffffff; --line: #e6e4df; --chip: #f1efea;
+  --fg: #1c1f26; --muted: #737680; --faint: #b3b0a8; --accent: #3a6ff0; --accent-soft: #e4ebfd;
+  --ok: #1f9a5a; --warn: #c76a00; --err: #c43c3c;
+  --app: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --page: #0d0e11; --win: #1b1c1f; --card: #222327; --line: #2f3035; --chip: #2a2b30;
+  --fg: #ecebe8; --muted: #9a9ca5; --faint: #5f6068; --accent: #6e93ff; --accent-soft: #23304f;
+  --ok: #4cc98a; --warn: #f0a050; --err: #ef6b6b; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --page: #0d0e11; --win: #1b1c1f; --card: #222327; --line: #2f3035; --chip: #2a2b30;
+  --fg: #ecebe8; --muted: #9a9ca5; --faint: #5f6068; --accent: #6e93ff; --accent-soft: #23304f;
+  --ok: #4cc98a; --warn: #f0a050; --err: #ef6b6b; color-scheme: dark }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--fg); font-family: var(--app); font-size: 13px; line-height: 1.45; padding: 28px 16px 48px; }
+main { max-width: 980px; margin: 0 auto; display: grid; gap: 14px; }
+h1 { font-size: 18px; margin: 0; }
+h2.sec { font-size: 13px; margin: 22px 0 0; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.caption { color: var(--muted); font-size: 12.5px; max-width: 110ch; margin: 0; }
+.caption b { color: var(--fg); }
+.top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.pills { display: inline-flex; background: var(--chip); border-radius: 999px; padding: 3px; gap: 2px; }
+.pills button { font: inherit; border: 0; background: transparent; color: var(--muted); padding: 5px 13px; border-radius: 999px; cursor: pointer; }
+.pills button[aria-pressed="true"] { background: var(--card); color: var(--fg); font-weight: 600; box-shadow: 0 1px 2px rgb(0 0 0 / .14); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn { font: inherit; display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line); background: var(--chip); color: var(--fg); padding: 2px 9px; border-radius: 7px; font-size: 11.5px; white-space: nowrap; cursor: pointer; }
+.btn.done { color: var(--ok); }
+.win { background: var(--win); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 18px 50px rgb(0 0 0 / .16); overflow: hidden; display: grid; grid-template-columns: 170px 1fr; min-height: 420px; }
+.side { border-right: 1px solid var(--line); padding: 12px 8px; display: grid; align-content: start; gap: 2px; font-size: 12.5px; }
+.side span { padding: 4px 8px; border-radius: 6px; color: var(--muted); }
+.side span.on { background: var(--accent); color: #fff; }
+.content { padding: 18px 20px; display: grid; align-content: start; gap: 12px; min-width: 0; }
+.content h3 { margin: 0; font-size: 17px; }
+.tabs { display: inline-flex; background: var(--chip); border-radius: 8px; padding: 2px; gap: 2px; font-size: 12px; flex-wrap: wrap; }
+.tabs span { padding: 3px 10px; border-radius: 6px; color: var(--muted); }
+.tabs span.on { background: var(--card); color: var(--fg); font-weight: 600; box-shadow: 0 1px 2px rgb(0 0 0 / .12); }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border-top: 1px solid var(--line); }
+.row:first-child { border-top: 0; }
+.row .lbl { display: grid; gap: 2px; min-width: 0; }
+.row .lbl small { color: var(--muted); font-size: 11.5px; }
+.row.dim { opacity: .45; }
+.switch { width: 32px; height: 18px; border-radius: 999px; background: var(--line); position: relative; flex: none; }
+.switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgb(0 0 0 / .3); }
+.switch.on { background: var(--accent); }
+.switch.on::after { left: 16px; }
+.status { font-size: 11.5px; display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+.dot.ok { background: var(--ok); }
+.setup { display: grid; gap: 4px; padding: 10px 12px; border-top: 1px solid var(--line); }
+.setup:first-child { border-top: 0; }
+.setup .head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+code, pre { font-family: var(--mono); font-size: 11.5px; }
+pre { margin: 0; background: var(--chip); border-radius: 6px; padding: 6px 8px; white-space: pre-wrap; word-break: break-all; color: var(--fg); }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+td { padding: 6px 12px; border-top: 1px solid var(--line); vertical-align: top; }
+tr:first-child td { border-top: 0; }
+td.t { color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; width: 1%; }
+td.c { white-space: nowrap; width: 1%; }
+td code { color: var(--fg); }
+.okt { color: var(--ok); }
+.errt { color: var(--err); }
+.empty { color: var(--muted); padding: 12px; font-size: 12px; }
+.sub { font-size: 12px; color: var(--muted); font-weight: 600; margin: 4px 0 -4px; }
+@media (max-width: 640px) {
+  .win { grid-template-columns: 1fr; }
+  .side { display: none; }
+  .content { padding: 14px 12px; }
+  td.c { white-space: normal; }
+}
+</style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <h1>BugVoice MCP server — Settings › Agents</h1>
+    <div class="pills" role="group" aria-label="Theme">
+      <button type="button" data-theme-set="light">Light</button>
+      <button type="button" data-theme-set="dark">Dark</button>
+      <button type="button" data-theme-set="" aria-pressed="true">System</button>
+    </div>
+  </div>
+  <p class="caption">Spec: <b>docs/superpowers/specs/2026-10-17-mcp-server-design.md</b>. A new Settings tab after Models. Agents start <b>bugvoice-mcp</b> themselves; this page only turns access on and shows what happened.</p>
+
+  <h2 class="sec">1. Off (default)</h2>
+  <p class="caption">Permission switches and setup are greyed out until the server is on. Nothing listens on the socket.</p>
+  <div class="win">
+    <div class="side"><span>Dictation</span><span>Insights</span><span>Dictionary</span><span>Style</span><span>Meetings</span><span>Upload</span><span>Scratchpad</span><span class="on">Settings</span></div>
+    <div class="content">
+      <h3>Settings</h3>
+      <div class="tabs"><span>General</span><span>Speech</span><span>Models</span><span class="on">Agents</span><span>Meetings</span><span>Storage</span></div>
+      <div class="card">
+        <div class="row">
+          <div class="lbl"><b>MCP server</b><small>Lets coding agents on this Mac, such as Claude Code and Codex, read and search your notes, meetings and dictations. Agents send what they read to their own model provider.</small><span class="status"><span class="dot"></span>Off</span></div>
+          <div class="switch"></div>
+        </div>
+        <div class="row dim"><div class="lbl">Agents can create and edit notes</div><div class="switch on"></div></div>
+        <div class="row dim"><div class="lbl">Agents can upload recordings</div><div class="switch on"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="sec">2. On, with recent activity</h2>
+  <p class="caption">Status reads <b>Listening</b>. Setup commands use the running app's own path. Recent activity keeps the last 20 calls since launch, in memory, with tool names and errors only — never arguments or results.</p>
+  <div class="win">
+    <div class="side"><span>Dictation</span><span>Insights</span><span>Dictionary</span><span>Style</span><span>Meetings</span><span>Upload</span><span>Scratchpad</span><span class="on">Settings</span></div>
+    <div class="content">
+      <h3>Settings</h3>
+      <div class="tabs"><span>General</span><span>Speech</span><span>Models</span><span class="on">Agents</span><span>Meetings</span><span>Storage</span></div>
+      <div class="card">
+        <div class="row">
+          <div class="lbl"><b>MCP server</b><small>Lets coding agents on this Mac, such as Claude Code and Codex, read and search your notes, meetings and dictations. Agents send what they read to their own model provider.</small><span class="status"><span class="dot ok"></span>Listening</span></div>
+          <div class="switch on"></div>
+        </div>
+        <div class="row"><div class="lbl">Agents can create and edit notes</div><div class="switch on"></div></div>
+        <div class="row"><div class="lbl">Agents can upload recordings</div><div class="switch on"></div></div>
+      </div>
+
+      <div class="sub">Set up an agent</div>
+      <div class="card">
+        <div class="setup">
+          <div class="head"><b>Claude Code</b><button class="btn done" type="button">Copied</button></div>
+          <pre>claude mcp add bugvoice -- /Applications/BugVoice.app/Contents/MacOS/bugvoice-mcp</pre>
+        </div>
+        <div class="setup">
+          <div class="head"><b>Codex</b><button class="btn" type="button">Copy</button></div>
+          <small class="caption">Add to ~/.codex/config.toml</small>
+          <pre>[mcp_servers.bugvoice]
+command = "/Applications/BugVoice.app/Contents/MacOS/bugvoice-mcp"
+tool_timeout_sec = 300</pre>
+        </div>
+      </div>
+
+      <div class="sub">Recent activity</div>
+      <div class="card">
+        <table>
+          <tr><td class="t">20:58</td><td class="c">claude-code</td><td><code>create_note</code></td><td class="okt">OK</td></tr>
+          <tr><td class="t">20:57</td><td class="c">claude-code</td><td><code>ask</code></td><td class="okt">OK</td></tr>
+          <tr><td class="t">20:51</td><td class="c">codex</td><td><code>edit_note</code></td><td class="errt">This note has unsaved changes in BugVoice. Try again after it saves.</td></tr>
+          <tr><td class="t">20:44</td><td class="c">codex</td><td><code>get_job</code></td><td class="okt">OK</td></tr>
+          <tr><td class="t">20:40</td><td class="c">codex</td><td><code>upload_audio</code></td><td class="okt">OK</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="sec">3. On, nobody connected yet</h2>
+  <div class="win">
+    <div class="side"><span>Dictation</span><span>Insights</span><span>Dictionary</span><span>Style</span><span>Meetings</span><span>Upload</span><span>Scratchpad</span><span class="on">Settings</span></div>
+    <div class="content">
+      <h3>Settings</h3>
+      <div class="tabs"><span>General</span><span>Speech</span><span>Models</span><span class="on">Agents</span><span>Meetings</span><span>Storage</span></div>
+      <div class="card">
+        <div class="row"><div class="lbl"><b>MCP server</b><span class="status"><span class="dot ok"></span>Listening</span></div><div class="switch on"></div></div>
+      </div>
+      <div class="sub">Recent activity</div>
+      <div class="card"><div class="empty">No agent has connected yet.</div></div>
+    </div>
+  </div>
+
+  <h2 class="sec">4. Upload page: a file an agent added</h2>
+  <p class="caption">Same queue row as a dropped file, with one extra line naming the client.</p>
+  <div class="card" style="max-width:520px">
+    <div class="row"><div class="lbl"><b>standup-2026-10-17.m4a</b><small>Added by codex · Transcribing 42%</small></div><button class="btn" type="button">Cancel</button></div>
+  </div>
+</main>
+<script>
+document.querySelectorAll('[data-theme-set]').forEach(b => b.addEventListener('click', () => {
+  const t = b.dataset.themeSet;
+  if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme;
+  document.querySelectorAll('[data-theme-set]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+}));
+</script>
+</body>
+</html>

@@ -46,6 +46,8 @@ version and build live in `App/Info.plist`. App icon source is `App/Icon/AppIcon
 - Ask AI plan: `docs/superpowers/plans/2026-10-17-ask-ai.md`
 - Ask AI mockup: `docs/design/proposal-ask-ai.html`
 - Ask AI execution log and manual checks: `docs/progress/ask-log.md`
+- MCP server spec: `docs/superpowers/specs/2026-10-17-mcp-server-design.md`
+- MCP server mockup: `docs/design/proposal-mcp.html`
 - Roadmap (next sub-projects, dropped ideas): `docs/ROADMAP.md`
 
 ## Rules
