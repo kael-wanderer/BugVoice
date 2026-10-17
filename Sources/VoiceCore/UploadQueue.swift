@@ -5,7 +5,7 @@ public enum UploadMediaKind: String, Sendable {
     case video = "Video"
 }
 
-public enum UploadJobState: Sendable {
+public enum UploadJobState: String, Codable, Sendable {
     case queued
     case reading
     case transcribing
@@ -28,13 +28,19 @@ public struct UploadJob: Identifiable, Equatable, Sendable {
     public var state: UploadJobState = .queued
     public var progress: Double?
     public var errorMessage: String?
+    /// MCP client name when an agent added this file.
+    public var addedBy: String?
 
-    public init(id: UUID = UUID(), fileName: String, kind: UploadMediaKind, duration: TimeInterval, byteSize: Int64) {
+    public init(
+        id: UUID = UUID(), fileName: String, kind: UploadMediaKind, duration: TimeInterval, byteSize: Int64,
+        addedBy: String? = nil
+    ) {
         self.id = id
         self.fileName = fileName
         self.kind = kind
         self.duration = duration
         self.byteSize = byteSize
+        self.addedBy = addedBy
     }
 }
 

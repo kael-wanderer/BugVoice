@@ -1,3 +1,4 @@
+import BugVoiceMac
 import Foundation
 import MCPKit
 import Observation
@@ -18,6 +19,8 @@ final class MCPService {
     static let summaryFailed = "Could not write the summary. Try again."
     static let summaryTooSlow = "Writing the summary took longer than 5 minutes. Try again."
     static let otherInstance = "another BugVoice is answering agents."
+    static let editsOff = "Creating and editing notes is turned off in BugVoice Settings › Agents."
+    static let uploadsOff = "Uploading is turned off in BugVoice Settings › Agents."
 
     private(set) var activity = MCPActivity()
     /// "Listening", "Not started" or "Could not start: <reason>".
@@ -71,7 +74,7 @@ final class MCPService {
             // The socket is a trust boundary too: check again what the bridge checked.
             switch MCPTools.check(r.tool, r.arguments) {
             case .failure(let error): result = .failure(MCPFailure(error.message))
-            case .success(let call): result = await run(call).map { MCPFormat.fitted($0, for: call) }
+            case .success(let call): result = await run(call, client: r.client).map { MCPFormat.fitted($0, for: call) }
             }
         }
         let error: String? = if case .failure(let failure) = result { failure.message } else { nil }
@@ -86,7 +89,7 @@ final class MCPService {
         }
     }
 
-    private func run(_ call: MCPCall) async -> Result<String, MCPFailure> {
+    private func run(_ call: MCPCall, client: String) async -> Result<String, MCPFailure> {
         switch call {
         case .listFolders:
             return .success(listFolders())
@@ -119,8 +122,17 @@ final class MCPService {
             let result = await summarize(MeetingID(rawValue: id), kind: kind, replace: replace)
             await modelGate.leave()
             return result
-        case .createNote, .editNote, .uploadAudio, .getJob:
-            return .failure(MCPFailure("Not available yet."))
+        case .createNote(let title, let body, let folder, let tags):
+            guard model.settings.agents.allowNoteEdits else { return .failure(MCPFailure(Self.editsOff)) }
+            return await createNote(title: title, body: body, folder: folder, tags: tags)
+        case .editNote(let id, let body, let mode, let title, let folder, let tags):
+            guard model.settings.agents.allowNoteEdits else { return .failure(MCPFailure(Self.editsOff)) }
+            return await editNote(NoteID(rawValue: id), body: body, mode: mode, title: title, folder: folder, tags: tags)
+        case .uploadAudio(let path, let title, let folder, let tags):
+            guard model.settings.agents.allowUploads else { return .failure(MCPFailure(Self.uploadsOff)) }
+            return await upload(path: path, title: title, folder: folder, tags: tags, client: client)
+        case .getJob(let jobID):
+            return getJob(jobID)
         }
     }
 
@@ -144,6 +156,19 @@ final class MCPService {
             ])
         }
         return MCPFormat.json(.array(rows))
+    }
+
+    /// A folder argument: nil when absent, otherwise resolved or an error.
+    private func folderID(_ folder: String?) -> Result<FolderID?, MCPFailure> {
+        guard let folder else { return .success(nil) }
+        return MCPResolve.folder(folder, in: folders).map { $0 }
+    }
+
+    /// Normalized as the tag field does; invalid and extra tags are dropped.
+    private static func labels(folderID: FolderID?, tags: [String]) -> ItemLabels {
+        var labels = ItemLabels(folderID: folderID)
+        for tag in tags { labels.addTag(tag) }
+        return labels
     }
 
     private static func matchesTag(_ tags: [String], _ tag: String?) -> Bool {
@@ -199,6 +224,101 @@ final class MCPService {
         return .success(MCPFormat.note(
             title: note.title, folder: folderName(note.frontMatter.folderID), tags: note.frontMatter.tags,
             modified: note.modifiedAt, body: note.body, unsaved: false))
+    }
+
+    private func createNote(title: String, body: String, folder: String?, tags: [String]) async -> Result<String, MCPFailure> {
+        let folderID: FolderID?
+        switch self.folderID(folder) {
+        case .success(let id): folderID = id
+        case .failure(let failure): return .failure(failure)
+        }
+        let labels = Self.labels(folderID: folderID, tags: tags)
+        do {
+            let note = try await model.notesController.createForAgent(
+                title: title, body: body, frontMatter: NoteFrontMatter(folderID: labels.folderID, tags: labels.tags))
+            return .success(MCPFormat.json(.object(["id": .string(note.id.rawValue), "title": .string(note.title)])))
+        } catch {
+            return .failure(MCPFailure("Could not create the note: \(error.localizedDescription)"))
+        }
+    }
+
+    private func editNote(
+        _ id: NoteID, body: String, mode: MCPEditMode, title: String?, folder: String?, tags: [String]?
+    ) async -> Result<String, MCPFailure> {
+        let controller = model.notesController
+        guard let current = controller.note(id: id) ?? controller.notes.first(where: { $0.id == id }) else {
+            return .failure(MCPFailure("No note with id \(id.rawValue)."))
+        }
+        var labels: (folderID: FolderID?, tags: [String])?
+        if folder != nil || tags != nil {
+            var folderID = current.frontMatter.folderID
+            if folder != nil {
+                switch self.folderID(folder) {
+                case .success(let id): folderID = id
+                case .failure(let failure): return .failure(failure)
+                }
+            }
+            let resolved = Self.labels(folderID: folderID, tags: tags ?? current.frontMatter.tags)
+            labels = (folderID: resolved.folderID, tags: resolved.tags)
+        }
+        do {
+            let note = try await controller.agentEdit(id: id, body: body, append: mode == .append, title: title, labels: labels)
+            return .success(MCPFormat.json(.object([
+                "id": .string(note.id.rawValue), "modified": .string(MCPFormat.iso(note.modifiedAt)),
+            ])))
+        } catch let refusal as AgentEditRefusal {
+            return .failure(MCPFailure(refusal.message))
+        } catch NotesStoreError.missing {
+            return .failure(MCPFailure("No note with id \(id.rawValue)."))
+        } catch {
+            return .failure(MCPFailure("Could not save the note. Try again."))
+        }
+    }
+
+    // MARK: Uploads
+
+    private func upload(path: String, title: String?, folder: String?, tags: [String], client: String) async -> Result<String, MCPFailure> {
+        let url = URL(fileURLWithPath: path)
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory), !isDirectory.boolValue,
+              FileManager.default.isReadableFile(atPath: url.path)
+        else { return .failure(MCPFailure("File not found: \(path).")) }
+        let ext = url.pathExtension.lowercased()
+        guard MCPTools.uploadExtensions.contains(ext) else { return .failure(MCPFailure(MCPTools.unsupportedType(ext))) }
+        let folderID: FolderID?
+        switch self.folderID(folder) {
+        case .success(let id): folderID = id
+        case .failure(let failure): return .failure(failure)
+        }
+        guard let uploads = model.uploads else { return .failure(MCPFailure(UploadController.AgentUploadError.notReady.localizedDescription)) }
+        let trimmed = title?.trimmingCharacters(in: .whitespacesAndNewlines)
+        do {
+            let id = try await uploads.submitForAgent(
+                url: url, title: trimmed?.isEmpty == false ? trimmed : nil,
+                labels: Self.labels(folderID: folderID, tags: tags), client: client)
+            return .success(MCPFormat.json(.object(["job_id": .string(id.uuidString)])))
+        } catch {
+            return .failure(MCPFailure(error.localizedDescription))
+        }
+    }
+
+    private func getJob(_ jobID: String) -> Result<String, MCPFailure> {
+        guard let id = UUID(uuidString: jobID), let job = model.uploads?.jobStatus(id: id) else {
+            return .failure(MCPFailure("No upload job with id \(jobID)."))
+        }
+        let state: String = switch job.state {
+        case .queued: "queued"
+        case .reading: "reading"
+        case .transcribing: "transcribing"
+        case .ready: job.meetingID.map { model.speakerTasks[$0] != nil } == true ? "finding_speakers" : "ready"
+        case .failed: "failed"
+        case .cancelled: "cancelled"
+        }
+        var out: [String: JSONValue] = ["state": .string(state)]
+        if let progress = job.progress, !job.state.isTerminal { out["progress"] = .number(progress) }
+        if let meetingID = job.meetingID, job.state == .ready { out["meeting_id"] = .string(meetingID.rawValue) }
+        if job.state == .failed { out["error"] = .string(job.errorMessage ?? UploadFailure.unreadable.localizedDescription) }
+        return .success(MCPFormat.json(.object(out)))
     }
 
     // MARK: Meetings
