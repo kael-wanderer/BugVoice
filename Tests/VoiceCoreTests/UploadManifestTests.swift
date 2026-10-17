@@ -61,4 +61,19 @@ struct UploadManifestTests {
         meeting.importedAt = now
         #expect(MeetingRetention.expired(meeting, policy: .days30, now: now))
     }
+
+    @Test func manifestKeepsUploadJobFields() throws {
+        var meeting = MeetingManifest(startedAt: Date(timeIntervalSince1970: 10), source: .upload)
+        meeting.uploadJobID = UUID()
+        meeting.addedBy = "claude-code"
+        let decoded = try JSONDecoder().decode(MeetingManifest.self, from: JSONEncoder().encode(meeting))
+        #expect(decoded == meeting)
+
+        let old = MeetingManifest(startedAt: Date(timeIntervalSince1970: 10))
+        let data = try JSONEncoder().encode(old)
+        let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        #expect(object["uploadJobID"] == nil && object["addedBy"] == nil)
+        let legacy = try JSONDecoder().decode(MeetingManifest.self, from: data)
+        #expect(legacy.uploadJobID == nil && legacy.addedBy == nil)
+    }
 }

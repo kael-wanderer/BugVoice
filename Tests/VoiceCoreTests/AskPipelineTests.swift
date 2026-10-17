@@ -296,4 +296,34 @@ struct AskPipelineTests {
         task.cancel()
         await #expect(throws: CancellationError.self) { try await task.value }
     }
+
+    @Test func searchNeedsNoModelCall() async throws {
+        let model = StubModel()
+        let ps = [passage(1, "beta only"), passage(2, "alpha alpha bot"), passage(3, "alpha one")]
+        let result = try await pipeline(model).search(query: "the alpha bot", corpus: corpus(ps), limit: 10)
+        #expect(model.requests.isEmpty)
+        #expect(result.passages.map(\.id) == [ps[1].id, ps[2].id])
+        #expect(result.wordSearchOnly == .noModel)
+    }
+
+    @Test func searchRespectsLimit() async throws {
+        let ps = (1...5).map { passage($0, "alpha \($0)") }
+        let result = try await pipeline(StubModel()).search(query: "alpha", corpus: corpus(ps), limit: 2)
+        #expect(result.passages.count == 2)
+    }
+
+    @Test func searchWordOnlyWithoutEmbedder() async throws {
+        let result = try await pipeline(StubModel()).search(query: "alpha", corpus: corpus([passage(1, "alpha")]), limit: 5)
+        #expect(result.wordSearchOnly == .noModel)
+    }
+
+    @Test func searchUsesMeaningRanking() async throws {
+        let ps = [passage(1, "alpha one"), passage(2, "unrelated words")]
+        let vectors = [ps[0].id: [Float(1), 0], ps[1].id: [Float(0.9), 0.1]]
+        let result = try await pipeline(StubModel(), embedder: StubEmbedder()).search(
+            query: "alpha", corpus: corpus(ps, vectors: vectors), limit: 5)
+        #expect(result.wordSearchOnly == nil)
+        #expect(Set(result.passages.map(\.id)) == Set(ps.map(\.id)))
+        #expect(result.passages.first?.id == ps[0].id)
+    }
 }

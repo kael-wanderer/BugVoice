@@ -8,7 +8,17 @@ public enum AskStep: Equatable, Sendable {
 
 public enum WordOnlyReason: Equatable, Sendable { case noModel, notAnswering }
 
-public enum AskFailure: Error, Equatable, Sendable { case model, unreadable, tooSlow }
+public enum AskFailure: Error, Equatable, Sendable {
+    case model, unreadable, tooSlow
+
+    public var message: String {
+        switch self {
+        case .model: "Ask could not reach the model. Try again."
+        case .unreadable: "Ask could not read the model's answer. Try again."
+        case .tooSlow: "Ask took too long. Try a smaller scope."
+        }
+    }
+}
 
 public enum AskOutcome: Equatable, Sendable {
     case answered(AskResult, wordSearchOnly: WordOnlyReason?)
@@ -66,6 +76,17 @@ public struct AskCorpus: Sendable {
         self.meetings = meetings
         self.notes = notes
         self.dictations = dictations
+    }
+}
+
+/// Passages found without a model call, best first.
+public struct AskSearchResult: Equatable, Sendable {
+    public var passages: [AskPassage]
+    public var wordSearchOnly: WordOnlyReason?
+
+    public init(passages: [AskPassage], wordSearchOnly: WordOnlyReason?) {
+        self.passages = passages
+        self.wordSearchOnly = wordSearchOnly
     }
 }
 
@@ -144,33 +165,11 @@ public struct AskPipeline: Sendable {
         counts.inRange = dated.count
         guard !dated.isEmpty else { return .nothingFound(wordSearchOnly: embedder == nil ? .noModel : nil) }
 
-        let scores = AskRanking.wordScores(dated, terms: query.terms, people: query.people)
-        let wordRanking = dated.filter { (scores[$0.id] ?? 0) > 0 }
-            .sorted { scores[$0.id]! > scores[$1.id]! }
-            .map(\.id)
-        counts.wordHits = wordRanking.count
-
-        var rankings = [wordRanking]
-        var wordOnly: WordOnlyReason?
-        if let embedder {
-            let covered = dated.filter { corpus.vectors[$0.id] != nil }.count
-            if covered * 2 >= dated.count {
-                if let meaning = try await meaningRanking(question: question, passages: dated, corpus: corpus, embedder: embedder) {
-                    rankings.append(meaning)
-                    counts.meaningHits = meaning.count
-                } else {
-                    wordOnly = .notAnswering
-                }
-            } else {
-                wordOnly = .notAnswering
-            }
-        } else {
-            wordOnly = .noModel
-        }
-
-        try Task.checkCancellation()
-        let byID = Dictionary(dated.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
-        var fused = AskRanking.fuse(rankings).compactMap { byID[$0] }
+        let ranked = try await rank(question: question, query: query, passages: dated, corpus: corpus)
+        counts.wordHits = ranked.wordHits
+        counts.meaningHits = ranked.meaningHits
+        let wordOnly = ranked.wordOnly
+        var fused = ranked.passages
         // A question that names only a time ("recent meetings") matches no words: read that time's newest passages.
         if fused.isEmpty, query.from != nil || query.to != nil {
             fused = dated.sorted { $0.date > $1.date }
@@ -217,6 +216,57 @@ public struct AskPipeline: Sendable {
         }
         counts.keptCitations = result.cards.reduce(0) { $0 + $1.citations.count }
         return .answered(result, wordSearchOnly: wordOnly)
+    }
+
+    /// Word and meaning search without a model call: the question's own words, stop words removed.
+    public func search(query: String, corpus: AskCorpus, limit: Int) async throws -> AskSearchResult {
+        guard !corpus.passages.isEmpty else {
+            return AskSearchResult(passages: [], wordSearchOnly: embedder == nil ? .noModel : nil)
+        }
+        let ranked = try await rank(
+            question: query, query: AskQueryPrompt.fallback(question: query), passages: corpus.passages, corpus: corpus)
+        return AskSearchResult(passages: Array(ranked.passages.prefix(max(0, limit))), wordSearchOnly: ranked.wordOnly)
+    }
+
+    private struct Ranked {
+        var passages: [AskPassage]
+        var wordOnly: WordOnlyReason?
+        var wordHits: Int
+        var meaningHits: Int?
+    }
+
+    /// Word ranking, meaning ranking when at least half the passages have vectors, fused.
+    /// Shared by `run` and `search` so both rank the same way.
+    private func rank(question: String, query: AskQuery, passages: [AskPassage], corpus: AskCorpus) async throws -> Ranked {
+        let scores = AskRanking.wordScores(passages, terms: query.terms, people: query.people)
+        let wordRanking = passages.filter { (scores[$0.id] ?? 0) > 0 }
+            .sorted { scores[$0.id]! > scores[$1.id]! }
+            .map(\.id)
+
+        var rankings = [wordRanking]
+        var wordOnly: WordOnlyReason?
+        var meaningHits: Int?
+        if let embedder {
+            let covered = passages.filter { corpus.vectors[$0.id] != nil }.count
+            if covered * 2 >= passages.count {
+                if let meaning = try await meaningRanking(question: question, passages: passages, corpus: corpus, embedder: embedder) {
+                    rankings.append(meaning)
+                    meaningHits = meaning.count
+                } else {
+                    wordOnly = .notAnswering
+                }
+            } else {
+                wordOnly = .notAnswering
+            }
+        } else {
+            wordOnly = .noModel
+        }
+
+        try Task.checkCancellation()
+        let byID = Dictionary(passages.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        return Ranked(
+            passages: AskRanking.fuse(rankings).compactMap { byID[$0] }, wordOnly: wordOnly,
+            wordHits: wordRanking.count, meaningHits: meaningHits)
     }
 
     private func understand(question: String, history: [NoteChatTurn]) async throws -> AskQuery {
