@@ -121,4 +121,9 @@ struct MCPFormatTests {
     @Test func jsonIsPrettyAndSorted() {
         #expect(MCPFormat.json(.object(["b": .number(1), "a": .string("x")])) == "{\n  \"a\" : \"x\",\n  \"b\" : 1\n}")
     }
+
+    @Test func secondsRoundToOneDecimal() {
+        #expect(MCPFormat.seconds(38.239999771118164) == .number(38.2))
+        #expect(MCPFormat.seconds(46.60000038146973) == .number(46.6))
+    }
 }

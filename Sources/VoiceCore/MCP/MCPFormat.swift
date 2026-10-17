@@ -115,8 +115,8 @@ public enum MCPFormat {
                 "title": .string(info[p.source]?.title ?? ""), "date": .string(iso(p.date)),
                 "text": .string(p.searchText),
             ]
-            if let start = p.lines.first?.start { o["start"] = .number(start) }
-            if let end = p.lines.last?.end { o["end"] = .number(end) }
+            if let start = p.lines.first?.start { o["start"] = Self.seconds(start) }
+            if let end = p.lines.last?.end { o["end"] = Self.seconds(end) }
             if p.part == .transcript, let speaker = p.lines.first?.speaker { o["speaker"] = .string(speaker) }
             return .object(o)
         }
@@ -138,8 +138,8 @@ public enum MCPFormat {
                 let item = item(card.source, info: card.info)
                 let citations: [JSONValue] = card.citations.map { c in
                     var o: [String: JSONValue] = ["quote": .string(c.lines.map(\.text).joined(separator: "\n"))]
-                    if let start = c.start { o["start"] = .number(start) }
-                    if let end = c.end { o["end"] = .number(end) }
+                    if let start = c.start { o["start"] = Self.seconds(start) }
+                    if let end = c.end { o["end"] = Self.seconds(end) }
                     if c.part == .transcript, let speaker = c.lines.first?.speaker { o["speaker"] = .string(speaker) }
                     return .object(o)
                 }
@@ -161,5 +161,10 @@ public enum MCPFormat {
             if wordOnly != nil { out["word_search_only"] = .bool(true) }
             return .success(.object(out))
         }
+    }
+
+    /// Audio times to one decimal; raw Float conversions read as noise to agents.
+    public static func seconds(_ value: Double) -> JSONValue {
+        .number((value * 10).rounded() / 10)
     }
 }
