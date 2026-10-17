@@ -35,6 +35,12 @@ struct AskAnswerView: View {
             VStack(alignment: .leading, spacing: 14) {
                 if let step = assistant.askStep { progress(step) }
                 else {
+                    Button {
+                        assistant.backToNote()
+                    } label: {
+                        Label("Back to note", systemImage: "chevron.left")
+                    }
+                    .buttonStyle(.link)
                     if let error = assistant.askError { Text(error).foregroundStyle(.orange) }
                     if let saved = assistant.askResult {
                         Text(saved.question).font(.callout).foregroundStyle(.secondary)

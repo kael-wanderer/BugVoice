@@ -112,6 +112,20 @@ final class ScratchpadAssistant {
         reply = nil
         notice = nil
         askHistory = []
+        // This note answers inline: the note comes back instead of a cross-item answer.
+        if case .note = scope { clearAnswer() }
+    }
+
+    /// Back to note: the answer view closes; the follow-up history is kept.
+    func backToNote() {
+        if askStep != nil { cancel() }
+        clearAnswer()
+    }
+
+    private func clearAnswer() {
+        askResult = nil
+        askError = nil
+        askStep = nil
     }
 
     private func sendAcross(_ question: String, model: AppModel) {
