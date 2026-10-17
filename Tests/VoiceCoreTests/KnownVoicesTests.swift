@@ -190,3 +190,31 @@ struct KnownVoicesTests {
         return MeetingSpeakers.applySplit(.init(turns: turns, centroids: centroids), to: meeting, tracks: [.system])
     }
 }
+
+extension KnownVoicesTests {
+    @Test func voiceprintUsesTheMostCommonCentroidLength() {
+        let voice = KnownVoice(name: "Dani", contributions: [
+            .init(meetingID: MeetingID(rawValue: "a"), centroid: [1, 0, 0]),
+            .init(meetingID: MeetingID(rawValue: "b"), centroid: [1, 0]),
+            .init(meetingID: MeetingID(rawValue: "c"), centroid: [0, 1]),
+        ], updatedAt: .distantPast)
+        #expect(voice.voiceprint == [0.5, 0.5])
+    }
+
+    @Test func splitAgainKeepsTheConfirmedSuggestion() throws {
+        var meeting = KnownVoices.suggest(in: recorded(s1: unit(0.05)), voices: [voice("Dani", unit(0))])
+        meeting = try MeetingSpeakers.apply(.accept(speakerID: "s1"), to: meeting)
+        let again = MeetingSpeakers.applySplit(.init(turns: [.init(voice: 4, start: 2, end: 3)], centroids: [4: unit(0.06)]),
+                                               to: meeting, tracks: [.system])
+        #expect(again.speakers[1].name == "Dani")
+        #expect(again.speakers[1].suggestion == SpeakerSuggestion(name: "Dani", distance: meeting.speakers[1].suggestion!.distance))
+    }
+
+    @Test func storeWritesNothingWhenNothingChanges() async throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("kv-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let url = dir.appendingPathComponent("voices.json")
+        _ = try await KnownVoiceStore(url: url).update { $0 }
+        #expect(!FileManager.default.fileExists(atPath: url.path))
+    }
+}

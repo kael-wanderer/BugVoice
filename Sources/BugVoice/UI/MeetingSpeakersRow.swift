@@ -31,8 +31,12 @@ extension SpeakerColors {
 }
 
 extension MeetingSpeaker {
-    /// The saved voice waiting for Yes or No, while suggestions are on.
-    func pendingSuggestion(enabled: Bool) -> String? { enabled && name == nil ? suggestion?.name : nil }
+    /// The saved voice waiting for Yes or No, while suggestions are on and the voice is still saved.
+    func pendingSuggestion(enabled: Bool, known: [KnownVoice]) -> String? {
+        guard enabled, name == nil, let suggested = suggestion?.name,
+              known.contains(where: { $0.name.caseInsensitiveCompare(suggested) == .orderedSame }) else { return nil }
+        return suggested
+    }
 }
 
 struct MeetingSpeakersRow: View {
@@ -181,7 +185,7 @@ struct MeetingSpeakersRow: View {
                             .accessibilityLabel("Name for \(display(speaker))")
                             .onSubmit { saveName() }
                             .onExitCommand { editingID = nil; nameFocused = false; editError = nil }
-                    } else if let suggested = speaker.pendingSuggestion(enabled: suggesting) {
+                    } else if let suggested = speaker.pendingSuggestion(enabled: suggesting, known: model.knownVoices) {
                         Text("\(suggested)?")
                         Button("Yes") { decide(.accept(speakerID: speaker.id)) }
                             .buttonStyle(.borderedProminent).controlSize(.mini)
@@ -202,7 +206,7 @@ struct MeetingSpeakersRow: View {
                 .padding(.horizontal, 9).padding(.vertical, 3)
                 .background(Color(nsColor: .quaternaryLabelColor).opacity(0.20), in: Capsule())
                 .overlay {
-                    if speaker.pendingSuggestion(enabled: suggesting) != nil {
+                    if speaker.pendingSuggestion(enabled: suggesting, known: model.knownVoices) != nil {
                         Capsule().stroke(Color.accentColor, style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
                     } else {
                         Capsule().stroke(Color(nsColor: .separatorColor), lineWidth: 0.5)
@@ -293,7 +297,7 @@ struct MeetingSpeakerLineMenu: View {
     /// "Dani?" while the line's speaker waits for Yes or No; export and prompts keep Other N.
     private var label: String {
         let speaker = meeting.speakers.first { $0.id == segment.speakerID }
-        if let suggested = speaker?.pendingSuggestion(enabled: model.settings.meetings.suggestKnownVoices) { return "\(suggested)?" }
+        if let suggested = speaker?.pendingSuggestion(enabled: model.settings.meetings.suggestKnownVoices, known: model.knownVoices) { return "\(suggested)?" }
         return segment.speaker
     }
     private var color: Color {

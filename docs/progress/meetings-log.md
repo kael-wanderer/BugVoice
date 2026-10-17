@@ -362,6 +362,6 @@ a second meeting to Dan; No declined Sam for that meeting; Delete removed Sam;
 | 207 | Name call speakers in one meeting; a later meeting with the same people shows "Name?" dashed chips with Yes and No, and "Name?" on their lines. | Pass 2026-10-17 (uploads) |
 | 208 | Yes names the speaker everywhere and Settings shows one more meeting; No returns to Other N and the name is not suggested again in that meeting. | Pass 2026-10-17 (uploads) |
 | 209 | Export, summary and Ask keep Other N until Yes. | Pending |
-| 210 | Settings › Meetings › Known voices: switch off hides suggestions and saves nothing; Delete removes a voice, meetings keep their names. | Delete passed 2026-10-17; switch pending |
+| 210 | Settings › Meetings › Known voices: switch off hides suggestions and saves nothing; Delete removes a voice, meetings keep their names. | Pass 2026-10-17 (uploads; Delete also hides a waiting suggestion) |
 | 211 | Renaming Dani to David moves the meeting to David; clearing removes it; deleting a meeting drops its count. | Pending |
 | 212 | Real call: two meetings with the same people on Zoom or Meet; note each suggestion's distance from `meeting.json`. | Pending (monthly Dani and Mariel call) |

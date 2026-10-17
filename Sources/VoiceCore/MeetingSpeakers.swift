@@ -116,7 +116,10 @@ public enum MeetingSpeakers {
         }
         var oldUsed: Set<String> = []; var newUsed: Set<Int> = []
         for (_, oldID, index) in pairs where !oldUsed.contains(oldID) && !newUsed.contains(index) {
-            speakers[index].name = meeting.speakers.first { $0.id == oldID }?.name
+            let old = meeting.speakers.first { $0.id == oldID }
+            speakers[index].name = old?.name
+            // A confirmed suggestion keeps its distance for review.
+            if let suggestion = old?.suggestion, suggestion.name == old?.name { speakers[index].suggestion = suggestion }
             oldUsed.insert(oldID); newUsed.insert(index)
         }
         updated.speakers = speakers

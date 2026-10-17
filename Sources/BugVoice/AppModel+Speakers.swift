@@ -47,7 +47,8 @@ extension AppModel {
             else { result = try await speakerSplitter.split(audio: audio, voices: voices) }
             try Task.checkCancellation()
             let suggesting = settings.meetings.suggestKnownVoices
-            let saved = suggesting ? try await voiceStore.load().voices : []
+            // An unreadable voices.json skips suggestions; it never fails the split.
+            let saved = suggesting ? ((try? await voiceStore.load().voices) ?? []) : []
             let change = try await updateMeetingSpeakers(id: id) { meeting in
                 let split = MeetingSpeakers.applySplit(result, to: meeting, tracks: tracks)
                 return suggesting ? KnownVoices.suggest(in: split, voices: saved) : split
@@ -63,6 +64,12 @@ extension AppModel {
     }
 
     func editMeetingSpeakers(id: MeetingID, edit: MeetingSpeakers.Edit) async -> MeetingSpeakers.EditError? {
+        // A suggestion for a voice deleted in Settings is stale: Yes must not bring the voice back.
+        if case let .accept(speakerID) = edit {
+            let name = meetingManifests.first { $0.id == id }?.speakers.first { $0.id == speakerID }?.suggestion?.name
+            let saved = (try? await voiceStore.load().voices) ?? []
+            guard let name, saved.contains(where: { $0.name.caseInsensitiveCompare(name) == .orderedSame }) else { return nil }
+        }
         do {
             let change = try await updateMeetingSpeakers(id: id) { try MeetingSpeakers.apply(edit, to: $0) }
             switch edit {
@@ -110,9 +117,16 @@ extension AppModel {
         catch { saveError = "Could not delete the voice: \(error.localizedDescription)" }
     }
 
+    /// Runs on every meeting list load, so a broken voices.json is reported once, not every reload.
     func pruneKnownVoices(keeping meetings: Set<MeetingID>) async {
-        do { knownVoices = try await voiceStore.update { KnownVoices.prune($0, keeping: meetings) }.voices }
-        catch { saveError = "Could not load known voices: \(error.localizedDescription)" }
+        do {
+            knownVoices = try await voiceStore.update { KnownVoices.prune($0, keeping: meetings) }.voices
+            voiceStoreErrorShown = false
+        } catch {
+            guard !voiceStoreErrorShown else { return }
+            voiceStoreErrorShown = true
+            saveError = "Could not load known voices: \(error.localizedDescription)"
+        }
     }
 }
 

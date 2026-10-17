@@ -22,9 +22,11 @@ public struct KnownVoice: Codable, Equatable, Sendable, Identifiable {
         self.updatedAt = updatedAt
     }
 
-    /// Element-wise mean of the contributions of the most common length.
+    /// Element-wise mean of the contributions of the most common length; a tie goes to the newest.
     public var voiceprint: [Float] {
-        guard let length = contributions.first?.centroid.count else { return [] }
+        let counts = Dictionary(grouping: contributions.map(\.centroid.count), by: { $0 }).mapValues(\.count)
+        guard let most = counts.values.max(),
+              let length = contributions.reversed().map(\.centroid.count).first(where: { counts[$0] == most }) else { return [] }
         let usable = contributions.map(\.centroid).filter { $0.count == length }
         var sum = [Float](repeating: 0, count: length)
         for centroid in usable { for i in 0..<length { sum[i] += centroid[i] } }

@@ -18,7 +18,8 @@ public actor KnownVoiceStore {
     public func update(_ change: @Sendable (KnownVoiceFile) -> KnownVoiceFile) throws -> KnownVoiceFile {
         let current = try load()
         let updated = change(current)
-        if updated != current || !FileManager.default.fileExists(atPath: url.path) { try save(updated) }
+        // A missing file already reads as empty, so nothing is written until there is something to save.
+        if updated != current { try save(updated) }
         return updated
     }
 

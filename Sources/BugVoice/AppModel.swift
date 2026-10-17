@@ -148,6 +148,7 @@ final class AppModel {
     @ObservationIgnored let speakerSplitter = SpeakerSplitter(downloadBase: AppPaths.standard().models)
     @ObservationIgnored var speakerTasks: [MeetingID: Task<Void, Never>] = [:]
     @ObservationIgnored let voiceStore = KnownVoiceStore(url: AppPaths.standard().voices)
+    @ObservationIgnored var voiceStoreErrorShown = false
     /// Saved voices for Settings › Meetings › Known voices.
     var knownVoices: [KnownVoice] = []
 
