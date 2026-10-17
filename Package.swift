@@ -34,6 +34,7 @@ let package = Package(
             dependencies: [
                 "VoiceCore",
                 .product(name: "WhisperKit", package: "WhisperKit"),
+                .product(name: "SpeakerKit", package: "WhisperKit"),
             ],
             path: "Sources/WhisperEngine",
             swiftSettings: [.swiftLanguageMode(.v5)]
