@@ -38,6 +38,7 @@ extension MeetingController {
         guard LiveSummaryPlanner.isDue(
             activeTime: elapsed,
             lastRefresh: lastRefreshActiveTime,
+            interval: TimeInterval(model.settings.meetings.liveSummaryInterval),
             segments: segments,
             cutoff: liveSummaryCutoff,
             notesChanged: notes != notesAtLastRefresh

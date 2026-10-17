@@ -23,8 +23,23 @@ public enum MeetingPromptLines {
 
 /// When the meeting window refreshes its running summary, and what it sends.
 public enum LiveSummaryPlanner {
-    /// Active (unpaused) meeting time before the first refresh, and between refreshes.
-    public static let interval: TimeInterval = 180
+    /// Choices for the time between refreshes, in seconds: 1 to 5 minutes in half minutes.
+    public static let intervalChoices = Array(stride(from: 60, through: 300, by: 30))
+    public static let defaultInterval = 120
+
+    /// "1 min", "1 min 30 s": for the setting and the meeting window.
+    public static func intervalLabel(_ seconds: Int) -> String {
+        let minutes = seconds / 60, rest = seconds % 60
+        return rest == 0 ? "\(minutes) min" : "\(minutes) min \(rest) s"
+    }
+
+    /// A saved interval moved to the nearest choice.
+    public static func normalizedInterval(_ seconds: Int) -> Int {
+        let first = intervalChoices[0]
+        let step = intervalChoices[1] - first
+        let index = (Double(seconds - first) / Double(step)).rounded()
+        return min(max(first + Int(index) * step, first), intervalChoices[intervalChoices.count - 1])
+    }
     /// Notes longer than this are cut before they go into a request.
     public static let maxNotesCharacters = 4_000
 
@@ -40,10 +55,12 @@ public enum LiveSummaryPlanner {
     /// - Parameters:
     ///   - activeTime: meeting time so far, pauses excluded.
     ///   - lastRefresh: `activeTime` at the last refresh, nil before the first.
+    ///   - interval: active time before the first refresh, and between refreshes.
     ///   - cutoff: meeting time up to which lines are already in the summary.
     public static func isDue(
         activeTime: TimeInterval,
         lastRefresh: TimeInterval?,
+        interval: TimeInterval,
         segments: [MeetingSegment],
         cutoff: TimeInterval,
         notesChanged: Bool

@@ -12,21 +12,53 @@ struct MeetingLiveTextTests {
         #expect(MeetingPromptLines.line(line(5, "Hi")) == "[0:05] Others: Hi")
     }
 
-    @Test func noRefreshBeforeThreeActiveMinutes() {
-        #expect(!LiveSummaryPlanner.isDue(activeTime: 179, lastRefresh: nil, segments: [line(1, "a")], cutoff: 0, notesChanged: false))
-        #expect(LiveSummaryPlanner.isDue(activeTime: 180, lastRefresh: nil, segments: [line(1, "a")], cutoff: 0, notesChanged: false))
+    @Test func noRefreshBeforeTheFirstInterval() {
+        #expect(!LiveSummaryPlanner.isDue(activeTime: 179, lastRefresh: nil, interval: 180, segments: [line(1, "a")], cutoff: 0, notesChanged: false))
+        #expect(LiveSummaryPlanner.isDue(activeTime: 180, lastRefresh: nil, interval: 180, segments: [line(1, "a")], cutoff: 0, notesChanged: false))
+        #expect(!LiveSummaryPlanner.isDue(activeTime: 59, lastRefresh: nil, interval: 60, segments: [line(1, "a")], cutoff: 0, notesChanged: false))
+        #expect(LiveSummaryPlanner.isDue(activeTime: 60, lastRefresh: nil, interval: 60, segments: [line(1, "a")], cutoff: 0, notesChanged: false))
     }
 
     @Test func noRefreshWithoutTranscript() {
-        #expect(!LiveSummaryPlanner.isDue(activeTime: 600, lastRefresh: nil, segments: [], cutoff: 0, notesChanged: true))
+        #expect(!LiveSummaryPlanner.isDue(activeTime: 600, lastRefresh: nil, interval: 120, segments: [], cutoff: 0, notesChanged: true))
     }
 
-    @Test func nextRefreshEveryThreeMinutesOnlyWithSomethingNew() {
+    @Test func nextRefreshAfterTheIntervalOnlyWithSomethingNew() {
         let lines = [line(10, "a"), line(200, "b")]
-        #expect(!LiveSummaryPlanner.isDue(activeTime: 300, lastRefresh: 180, segments: lines, cutoff: 15, notesChanged: false))
-        #expect(LiveSummaryPlanner.isDue(activeTime: 360, lastRefresh: 180, segments: lines, cutoff: 15, notesChanged: false))
-        #expect(!LiveSummaryPlanner.isDue(activeTime: 360, lastRefresh: 180, segments: lines, cutoff: 205, notesChanged: false))
-        #expect(LiveSummaryPlanner.isDue(activeTime: 360, lastRefresh: 180, segments: lines, cutoff: 205, notesChanged: true))
+        #expect(!LiveSummaryPlanner.isDue(activeTime: 300, lastRefresh: 180, interval: 180, segments: lines, cutoff: 15, notesChanged: false))
+        #expect(LiveSummaryPlanner.isDue(activeTime: 360, lastRefresh: 180, interval: 180, segments: lines, cutoff: 15, notesChanged: false))
+        #expect(!LiveSummaryPlanner.isDue(activeTime: 360, lastRefresh: 180, interval: 180, segments: lines, cutoff: 205, notesChanged: false))
+        #expect(LiveSummaryPlanner.isDue(activeTime: 360, lastRefresh: 180, interval: 180, segments: lines, cutoff: 205, notesChanged: true))
+        #expect(LiveSummaryPlanner.isDue(activeTime: 300, lastRefresh: 180, interval: 120, segments: lines, cutoff: 15, notesChanged: false))
+    }
+
+    @Test func intervalChoicesRunFromOneToFiveMinutesInHalfMinutes() {
+        #expect(LiveSummaryPlanner.intervalChoices == [60, 90, 120, 150, 180, 210, 240, 270, 300])
+        #expect(LiveSummaryPlanner.defaultInterval == 120)
+    }
+
+    @Test func intervalLabelsReadAsMinutesAndSeconds() {
+        #expect(LiveSummaryPlanner.intervalLabel(60) == "1 min")
+        #expect(LiveSummaryPlanner.intervalLabel(90) == "1 min 30 s")
+        #expect(LiveSummaryPlanner.intervalLabel(300) == "5 min")
+    }
+
+    @Test func savedIntervalSnapsToTheNearestChoice() {
+        #expect(LiveSummaryPlanner.normalizedInterval(120) == 120)
+        #expect(LiveSummaryPlanner.normalizedInterval(30) == 60)
+        #expect(LiveSummaryPlanner.normalizedInterval(400) == 300)
+        #expect(LiveSummaryPlanner.normalizedInterval(100) == 90)
+        #expect(LiveSummaryPlanner.normalizedInterval(110) == 120)
+    }
+
+    @Test func settingsDefaultToTwoMinutesAndOlderFilesToo() throws {
+        #expect(MeetingSettings().liveSummaryInterval == 120)
+        let old = try JSONDecoder().decode(MeetingSettings.self, from: Data(#"{"windowCollapsed":true}"#.utf8))
+        #expect(old.liveSummaryInterval == 120)
+        let odd = try JSONDecoder().decode(MeetingSettings.self, from: Data(#"{"liveSummaryInterval":45}"#.utf8))
+        #expect(odd.liveSummaryInterval == 60)
+        let saved = try JSONDecoder().decode(MeetingSettings.self, from: Data(#"{"liveSummaryInterval":240}"#.utf8))
+        #expect(saved.liveSummaryInterval == 240)
     }
 
     @Test func requestHoldsPreviousSummaryNotesAndOnlyNewLines() {

@@ -79,6 +79,13 @@ public struct MeetingSettings: Codable, Equatable, Sendable {
     public var mutedMeetingApps: [String] = []
     /// The meeting window shows only its top bar.
     public var windowCollapsed = false
+    /// Seconds of meeting time between live summary refreshes; one of `LiveSummaryPlanner.intervalChoices`.
+    public var liveSummaryInterval = LiveSummaryPlanner.defaultInterval {
+        didSet {
+            let normalized = LiveSummaryPlanner.normalizedInterval(liveSummaryInterval)
+            if liveSummaryInterval != normalized { liveSummaryInterval = normalized }
+        }
+    }
 
     public init() {}
 }
@@ -94,6 +101,7 @@ extension MeetingSettings {
         detectMeetings = c.value(.detectMeetings, default: detectMeetings)
         mutedMeetingApps = c.value(.mutedMeetingApps, default: mutedMeetingApps)
         windowCollapsed = c.value(.windowCollapsed, default: windowCollapsed)
+        liveSummaryInterval = LiveSummaryPlanner.normalizedInterval(c.value(.liveSummaryInterval, default: liveSummaryInterval))
     }
 }
 

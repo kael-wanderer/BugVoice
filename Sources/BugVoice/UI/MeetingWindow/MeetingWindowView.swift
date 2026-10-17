@@ -260,7 +260,7 @@ struct MeetingWindowView: View {
             ProgressView("Writing the summary")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
-            Text("The first summary comes after 3 minutes of talk.")
+            Text("The first summary comes after \(LiveSummaryPlanner.intervalLabel(model.settings.meetings.liveSummaryInterval)) of talk.")
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
@@ -284,7 +284,7 @@ struct MeetingWindowView: View {
         } else if controller.summaryState == .refreshing {
             parts.append("updating")
         } else if controller.isRecording, let last = controller.lastRefreshActiveTime {
-            let next = max(0, LiveSummaryPlanner.interval - (controller.elapsed - last))
+            let next = max(0, TimeInterval(model.settings.meetings.liveSummaryInterval) - (controller.elapsed - last))
             parts.append("next in \(Int((next / 60).rounded(.up))) min")
         }
         return parts.joined(separator: " · ")

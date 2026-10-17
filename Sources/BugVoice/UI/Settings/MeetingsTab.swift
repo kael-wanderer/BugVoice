@@ -63,6 +63,18 @@ struct MeetingsTab: View {
                 Text("Meetings that are recording, interrupted, or transcribing are kept.")
                     .font(.caption).foregroundStyle(.secondary)
             }
+            SettingsCard(title: "Live summary") {
+                SettingsRow(title: "Update every") {
+                    Picker("Update every", selection: $model.settings.meetings.liveSummaryInterval) {
+                        ForEach(LiveSummaryPlanner.intervalChoices, id: \.self) { seconds in
+                            Text(LiveSummaryPlanner.intervalLabel(seconds)).tag(seconds)
+                        }
+                    }
+                    .labelsHidden().fixedSize()
+                }
+                Text("Meeting time between updates of the summary in the meeting window. Pauses do not count. Shorter times keep the Meetings model busier.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             SettingsCard(title: "Summary and action item budget") {
                 SettingsRow(title: "Context size") {
                     Text("\(model.settings.meetings.generationContextTokens.formatted()) tokens").monospacedDigit()
