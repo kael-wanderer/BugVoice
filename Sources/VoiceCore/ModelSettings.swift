@@ -180,15 +180,15 @@ public struct KeyMove: Equatable, Sendable {
 public struct ModelSettings: Codable, Equatable, Sendable {
     public static let maxConnections = 20
     public static let defaultConnection = ModelConnection(
-        id: "lmstudio", name: "LM Studio", kind: .openAICompatible,
-        baseURL: "http://localhost:1234", model: "qwen3.8-27b-mlx"
+        id: "omlx", name: "oMLX", kind: .openAICompatible,
+        baseURL: "http://localhost:8000", model: "Qwen3.8-27B-MLX-8bit"
     )
 
     public var connections: [ModelConnection] = [defaultConnection]
-    public var dictation = ModelUse(engine: .connection("lmstudio"), disableThinking: true)
+    public var dictation = ModelUse(engine: .connection("omlx"), disableThinking: true)
     /// Nil: same as Dictation.
     public var notes: ModelUse?
-    public var meetings = ModelUse(engine: .connection("lmstudio"))
+    public var meetings = ModelUse(engine: .connection("omlx"))
     /// Dictation and Notes: after this, raw text is pasted.
     public var dictationTimeoutSeconds: Double = 3
     /// Set by migration, done by the app at launch, never saved.
@@ -239,6 +239,8 @@ public struct ConnectionPreset: Equatable, Sendable {
     public var group: Group
 
     public static let all: [ConnectionPreset] = [
+        .init(name: "oMLX", kind: .openAICompatible, baseURL: "http://localhost:8000", needsKey: true, group: .local),
+        .init(name: "MTPLX", kind: .openAICompatible, baseURL: "http://localhost:8001", needsKey: false, group: .local),
         .init(name: "LM Studio", kind: .openAICompatible, baseURL: "http://localhost:1234", needsKey: false, group: .local),
         .init(name: "Ollama", kind: .openAICompatible, baseURL: "http://localhost:11434", needsKey: false, group: .local),
         .init(name: "MLX server", kind: .openAICompatible, baseURL: "http://localhost:8080", needsKey: false, group: .local),

@@ -7,13 +7,14 @@ struct ModelSettingsTests {
         try JSONDecoder().decode(ModelSettings.self, from: Data(json.utf8))
     }
 
-    @Test func defaultsUseLocalLMStudioForEveryFeature() {
+    @Test func defaultsUseLocalOMLXForEveryFeature() {
         let s = ModelSettings()
         #expect(s.connections == [ModelSettings.defaultConnection])
-        #expect(s.connections[0].baseURL == "http://localhost:1234")
-        #expect(s.connections[0].model == "qwen3.8-27b-mlx")
-        #expect(s.dictation == ModelUse(engine: .connection("lmstudio"), disableThinking: true))
-        #expect(s.meetings.engine == .connection("lmstudio"))
+        #expect(s.connections[0].name == "oMLX")
+        #expect(s.connections[0].baseURL == "http://localhost:8000")
+        #expect(s.connections[0].model == "Qwen3.8-27B-MLX-8bit")
+        #expect(s.dictation == ModelUse(engine: .connection("omlx"), disableThinking: true))
+        #expect(s.meetings.engine == .connection("omlx"))
         #expect(s.notes == nil)
         #expect(s.dictationTimeoutSeconds == 3)
     }
@@ -63,7 +64,7 @@ struct ModelSettingsTests {
 
     @Test func unknownEngineKeepsDefault() throws {
         let s = try decode(#"{"dictation":{"engine":"gemini","model":"x"}}"#)
-        #expect(s.dictation.engine == .connection("lmstudio"))
+        #expect(s.dictation.engine == .connection("omlx"))
         #expect(s.dictation.model == "x")
     }
 
@@ -117,10 +118,18 @@ struct ModelSettingsTests {
 
     @Test func presetsHaveNoGemini() {
         #expect(ConnectionPreset.all.map(\.name) == [
-            "LM Studio", "Ollama", "MLX server", "Anthropic", "OpenAI", "OpenRouter",
+            "oMLX", "MTPLX", "LM Studio", "Ollama", "MLX server", "Anthropic", "OpenAI", "OpenRouter",
             "OpenAI-compatible server", "Anthropic-compatible server",
         ])
         #expect(!ConnectionPreset.all.contains { $0.name.lowercased().contains("gemini") })
+    }
+
+    @Test func oMLXAndMTPLXPresetsUseTheirPorts() {
+        let local = Dictionary(uniqueKeysWithValues: ConnectionPreset.all.filter { $0.group == .local }.map { ($0.name, $0) })
+        #expect(local["oMLX"]?.baseURL == "http://localhost:8000")
+        #expect(local["oMLX"]?.needsKey == true)
+        #expect(local["MTPLX"]?.baseURL == "http://localhost:8001")
+        #expect(local["MTPLX"]?.kind == .openAICompatible)
     }
 
     @Test func shortNames() {
