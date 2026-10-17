@@ -131,6 +131,9 @@ public enum AskAnswerPrompt {
     }
 
     /// Keeps only refs that name a real line of a passage in `passages`. Nil when none survives.
+    /// Sent once when a reply cites no real line; models sometimes drop citations.
+    public static let citeAgain = "Your answer cited no passage lines. Cite the lines that support it, like P1.2."
+
     public static func check(
         lineRefs: [String], passages: [AskPassage], info: [AskSource: AskItemInfo], answer: String
     ) -> AskResult? {

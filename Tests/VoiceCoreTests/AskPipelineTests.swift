@@ -257,6 +257,19 @@ struct AskPipelineTests {
         let model = StubModel(reading: { _ in #"{"answer":"Maybe.","citations":[{"line":"P9.9"}]}"# })
         let outcome = try await run(pipeline(model), corpus([passage(1, "alpha")]))
         #expect(outcome == .nothingFound(wordSearchOnly: .noModel))
+        #expect(model.readingRequests.count == 2)
+    }
+
+    @Test func noCitationRetriedOnceThenAnswers() async throws {
+        let model = StubModel(reading: { n in
+            n == 1 ? #"{"answer":"Done.","citations":[]}"# : #"{"answer":"Done.","citations":[{"line":"P1.1"}]}"#
+        })
+        let traces = Traces()
+        let outcome = try await run(pipeline(model, traces: traces), corpus([passage(1, "alpha")]))
+        guard case .answered = outcome else { Issue.record("not answered: \(outcome)"); return }
+        #expect(model.readingRequests.count == 2)
+        #expect(model.readingRequests[1].user.hasSuffix(AskAnswerPrompt.citeAgain))
+        #expect(traces.all.first?.keptCitations == 1)
     }
 
     @Test func contextBudgetTrimsPassages() async throws {

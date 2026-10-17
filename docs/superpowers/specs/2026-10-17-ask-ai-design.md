@@ -93,7 +93,9 @@ owner's Mac.
 ### 5.1 Understanding the question
 
 - One Notes-model call, thinking off, 20 s limit. It returns JSON:
-  `{"terms": [..], "from": "YYYY-MM-DD"|null, "to": "YYYY-MM-DD"|null, "people": [..]}`.
+  `{"terms": [..], "time": "..."|null, "from": "YYYY-MM-DD"|null, "to": "YYYY-MM-DD"|null, "people": [..]}`.
+- `time`: the words in the question that name a time. `from`/`to` are used only when those words
+  appear in the question (folded); models otherwise fill in today. "Recent" means the last 14 days.
 - `terms`: the question's key words and short phrases, plus the same in English, Vietnamese and
   Spanish, at most 24 terms. Today's date is in the prompt so "last month" can be resolved.
 - Bad JSON, a timeout or an error: fall back to the question's own words (stop words removed),
@@ -139,8 +141,10 @@ Progress text: "Reading 40 passages…".
 - **Check**: a citation is kept only when its line id exists in the prompt. Unknown ids,
   duplicates and ids from passages not sent are dropped. Kept lines that are adjacent in the same
   item (next segment, or within 5 s) join into one citation range.
-- No kept citation: show "Nothing about this in your notes or meetings." The model's answer is
-  not shown.
+- No kept citation: ask once more with "Your answer cited no passage lines. Cite the lines that
+  support it, like P1.2." Still none: show "Nothing about this in your notes or meetings." The
+  model's answer is not shown.
+- The answer uses the current question's language, even when earlier turns use another.
 - Bad JSON: one retry with "Reply with JSON only"; then the generic error "Ask could not read the
   model's answer. Try again."
 

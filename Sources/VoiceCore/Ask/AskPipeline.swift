@@ -184,29 +184,34 @@ public struct AskPipeline: Sendable {
             question: question, history: history, passages: chosen, info: corpus.info,
             modelID: modelID, disableThinking: disableThinking, maxOutputTokens: Self.outputTokens,
             calendar: calendar)
-        var parsed: (answer: String, lineRefs: [String])?
-        for attempt in 0..<2 {
-            try Task.checkCancellation()
-            if attempt == 1 { request.user += "\n\nReply with JSON only." }
-            let reply: String
-            do {
-                let req = request
-                reply = try await abandoningOnCancel { try await model.clean(req) }
-            } catch is CancellationError {
-                throw CancellationError()
-            } catch is TimeoutError {
-                throw TimeoutError()
-            } catch {
-                return .failed(.model)
+        var checked: AskResult?
+        for citeAttempt in 0..<2 {
+            if citeAttempt == 1 { request.user += "\n\n" + AskAnswerPrompt.citeAgain }
+            var parsed: (answer: String, lineRefs: [String])?
+            for attempt in 0..<2 {
+                try Task.checkCancellation()
+                if attempt == 1 { request.user += "\n\nReply with JSON only." }
+                let reply: String
+                do {
+                    let req = request
+                    reply = try await abandoningOnCancel { try await model.clean(req) }
+                } catch is CancellationError {
+                    throw CancellationError()
+                } catch is TimeoutError {
+                    throw TimeoutError()
+                } catch {
+                    return .failed(.model)
+                }
+                parsed = AskAnswerPrompt.parse(reply)
+                if parsed != nil { break }
             }
-            parsed = AskAnswerPrompt.parse(reply)
-            if parsed != nil { break }
+            guard let parsed else { return .failed(.unreadable) }
+            counts.citedLines = parsed.lineRefs.count
+            checked = AskAnswerPrompt.check(
+                lineRefs: parsed.lineRefs, passages: chosen, info: corpus.info, answer: parsed.answer)
+            if checked != nil { break }
         }
-        guard let parsed else { return .failed(.unreadable) }
-        counts.citedLines = parsed.lineRefs.count
-        guard let result = AskAnswerPrompt.check(
-            lineRefs: parsed.lineRefs, passages: chosen, info: corpus.info, answer: parsed.answer)
-        else {
+        guard let result = checked else {
             counts.keptCitations = 0
             return .nothingFound(wordSearchOnly: wordOnly)
         }
