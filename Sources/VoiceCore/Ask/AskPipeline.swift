@@ -12,7 +12,7 @@ public enum AskFailure: Error, Equatable, Sendable { case model, unreadable, too
 
 public enum AskOutcome: Equatable, Sendable {
     case answered(AskResult, wordSearchOnly: WordOnlyReason?)
-    case nothingFound
+    case nothingFound(wordSearchOnly: WordOnlyReason?)
     case failed(AskFailure)
 }
 
@@ -100,7 +100,7 @@ public struct AskPipeline: Sendable {
         let dated = corpus.passages.filter { p in
             (query.from.map { p.date >= $0 } ?? true) && (query.to.map { p.date <= $0 } ?? true)
         }
-        guard !dated.isEmpty else { return .nothingFound }
+        guard !dated.isEmpty else { return .nothingFound(wordSearchOnly: embedder == nil ? .noModel : nil) }
 
         let scores = AskRanking.wordScores(dated, terms: query.terms, people: query.people)
         let wordRanking = dated.filter { (scores[$0.id] ?? 0) > 0 }
@@ -126,9 +126,13 @@ public struct AskPipeline: Sendable {
 
         try Task.checkCancellation()
         let byID = Dictionary(dated.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
-        let fused = AskRanking.fuse(rankings).compactMap { byID[$0] }
+        var fused = AskRanking.fuse(rankings).compactMap { byID[$0] }
+        // A question that names only a time ("recent meetings") matches no words: read that time's newest passages.
+        if fused.isEmpty, query.from != nil || query.to != nil {
+            fused = dated.sorted { $0.date > $1.date }
+        }
         let chosen = fit(Array(fused.prefix(AskRanking.maxPassages)), question: question, history: history, info: corpus.info)
-        guard !chosen.isEmpty else { return .nothingFound }
+        guard !chosen.isEmpty else { return .nothingFound(wordSearchOnly: wordOnly) }
 
         progress(.reading(passages: chosen.count))
         var request = AskAnswerPrompt.request(
@@ -156,7 +160,7 @@ public struct AskPipeline: Sendable {
         guard let parsed else { return .failed(.unreadable) }
         guard let result = AskAnswerPrompt.check(
             lineRefs: parsed.lineRefs, passages: chosen, info: corpus.info, answer: parsed.answer)
-        else { return .nothingFound }
+        else { return .nothingFound(wordSearchOnly: wordOnly) }
         return .answered(result, wordSearchOnly: wordOnly)
     }
 

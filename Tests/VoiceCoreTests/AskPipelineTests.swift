@@ -166,9 +166,30 @@ struct AskPipelineTests {
     @Test func zeroPassagesSkipsReadingCall() async throws {
         let model = StubModel()
         let outcome = try await run(pipeline(model), corpus([passage(1, "nothing relevant")]))
-        #expect(outcome == .nothingFound)
+        #expect(outcome == .nothingFound(wordSearchOnly: .noModel))
         #expect(model.readingRequests.isEmpty)
         #expect(model.requests.count == 1)
+    }
+
+    @Test func nothingFoundKeepsMeaningSearchState() async throws {
+        let ps = [passage(1, "nothing relevant")]
+        let outcome = try await run(pipeline(StubModel(), embedder: StubEmbedder()), corpus(ps, vectors: [ps[0].id: [0, 1]]))
+        #expect(outcome == .nothingFound(wordSearchOnly: nil))
+    }
+
+    @Test func dateRangeWithoutWordHitsReadsNewestFirst() async throws {
+        let model = StubModel(
+            understanding: { #"{"terms":["zzz"],"from":"2026-09-01","to":"2026-09-30","people":[]}"# })
+        let ps = [passage(1, "older", date(2026, 9, 5)), passage(2, "newer", date(2026, 9, 20)), passage(3, "outside", date(2026, 8, 1))]
+        let steps = Steps()
+        let outcome = try await run(pipeline(model), corpus(ps), steps: steps)
+        guard case .answered = outcome else { Issue.record("not answered: \(outcome)"); return }
+        #expect(steps.all.last == .reading(passages: 2))
+        let user = try #require(model.readingRequests.first?.user)
+        let newer = try #require(user.range(of: "newer"))
+        let older = try #require(user.range(of: "older"))
+        #expect(newer.lowerBound < older.lowerBound)
+        #expect(!user.contains("outside"))
     }
 
     @Test func badJSONRetriedOnce() async throws {
@@ -195,7 +216,7 @@ struct AskPipelineTests {
     @Test func uncitedAnswerIsNothingFound() async throws {
         let model = StubModel(reading: { _ in #"{"answer":"Maybe.","citations":[{"line":"P9.9"}]}"# })
         let outcome = try await run(pipeline(model), corpus([passage(1, "alpha")]))
-        #expect(outcome == .nothingFound)
+        #expect(outcome == .nothingFound(wordSearchOnly: .noModel))
     }
 
     @Test func contextBudgetTrimsPassages() async throws {

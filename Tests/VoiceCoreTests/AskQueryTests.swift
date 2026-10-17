@@ -82,4 +82,8 @@ struct AskQueryTests {
         let r = AskQueryPrompt.request(question: "q", history: [], today: date(2026, 10, 17, 12), modelID: "m")
         #expect(r.system.contains("2026-10-17") || r.user.contains("2026-10-17"))
     }
+
+    @Test func recentMeansLastFourteenDays() {
+        #expect(AskQueryPrompt.rules.contains("recent, recently, lately or latest mean the last 14 days"))
+    }
 }

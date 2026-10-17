@@ -84,11 +84,17 @@ struct AIBar: View {
             Button("A meeting…") { choosingMeeting = true }
             Button("All notes and meetings") { assistant.changeScope(.all) }
         } label: {
-            Text(model.askScopeTitle(assistant.scope)).lineLimit(1).frame(maxWidth: 160)
+            Text(Self.shortTitle(model.askScopeTitle(assistant.scope))).lineLimit(1)
         }
         .menuStyle(.borderlessButton)
-        .fixedSize(horizontal: false, vertical: true)
+        // A borderless menu fills the row; keep it to its title so the question field gets the space.
+        .fixedSize()
         .accessibilityLabel("Search in")
+    }
+
+    /// Long meeting titles would push the question field out of the row.
+    private static func shortTitle(_ title: String) -> String {
+        title.count > 32 ? String(title.prefix(31)) + "…" : title
     }
 
     private var meetingPicker: some View {

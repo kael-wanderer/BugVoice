@@ -58,7 +58,8 @@ struct AskAnswerView: View {
                                 }
                                 Button("New note") { Task { await model.newNoteFromAsk(question: saved.question, result: result) } }
                             }
-                        case .nothingFound:
+                        case .nothingFound(let reason):
+                            if let reason { wordOnly(reason) }
                             Text("Nothing about this in your notes or meetings.")
                             Text("Searched: \(model.askScopeTitle(saved.scope)) · \(saved.counts.meetings) meetings, \(saved.counts.notes) notes, \(saved.counts.dictations) dictations")
                                 .font(.caption).foregroundStyle(.secondary)
