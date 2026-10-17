@@ -145,6 +145,9 @@ final class AppModel {
     @ObservationIgnored private var speechAPIKeyGeneration: UInt64 = 0
     @ObservationIgnored private var meetingTextTasks: [MeetingID: Task<String, Error>] = [:]
 
+    @ObservationIgnored let speakerSplitter = SpeakerSplitter(downloadBase: AppPaths.standard().models)
+    @ObservationIgnored var speakerTasks: [MeetingID: Task<Void, Never>] = [:]
+
     init() {
         let notesStore = NotesStore(directory: AppPaths.standard().notes)
         self.notesStore = notesStore

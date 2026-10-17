@@ -211,6 +211,10 @@ final class MeetingController {
             if recovered.state == .interrupted {
                 recovered = try await session.retryTranscription()
             }
+            if recovered.state == .ready, !recovered.segments.isEmpty {
+                await model.findSpeakers(id: id, people: nil)
+                await refreshSnapshot()
+            }
             isTranscribing = false
             statusMessage = nil
             await model.reloadMeetings()
@@ -407,7 +411,18 @@ final class MeetingController {
         monitorTask = nil
         await model.reloadMeetings()
         await model.recordMeetingInsights(seconds: recordedSeconds)
-        if transcribed { await generateFinalSummary() }
+        if transcribed, let id = meetingID, !segments.isEmpty {
+            await model.findSpeakers(id: id, people: nil)
+            await refreshSnapshot()
+            await generateFinalSummary()
+        }
+    }
+
+    func updateSpeakersInSession(id: MeetingID, change: @Sendable (MeetingManifest) throws -> MeetingManifest) async throws -> Bool {
+        guard let session, await session.snapshot()?.id == id else { return false }
+        try await session.updateSpeakers(change)
+        await refreshSnapshot()
+        return true
     }
 
     func renameSession(id: MeetingID, title: String) async throws -> Bool {
