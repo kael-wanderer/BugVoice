@@ -386,7 +386,8 @@ private struct MeetingDetails: View {
     private var transcript: some View {
         let activeSegmentID = MeetingTimeline.activeSegment(at: player.currentTime, segments: meeting.segments, isPlaying: player.isPlaying)?.id
         return ScrollView {
-            LazyVStack(alignment: .leading, spacing: 3) {
+            // The speaker row sits outside the lazy stack, so its open edits survive scrolling.
+            VStack(alignment: .leading, spacing: 3) {
                 if let error = meeting.transcriptionError {
                     Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(.orange).padding(8)
                 }
@@ -404,6 +405,7 @@ private struct MeetingDetails: View {
                     .padding(.horizontal, 9)
                 }
                 MeetingSpeakersRow(meeting: meeting)
+                LazyVStack(alignment: .leading, spacing: 3) {
                 let segments = meeting.segments.sorted { $0.start < $1.start }
                 ForEach(Array(segments.enumerated()), id: \.element.id) { index, segment in
                     let active = activeSegmentID == segment.id
@@ -437,6 +439,7 @@ private struct MeetingDetails: View {
                 }
                 if meeting.segments.isEmpty {
                     ContentUnavailableView("No transcript yet", systemImage: "text.bubble", description: Text("Transcript lines appear as speech is processed."))
+                }
                 }
             }
         }

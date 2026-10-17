@@ -845,6 +845,7 @@ final class AppModel {
         progress: @escaping @Sendable (MeetingTextProgress) -> Void
     ) async throws -> String {
         let original = try await meetingStore.load(id: id)
+        let names = MeetingSpeakers.names(in: original)
         guard let textModel = await meetingTextModel() else {
             throw MeetingGenerationError.noTextModel
         }
@@ -857,7 +858,7 @@ final class AppModel {
             progress: progress
         )
         try Task.checkCancellation()
-        if let uploads, try await uploads.saveGeneratedTextToSession(id: id, text: text, kind: kind) {
+        if let uploads, try await uploads.saveGeneratedTextToSession(id: id, text: text, kind: kind, names: names) {
             await reloadMeetings()
             if kind == .summary {
                 let suggestionModel = textModel
@@ -865,7 +866,7 @@ final class AppModel {
             }
             return text
         }
-        if let meetings, try await meetings.saveGeneratedTextToSession(id: id, text: text, kind: kind) {
+        if let meetings, try await meetings.saveGeneratedTextToSession(id: id, text: text, kind: kind, names: names) {
             await reloadMeetings()
             if kind == .summary {
                 let suggestionModel = textModel
@@ -875,7 +876,7 @@ final class AppModel {
         }
         var current = try await meetingStore.load(id: id)
         try Task.checkCancellation()
-        current.setGeneratedText(text, kind: kind)
+        current.setGeneratedText(text, kind: kind, names: names)
         try await meetingStore.save(current)
         await reloadMeetings()
         if kind == .summary {

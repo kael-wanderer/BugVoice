@@ -13,9 +13,14 @@ extension AppModel {
 
     private func performSpeakerSplit(id: MeetingID, people: Int?) async {
         let store = MeetingStore(root: paths.meetings)
+        let manifest: MeetingManifest
+        do { manifest = try await store.load(id: id) } catch {
+            // A deleted meeting gets no failure written, which would recreate its folder.
+            await reloadMeetings()
+            return
+        }
+        guard manifest.state == .ready, !manifest.segments.isEmpty else { return }
         do {
-            let manifest = try await store.load(id: id)
-            guard !manifest.segments.isEmpty else { return }
             let directory = paths.meetings.appendingPathComponent(id.rawValue)
             let call = directory.appendingPathComponent("system.m4a")
             let hasCallAudio = manifest.source == .recording && FileManager.default.fileExists(atPath: call.path)

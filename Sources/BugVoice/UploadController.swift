@@ -176,11 +176,11 @@ final class UploadController {
         return true
     }
 
-    func saveGeneratedTextToSession(id: MeetingID, text: String, kind: MeetingTextKind) async throws
-        -> Bool
+    func saveGeneratedTextToSession(id: MeetingID, text: String, kind: MeetingTextKind, names: [String: String]? = nil)
+        async throws -> Bool
     {
         guard activeDirectory?.lastPathComponent == id.rawValue, let session else { return false }
-        try await session.saveGeneratedText(text, kind: kind)
+        try await session.saveGeneratedText(text, kind: kind, names: names)
         return true
     }
 

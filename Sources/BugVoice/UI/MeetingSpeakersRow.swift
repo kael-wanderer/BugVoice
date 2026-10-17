@@ -31,8 +31,18 @@ struct MeetingSpeakersRow: View {
     @FocusState private var nameFocused: Bool
 
     var body: some View {
+        // Speakers are split once the transcript is final; while recording lines stay You and Others.
+        if meeting.state == .ready { content }
+    }
+
+    /// A split that was running when BugVoice quit has no task left; it shows as failed.
+    private var splitState: SpeakerSplitState {
+        meeting.speakerSplit == .running && model.speakerTasks[meeting.id] == nil ? .failed("") : meeting.speakerSplit
+    }
+
+    private var content: some View {
         VStack(alignment: .leading, spacing: 10) {
-            switch meeting.speakerSplit {
+            switch splitState {
             case .running:
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.mini)
@@ -74,7 +84,7 @@ struct MeetingSpeakersRow: View {
                     Spacer(minLength: 0)
                     Button("Regenerate summary") { regenerate() }
                         .buttonStyle(.borderedProminent)
-                        .disabled(regenerating || meeting.speakerSplit == .running)
+                        .disabled(regenerating || splitState == .running)
                     Button("Not now") { dismissedChanges = changeStamp }
                 }
                 .padding(10)
@@ -109,16 +119,25 @@ struct MeetingSpeakersRow: View {
     }
 
     private var peopleControl: some View {
-        let count = MeetingSpeakers.people(in: meeting)
+        // Steps from the number waiting for Split again, so 4 to 2 is two clicks and one confirm.
+        let count = pendingPeople ?? MeetingSpeakers.people(in: meeting)
         let range = MeetingSpeakers.peopleRange(in: meeting)
         return HStack(spacing: 6) {
             Text("People in this meeting").foregroundStyle(.secondary).fixedSize()
-            Button("−") { pendingPeople = max(range.lowerBound, count - 1) }
+            Button("−") { step(to: count - 1, in: range) }
                 .disabled(count <= range.lowerBound)
+                .accessibilityLabel("Fewer people")
             Text("\(count)").monospacedDigit().fontWeight(.semibold)
-            Button("+") { pendingPeople = max(range.lowerBound, count + 1) }
+            Button("+") { step(to: count + 1, in: range) }
                 .disabled(count >= range.upperBound)
+                .accessibilityLabel("More people")
         }
+    }
+
+    /// Back at the current number there is nothing to split again.
+    private func step(to people: Int, in range: ClosedRange<Int>) {
+        let people = min(range.upperBound, max(range.lowerBound, people))
+        pendingPeople = people == MeetingSpeakers.people(in: meeting) ? nil : people
     }
 
     private var orderedSpeakers: [MeetingSpeaker] {

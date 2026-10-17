@@ -317,17 +317,30 @@ authorized to finish fetching the pinned Swift package dependencies.
 | # | Check | Result |
 |---|---|---|
 | 195 | Stop a recording with multiple guests: split runs after final transcription and before summary; microphone stays You and call lines become Other N. | Pending |
-| 196 | Upload a recording with multiple people: all file lines are split, nobody is forced to You. | Pending |
-| 197 | People −/+ stays within bounds, confirms before splitting again, clears line fixes, and carries names to the closest voices; shows the actual resulting count. | Pending |
+| 196 | Upload a recording with multiple people: all file lines are split, nobody is forced to You. | Pass 2026-10-17 (two-voice `say` clip; first use downloaded the 11 MB model; automatic count found 4) |
+| 197 | People −/+ stays within bounds, confirms before splitting again, clears line fixes, and carries names to the closest voices; shows the actual resulting count. | Pass 2026-10-17 (upload; 4 to 2 and back, Dani carried) |
 | 198 | Rename each chip (including You), save with Return or focus loss, cancel with Escape, and clear to restore its default; every line changes. | Pending |
 | 199 | Duplicate names, including case/space variations, are refused without merging speakers; inline error uses the name. | Pending |
 | 200 | Move one line to another speaker, including microphone lines; other lines stay unchanged and empty speakers disappear. | Pending |
-| 201 | New person creates a named chip, moves only the chosen line, and gives its lines the matching colour. | Pending |
+| 201 | New person creates a named chip, moves only the chosen line, and gives its lines the matching colour. | Pass 2026-10-17 (upload) |
 | 202 | Markdown, SRT, Send to Scratchpad and meeting search use speaker names; translation stays on its line. | Pending |
 | 203 | Ask, What did I miss, summary and action-item prompts use speaker names. | Pending |
 | 204 | Rename/fix shows the names-changed notice; Not now lasts until the next change; revisiting and Regenerate summary use the saved stamp. | Pending |
 | 205 | Older meeting loads without new fields, Find speakers works, failure offers Try again, and silence leaves unplaced call lines as Others. | Pending |
 | 206 | Finished meeting window shows matching names/colours read only; while splitting it keeps Others, then updates; later session saves do not overwrite edits. | Pending |
+
+Review fixes, 2026-10-17 (maintainer session): a split left `running` by a quit
+now shows "Speakers could not be found." with Try again; the speaker row shows
+only on ready meetings (no "recorded before" banner while recording); recovery
+clears transcribing before the split and summary; the summary stamps the names
+it was generated with; a recorded call keeps the 2-person minimum when You owns
+no line and never asks SpeakerKit for 0 voices; a microphone-only meeting is
+fixed at 1; clearing a New person's name keeps it; picking a line's current
+speaker changes nothing; the stepper steps from the pending number (4 to 2 is
+one confirm); the speaker row sits outside the lazy transcript stack; − and +
+have accessibility labels. Rows 196, 197 and 201 checked on an upload; rows
+198, 200 and 205 partly (Return rename, file-line fix, Try again). Recorded
+meetings (Stop, call track, meeting window colours) still need the owner.
 
 Part 2 waits for the same-podcast centroid-distance measurement in spec section
 8.4. Do not build known voices until same-person and different-person distances

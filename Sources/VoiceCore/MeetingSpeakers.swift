@@ -35,11 +35,13 @@ public enum MeetingSpeakers {
         meeting.source == .upload ? [.file] : (hasCallAudio ? [.system] : [.mic, .system])
     }
     public static func people(in meeting: MeetingManifest) -> Int { meeting.speakers.count }
+    /// A recorded call has You and at least one other, even after You's lines move to someone else.
     public static func peopleRange(in meeting: MeetingManifest) -> ClosedRange<Int> {
-        (meeting.speakers.contains { $0.id == youID } && meeting.segments.contains { $0.track == .system } ? 2 : 1)...10
+        guard meeting.source == .recording, meeting.segments.contains(where: { $0.track == .mic }) else { return 1...10 }
+        return meeting.segments.contains { $0.track == .system } ? 2...10 : 1...1
     }
     public static func voices(forPeople people: Int, in meeting: MeetingManifest) -> Int {
-        people - (meeting.speakers.contains { $0.id == youID } ? 1 : 0)
+        max(1, people - (meeting.speakers.contains { $0.id == youID } ? 1 : 0))
     }
     public static func names(in meeting: MeetingManifest) -> [String: String] {
         Dictionary(uniqueKeysWithValues: meeting.speakers.map { ($0.id, $0.name ?? defaultName(for: $0.id)) })
@@ -133,11 +135,14 @@ public enum MeetingSpeakers {
         case let .rename(id, raw):
             guard let index = updated.speakers.firstIndex(where: { $0.id == id }) else { throw EditError.unknownSpeaker }
             let name = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            // A new person has no default name to go back to.
+            if name.isEmpty, id.hasPrefix("p") { return meeting }
             try validate(name.isEmpty ? defaultName(for: id) : name, excluding: id, in: meeting)
             updated.speakers[index].name = name.isEmpty ? nil : name
         case let .assign(segmentID, speakerID):
             guard updated.speakers.contains(where: { $0.id == speakerID }) else { throw EditError.unknownSpeaker }
             guard let index = updated.segments.firstIndex(where: { $0.id == segmentID }) else { throw EditError.unknownSegment }
+            if updated.segments[index].speakerID == speakerID { return meeting }
             updated.segments[index].speakerID = speakerID
             updated.speakerNamesAtSummary = nil
         case let .newPerson(segmentID, raw):

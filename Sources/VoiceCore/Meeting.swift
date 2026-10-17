@@ -450,10 +450,11 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
         showEnglish = try c.decodeIfPresent(Bool.self, forKey: .showEnglish) ?? true
     }
 
-    public mutating func setGeneratedText(_ text: String, kind: MeetingTextKind) {
+    /// `names` are the speaker names the text was generated with; nil means the current ones.
+    public mutating func setGeneratedText(_ text: String, kind: MeetingTextKind, names: [String: String]? = nil) {
         if kind == .summary {
             summary = text
-            speakerNamesAtSummary = MeetingSpeakers.names(in: self)
+            speakerNamesAtSummary = names ?? MeetingSpeakers.names(in: self)
         } else { actionItems = text }
     }
 

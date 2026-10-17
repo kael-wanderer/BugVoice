@@ -212,6 +212,10 @@ final class MeetingController {
             if recovered.state == .interrupted {
                 recovered = try await session.retryTranscription()
             }
+            // Like Stop, a new recording may start while speakers and the summary are worked out.
+            isTranscribing = false
+            statusMessage = nil
+            await model.reloadMeetings()
             if recovered.state == .ready, !recovered.segments.isEmpty {
                 await model.findSpeakers(id: id, people: nil)
                 await refreshSnapshot()
@@ -219,9 +223,6 @@ final class MeetingController {
                 if shownMeetingID == id { await generateFinalSummary() }
                 else { _ = try? await model.generateMeetingText(id: id, kind: .summary) { _ in } }
             }
-            isTranscribing = false
-            statusMessage = nil
-            await model.reloadMeetings()
         } catch {
             isTranscribing = false
             statusMessage = "Transcript could not be completed. Your meeting audio is saved. \(error.localizedDescription)"
@@ -444,9 +445,11 @@ final class MeetingController {
         return true
     }
 
-    func saveGeneratedTextToSession(id: MeetingID, text: String, kind: MeetingTextKind) async throws -> Bool {
+    func saveGeneratedTextToSession(
+        id: MeetingID, text: String, kind: MeetingTextKind, names: [String: String]? = nil
+    ) async throws -> Bool {
         guard meetingID == id, let session else { return false }
-        try await session.saveGeneratedText(text, kind: kind)
+        try await session.saveGeneratedText(text, kind: kind, names: names)
         return true
     }
 

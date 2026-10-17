@@ -157,9 +157,9 @@ public actor MeetingSession {
         }
     }
 
-    public func saveGeneratedText(_ text: String, kind: MeetingTextKind) async throws {
+    public func saveGeneratedText(_ text: String, kind: MeetingTextKind, names: [String: String]? = nil) async throws {
         guard var meeting = manifest else { throw MeetingSessionError.invalidState }
-        meeting.setGeneratedText(text, kind: kind)
+        meeting.setGeneratedText(text, kind: kind, names: names)
         manifest = meeting
         try await store.save(meeting)
     }

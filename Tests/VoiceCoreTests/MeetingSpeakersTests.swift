@@ -169,3 +169,43 @@ extension MeetingSpeakersTests {
         }
     }
 }
+
+extension MeetingSpeakersTests {
+    @Test func clearingANewPersonKeepsTheName() throws {
+        var meeting = try MeetingSpeakers.apply(.newPerson(segmentID: split3().segments[1].id, name: "David"), to: split3())
+        meeting = try MeetingSpeakers.apply(.rename(speakerID: "p1", name: "  "), to: meeting)
+        #expect(meeting.speakers.first { $0.id == "p1" }?.name == "David")
+        #expect(meeting.segments[1].speaker == "David")
+    }
+
+    @Test func assigningTheSameSpeakerChangesNothing() throws {
+        var meeting = split3()
+        meeting.setGeneratedText("- Done", kind: .summary)
+        let same = try MeetingSpeakers.apply(.assign(segmentID: meeting.segments[1].id, speakerID: "s1"), to: meeting)
+        #expect(same == meeting)
+        #expect(!MeetingSpeakers.namesChangedSinceSummary(same))
+    }
+
+    @Test func recordedCallKeepsTwoPeopleWhenYouOwnNoLine() throws {
+        var meeting = split3()
+        meeting = try MeetingSpeakers.apply(.assign(segmentID: "m", speakerID: "s1"), to: meeting)
+        #expect(!meeting.speakers.contains { $0.id == MeetingSpeakers.youID })
+        #expect(MeetingSpeakers.peopleRange(in: meeting) == 2...10)
+    }
+
+    @Test func voicesNeverDropBelowOne() {
+        #expect(MeetingSpeakers.voices(forPeople: 1, in: split3()) == 1)
+    }
+
+    @Test func microphoneOnlyRecordingIsOnePerson() {
+        let meeting = recorded([line("m", 0, 2, .mic), line("n", 3, 4, .mic)])
+        #expect(MeetingSpeakers.peopleRange(in: meeting) == 1...1)
+    }
+
+    @Test func summaryStampUsesTheNamesFromWhenGenerationStarted() throws {
+        let before = split3()
+        var meeting = try MeetingSpeakers.apply(.rename(speakerID: "s1", name: "Dani"), to: before)
+        meeting.setGeneratedText("- Done", kind: .summary, names: MeetingSpeakers.names(in: before))
+        #expect(MeetingSpeakers.namesChangedSinceSummary(meeting))
+    }
+}
