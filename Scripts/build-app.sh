@@ -35,11 +35,14 @@ if [ "$CONFIGURATION" = "release" ]; then
 fi
 
 swift build -c "$CONFIGURATION" --arch arm64 "${FLAGS[@]+"${FLAGS[@]}"}" --product "$APP_NAME"
+swift build -c "$CONFIGURATION" --arch arm64 "${FLAGS[@]+"${FLAGS[@]}"}" --product bugvoice-mcp
 BIN="$(swift build -c "$CONFIGURATION" --arch arm64 "${FLAGS[@]+"${FLAGS[@]}"}" --show-bin-path)"
 
 rm -rf "$APP_DIR"
 mkdir -p "$CONTENTS/MacOS" "$CONTENTS/Resources"
 cp "$BIN/$APP_NAME" "$CONTENTS/MacOS/$APP_NAME"
+# The MCP bridge agents start; it finds the app three folders up from itself.
+cp "$BIN/bugvoice-mcp" "$CONTENTS/MacOS/bugvoice-mcp"
 cp "$ROOT/App/Info.plist" "$CONTENTS/Info.plist"
 cp "$ROOT/App/AppIcon.icns" "$CONTENTS/Resources/AppIcon.icns"
 printf 'APPL????' > "$CONTENTS/PkgInfo"
@@ -48,10 +51,13 @@ for bundle in "$BIN"/*.bundle; do
 done
 
 ENTITLEMENTS="$ROOT/App/$APP_NAME.entitlements"
+# Nested code is signed before the bundle so the bundle signature covers it.
 if [[ -n "$IDENTITY" ]]; then
+    codesign --force --options runtime --timestamp=none --sign "$IDENTITY" "$CONTENTS/MacOS/bugvoice-mcp"
     codesign --force --options runtime --timestamp=none --entitlements "$ENTITLEMENTS" --sign "$IDENTITY" "$APP_DIR"
     echo "Signed with: $IDENTITY"
 else
+    codesign --force --sign - "$CONTENTS/MacOS/bugvoice-mcp"
     codesign --force --entitlements "$ENTITLEMENTS" --sign - "$APP_DIR"
     echo "ALLOW_ADHOC=1: signed ad hoc. Permissions will be asked again after each build."
 fi

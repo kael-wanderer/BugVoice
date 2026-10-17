@@ -14,6 +14,7 @@ let package = Package(
     products: [
         .executable(name: "BugVoice", targets: ["BugVoice"]),
         .executable(name: "bugvoice-bench", targets: ["BugVoiceBench"]),
+        .executable(name: "bugvoice-mcp", targets: ["BugVoiceMCP"]),
     ],
     dependencies: [
         .package(url: "https://github.com/argmaxinc/WhisperKit", exact: "1.1.1"),
@@ -59,6 +60,13 @@ let package = Package(
             name: "MCPKit",
             dependencies: ["VoiceCore"],
             path: "Sources/MCPKit"
+        ),
+        // The stdio MCP server agents start; copied into Contents/MacOS by
+        // Scripts/build-app.sh.
+        .executableTarget(
+            name: "BugVoiceMCP",
+            dependencies: ["MCPKit", "VoiceCore"],
+            path: "Sources/BugVoiceMCP"
         ),
         .executableTarget(
             name: "BugVoiceBench",
