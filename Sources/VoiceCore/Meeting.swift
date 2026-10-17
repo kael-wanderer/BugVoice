@@ -355,6 +355,10 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
     /// Saved voices refused with No in this meeting; they are not suggested here again.
     public var declinedVoices: [String]
     public var showEnglish: Bool
+    /// The upload job that made this meeting when an agent added it, so `get_job` finds it after a relaunch.
+    public var uploadJobID: UUID?
+    /// MCP client name of the agent that uploaded this file.
+    public var addedBy: String?
 
     public init(
         schemaVersion: Int = MeetingManifest.currentSchemaVersion,
@@ -388,7 +392,9 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
         speakers: [MeetingSpeaker] = [],
         speakerSplit: SpeakerSplitState = .none,
         speakerNamesAtSummary: [String: String]? = nil,
-        declinedVoices: [String] = []
+        declinedVoices: [String] = [],
+        uploadJobID: UUID? = nil,
+        addedBy: String? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.id = id
@@ -422,6 +428,8 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
         self.speakerSplit = speakerSplit
         self.speakerNamesAtSummary = speakerNamesAtSummary
         self.declinedVoices = declinedVoices
+        self.uploadJobID = uploadJobID
+        self.addedBy = addedBy
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -430,6 +438,7 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
         case transcriptionError, summary, actionItems, source, sourceFileName, importedAt, folderID, tags, suggestedTags, languages
         case speakers, speakerSplit, speakerNamesAtSummary, declinedVoices
         case notes, liveSummary, liveSummaryUpdatedAt, liveSummaryCutoff, detectedApp, showEnglish
+        case uploadJobID, addedBy
     }
 
     public init(from decoder: Decoder) throws {
@@ -466,6 +475,8 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
         speakerNamesAtSummary = try c.decodeIfPresent([String: String].self, forKey: .speakerNamesAtSummary)
         declinedVoices = try c.decodeIfPresent([String].self, forKey: .declinedVoices) ?? []
         showEnglish = try c.decodeIfPresent(Bool.self, forKey: .showEnglish) ?? true
+        uploadJobID = try? c.decodeIfPresent(UUID.self, forKey: .uploadJobID)
+        addedBy = try? c.decodeIfPresent(String.self, forKey: .addedBy)
     }
 
     /// `names` are the speaker names the text was generated with; nil means the current ones.

@@ -450,6 +450,167 @@ struct NotesControllerTests {
         #expect(try await store.open(id: created.id).body == "a typed")
     }
 
+    @Test func createForAgentKeepsSelection() async throws {
+        let root = try directory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = NotesStore(directory: root)
+        let a = try await store.create(title: "A", body: "a")
+        let controller = NotesController(store: store)
+        try await controller.select(id: a.id)
+        controller.updateBody(id: a.id, body: "a typing")
+        let b = try await controller.createForAgent(
+            title: "B", body: "from agent", frontMatter: NoteFrontMatter(tags: ["plan"]))
+        #expect(controller.selectedNoteID == a.id)
+        #expect(controller.notes.contains { $0.id == b.id })
+        #expect(!controller.isLoaded(id: b.id))
+        #expect(try await store.open(id: a.id).body == "a")
+        #expect(controller.note(id: a.id)?.body == "a typing")
+        let saved = try await store.open(id: b.id)
+        #expect(saved.body == "from agent")
+        #expect(saved.frontMatter.tags == ["plan"])
+    }
+
+    @Test func agentEditReplaceAndAppend() async throws {
+        let root = try directory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = NotesStore(directory: root)
+        let created = try await store.create(title: "Edit", body: "old")
+        let controller = NotesController(store: store)
+        try await controller.load(id: created.id)
+        let replaced = try await controller.agentEdit(id: created.id, body: "x\n", append: false, title: nil, labels: nil)
+        #expect(replaced.body == "x\n")
+        let appended = try await controller.agentEdit(id: created.id, body: "y", append: true, title: nil, labels: nil)
+        #expect(appended.body == "x\n\ny")
+        #expect(try await store.open(id: created.id).body == "x\n\ny")
+        #expect(controller.note(id: created.id)?.body == "x\n\ny")
+        #expect(controller.saveMessage(for: created.id) == "Saved")
+    }
+
+    @Test func agentEditTitleAndLabels() async throws {
+        let root = try directory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = NotesStore(directory: root)
+        let created = try await store.create(title: "Plan", body: "b")
+        let controller = NotesController(store: store)
+        try await controller.load(id: created.id)
+        let folder = FolderID(rawValue: "work")
+        let edited = try await controller.agentEdit(
+            id: created.id, body: "b2", append: false, title: "Plan v2", labels: (folderID: folder, tags: ["x"]))
+        #expect(edited.title == "Plan v2")
+        let saved = try await store.open(id: created.id)
+        #expect(saved.title == "Plan v2")
+        #expect(saved.body == "b2")
+        #expect(saved.frontMatter.folderID == folder)
+        #expect(saved.frontMatter.tags == ["x"])
+    }
+
+    @Test func agentEditRefusedWhileDirty() async throws {
+        let root = try directory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = NotesStore(directory: root)
+        let created = try await store.create(title: "Dirty", body: "saved")
+        let controller = NotesController(store: store)
+        try await controller.select(id: created.id)
+        controller.updateBody(id: created.id, body: "typing")
+        await #expect(throws: AgentEditRefusal.unsaved) {
+            try await controller.agentEdit(id: created.id, body: "agent", append: false, title: nil, labels: nil)
+        }
+        #expect(try await store.open(id: created.id).body == "saved")
+        #expect(controller.note(id: created.id)?.body == "typing")
+        #expect(AgentEditRefusal.unsaved.message == "This note has unsaved changes in BugVoice. Try again after it saves.")
+    }
+
+    @Test func agentEditRefusedWhileTitleDraft() async throws {
+        let root = try directory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = NotesStore(directory: root)
+        let created = try await store.create(title: "Title", body: "b")
+        let controller = NotesController(store: store)
+        try await controller.load(id: created.id)
+        controller.updateTitleDraft(id: created.id, title: "Title typing")
+        await #expect(throws: AgentEditRefusal.unsaved) {
+            try await controller.agentEdit(id: created.id, body: "agent", append: false, title: nil, labels: nil)
+        }
+        #expect(try await store.open(id: created.id).body == "b")
+    }
+
+    @Test func agentEditRefusedWhileDictating() async throws {
+        let root = try directory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = NotesStore(directory: root)
+        let created = try await store.create(title: "Dictate", body: "b")
+        let controller = NotesController(store: store)
+        try await controller.select(id: created.id)
+        let editor = NotesTextView(frame: .zero)
+        controller.attachEditor(editor, to: created.id)
+        let capture = try #require(controller.captureAtStart(
+            bugVoiceIsFrontmost: true, notesPageIsSelected: true, firstResponderEditorID: editor.editorID))
+        await #expect(throws: AgentEditRefusal.dictating) {
+            try await controller.agentEdit(id: created.id, body: "agent", append: false, title: nil, labels: nil)
+        }
+        #expect(AgentEditRefusal.dictating.message == "BugVoice is dictating into this note. Try again in a moment.")
+        controller.releaseCapture(capture)
+        let edited = try await controller.agentEdit(id: created.id, body: "agent", append: false, title: nil, labels: nil)
+        #expect(edited.body == "agent")
+        #expect(editor.string == "agent")
+    }
+
+    @Test func agentEditRefusedWhenDictationStartsDuringRefresh() async throws {
+        let root = try directory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = NotesStore(directory: root)
+        let created = try await store.create(title: "Race", body: "b")
+        let controller = NotesController(store: store)
+        try await controller.select(id: created.id)
+        let editor = NotesTextView(frame: .zero)
+        controller.attachEditor(editor, to: created.id)
+        controller.agentEditWillMutate = {
+            _ = controller.captureAtStart(
+                bugVoiceIsFrontmost: true, notesPageIsSelected: true, firstResponderEditorID: editor.editorID)
+        }
+        await #expect(throws: AgentEditRefusal.dictating) {
+            try await controller.agentEdit(id: created.id, body: "agent", append: false, title: nil, labels: nil)
+        }
+        #expect(controller.note(id: created.id)?.body == "b")
+        #expect(editor.string == "b")
+        #expect(try await store.open(id: created.id).body == "b")
+    }
+
+    @Test func agentEditUndoName() async throws {
+        let root = try directory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = NotesStore(directory: root)
+        let created = try await store.create(title: "Undo agent", body: "before")
+        let controller = NotesController(store: store)
+        try await controller.select(id: created.id)
+        let editor = NotesTextView(frame: .zero)
+        controller.attachEditor(editor, to: created.id)
+        _ = try await controller.agentEdit(id: created.id, body: "after", append: false, title: nil, labels: nil)
+        let undo = try #require(controller.undoManager(for: created.id))
+        #expect(undo.undoActionName == "Agent edit")
+        undo.undo()
+        #expect(editor.string == "before")
+        #expect(controller.note(id: created.id)?.body == "before")
+    }
+
+    @Test func agentEditUnloadedNote() async throws {
+        let root = try directory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = NotesStore(directory: root)
+        let created = try await store.create(title: "Cold", body: "line\n")
+        let controller = NotesController(store: store)
+        await controller.reloadList()
+        let edited = try await controller.agentEdit(
+            id: created.id, body: "more", append: true, title: "Cold 2", labels: (folderID: nil, tags: ["t"]))
+        #expect(!controller.isLoaded(id: created.id))
+        let saved = try await store.open(id: created.id)
+        #expect(saved.body == "line\n\nmore")
+        #expect(saved.title == "Cold 2")
+        #expect(saved.frontMatter.tags == ["t"])
+        #expect(edited.title == "Cold 2")
+        #expect(controller.notes.first { $0.id == created.id }?.title == "Cold 2")
+    }
+
     private func directory() throws -> URL {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("BugVoiceNotesController-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)

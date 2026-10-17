@@ -149,4 +149,12 @@ struct SettingsTests {
         changed.microphoneUID = "device-uid"
         #expect(SpeechTranscriberConfiguration(settings: changed, speechAPIKeyGeneration: 0) == initial)
     }
+
+    @Test func agentSettingsDefaultsAndTolerantDecode() throws {
+        #expect(AppSettings().agents == AgentSettings(mcpEnabled: false, allowNoteEdits: true, allowUploads: true))
+        let s = try JSONDecoder().decode(AppSettings.self, from: Data(#"{"agents":{"mcpEnabled":true}}"#.utf8))
+        #expect(s.agents.mcpEnabled && s.agents.allowUploads && s.agents.allowNoteEdits)
+        let bad = try JSONDecoder().decode(AppSettings.self, from: Data(#"{"agents":{"mcpEnabled":"yes","allowUploads":false}}"#.utf8))
+        #expect(bad.agents == AgentSettings(mcpEnabled: false, allowNoteEdits: true, allowUploads: false))
+    }
 }

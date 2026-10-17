@@ -246,6 +246,29 @@ extension ScratchpadSettings {
     }
 }
 
+/// Settings › Agents: the MCP server and what connected agents may change.
+public struct AgentSettings: Codable, Equatable, Sendable {
+    public var mcpEnabled = false
+    public var allowNoteEdits = true
+    public var allowUploads = true
+
+    public init(mcpEnabled: Bool = false, allowNoteEdits: Bool = true, allowUploads: Bool = true) {
+        self.mcpEnabled = mcpEnabled
+        self.allowNoteEdits = allowNoteEdits
+        self.allowUploads = allowUploads
+    }
+}
+
+extension AgentSettings {
+    public init(from decoder: Decoder) throws {
+        self.init()
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        mcpEnabled = c.value(.mcpEnabled, default: mcpEnabled)
+        allowNoteEdits = c.value(.allowNoteEdits, default: allowNoteEdits)
+        allowUploads = c.value(.allowUploads, default: allowUploads)
+    }
+}
+
 public struct AppSettings: Codable, Equatable, Sendable {
     public var hotkey: HotkeyKey = .rightOption
     public var handsFreeEnabled = true
@@ -262,6 +285,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var styles = StyleSettings()
     public var library = LibrarySettings()
     public var scratchpad = ScratchpadSettings()
+    public var agents = AgentSettings()
 
     public init() {}
 }
@@ -354,5 +378,6 @@ extension AppSettings {
         styles = c.value(.styles, default: styles)
         library = c.value(.library, default: library)
         scratchpad = c.value(.scratchpad, default: scratchpad)
+        agents = c.value(.agents, default: agents)
     }
 }

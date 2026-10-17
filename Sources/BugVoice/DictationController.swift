@@ -125,6 +125,7 @@ final class DictationController {
         let micCapture = notesOnly ? model.captureSelectedNoteForMic() : nil
         guard !notesOnly || micCapture != nil else { return }
         if let notReady = speechNotReadyState() {
+            if let micCapture { model.notesController.releaseCapture(micCapture) }
             detector.reset()
             hud.show(notReady)
             return
@@ -136,7 +137,7 @@ final class DictationController {
         do {
             try recorder.start(deviceUID: model.settings.speech.microphoneUID)
         } catch {
-            notesCapture = nil
+            releaseNotesCapture()
             meetingNotes = nil
             detector.reset()
             let detail: String
@@ -188,7 +189,7 @@ final class DictationController {
         detector.reset()
         _ = recorder.stop()
         model.isListening = false
-        notesCapture = nil
+        releaseNotesCapture()
         meetingNotes = nil
         model.notesIsListening = false
         model.notesRecordingStartedAt = nil
@@ -223,6 +224,11 @@ final class DictationController {
             }
         }
         process(clip, focus: startFocus, startedAt: startedAt, notesCapture: capturedNotesRun, meetingNotes: capturedMeetingNotes)
+    }
+
+    private func releaseNotesCapture() {
+        if let notesCapture { model.notesController.releaseCapture(notesCapture) }
+        notesCapture = nil
     }
 
     // MARK: Pipeline
@@ -263,6 +269,8 @@ final class DictationController {
                 }
             }
             stagedRun = nil
+            // Agents may edit the note again once this dictation is in.
+            if let notesCapture { model.notesController.releaseCapture(notesCapture) }
             if result.outcome == .cancelled {
                 hud.hide()
             } else {

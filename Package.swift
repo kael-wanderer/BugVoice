@@ -14,6 +14,7 @@ let package = Package(
     products: [
         .executable(name: "BugVoice", targets: ["BugVoice"]),
         .executable(name: "bugvoice-bench", targets: ["BugVoiceBench"]),
+        .executable(name: "bugvoice-mcp", targets: ["BugVoiceMCP"]),
     ],
     dependencies: [
         .package(url: "https://github.com/argmaxinc/WhisperKit", exact: "1.1.1"),
@@ -50,8 +51,22 @@ let package = Package(
         // by Scripts/build-app.sh.
         .executableTarget(
             name: "BugVoice",
-            dependencies: ["VoiceCore", "WhisperEngine", "BugVoiceMac"],
+            dependencies: ["VoiceCore", "WhisperEngine", "BugVoiceMac", "MCPKit"],
             path: "Sources/BugVoice"
+        ),
+        // The local MCP socket shared by the app and the bugvoice-mcp bridge.
+        // Foundation and Darwin only, so the bridge starts fast.
+        .target(
+            name: "MCPKit",
+            dependencies: ["VoiceCore"],
+            path: "Sources/MCPKit"
+        ),
+        // The stdio MCP server agents start; copied into Contents/MacOS by
+        // Scripts/build-app.sh.
+        .executableTarget(
+            name: "BugVoiceMCP",
+            dependencies: ["MCPKit", "VoiceCore"],
+            path: "Sources/BugVoiceMCP"
         ),
         .executableTarget(
             name: "BugVoiceBench",
@@ -62,6 +77,11 @@ let package = Package(
             name: "VoiceCoreTests",
             dependencies: ["VoiceCore"],
             path: "Tests/VoiceCoreTests"
+        ),
+        .testTarget(
+            name: "MCPKitTests",
+            dependencies: ["MCPKit", "VoiceCore"],
+            path: "Tests/MCPKitTests"
         ),
         .testTarget(
             name: "BugVoiceMacTests",

@@ -33,6 +33,11 @@ public struct AppPaths: Sendable {
     /// Notes stored as Markdown files.
     public var notes: URL { root.appendingPathComponent("Notes", isDirectory: true) }
 
+    /// Files agents asked to transcribe, owner-only. See `AgentUploadStore`.
+    public var agentUploads: URL {
+        root.appendingPathComponent("MCP", isDirectory: true).appendingPathComponent("agent-uploads.json")
+    }
+
     /// Search index for Notes and Meetings. See Ask AI.
     public var searchIndex: URL { root.appendingPathComponent("SearchIndex", isDirectory: true) }
 

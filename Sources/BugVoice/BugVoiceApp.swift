@@ -93,6 +93,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return false
     }
 
+    func applicationWillTerminate(_ notification: Notification) {
+        model.mcp.stop()
+    }
+
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         let meetings = model.meetings
         let meetingIsActive = meetings?.isRecording == true || meetings?.isPaused == true

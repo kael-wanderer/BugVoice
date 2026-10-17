@@ -217,7 +217,7 @@ struct UploadPage: View {
         .disabled(model.uploads?.accepting != true)
     }
 
-    private func metadataCard(name: String, kind: UploadMediaKind, duration: Double, bytes: Int64)
+    private func metadataCard(name: String, kind: UploadMediaKind, duration: Double, bytes: Int64, addedBy: String? = nil)
         -> some View
     {
         HStack(spacing: 14) {
@@ -225,6 +225,7 @@ struct UploadPage: View {
                 .font(.title2).foregroundStyle(.tint)
             VStack(alignment: .leading, spacing: 4) {
                 Text(name).fontWeight(.medium).lineLimit(2)
+                if let addedBy { Text("Added by \(addedBy)").font(.caption).foregroundStyle(.secondary) }
                 Text(
                     "\(kind.rawValue) · \(clock(duration)) · \(ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file))"
                 )
@@ -253,6 +254,9 @@ struct UploadPage: View {
             .font(.headline)
             Text(job.fileName + (job.progress.map { " · \(Int($0 * 100))%" } ?? ""))
                 .font(.caption).foregroundStyle(.secondary)
+            if let addedBy = job.addedBy {
+                Text("Added by \(addedBy)").font(.caption).foregroundStyle(.secondary)
+            }
             HStack(spacing: 16) {
                 Text("1 Reading file").foregroundStyle(job.state == .reading ? .primary : .secondary)
                 Text("2 Transcribing locally").foregroundStyle(
@@ -282,7 +286,8 @@ struct UploadPage: View {
         } else {
             VStack(alignment: .leading, spacing: 8) {
                 metadataCard(
-                    name: job.fileName, kind: job.kind, duration: job.duration, bytes: job.byteSize)
+                    name: job.fileName, kind: job.kind, duration: job.duration, bytes: job.byteSize,
+                    addedBy: job.addedBy)
                 HStack {
                     switch job.state {
                     case .queued:

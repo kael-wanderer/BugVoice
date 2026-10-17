@@ -234,8 +234,16 @@ extension AppModel {
 
     func askAcross(question: String, history: [NoteChatTurn], scope: AskScope,
                    progress: @escaping @Sendable (AskStep) -> Void) async throws -> AskOutcome {
+        guard let pipeline = makeAskPipeline() else { return .failed(.model) }
+        let corpus = await searchIndexer.corpus(scope: scope)
+        try Task.checkCancellation()
+        return try await runAsk(pipeline, question: question, history: history, corpus: corpus, progress: progress)
+    }
+
+    /// Ask's pipeline with the Notes model, or nil when none is set. Agents' `ask` uses the same one.
+    func makeAskPipeline() -> AskPipeline? {
         let plan = transformPlan
-        guard canAskAcross, let model = ProviderFactory.textModel(plan, credentials: credentials) else { return .failed(.model) }
+        guard canAskAcross, let model = ProviderFactory.textModel(plan, credentials: credentials) else { return nil }
         let modelID: String
         let disableThinking: Bool
         switch plan {
@@ -243,7 +251,7 @@ extension AppModel {
         case .appleIntelligence: modelID = "apple-intelligence"; disableThinking = false
         default: modelID = ""; disableThinking = false
         }
-        let pipeline = AskPipeline(
+        return AskPipeline(
             model: model, modelID: modelID, disableThinking: disableThinking,
             embedder: ProviderFactory.embedder(settings: settings.models, credentials: credentials),
             contextTokens: settings.models.search.askContextTokens, now: { Date() },
@@ -258,8 +266,11 @@ extension AppModel {
                     kept=\(t.keptCitations.map(String.init) ?? "-", privacy: .public)
                     """)
             })
-        let corpus = await searchIndexer.corpus(scope: scope)
-        try Task.checkCancellation()
+    }
+
+    /// Runs Ask over `corpus` and logs counts only.
+    func runAsk(_ pipeline: AskPipeline, question: String, history: [NoteChatTurn], corpus: AskCorpus,
+                progress: @escaping @Sendable (AskStep) -> Void) async throws -> AskOutcome {
         let started = Date()
         let outcome = try await pipeline.run(question: question, history: history, corpus: corpus, progress: progress)
         let kind: String = switch outcome {

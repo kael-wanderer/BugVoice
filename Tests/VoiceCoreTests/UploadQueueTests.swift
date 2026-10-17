@@ -58,4 +58,19 @@ struct UploadQueueTests {
         queue.clearFinished()
         #expect(queue.jobs.count == 1)
     }
+
+    @Test func uploadJobCarriesAddedBy() {
+        var a = UploadJob(id: UUID(), fileName: "a.m4a", kind: .audio, duration: 5, byteSize: 10, addedBy: "claude-code")
+        #expect(a.addedBy == "claude-code")
+        a.meetingID = nil
+        var queue = UploadQueue()
+        queue.append([a])
+        _ = queue.admit(meetingActive: false)
+        queue.apply(id: a.id, event: .progress(0.5))
+        queue.apply(id: a.id, event: .committed(MeetingID(rawValue: "m")))
+        queue.apply(id: a.id, event: .ready)
+        #expect(queue.jobs[0].state == .ready)
+        #expect(queue.jobs[0].addedBy == "claude-code")
+        #expect(job().addedBy == nil)
+    }
 }

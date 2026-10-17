@@ -13,10 +13,20 @@ final class UploadController {
         let metadata: UploadMediaMetadata
         let scoped: Bool
         var labels = ItemLabels()
+        /// Set for files an agent added: the meeting title and the agent's name.
+        var title: String?
+        var addedBy: String?
+    }
+
+    enum AgentUploadError: LocalizedError {
+        case notReady
+        var errorDescription: String? { "BugVoice is still starting. Try again in a moment." }
     }
 
     private unowned let model: AppModel
-    private(set) var queue = UploadQueue()
+    private(set) var queue = UploadQueue() {
+        didSet { saveAgentUploads() }
+    }
     private(set) var drafts: [Draft] = []
     private(set) var draftError: String?
     private(set) var errorFileName: String?
@@ -33,6 +43,9 @@ final class UploadController {
     @ObservationIgnored private var activeID: UUID?
     @ObservationIgnored private var activeDirectory: URL?
     @ObservationIgnored private var progressMonitor: Task<Void, Never>?
+    /// Agent jobs, mirrored to `MCP/agent-uploads.json` on every state change.
+    @ObservationIgnored private var agentUploads: [AgentUploadEntry] = []
+    @ObservationIgnored private lazy var agentUploadStore = AgentUploadStore(url: model.paths.agentUploads)
     private var stopping = false
     private var selectionVersion = 0
 
@@ -124,12 +137,120 @@ final class UploadController {
         queue.clearFinished()
     }
 
+    /// Queues a file for an agent as Transcribe does, without touching the
+    /// owner's drafts. The meeting saved for it keeps the job id, so the job
+    /// is found again after a relaunch. The original file is only read.
+    func submitForAgent(url: URL, title: String?, labels: ItemLabels, client: String) async throws -> UUID {
+        guard accepting else { throw AgentUploadError.notReady }
+        let metadata = try await Task.detached(priority: .utility) {
+            try await MediaAudioDecoder.probe(url)
+        }.value
+        guard accepting else { throw AgentUploadError.notReady }
+        var draft = Draft(url: url, metadata: metadata, scoped: false, labels: labels)
+        draft.title = title
+        draft.addedBy = client
+        let job = UploadJob(
+            fileName: metadata.fileName, kind: metadata.kind, duration: metadata.duration,
+            byteSize: metadata.byteSize, addedBy: client)
+        inputs[job.id] = draft
+        agentUploads.append(AgentUploadEntry(
+            id: job.id, path: url.path, title: title, folderID: labels.folderID, tags: labels.tags,
+            client: client, updatedAt: Date()))
+        saveAgentUploads(force: true)
+        queue.append([job])
+        pump()
+        return job.id
+    }
+
+    /// An upload job by id: the queue first, then the saved agent jobs, then
+    /// saved meetings, which keep an agent job's id across relaunches.
+    func jobStatus(id: UUID) -> UploadJob? {
+        if let job = queue.jobs.first(where: { $0.id == id }) { return job }
+        if let entry = agentUploads.first(where: { $0.id == id }),
+            entry.state != .transcribing || !model.meetingManifests.contains(where: { $0.uploadJobID == id })
+        {
+            return entry.job
+        }
+        guard let meeting = model.meetingManifests.first(where: { $0.uploadJobID == id }) else { return nil }
+        var job = UploadJob(
+            id: id, fileName: meeting.sourceFileName ?? meeting.title, kind: .audio, duration: meeting.duration,
+            byteSize: 0, addedBy: meeting.addedBy)
+        job.meetingID = meeting.id
+        switch meeting.state {
+        case .ready:
+            job.state = .ready
+            job.progress = 1
+        case .failed:
+            job.state = .failed
+            job.errorMessage = meeting.transcriptionError
+        case .transcribing:
+            job.state = .transcribing
+            job.progress = meeting.transcriptProgress
+        case .recording, .paused, .interrupted:
+            job.state = .queued
+        }
+        return job
+    }
+
     func restore(_ manifests: [MeetingManifest]) {
         for manifest in manifests.sorted(by: { $0.id.rawValue < $1.id.rawValue }) {
             appendRecovery(manifest)
         }
+        let loaded = agentUploadStore.load()
+        let recovered = AgentUploadStore.recovered(
+            loaded, now: Date(), fileExists: { FileManager.default.fileExists(atPath: $0) })
+        agentUploads = recovered.entries
+        saveAgentUploads(force: recovered.entries != loaded)
         accepting = true
         pump()
+        let waiting = recovered.requeue.filter { entry in !queue.jobs.contains { $0.id == entry.id } }
+        if !waiting.isEmpty {
+            Task { await requeueAgentUploads(waiting) }
+        }
+    }
+
+    /// Reads each waiting agent file again and queues it under its old job id.
+    private func requeueAgentUploads(_ entries: [AgentUploadEntry]) async {
+        for entry in entries {
+            let url = URL(fileURLWithPath: entry.path)
+            do {
+                let metadata = try await Task.detached(priority: .utility) {
+                    try await MediaAudioDecoder.probe(url)
+                }.value
+                guard accepting else { return }
+                var draft = Draft(
+                    url: url, metadata: metadata, scoped: false,
+                    labels: ItemLabels(folderID: entry.folderID, tags: entry.tags))
+                draft.title = entry.title
+                draft.addedBy = entry.client
+                let job = UploadJob(
+                    id: entry.id, fileName: metadata.fileName, kind: metadata.kind, duration: metadata.duration,
+                    byteSize: metadata.byteSize, addedBy: entry.client)
+                inputs[job.id] = draft
+                queue.append([job])
+                pump()
+            } catch {
+                guard let index = agentUploads.firstIndex(where: { $0.id == entry.id }) else { continue }
+                agentUploads[index].state = .failed
+                agentUploads[index].error = (error as? UploadFailure ?? .unreadable).localizedDescription
+                agentUploads[index].updatedAt = Date()
+                saveAgentUploads(force: true)
+            }
+        }
+    }
+
+    /// Mirrors agent job states to disk. Writes only when a state, meeting or
+    /// error changed, or when `force` is set; progress alone is not saved.
+    private func saveAgentUploads(force: Bool = false) {
+        guard !agentUploads.isEmpty else { return }
+        let now = Date()
+        let next = AgentUploadStore.pruned(
+            AgentUploadStore.merged(agentUploads, jobs: queue.jobs, now: now), now: now)
+        guard force || next != agentUploads else { return }
+        agentUploads = next
+        do { try agentUploadStore.save(agentUploads) } catch {
+            model.saveError = "Could not save the agent upload list: \(error.localizedDescription)"
+        }
     }
 
     func retry(_ meeting: MeetingManifest) {
@@ -141,9 +262,11 @@ final class UploadController {
     }
 
     private func appendRecovery(_ meeting: MeetingManifest) {
+        // An agent's job keeps its id unless the queue still lists it (a retry after a failure).
+        let savedID = meeting.uploadJobID.flatMap { id in queue.jobs.contains { $0.id == id } ? nil : id }
         var job = UploadJob(
-            fileName: meeting.sourceFileName ?? meeting.title, kind: .audio, duration: meeting.duration,
-            byteSize: 0)
+            id: savedID ?? UUID(), fileName: meeting.sourceFileName ?? meeting.title, kind: .audio,
+            duration: meeting.duration, byteSize: 0, addedBy: meeting.addedBy)
         job.meetingID = meeting.id
         restored[job.id] = meeting
         queue.append([job])
@@ -265,7 +388,7 @@ final class UploadController {
                 let startedAt = draft.metadata.creationDate ?? now
                 var manifest = MeetingManifest(
                     id: id,
-                    title: (draft.metadata.fileName as NSString).deletingPathExtension,
+                    title: draft.title ?? (draft.metadata.fileName as NSString).deletingPathExtension,
                     startedAt: startedAt,
                     endedAt: startedAt.addingTimeInterval(draft.metadata.duration),
                     duration: draft.metadata.duration,
@@ -274,7 +397,9 @@ final class UploadController {
                     sourceFileName: draft.metadata.fileName,
                     importedAt: now,
                     folderID: draft.labels.folderID,
-                    tags: draft.labels.tags
+                    tags: draft.labels.tags,
+                    uploadJobID: draft.addedBy == nil ? nil : job.id,
+                    addedBy: draft.addedBy
                 )
                 try await MeetingStore(root: model.paths.meetings).save(manifest)
                 let decoding = Task.detached(priority: .utility) { [controller = self] in

@@ -63,7 +63,7 @@ struct AskAnswerView: View {
                             Text("Nothing about this in your notes or meetings.")
                             Text("Searched: \(model.askScopeTitle(saved.scope)) · \(saved.counts.meetings) meetings, \(saved.counts.notes) notes, \(saved.counts.dictations) dictations")
                                 .font(.caption).foregroundStyle(.secondary)
-                        case .failed(let failure): Text(Self.failureText(failure)).foregroundStyle(.orange)
+                        case .failed(let failure): Text(failure.message).foregroundStyle(.orange)
                         }
                     }
                 }
@@ -168,13 +168,6 @@ struct AskAnswerView: View {
         switch part { case .summary: "Summary"; case .actionItems: "Action items"; case .myNotes: "My notes"; default: "" }
     }
     static func clock(_ time: Double) -> String { String(format: "%02d:%02d", max(0, Int(time)) / 60, max(0, Int(time)) % 60) }
-    static func failureText(_ failure: AskFailure) -> String {
-        switch failure {
-        case .model: "Ask could not reach the model. Try again."
-        case .unreadable: "Ask could not read the model's answer. Try again."
-        case .tooSlow: "Ask took too long. Try a smaller scope."
-        }
-    }
 }
 
 struct AskMeetingPicker: View {
