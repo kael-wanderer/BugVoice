@@ -217,6 +217,17 @@ error.
 | Bad argument | `<name>` must be …. (from the schema check, before reaching the app) |
 | File problems | File not found: …. / File type not supported: .xyz. Supported: … |
 | Ask failures | the Ask failure texts from the Ask spec section 9 |
+| Connection lost after a write was sent (not retried) | BugVoice closed the connection before answering. Check BugVoice before you try again. |
+| Reply over the size limit (3,500,000 bytes) | `get_note`: More: this note is longer than an agent reply can hold. Open it in BugVoice. Other tools: More: this reply is longer than an agent reply can hold. Open it in BugVoice. |
+| Summary failed | Could not write the summary. Try again. |
+| Summary over 300 s | Writing the summary took longer than 5 minutes. Try again. |
+| Another BugVoice already listens (Settings status) | Could not start: another BugVoice is answering agents. |
+
+Agent uploads waiting in the queue are saved in `MCP/agent-uploads.json` (0600) so `get_job` survives
+a restart before the job starts; finished entries older than 7 days are dropped. If that file
+cannot be written, the app shows "Could not save the agent upload list: <reason>". Read-only tools
+are retried once after a lost connection; write tools are retried only when the request was never
+sent.
 
 ## 8. Constraints
 
