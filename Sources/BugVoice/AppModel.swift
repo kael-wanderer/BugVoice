@@ -188,9 +188,7 @@ final class AppModel {
             saveError = "Could not create \(paths.root.path): \(error.localizedDescription)"
         }
         notesController.onSaved = { [weak self] id in self?.searchIndexer.schedule(.note(id), after: .seconds(30)) }
-        notesController.onListLoaded = { [weak self] in
-            Task { await self?.searchIndexer.listLoaded() }
-        }
+        notesController.onListLoaded = { [weak self] in self?.searchIndexer.listLoaded(.note) }
         await notesController.reloadList()
         let loaded = store.load()
         importKeychainKeys(connections: loaded.models.connections)
@@ -226,7 +224,8 @@ final class AppModel {
         await applyRetention()
         await recoverUnfinishedMeetings()
         await applyMeetingRetention()
-        searchIndexer.backfill()
+        // Only now are notes, meetings and history all loaded; no index file is pruned before this.
+        searchIndexer.librariesDidLoad()
         Task { await prepareSpeech() }
         Task { await refreshCLIs() }
     }
@@ -481,14 +480,14 @@ final class AppModel {
             saveError = "Could not save to history: \(error.localizedDescription)"
         }
         await reloadHistory()
-        searchIndexer.schedule(.dictations, after: .seconds(600))
+        // One batch: a later dictation does not push back the pending deadline.
+        searchIndexer.schedule(.dictations, after: .seconds(600), extend: false)
     }
 
     // MARK: History
 
     func reloadHistory() async {
         history = await historyLog.load()
-        await searchIndexer.reconcileHistory()
     }
 
     // MARK: Insights
@@ -640,6 +639,7 @@ final class AppModel {
             saveError = "Could not delete the dictation: \(error.localizedDescription)"
         }
         await reloadHistory()
+        await searchIndexer.reconcileHistory()
     }
 
     /// Deletes every saved dictation. Also what Settings calls after the user
@@ -651,6 +651,7 @@ final class AppModel {
             saveError = "Could not clear history: \(error.localizedDescription)"
         }
         await reloadHistory()
+        await searchIndexer.reconcileHistory()
     }
 
     // MARK: Meetings
@@ -688,7 +689,7 @@ final class AppModel {
             // Every meeting folder on disk keeps its voices, even one that failed to load.
             await pruneKnownVoices(keeping: Set(directories.map { MeetingID(rawValue: $0.lastPathComponent) }))
             uploads?.reconcile(meetingManifests)
-            await searchIndexer.listLoaded()
+            searchIndexer.listLoaded(.meeting)
             if let selectedMeetingID, !meetingManifests.contains(where: { $0.id == selectedMeetingID }) {
                 self.selectedMeetingID = nil
             }
@@ -955,6 +956,7 @@ final class AppModel {
             }
         }
         await reloadHistory()
+        await searchIndexer.reconcileHistory()
     }
 
     private func recoverUnfinishedMeetings() async {

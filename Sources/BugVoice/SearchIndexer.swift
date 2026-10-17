@@ -15,61 +15,149 @@ final class SearchIndexer {
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private var activeSource: AskSource?
     @ObservationIgnored private var activePassages: [AskPassage] = []
+    /// Headers of the files on disk (no vectors), read once per item and kept in step with every
+    /// save, remove and prune. A source in `checked` without a summary has no usable file.
+    @ObservationIgnored private var summaries: [AskSource: SearchIndexSummary] = [:]
+    @ObservationIgnored private var checked: Set<AskSource> = []
+    /// False until bootstrap has loaded notes, meetings and history: before that a list that has
+    /// not loaded yet would look empty and prune every file of its kind.
+    @ObservationIgnored private var librariesLoaded = false
+    @ObservationIgnored private var pendingKinds: Set<AskSource.Kind> = []
+    @ObservationIgnored private var pendingBackfill = false
+    @ObservationIgnored private var listTask: Task<Void, Never>?
+    @ObservationIgnored private var lastMeetings: [MeetingManifest]?
+    @ObservationIgnored private var lastNotes: [NoteDocument]?
 
     init(model: AppModel) {
         self.model = model
         store = SearchIndexStore(folder: model.paths.searchIndex)
     }
 
-    func schedule(_ source: AskSource, after delay: Duration = .zero) {
+    /// `extend: false` keeps an earlier pending deadline (the dictation batch delay).
+    func schedule(_ source: AskSource, after delay: Duration = .zero, extend: Bool = true) {
         revisions[source, default: 0] += 1
-        queue[source] = Date().addingTimeInterval(Double(delay.components.seconds) + Double(delay.components.attoseconds) / 1e18)
+        let proposed = Date().addingTimeInterval(Double(delay.components.seconds) + Double(delay.components.attoseconds) / 1e18)
+        queue[source] = SearchIndexPlanner.deadline(existing: queue[source], proposed: proposed, extend: extend)
         start()
     }
 
+    /// Bootstrap calls this once notes, meetings and history have all loaded.
+    func librariesDidLoad() {
+        librariesLoaded = true
+        backfill()
+    }
+
+    /// After an embedding setting changes. Queues only items whose file is missing, stale or
+    /// out of step with the item; does nothing until the libraries have loaded.
     func backfill() {
-        guard let model else { return }
+        guard let model, librariesLoaded else { return }
         generation += 1
-        for source in sourcesNewestFirst() { schedule(source) }
         if ProviderFactory.embedder(settings: model.settings.models, credentials: model.credentials) == nil { status = .off }
+        pendingBackfill = true
+        pendingKinds.formUnion([.meeting, .note, .dictations])
+        startListPass()
     }
 
     func remove(_ source: AskSource) async {
         revisions[source, default: 0] += 1
         queue[source] = nil
         try? await store.remove(source)
+        summaries[source] = nil
+        checked.insert(source)
     }
 
-    func prune(keeping sources: Set<AskSource>) async {
-        for source in Array(queue.keys) where !sources.contains(source) {
+    private func prune(keeping sources: Set<AskSource>, kinds: Set<AskSource.Kind>) async {
+        for source in Array(queue.keys) where kinds.contains(source.kind) && !sources.contains(source) {
             revisions[source, default: 0] += 1
             queue[source] = nil
         }
-        try? await store.prune(keeping: sources)
+        try? await store.prune(keeping: sources, kinds: kinds)
+        for source in checked.union(summaries.keys) where kinds.contains(source.kind) && !sources.contains(source) {
+            summaries[source] = nil
+            checked.insert(source)
+        }
     }
 
-    /// Drops deleted history vectors synchronously with the app's reload, without embedding.
+    private func summary(_ source: AskSource) async -> SearchIndexSummary? {
+        if checked.contains(source) { return summaries[source] }
+        let read = await store.summary(source)
+        summaries[source] = read
+        checked.insert(source)
+        return read
+    }
+
+    private func record(_ file: SearchIndexFile, for source: AskSource) {
+        summaries[source] = SearchIndexSummary(file)
+        checked.insert(source)
+    }
+
+    /// Drops deleted history vectors (delete, clear, retention), without embedding.
     func reconcileHistory() async {
         revisions[.dictations, default: 0] += 1
-        guard let old = await store.load(.dictations) else { return }
-        let kept = SearchIndexPlanner.update(old, passages: passages(.dictations), model: old.model).keep
-        try? await store.save(kept, for: .dictations)
-    }
-
-    func listLoaded() async {
-        let sources = Set(sourcesNewestFirst())
-        await prune(keeping: sources)
-        guard let model, let embedder = ProviderFactory.embedder(settings: model.settings.models, credentials: model.credentials) else { return }
-        for source in sourcesNewestFirst() {
-            let old = await store.load(source)
-            let current = passages(source)
-            let plan = SearchIndexPlanner.update(old, passages: current, model: embedder.modelID)
-            if !plan.missing.isEmpty || plan.keep.entries.count != old?.entries.count {
-                // Do not bypass a note's 30-second debounce or the dictation batch delay.
-                if queue[source] == nil && (activeSource != source || activePassages != current) { schedule(source) }
+        let current = passages(.dictations)
+        if current.isEmpty {
+            await remove(.dictations)
+            return
+        }
+        if let old = await store.load(.dictations) {
+            let kept = SearchIndexPlanner.update(old, passages: current, model: old.model).keep
+            if SearchIndexPlanner.needsSave(old: old, updated: kept), (try? await store.save(kept, for: .dictations)) != nil {
+                record(kept, for: .dictations)
             }
         }
-        if !queue.isEmpty { start() }
+        // The revision bump stopped any dictation embedding in flight: queue it again.
+        guard librariesLoaded, queue[.dictations] == nil, let model,
+              let embedder = ProviderFactory.embedder(settings: model.settings.models, credentials: model.credentials)
+        else { return }
+        if SearchIndexPlanner.needsWork(await summary(.dictations), passages: passages(.dictations), model: embedder.modelID) {
+            schedule(.dictations)
+        }
+    }
+
+    /// A list of `kind` was reloaded. Never awaited by the caller; passes coalesce.
+    func listLoaded(_ kind: AskSource.Kind) {
+        guard librariesLoaded else { return }
+        pendingKinds.insert(kind)
+        startListPass()
+    }
+
+    private func startListPass() {
+        guard listTask == nil else { return }
+        listTask = Task { [weak self] in
+            while let self, !self.pendingKinds.isEmpty {
+                let kinds = self.pendingKinds, force = self.pendingBackfill
+                self.pendingKinds = []
+                self.pendingBackfill = false
+                await self.reconcileLists(kinds, force: force)
+            }
+            self?.listTask = nil
+        }
+    }
+
+    private func reconcileLists(_ requested: Set<AskSource.Kind>, force: Bool) async {
+        guard let model else { return }
+        var kinds = requested
+        // The meetings list reloads every 2 s while one is open: skip when nothing changed.
+        if !force {
+            if kinds.contains(.meeting), lastMeetings == model.meetingManifests { kinds.remove(.meeting) }
+            if kinds.contains(.note), lastNotes == model.notesController.notes { kinds.remove(.note) }
+        }
+        if kinds.contains(.meeting) { lastMeetings = model.meetingManifests }
+        if kinds.contains(.note) { lastNotes = model.notesController.notes }
+        guard !kinds.isEmpty else { return }
+        let sources = sourcesNewestFirst()
+        await prune(keeping: Set(sources), kinds: kinds)
+        guard let embedder = ProviderFactory.embedder(settings: model.settings.models, credentials: model.credentials) else { return }
+        for source in sources where kinds.contains(source.kind) && queue[source] == nil {
+            let current = passages(source)
+            guard SearchIndexPlanner.needsWork(await summary(source), passages: current, model: embedder.modelID) else { continue }
+            // A backfill bumped the generation, so work in flight is dropped and must be queued again.
+            // Otherwise in-flight work for the same text will save it; a note's 30-second debounce
+            // and the dictation batch delay stay in the queue and are not bypassed.
+            if force || activeSource != source || activePassages != current { schedule(source) }
+        }
+        if queue.isEmpty && worker == nil { status = .upToDate }
+        if !queue.isEmpty { start() } // Retries an item left queued by a failed run.
     }
 
     private func sourcesNewestFirst() -> [AskSource] {
@@ -129,7 +217,8 @@ final class SearchIndexer {
                 status = .indexing(done: done, total: done + queue.count + 1)
                 let current = passages(source)
                 activePassages = current
-                var (file, missing) = SearchIndexPlanner.update(await store.load(source), passages: current, model: embedder.modelID)
+                let old = await store.load(source)
+                var (file, missing) = SearchIndexPlanner.update(old, passages: current, model: embedder.modelID)
                 for offset in stride(from: 0, to: missing.count, by: OpenAICompatibleEmbedder.batchSize) {
                     try await waitUntilAvailable()
                     guard generation == epoch, revisions[source] == revision else { break }
@@ -145,7 +234,14 @@ final class SearchIndexer {
                 }
                 guard generation == epoch, revisions[source] == revision else { continue }
                 // A deleted item must never be recreated by an in-flight embedding response.
-                if sourcesNewestFirst().contains(source) { try await store.save(file, for: source) }
+                // An unchanged file is not rewritten.
+                if sourcesNewestFirst().contains(source), SearchIndexPlanner.needsSave(old: old, updated: file) {
+                    try await store.save(file, for: source)
+                    record(file, for: source)
+                } else {
+                    summaries[source] = old.map(SearchIndexSummary.init)
+                    checked.insert(source)
+                }
                 done += 1
             } catch {
                 // A failure from a replaced model must not strand the new rebuild.
