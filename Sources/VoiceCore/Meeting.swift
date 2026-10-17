@@ -472,7 +472,8 @@ public enum MeetingListProjection {
         if LibraryTagSearch.matches(meeting.tags, query: needle) { return true }
         return meeting.title.localizedCaseInsensitiveContains(needle)
             || meeting.segments.contains {
-                $0.text.localizedCaseInsensitiveContains(needle)
+                $0.speaker.localizedCaseInsensitiveContains(needle)
+                    || $0.text.localizedCaseInsensitiveContains(needle)
                     || ($0.translation?.localizedCaseInsensitiveContains(needle) ?? false)
             }
     }
