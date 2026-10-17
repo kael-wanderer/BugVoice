@@ -4,6 +4,13 @@ import WhisperKit
 
 /// On-device Whisper. Downloads the model into `downloadBase` on first use,
 /// then keeps it loaded for the life of the process.
+/// WhisperKit's class is not Sendable. The loading task hands the model to
+/// the actor once, and only the actor uses it after that.
+private final class LoadedKit: @unchecked Sendable {
+    let kit: WhisperKit
+    init(kit: WhisperKit) { self.kit = kit }
+}
+
 public actor WhisperKitTranscriber: Transcriber {
     public enum LoadState: Sendable, Equatable {
         case notLoaded
@@ -19,7 +26,7 @@ public actor WhisperKitTranscriber: Transcriber {
     public let modelName: String
     private let downloadBase: URL
     private var kit: WhisperKit?
-    private var loading: Task<WhisperKit, Error>?
+    private var loading: Task<LoadedKit, Error>?
     public private(set) var state: LoadState = .notLoaded
 
     public init(modelName: String, downloadBase: URL) {
@@ -37,10 +44,10 @@ public actor WhisperKitTranscriber: Transcriber {
 
     private func loadedKit(progress: (@Sendable (Double) -> Void)? = nil) async throws -> WhisperKit {
         if let kit { return kit }
-        if let loading { return try await loading.value }
+        if let loading { return try await loading.value.kit }
         let name = modelName
         let base = downloadBase
-        let task = Task<WhisperKit, Error> {
+        let task = Task<LoadedKit, Error> {
             self.setState(.downloading(0))
             let folder = try await WhisperKit.download(variant: name, downloadBase: base) { p in
                 progress?(p.fractionCompleted)
@@ -54,11 +61,11 @@ public actor WhisperKitTranscriber: Transcriber {
                 load: true,
                 download: false
             )
-            return try await WhisperKit(config)
+            return LoadedKit(kit: try await WhisperKit(config))
         }
         loading = task
         do {
-            let loaded = try await task.value
+            let loaded = try await task.value.kit
             kit = loaded
             loading = nil
             state = .ready
