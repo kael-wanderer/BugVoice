@@ -43,6 +43,12 @@ cp -R "$APP" "$STAGING/"
 ln -s /Applications "$STAGING/Applications"
 
 rm -f "$DMG"
-hdiutil create -volname "$APP_NAME $VERSION" -srcfolder "$STAGING" -fs HFS+ -format UDZO -ov "$DMG" >/dev/null
+# `hdiutil create` is deprecated from macOS 26; `diskutil image` replaces it
+# there. Older macOS has only hdiutil.
+if diskutil image create from -h >/dev/null 2>&1; then
+    diskutil image create from --format UDZO --volumeName "$APP_NAME $VERSION" "$STAGING" "$DMG" >/dev/null 2>&1
+else
+    hdiutil create -volname "$APP_NAME $VERSION" -srcfolder "$STAGING" -fs HFS+ -format UDZO -ov "$DMG" >/dev/null
+fi
 hdiutil verify "$DMG" >/dev/null
 echo "Built $DMG ($VERSION build $BUILD)"
