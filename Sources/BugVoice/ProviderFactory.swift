@@ -14,6 +14,16 @@ struct UnavailableModel: TextModel {
 
 @MainActor
 enum ProviderFactory {
+    static func embedder(settings: ModelSettings, credentials: CredentialStore) -> (any Embedder)? {
+        let search = settings.search
+        let name = search.embeddingModel.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, name.lowercased() != "none",
+              let connection = settings.connections.first(where: { $0.id == search.embeddingConnectionID }),
+              connection.kind == .openAICompatible,
+              let url = ConnectionAddress.baseURL(for: connection), ConnectionAddress.isLocal(url) else { return nil }
+        return OpenAICompatibleEmbedder(baseURL: url, model: name, apiKey: credentials.read(connection.credentialAccount))
+    }
+
     static func textModel(_ plan: ModelPlan, credentials: CredentialStore) -> (any TextModel)? {
         switch plan {
         case .none:

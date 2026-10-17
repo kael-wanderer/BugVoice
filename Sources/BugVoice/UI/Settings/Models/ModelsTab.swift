@@ -9,6 +9,7 @@ struct ModelsTab: View {
             VStack(alignment: .leading, spacing: 16) {
                 UseForCard(model: model)
                 ConnectionsCard(model: model)
+                SearchCard(model: model)
                 CLIsCard(model: model)
             }
             .padding(.vertical, 4)

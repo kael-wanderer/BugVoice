@@ -69,6 +69,8 @@ final class AppModel {
     @ObservationIgnored let transcriptionRouter: TranscriptionRouter
     @ObservationIgnored private var systemAudioGrantedThisRun = false
 
+    @ObservationIgnored lazy var searchIndexer = SearchIndexer(model: self)
+
     var settings = AppSettings() {
         didSet {
             guard settings != oldValue, !isLoadingSettings else { return }
@@ -170,6 +172,10 @@ final class AppModel {
         } catch {
             saveError = "Could not create \(paths.root.path): \(error.localizedDescription)"
         }
+        notesController.onSaved = { [weak self] id in self?.searchIndexer.schedule(.note(id), after: .seconds(30)) }
+        notesController.onListLoaded = { [weak self] in
+            Task { await self?.searchIndexer.listLoaded() }
+        }
         await notesController.reloadList()
         let loaded = store.load()
         importKeychainKeys(connections: loaded.models.connections)
@@ -205,6 +211,7 @@ final class AppModel {
         await applyRetention()
         await recoverUnfinishedMeetings()
         await applyMeetingRetention()
+        searchIndexer.backfill()
         Task { await prepareSpeech() }
         Task { await refreshCLIs() }
     }
@@ -236,6 +243,9 @@ final class AppModel {
     // MARK: Settings
 
     private func settingsDidChange(from old: AppSettings) {
+        if settings.models.search != old.models.search || settings.models.connections != old.models.connections {
+            searchIndexer.backfill()
+        }
         do {
             try store.save(settings)
         } catch {
@@ -456,12 +466,14 @@ final class AppModel {
             saveError = "Could not save to history: \(error.localizedDescription)"
         }
         await reloadHistory()
+        searchIndexer.schedule(.dictations, after: .seconds(600))
     }
 
     // MARK: History
 
     func reloadHistory() async {
         history = await historyLog.load()
+        await searchIndexer.reconcileHistory()
     }
 
     // MARK: Insights
@@ -661,6 +673,7 @@ final class AppModel {
             // Every meeting folder on disk keeps its voices, even one that failed to load.
             await pruneKnownVoices(keeping: Set(directories.map { MeetingID(rawValue: $0.lastPathComponent) }))
             uploads?.reconcile(meetingManifests)
+            await searchIndexer.listLoaded()
             if let selectedMeetingID, !meetingManifests.contains(where: { $0.id == selectedMeetingID }) {
                 self.selectedMeetingID = nil
             }

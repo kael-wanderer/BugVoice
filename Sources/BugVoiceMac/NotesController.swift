@@ -40,6 +40,9 @@ public final class NotesController {
     public private(set) var listError: String?
     public private(set) var insertionRecoveries: [NotesInsertionRecovery] = []
 
+    @ObservationIgnored public var onSaved: ((NoteID) -> Void)?
+    @ObservationIgnored public var onListLoaded: (() -> Void)?
+
     public init(store: NotesStore) {
         self.store = store
     }
@@ -65,6 +68,7 @@ public final class NotesController {
         do {
             notes = try await store.list()
             listError = nil
+            onListLoaded?()
         } catch {
             listError = "Could not read Notes: \(error.localizedDescription)"
         }
@@ -644,6 +648,7 @@ public final class NotesController {
     }
 
     private func updateListRow(_ note: NoteDocument) {
+        onSaved?(note.id)
         if let index = notes.firstIndex(where: { $0.id == note.id }) {
             notes[index] = note
         } else {
