@@ -76,6 +76,35 @@ public struct SearchIndexFile: Equatable, Sendable {
     }
 }
 
+/// A file's header without its vectors: enough to decide whether an item needs embedding.
+public struct SearchIndexSummary: Equatable, Sendable {
+    public var model: String
+    public var dimensions: Int
+    public var entries: [SearchIndexFile.Entry]
+
+    public init(model: String, dimensions: Int, entries: [SearchIndexFile.Entry]) {
+        self.model = model
+        self.dimensions = dimensions
+        self.entries = entries
+    }
+
+    public init(_ file: SearchIndexFile) {
+        self.init(model: file.model, dimensions: file.dimensions, entries: file.entries)
+    }
+}
+
+extension AskSource {
+    public enum Kind: Hashable, Sendable { case meeting, note, dictations }
+
+    public var kind: Kind {
+        switch self {
+        case .meeting: .meeting
+        case .note: .note
+        case .dictations: .dictations
+        }
+    }
+}
+
 /// `SearchIndex/*.idx`: one file per item, owner-only, written through a temp file and replaced.
 public actor SearchIndexStore {
     private let folder: URL
@@ -94,6 +123,29 @@ public actor SearchIndexStore {
     public func load(_ source: AskSource) -> SearchIndexFile? {
         guard let url = url(for: source), let data = try? Data(contentsOf: url) else { return nil }
         return try? SearchIndexFile.decode(data)
+    }
+
+    /// Reads only the JSON header; nil when the file is missing, corrupt or the wrong size.
+    public func summary(_ source: AskSource) -> SearchIndexSummary? {
+        guard let url = url(for: source), let handle = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? handle.close() }
+        guard let size = try? handle.seekToEnd(), size >= 4, (try? handle.seek(toOffset: 0)) != nil,
+              let prefix = try? handle.read(upToCount: 4), prefix.count == 4 else { return nil }
+        let bytes = [UInt8](prefix)
+        let headerLength = UInt64(UInt32(bytes[0]) | UInt32(bytes[1]) << 8 | UInt32(bytes[2]) << 16 | UInt32(bytes[3]) << 24)
+        guard headerLength <= size - 4, let headerData = try? handle.read(upToCount: Int(headerLength)),
+              UInt64(headerData.count) == headerLength,
+              let header = try? JSONDecoder().decode(SummaryHeader.self, from: headerData),
+              header.dimensions >= 0 else { return nil }
+        let (count, overflow) = header.entries.count.multipliedReportingOverflow(by: header.dimensions)
+        guard !overflow, count <= Int.max / 2, size - 4 - headerLength == UInt64(count * 2) else { return nil }
+        return SearchIndexSummary(model: header.model, dimensions: header.dimensions, entries: header.entries)
+    }
+
+    private struct SummaryHeader: Decodable {
+        var model: String
+        var dimensions: Int
+        var entries: [SearchIndexFile.Entry]
     }
 
     public func save(_ file: SearchIndexFile, for source: AskSource) throws {
@@ -121,15 +173,26 @@ public actor SearchIndexStore {
         try FileManager.default.removeItem(at: url)
     }
 
-    /// Removes `.idx` files whose item is not in `sources`; other files stay.
-    public func prune(keeping sources: Set<AskSource>) throws {
+    /// Removes `.idx` files of `kinds` whose item is not in `sources`; files of other kinds,
+    /// and anything that is not an index file, stay.
+    public func prune(
+        keeping sources: Set<AskSource>, kinds: Set<AskSource.Kind> = [.meeting, .note, .dictations]
+    ) throws {
         let fm = FileManager.default
         guard fm.fileExists(atPath: folder.path) else { return }
         let keep = Set(sources.map { Self.fileName(for: $0) })
         for name in try fm.contentsOfDirectory(atPath: folder.path)
         where name.hasSuffix(".idx") && !keep.contains(name) {
+            guard let kind = Self.kind(ofFileName: name), kinds.contains(kind) else { continue }
             try fm.removeItem(at: folder.appendingPathComponent(name))
         }
+    }
+
+    static func kind(ofFileName name: String) -> AskSource.Kind? {
+        if name == fileName(for: .dictations) { return .dictations }
+        if name.hasPrefix("meeting-") { return .meeting }
+        if name.hasPrefix("note-") { return .note }
+        return nil
     }
 
     /// Vectors usable for `passages`: same model and matching hash, keyed by passage id.
@@ -146,6 +209,30 @@ public actor SearchIndexStore {
 }
 
 public enum SearchIndexPlanner {
+    /// True when `passages` cannot be served from `summary` as it is: a passage is new or changed,
+    /// an entry belongs to a removed passage, or the model differs. Reads no vectors.
+    public static func needsWork(_ summary: SearchIndexSummary?, passages: [AskPassage], model: String) -> Bool {
+        guard let summary else { return !passages.isEmpty }
+        if passages.isEmpty { return !summary.entries.isEmpty }
+        guard summary.model == model else { return true }
+        var hashes: [String: String] = [:]
+        for entry in summary.entries { hashes[entry.passageID] = entry.contentHash }
+        guard hashes.count == summary.entries.count, summary.entries.count == passages.count else { return true }
+        return passages.contains { hashes[$0.id] != $0.contentHash }
+    }
+
+    /// False when writing `updated` would leave the file as it is (or create an empty one).
+    public static func needsSave(old: SearchIndexFile?, updated: SearchIndexFile) -> Bool {
+        guard let old else { return !updated.entries.isEmpty }
+        return old != updated
+    }
+
+    /// A debounce moves the deadline; a batch delay never pushes back one already pending.
+    public static func deadline(existing: Date?, proposed: Date, extend: Bool) -> Date {
+        guard !extend, let existing else { return proposed }
+        return min(existing, proposed)
+    }
+
     /// Passages that need a new vector; reuses vectors whose hash is unchanged.
     public static func update(
         _ old: SearchIndexFile?, passages: [AskPassage], model: String

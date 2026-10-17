@@ -164,4 +164,119 @@ struct SearchIndexTests {
         let names = try FileManager.default.contentsOfDirectory(atPath: folder.path)
         #expect(names == ["note-n1.idx"])
     }
+
+    // MARK: Summaries (header only, no vectors)
+
+    @Test func summaryReadsHeaderWithoutVectors() async throws {
+        let folder = tempFolder()
+        defer { try? FileManager.default.removeItem(at: folder.deletingLastPathComponent()) }
+        let store = SearchIndexStore(folder: folder)
+        let f = file(for: [passage(source, 0, "a"), passage(source, 1, "b")])
+        try await store.save(f, for: source)
+        let summary = try #require(await store.summary(source))
+        #expect(summary == SearchIndexSummary(model: "m1", dimensions: 3, entries: f.entries))
+        #expect(SearchIndexSummary(f) == summary)
+        #expect(await store.summary(.dictations) == nil)
+    }
+
+    @Test func summaryRejectsTruncatedOrCorruptFile() async throws {
+        let folder = tempFolder()
+        defer { try? FileManager.default.removeItem(at: folder.deletingLastPathComponent()) }
+        let store = SearchIndexStore(folder: folder)
+        let data = try file(for: [passage(source, 0, "a")]).encoded()
+        let url = folder.appendingPathComponent(SearchIndexStore.fileName(for: source))
+        try await store.save(file(for: []), for: source)
+        try data.dropLast().write(to: url)
+        #expect(await store.summary(source) == nil)
+        try Data([9, 9, 9]).write(to: url)
+        #expect(await store.summary(source) == nil)
+    }
+
+    // MARK: Work decisions
+
+    @Test func needsWorkIsFalseWhenEveryPassageMatches() {
+        let a = passage(source, 0, "a"), b = passage(source, 1, "b")
+        let summary = SearchIndexSummary(file(for: [a, b]))
+        #expect(!SearchIndexPlanner.needsWork(summary, passages: [a, b], model: "m1"))
+    }
+
+    @Test func needsWorkForChangedAddedOrRemovedPassages() {
+        let a = passage(source, 0, "a"), b = passage(source, 1, "b")
+        let summary = SearchIndexSummary(file(for: [a, b]))
+        #expect(SearchIndexPlanner.needsWork(summary, passages: [a, passage(source, 1, "b2")], model: "m1"))
+        #expect(SearchIndexPlanner.needsWork(summary, passages: [a, b, passage(source, 2, "c")], model: "m1"))
+        #expect(SearchIndexPlanner.needsWork(summary, passages: [a], model: "m1"))
+        #expect(SearchIndexPlanner.needsWork(summary, passages: [], model: "m1"))
+    }
+
+    @Test func needsWorkForModelChangeOrMissingFile() {
+        let a = passage(source, 0, "a")
+        #expect(SearchIndexPlanner.needsWork(SearchIndexSummary(file(for: [a])), passages: [a], model: "m2"))
+        #expect(SearchIndexPlanner.needsWork(nil, passages: [a], model: "m1"))
+    }
+
+    @Test func nothingToDoForAnEmptyItemWithoutAFile() {
+        #expect(!SearchIndexPlanner.needsWork(nil, passages: [], model: "m1"))
+        #expect(!SearchIndexPlanner.needsWork(SearchIndexSummary(file(for: [])), passages: [], model: "m1"))
+    }
+
+    @Test func needsSaveSkipsAnUnchangedFile() {
+        let a = passage(source, 0, "a"), b = passage(source, 1, "b")
+        let old = file(for: [a, b])
+        let (kept, missing) = SearchIndexPlanner.update(old, passages: [a, b], model: "m1")
+        #expect(missing.isEmpty)
+        #expect(!SearchIndexPlanner.needsSave(old: old, updated: kept))
+        #expect(!SearchIndexPlanner.needsSave(old: nil, updated: SearchIndexFile(model: "m1", dimensions: 0, entries: [], vectors: [])))
+    }
+
+    @Test func needsSaveWhenEntriesWereDroppedOrAdded() {
+        let a = passage(source, 0, "a"), b = passage(source, 1, "b")
+        let old = file(for: [a, b])
+        let (kept, _) = SearchIndexPlanner.update(old, passages: [a], model: "m1")
+        #expect(SearchIndexPlanner.needsSave(old: old, updated: kept))
+        #expect(SearchIndexPlanner.needsSave(old: nil, updated: file(for: [a])))
+    }
+
+    // MARK: Per-kind prune
+
+    @Test func pruneOfOneKindLeavesOtherKinds() async throws {
+        let folder = tempFolder()
+        defer { try? FileManager.default.removeItem(at: folder.deletingLastPathComponent()) }
+        let store = SearchIndexStore(folder: folder)
+        let otherNote = AskSource.note(NoteID(rawValue: "n2"))
+        let meeting = AskSource.meeting(MeetingID(rawValue: "m1"))
+        for s in [source, otherNote, meeting, AskSource.dictations] { try await store.save(file(for: []), for: s) }
+        // Notes loaded before meetings and history: only note files are pruned.
+        try await store.prune(keeping: [source], kinds: [.note])
+        #expect(await store.load(source) != nil)
+        #expect(await store.load(otherNote) == nil)
+        #expect(await store.load(meeting) != nil)
+        #expect(await store.load(.dictations) != nil)
+        try await store.prune(keeping: [], kinds: [.meeting])
+        #expect(await store.load(meeting) == nil)
+        #expect(await store.load(.dictations) != nil)
+        try await store.prune(keeping: [], kinds: [.dictations])
+        #expect(await store.load(.dictations) == nil)
+        #expect(await store.load(source) != nil)
+    }
+
+    @Test func sourceKinds() {
+        #expect(AskSource.note(NoteID(rawValue: "n")).kind == .note)
+        #expect(AskSource.meeting(MeetingID(rawValue: "m")).kind == .meeting)
+        #expect(AskSource.dictations.kind == .dictations)
+    }
+
+    // MARK: Schedule deadlines
+
+    @Test func debounceMovesTheDeadline() {
+        let now = Date(timeIntervalSince1970: 1_000)
+        #expect(SearchIndexPlanner.deadline(existing: now, proposed: now + 30, extend: true) == now + 30)
+    }
+
+    @Test func batchDelayKeepsAnEarlierPendingDeadline() {
+        let now = Date(timeIntervalSince1970: 1_000)
+        #expect(SearchIndexPlanner.deadline(existing: now + 60, proposed: now + 600, extend: false) == now + 60)
+        #expect(SearchIndexPlanner.deadline(existing: nil, proposed: now + 600, extend: false) == now + 600)
+        #expect(SearchIndexPlanner.deadline(existing: now + 900, proposed: now + 600, extend: false) == now + 600)
+    }
 }
