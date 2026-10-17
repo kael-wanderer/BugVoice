@@ -72,5 +72,8 @@ version and build live in `App/Info.plist`. App icon source is `App/Icon/AppIcon
 ## Machine facts (maintainer's Mac)
 
 - Apple M3 Ultra, 96 GB RAM, macOS 27, Swift 6.4, Xcode command-line tools, ffmpeg.
-- LM Studio at `http://localhost:1234`, model `qwen3.8-27b-mlx`.
+- Local LLM: oMLX (`/Applications/oMLX.app`) at `http://localhost:8000`, OpenAI-compatible,
+  needs an API key (kept in `credentials.json`). Use it for tests. MTPLX
+  (`/Applications/MTPLX.app`) is a faster alternative but spins the fans. LM Studio and
+  Ollama are no longer used.
 - Search with `rg`, not grep/find.
