@@ -33,6 +33,9 @@ public struct AppPaths: Sendable {
     /// Notes stored as Markdown files.
     public var notes: URL { root.appendingPathComponent("Notes", isDirectory: true) }
 
+    /// Search index for Notes and Meetings. See Ask AI.
+    public var searchIndex: URL { root.appendingPathComponent("SearchIndex", isDirectory: true) }
+
     public func ensureExists() throws {
         for dir in [root, models, meetings, notes] {
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)

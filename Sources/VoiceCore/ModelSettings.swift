@@ -177,6 +177,38 @@ public struct KeyMove: Equatable, Sendable {
     }
 }
 
+/// Search and Ask AI. A nil embedding connection means search is not set up.
+public struct SearchSettings: Codable, Equatable, Sendable {
+    public static let contextRange = 4_096...262_144
+
+    public var embeddingConnectionID: String?
+    public var embeddingModel: String
+    /// Token budget for the passages sent with a question; clamped to `contextRange`.
+    public var askContextTokens: Int {
+        didSet { askContextTokens = Self.clamp(askContextTokens) }
+    }
+
+    public init(embeddingConnectionID: String? = nil, embeddingModel: String = "", askContextTokens: Int = 16_384) {
+        self.embeddingConnectionID = embeddingConnectionID
+        self.embeddingModel = embeddingModel
+        self.askContextTokens = Self.clamp(askContextTokens)
+    }
+
+    static func clamp(_ n: Int) -> Int {
+        min(max(n, contextRange.lowerBound), contextRange.upperBound)
+    }
+
+    enum CodingKeys: String, CodingKey { case embeddingConnectionID, embeddingModel, askContextTokens }
+
+    public init(from decoder: Decoder) throws {
+        self.init()
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        embeddingConnectionID = c.value(.embeddingConnectionID, default: embeddingConnectionID)
+        embeddingModel = c.value(.embeddingModel, default: embeddingModel)
+        askContextTokens = Self.clamp(c.value(.askContextTokens, default: askContextTokens))
+    }
+}
+
 public struct ModelSettings: Codable, Equatable, Sendable {
     public static let maxConnections = 20
     public static let defaultConnection = ModelConnection(
@@ -191,13 +223,14 @@ public struct ModelSettings: Codable, Equatable, Sendable {
     public var meetings = ModelUse(engine: .connection("omlx"))
     /// Dictation and Notes: after this, raw text is pasted.
     public var dictationTimeoutSeconds: Double = 3
+    public var search = SearchSettings()
     /// Set by migration, done by the app at launch, never saved.
     public var pendingKeyMoves: [KeyMove] = []
 
     public init() {}
 
     enum CodingKeys: String, CodingKey {
-        case connections, dictation, notes, meetings, dictationTimeoutSeconds
+        case connections, dictation, notes, meetings, dictationTimeoutSeconds, search
     }
 }
 
@@ -226,6 +259,7 @@ extension ModelSettings {
         notes = c.value(.notes, default: notes)?.withoutCLI()
         meetings = c.value(.meetings, default: meetings)
         dictationTimeoutSeconds = c.value(.dictationTimeoutSeconds, default: dictationTimeoutSeconds)
+        search = c.value(.search, default: search)
     }
 }
 

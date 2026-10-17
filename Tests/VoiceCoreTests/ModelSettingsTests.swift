@@ -35,6 +35,33 @@ struct ModelSettingsTests {
         #expect(try JSONDecoder().decode(ModelSettings.self, from: data) == expected)
     }
 
+    @Test func searchDefaults() {
+        let s = ModelSettings()
+        #expect(s.search == SearchSettings())
+        #expect(s.search.embeddingConnectionID == nil)
+        #expect(s.search.embeddingModel == "")
+        #expect(s.search.askContextTokens == 16_384)
+    }
+
+    @Test func olderSettingsDecodeSearchDefaults() throws {
+        let s = try decode(#"{"dictationTimeoutSeconds":5}"#)
+        #expect(s.search == SearchSettings())
+        #expect(s.dictationTimeoutSeconds == 5)
+    }
+
+    @Test func searchRoundTrips() throws {
+        var s = ModelSettings()
+        s.search = SearchSettings(embeddingConnectionID: "omlx", embeddingModel: "bge-m3", askContextTokens: 32_768)
+        let data = try JSONEncoder().encode(s)
+        #expect(try JSONDecoder().decode(ModelSettings.self, from: data).search == s.search)
+    }
+
+    @Test func askContextIsClamped() throws {
+        #expect(try decode(#"{"search":{"askContextTokens":1000}}"#).search.askContextTokens == 4_096)
+        #expect(try decode(#"{"search":{"askContextTokens":9999999}}"#).search.askContextTokens == 262_144)
+        #expect(SearchSettings(askContextTokens: 1).askContextTokens == 4_096)
+    }
+
     @Test func badConnectionsAreDroppedAlone() throws {
         let s = try decode(#"""
         {"connections":[
