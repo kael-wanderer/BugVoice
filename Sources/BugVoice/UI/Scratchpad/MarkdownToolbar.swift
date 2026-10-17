@@ -19,57 +19,73 @@ struct MarkdownToolbar: View {
     @State private var pickingTable = false
 
     var body: some View {
-        HStack(spacing: 2) {
-            button("H1", help: "Heading 1") { run(.line(.heading(1))) }
-            button("H2", help: "Heading 2") { run(.line(.heading(2))) }
-            divider
-            symbol("bold", help: "Bold (⌘B)") { run(.inline(.bold)) }
-                .keyboardShortcut("b", modifiers: .command)
-            symbol("italic", help: "Italic (⌘I)") { run(.inline(.italic)) }
-                .keyboardShortcut("i", modifiers: .command)
-            symbol("underline", help: "Underline (⌘U)") { run(.underline) }
-                .keyboardShortcut("u", modifiers: .command)
-            symbol("strikethrough", help: "Strikethrough") { run(.inline(.strike)) }
-            symbol("chevron.left.forwardslash.chevron.right", help: "Code") { run(.inline(.code)) }
-            divider
-            symbol("list.bullet", help: "Bulleted list") { run(.line(.bullet)) }
-            symbol("list.number", help: "Numbered list") { run(.line(.numbered)) }
-            symbol("checklist", help: "Checklist") { run(.line(.task)) }
-            divider
-            symbol("text.quote", help: "Quote") { run(.line(.quote)) }
-            symbol("increase.indent", help: "Indent (Shift-click to outdent)") {
-                run(.indent(outdent: NSEvent.modifierFlags.contains(.shift)))
+        // The compact 440 pt window cannot fit the full row: buttons narrow first, then the bar takes two rows.
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 2) { headings(26); divider(4); inline(26); divider(4); lists(26); divider(4); blocks(26) }
+            HStack(spacing: 1) { headings(22); divider(2); inline(22); divider(2); lists(22); divider(2); blocks(22) }
+            VStack(spacing: 4) {
+                HStack(spacing: 2) { headings(26); divider(4); inline(26) }
+                HStack(spacing: 2) { lists(26); divider(4); blocks(26) }
             }
-            divider
-            symbol("link", help: "Link (⌘K)") { run(.link) }
-                .keyboardShortcut("k", modifiers: .command)
-            symbol("tablecells", help: "Table") { pickingTable = true }
-                .popover(isPresented: $pickingTable, arrowEdge: .top) {
-                    TableSizePicker { columns, rows in
-                        pickingTable = false
-                        run(.table(columns: columns, rows: rows))
-                    }
-                }
         }
         .buttonStyle(.borderless)
         .frame(maxWidth: .infinity)
     }
 
-    private var divider: some View {
-        Divider().frame(height: 16).padding(.horizontal, 4)
+    @ViewBuilder private func headings(_ width: CGFloat) -> some View {
+        button("H1", help: "Heading 1", width: width) { run(.line(.heading(1))) }
+        button("H2", help: "Heading 2", width: width) { run(.line(.heading(2))) }
     }
 
-    private func button(_ title: String, help: String, action: @escaping () -> Void) -> some View {
+    @ViewBuilder private func inline(_ width: CGFloat) -> some View {
+        symbol("bold", help: "Bold (⌘B)", width: width) { run(.inline(.bold)) }
+            .keyboardShortcut("b", modifiers: .command)
+        symbol("italic", help: "Italic (⌘I)", width: width) { run(.inline(.italic)) }
+            .keyboardShortcut("i", modifiers: .command)
+        symbol("underline", help: "Underline (⌘U)", width: width) { run(.underline) }
+            .keyboardShortcut("u", modifiers: .command)
+        symbol("strikethrough", help: "Strikethrough", width: width) { run(.inline(.strike)) }
+        symbol("chevron.left.forwardslash.chevron.right", help: "Code", width: width) { run(.inline(.code)) }
+    }
+
+    @ViewBuilder private func lists(_ width: CGFloat) -> some View {
+        symbol("list.bullet", help: "Bulleted list", width: width) { run(.line(.bullet)) }
+        symbol("list.number", help: "Numbered list", width: width) { run(.line(.numbered)) }
+        symbol("checklist", help: "Checklist", width: width) { run(.line(.task)) }
+    }
+
+    @ViewBuilder private func blocks(_ width: CGFloat) -> some View {
+        symbol("text.quote", help: "Quote", width: width) { run(.line(.quote)) }
+        symbol("increase.indent", help: "Indent (Shift-click to outdent)", width: width) {
+            run(.indent(outdent: NSEvent.modifierFlags.contains(.shift)))
+        }
+        divider(width < 26 ? 2 : 4)
+        symbol("link", help: "Link (⌘K)", width: width) { run(.link) }
+            .keyboardShortcut("k", modifiers: .command)
+        symbol("tablecells", help: "Table", width: width) { pickingTable = true }
+            .popover(isPresented: $pickingTable, arrowEdge: .top) {
+                TableSizePicker { columns, rows in
+                    pickingTable = false
+                    run(.table(columns: columns, rows: rows))
+                }
+            }
+    }
+
+    private func divider(_ padding: CGFloat) -> some View {
+        Divider().frame(height: 16).padding(.horizontal, padding)
+    }
+
+    private func button(_ title: String, help: String, width: CGFloat, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Text(title).font(.system(size: 12, weight: .semibold)).frame(width: 26, height: 24)
+            Text(title).font(.system(size: 12, weight: .semibold)).frame(width: width, height: 24)
         }
         .help(help)
         .accessibilityLabel(help)
     }
 
-    private func symbol(_ name: String, help: String, action: @escaping () -> Void) -> some View {
+    private func symbol(_ name: String, help: String, width: CGFloat, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: name).frame(width: 26, height: 24)
+            Image(systemName: name).frame(width: width, height: 24)
         }
         .help(help)
         .accessibilityLabel(help)

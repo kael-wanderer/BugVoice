@@ -398,6 +398,8 @@ final class MeetingController {
     func stop() async {
         guard let session, isRecording || isPaused else { return }
         let recordedSeconds = elapsed
+        // A finished window has no Ask box; an open answer would offer Add to notes after the notes are saved.
+        closeAnswer()
         await flushNotes()
         translationHeld = true
         defer { translationHeld = false }

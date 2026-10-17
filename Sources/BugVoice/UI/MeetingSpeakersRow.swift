@@ -43,6 +43,8 @@ struct MeetingSpeakersRow: View {
     let meeting: MeetingManifest
     @Environment(AppModel.self) private var model
     @State private var pendingPeople: Int?
+    /// The number of people asked for last, so Try again repeats it.
+    @State private var requestedPeople: Int?
     @State private var editingID: String?
     @State private var draft = ""
     @State private var editError: String?
@@ -73,7 +75,7 @@ struct MeetingSpeakersRow: View {
             case .failed:
                 HStack {
                     Text("Speakers could not be found.").foregroundStyle(.secondary)
-                    Button("Try again") { find(nil) }
+                    Button("Try again") { find(requestedPeople) }
                 }
             case .none:
                 if !meeting.segments.isEmpty {
@@ -119,7 +121,7 @@ struct MeetingSpeakersRow: View {
         .padding(.vertical, 8)
         .onChange(of: nameFocused) { _, focused in if !focused { saveName() } }
         .onChange(of: meeting.id) { _, _ in
-            editingID = nil; pendingPeople = nil; editError = nil; dismissedChanges = nil
+            editingID = nil; pendingPeople = nil; requestedPeople = nil; editError = nil; dismissedChanges = nil
         }
     }
 
@@ -228,7 +230,10 @@ struct MeetingSpeakersRow: View {
             saving = false
         }
     }
-    private func find(_ people: Int?) { Task { await model.findSpeakers(id: meeting.id, people: people) } }
+    private func find(_ people: Int?) {
+        requestedPeople = people
+        Task { await model.findSpeakers(id: meeting.id, people: people) }
+    }
     private func saveName() {
         guard meeting.speakerSplit != .running else { editingID = nil; return }
         guard let id = editingID, !saving else { return }
