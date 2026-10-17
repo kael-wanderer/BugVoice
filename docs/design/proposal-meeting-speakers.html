@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meeting Speakers</title>
+<style>
+/* Meetings: speaker names. Spec: docs/superpowers/specs/2026-10-17-meeting-speakers-design.md */
+:root {
+  --page: #e9ebf0; --win: #fcfcfb; --card: #ffffff; --line: #e6e4df; --chip: #f1efea;
+  --fg: #1c1f26; --muted: #737680; --faint: #b3b0a8; --accent: #3a6ff0; --accent-soft: #e4ebfd; --warn: #c76a00;
+  --s0: #3a6ff0; --s1: #8a57d6; --s2: #d0731c; --s3: #1f9a5a; --s4: #c2407a; --s5: #2a8fa8;
+  --app: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --page: #0d0e11; --win: #1b1c1f; --card: #222327; --line: #2f3035; --chip: #2a2b30;
+  --fg: #ecebe8; --muted: #9a9ca5; --faint: #5f6068; --accent: #6e93ff; --accent-soft: #23304f; --warn: #f0a050;
+  --s0: #6e93ff; --s1: #b48cf0; --s2: #f0a050; --s3: #4cc98a; --s4: #f07aae; --s5: #5cc4dc;
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --page: #0d0e11; --win: #1b1c1f; --card: #222327; --line: #2f3035; --chip: #2a2b30;
+  --fg: #ecebe8; --muted: #9a9ca5; --faint: #5f6068; --accent: #6e93ff; --accent-soft: #23304f; --warn: #f0a050;
+  --s0: #6e93ff; --s1: #b48cf0; --s2: #f0a050; --s3: #4cc98a; --s4: #f07aae; --s5: #5cc4dc;
+  color-scheme: dark }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--fg); font-family: var(--app); font-size: 13px; line-height: 1.45; padding: 28px 16px 48px; }
+.frame { max-width: 1240px; margin: 0 auto; display: grid; gap: 14px; }
+h1 { font-size: 18px; margin: 0; }
+h2.sec { font-size: 13px; margin: 18px 0 0; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.caption { color: var(--muted); font-size: 12.5px; max-width: 110ch; margin: 0; }
+.caption b { color: var(--fg); }
+.bar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+.pills { display: inline-flex; flex-wrap: wrap; background: var(--chip); border-radius: 999px; padding: 3px; gap: 2px; }
+.pills button { font: inherit; border: 0; background: transparent; color: var(--muted); padding: 5px 13px; border-radius: 999px; cursor: pointer; }
+.pills button[aria-pressed="true"] { background: var(--card); color: var(--fg); font-weight: 600; box-shadow: 0 1px 2px rgb(0 0 0 / .14); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.row { display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-start; }
+.btn { font: inherit; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--chip); color: var(--fg); padding: 2px 9px; border-radius: 7px; font-size: 11.5px; white-space: nowrap; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* Detail page */
+.detail { flex: 1; min-width: 300px; max-width: 780px; background: var(--win); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; display: grid; gap: 12px; align-content: start; }
+.detail .title { font-size: 20px; font-weight: 600; }
+.tabs { display: flex; gap: 16px; border-bottom: 1px solid var(--line); font-size: 12.5px; }
+.tabs span { padding: 0 0 6px; color: var(--muted); }
+.tabs span.on { color: var(--fg); font-weight: 600; border-bottom: 2px solid var(--accent); }
+.speakers { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 10px; background: var(--card); border: 1px solid var(--line); border-radius: 8px; }
+.speakers .lbl { color: var(--muted); font-size: 11.5px; }
+.stepper { display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; font-weight: 600; }
+.stepper .btn { padding: 0 7px; }
+.vsep { width: 1px; height: 18px; background: var(--line); margin: 0 4px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 9px; border-radius: 999px; background: var(--chip); border: 1px solid var(--line); font-size: 12px; cursor: pointer; }
+.chip.ask { border-style: dashed; border-color: var(--accent); }
+.chip input { font: inherit; width: 90px; border: 1px solid var(--accent); border-radius: 5px; padding: 0 5px; background: var(--card); color: var(--fg); }
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
+.notice { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; background: var(--accent-soft); font-size: 12px; flex-wrap: wrap; }
+.notice.warn { background: transparent; border: 1px solid var(--warn); }
+.notice .sp { flex: 1; }
+.lines { display: grid; gap: 2px; }
+.dline { display: grid; grid-template-columns: 50px 78px 1fr; column-gap: 12px; padding: 6px 8px; border-radius: 6px; }
+.dline .t { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.dline .s { font-size: 12px; font-weight: 600; cursor: pointer; }
+.dline .s span { border-bottom: 1px dotted currentColor; }
+.menu { margin: 0 0 4px 70px; width: 190px; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 4px; font-size: 12px; box-shadow: 0 8px 24px rgb(0 0 0 / .18); }
+.menu div { padding: 3px 8px; border-radius: 5px; display: flex; gap: 7px; align-items: center; }
+.menu .sel { background: var(--accent); color: #fff; }
+.menu hr { border: 0; border-top: 1px solid var(--line); margin: 3px 0; }
+.summary { font-size: 12.5px; display: grid; gap: 4px; }
+.status { color: var(--muted); font-size: 12px; display: flex; gap: 8px; align-items: center; }
+.spin { width: 11px; height: 11px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--accent); }
+
+/* Meeting window after Stop */
+.win { width: 360px; max-width: 100%; background: var(--win); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 18px 50px rgb(0 0 0 / .18); overflow: hidden; }
+.win .top { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); font-size: 12px; }
+.win .top .g { width: 8px; height: 8px; border-radius: 50%; background: #28c840; }
+.win .top .sp { flex: 1; }
+.win .lines { padding: 10px 12px; }
+.win .dline { grid-template-columns: 38px 62px 1fr; column-gap: 8px; padding: 4px 0; }
+.win .dline .s { cursor: default; font-size: 11px; }
+.win .dline .s span { border: 0; }
+.win .foot { border-top: 1px solid var(--line); padding: 8px 12px; display: flex; justify-content: space-between; }
+
+/* Settings card */
+.settings { width: 520px; max-width: 100%; background: var(--win); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: grid; gap: 10px; align-content: start; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: grid; gap: 8px; }
+.card h4 { margin: 0; font-size: 12.5px; }
+.srow { display: flex; align-items: center; gap: 10px; font-size: 12.5px; }
+.srow .sp { flex: 1; }
+.switch { width: 26px; height: 15px; border-radius: 999px; background: var(--accent); position: relative; display: inline-block; }
+.switch::after { content: ""; position: absolute; top: 2px; left: 13px; width: 11px; height: 11px; border-radius: 50%; background: #fff; }
+.small { font-size: 11.5px; color: var(--muted); }
+.hide { display: none !important; }
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="bar">
+    <h1>Meeting speakers</h1>
+    <div class="pills" id="theme" role="group" aria-label="Theme">
+      <button data-theme-set="light" aria-pressed="false">Light</button>
+      <button data-theme-set="dark" aria-pressed="false">Dark</button>
+      <button data-theme-set="auto" aria-pressed="true">System</button>
+    </div>
+  </div>
+  <p class="caption">After Stop (or when an upload finishes) BugVoice tells the voices apart on the call audio and labels the lines <b>Other 1</b>, <b>Other 2</b>. Your microphone stays <b>You</b>. On the meeting detail page you set how many people were in the meeting, rename a speaker for every line, and fix single lines. Part 2 remembers voices you named and suggests them next time.</p>
+
+  <h2 class="sec">Meeting detail page, Transcript tab</h2>
+  <div class="pills" id="state" role="group" aria-label="State">
+    <button data-state="split" aria-pressed="true">After Stop</button>
+    <button data-state="finding" aria-pressed="false">Finding speakers</button>
+    <button data-state="rename" aria-pressed="false">Renaming Other 1</button>
+    <button data-state="line" aria-pressed="false">Fixing one line</button>
+    <button data-state="renamed" aria-pressed="false">Names set</button>
+    <button data-state="people" aria-pressed="false">People changed</button>
+    <button data-state="suggest" aria-pressed="false">Part 2: Dani?</button>
+    <button data-state="old" aria-pressed="false">Older meeting</button>
+  </div>
+
+  <div class="row">
+    <div class="detail">
+      <div class="title">Monthly sync</div>
+      <div class="tabs"><span>Summary</span><span class="on">Transcript</span><span>My notes</span></div>
+
+      <div class="speakers" data-show="split rename line renamed people suggest">
+        <span class="lbl">People in this meeting</span>
+        <span class="stepper"><button class="btn">−</button><span id="count">3</span><button class="btn">+</button></span>
+        <span class="vsep"></span>
+        <span class="lbl">Speakers</span>
+        <span class="chip"><i class="dot" style="background:var(--s0)"></i><span class="n-you">You</span></span>
+        <span class="chip" data-show="split line renamed people"><i class="dot" style="background:var(--s1)"></i><span class="n-1">Other 1</span></span>
+        <span class="chip" data-show="rename"><i class="dot" style="background:var(--s1)"></i><input value="Dani" aria-label="Name for Other 1"></span>
+        <span class="chip ask" data-show="suggest"><i class="dot" style="background:var(--s1)"></i>Dani? <button class="btn primary">Yes</button><button class="btn">No</button></span>
+        <span class="chip" data-show="split rename line renamed people suggest"><i class="dot" style="background:var(--s2)"></i><span class="n-2">Other 2</span></span>
+        <span class="chip" data-show="line renamed"><i class="dot" style="background:var(--s3)"></i>David</span>
+      </div>
+
+      <div class="status" data-show="finding"><i class="spin"></i>Finding speakers…</div>
+
+      <div class="notice" data-show="renamed"><span>Names changed. The summary still says Other 1 and Other 2.</span><span class="sp"></span><button class="btn primary">Regenerate summary</button><button class="btn">Not now</button></div>
+      <div class="notice warn" data-show="people"><span>Split again for 2 people? Your changes to single lines are cleared. Names stay on the voices that keep them.</span><span class="sp"></span><button class="btn primary">Split again</button><button class="btn">Cancel</button></div>
+      <div class="notice" data-show="old"><span>This meeting was recorded before speakers were split.</span><span class="sp"></span><button class="btn primary">Find speakers</button></div>
+
+      <div class="lines">
+        <div class="dline"><span class="t">0:12</span><span class="s" style="color:var(--s1)"><span class="n-1">Other 1</span></span><span>Shall we start with the release dates?</span></div>
+        <div class="dline"><span class="t">0:18</span><span class="s" style="color:var(--s0)"><span class="n-you">You</span></span><span>Yes, the build is ready for testing.</span></div>
+        <div class="dline"><span class="t">0:25</span><span class="s" style="color:var(--s2)"><span class="n-2">Other 2</span></span><span>I still need the Spanish copy.</span></div>
+        <div class="dline"><span class="t">0:31</span><span class="s" style="color:var(--s1)"><span class="n-1">Other 1</span></span><span>Mariel, can you send it by Friday?</span></div>
+        <div class="dline" id="fixme"><span class="t">0:36</span><span class="s" id="fixwho" style="color:var(--s1)"><span class="n-1">Other 1</span></span><span>I can review it on Monday.</span></div>
+        <div class="menu" data-show="line">
+          <div><i class="dot" style="background:var(--s0)"></i>You</div>
+          <div><i class="dot" style="background:var(--s1)"></i>Other 1</div>
+          <div><i class="dot" style="background:var(--s2)"></i>Other 2</div>
+          <div class="sel"><i class="dot" style="background:var(--s3)"></i>David</div>
+          <hr><div>New person…</div>
+        </div>
+        <div class="dline"><span class="t">0:41</span><span class="s" style="color:var(--s2)"><span class="n-2">Other 2</span></span><span>Friday works. I will send it to both of you.</span></div>
+      </div>
+    </div>
+
+    <div style="display:grid; gap:14px; align-content:start">
+      <div class="win">
+        <div class="top"><i class="g"></i><b>Finished</b><span class="sp"></span><span class="small">42:10</span></div>
+        <div class="lines">
+          <div class="dline"><span class="t">0:12</span><span class="s" style="color:var(--s1)"><span class="n-1">Other 1</span></span><span>Shall we start with the release dates?</span></div>
+          <div class="dline"><span class="t">0:18</span><span class="s" style="color:var(--s0)"><span class="n-you">You</span></span><span>Yes, the build is ready for testing.</span></div>
+          <div class="dline"><span class="t">0:25</span><span class="s" style="color:var(--s2)"><span class="n-2">Other 2</span></span><span>I still need the Spanish copy.</span></div>
+        </div>
+        <div class="foot"><button class="btn primary">Open in Meetings</button><button class="btn">Close</button></div>
+      </div>
+      <p class="caption" style="max-width:360px">Meeting window after Stop: names show, read only. Renaming happens on the detail page (Open in Meetings).</p>
+
+      <div class="settings">
+        <div class="card">
+          <h4>Known voices</h4>
+          <div class="srow">Suggest names from known voices<span class="sp"></span><i class="switch"></i></div>
+          <div class="srow"><i class="dot" style="background:var(--s1)"></i>Dani<span class="small">3 meetings</span><span class="sp"></span><button class="btn">Delete</button></div>
+          <div class="srow"><i class="dot" style="background:var(--s2)"></i>Mariel<span class="small">2 meetings</span><span class="sp"></span><button class="btn">Delete</button></div>
+          <div class="small">A voice is saved when you name a speaker and confirm it. Saved voices stay on this Mac. Delete one to stop suggesting it.</div>
+        </div>
+      </div>
+      <p class="caption" style="max-width:520px">Part 2. Settings › Meetings › Known voices.</p>
+    </div>
+  </div>
+</div>
+<script>
+const root = document.documentElement;
+document.querySelectorAll('#theme button').forEach(b => b.addEventListener('click', () => {
+  const t = b.dataset.themeSet;
+  if (t === 'auto') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', t);
+  document.querySelectorAll('#theme button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+}));
+const names = {
+  split:   { you: 'You', one: 'Other 1', two: 'Other 2', count: 3, fix: false },
+  finding: { you: 'You', one: 'Others', two: 'Others', count: 3, fix: false },
+  rename:  { you: 'You', one: 'Other 1', two: 'Other 2', count: 3, fix: false },
+  line:    { you: 'You', one: 'Other 1', two: 'Other 2', count: 3, fix: true },
+  renamed: { you: 'Cong', one: 'Dani', two: 'Mariel', count: 3, fix: true },
+  people:  { you: 'You', one: 'Dani', two: 'Mariel', count: 2, fix: false },
+  suggest: { you: 'You', one: 'Dani?', two: 'Other 2', count: 3, fix: false },
+  old:     { you: 'You', one: 'Others', two: 'Others', count: 3, fix: false },
+};
+function show(state) {
+  document.querySelectorAll('[data-show]').forEach(el => el.classList.toggle('hide', !el.dataset.show.split(' ').includes(state)));
+  const n = names[state];
+  document.querySelectorAll('.n-you').forEach(e => e.textContent = n.you);
+  document.querySelectorAll('.n-1').forEach(e => e.textContent = n.one);
+  document.querySelectorAll('.n-2').forEach(e => e.textContent = n.two);
+  document.getElementById('count').textContent = n.count;
+  const who = document.getElementById('fixwho');
+  if (n.fix) { who.innerHTML = '<span>David</span>'; who.style.color = 'var(--s3)'; }
+  else { who.innerHTML = '<span class="n-1">' + n.one + '</span>'; who.style.color = 'var(--s1)'; }
+  document.querySelectorAll('#state button').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.state === state)));
+}
+document.querySelectorAll('#state button').forEach(b => b.addEventListener('click', () => show(b.dataset.state)));
+show('split');
+</script>
+</body>
+</html>
