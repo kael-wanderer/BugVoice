@@ -1,6 +1,6 @@
 # BugVoice — Handoff
 
-Last updated: 2026-10-16
+Last updated: 2026-10-17
 
 ## Current state
 
@@ -52,6 +52,23 @@ at a time, after dictation and the summaries). English is saved on each line
 (`MeetingSegment.translation`), carried over to the final transcript at Stop,
 shown on the detail page and written to the Markdown export. Show English
 (`MeetingManifest.showEnglish`) hides it. Device checks 188–194 pending.
+
+Meeting speakers Part 1 implemented on `feat/meeting-speakers` in
+`../BugVoice-meeting-speakers` (2026-10-17), not merged. Spec:
+`docs/superpowers/specs/2026-10-17-meeting-speakers-design.md`; plan:
+`docs/superpowers/plans/2026-10-17-meeting-speakers.md`. SpeakerKit from the
+existing WhisperKit 1.1.1 package splits voices on device after Stop, recovery
+and uploads, and on demand. People, names and single-line fixes live on the
+Transcript detail page; exports, search, prompts and the read-only finished
+meeting window use the names. Older manifests retain their defaults.
+
+Automated checks: 641 VoiceCore tests / 76 suites + 84 BugVoiceMac tests /
+16 suites pass. `Scripts/build-app.sh` succeeded and signed with `Bugler Local Dev`.
+App not launched; device checks 195–206 and first-use model download/inference
+remain pending in `docs/progress/meetings-log.md`. Tuning stays nil pending the
+owner's 2-, 3- and 4-person clips. Part 2 (known voices) waits for the same-podcast
+centroid-distance measurement in spec section 8.4; no known-voice store or UI
+has been built. Full task evidence and adaptations are in the meetings log.
 
 **Packaging:** app icon (Antenna Mic) and `Scripts/build-dmg.sh`; current version 0.1.0 build 10.
 

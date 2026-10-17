@@ -170,11 +170,17 @@ final class UploadController {
         return true
     }
 
-    func saveGeneratedTextToSession(id: MeetingID, text: String, kind: MeetingTextKind) async throws
-        -> Bool
+    func updateSpeakersInSession(id: MeetingID, change: @Sendable (MeetingManifest) throws -> MeetingManifest) async throws -> Bool {
+        guard activeDirectory?.lastPathComponent == id.rawValue, let session else { return false }
+        try await session.updateSpeakers(change)
+        return true
+    }
+
+    func saveGeneratedTextToSession(id: MeetingID, text: String, kind: MeetingTextKind, names: [String: String]? = nil)
+        async throws -> Bool
     {
         guard activeDirectory?.lastPathComponent == id.rawValue, let session else { return false }
-        try await session.saveGeneratedText(text, kind: kind)
+        try await session.saveGeneratedText(text, kind: kind, names: names)
         return true
     }
 
@@ -299,6 +305,9 @@ final class UploadController {
             try Task.checkCancellation()
             guard !stopping else { return }
             queue.apply(id: job.id, event: .ready)
+            if let ready = await session.snapshot(), !ready.segments.isEmpty {
+                await model.findSpeakers(id: ready.id, people: nil)
+            }
         } catch {
             decoder = nil
             releaseInput(job.id)

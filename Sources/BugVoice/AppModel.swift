@@ -145,6 +145,9 @@ final class AppModel {
     @ObservationIgnored private var speechAPIKeyGeneration: UInt64 = 0
     @ObservationIgnored private var meetingTextTasks: [MeetingID: Task<String, Error>] = [:]
 
+    @ObservationIgnored let speakerSplitter = SpeakerSplitter(downloadBase: AppPaths.standard().models)
+    @ObservationIgnored var speakerTasks: [MeetingID: Task<Void, Never>] = [:]
+
     init() {
         let notesStore = NotesStore(directory: AppPaths.standard().notes)
         self.notesStore = notesStore
@@ -768,6 +771,12 @@ final class AppModel {
     }
 
     func deleteMeeting(id: MeetingID) async {
+        // A finished window may still own the manifest while a split is running.
+        // Drain it before deleting so its eventual session save cannot recreate the folder.
+        if let task = speakerTasks[id] {
+            task.cancel()
+            await task.value
+        }
         if let uploads,
             let job = uploads.queue.jobs.first(where: { $0.meetingID == id && !$0.state.isTerminal })
         {
@@ -836,6 +845,7 @@ final class AppModel {
         progress: @escaping @Sendable (MeetingTextProgress) -> Void
     ) async throws -> String {
         let original = try await meetingStore.load(id: id)
+        let names = MeetingSpeakers.names(in: original)
         guard let textModel = await meetingTextModel() else {
             throw MeetingGenerationError.noTextModel
         }
@@ -848,7 +858,7 @@ final class AppModel {
             progress: progress
         )
         try Task.checkCancellation()
-        if let uploads, try await uploads.saveGeneratedTextToSession(id: id, text: text, kind: kind) {
+        if let uploads, try await uploads.saveGeneratedTextToSession(id: id, text: text, kind: kind, names: names) {
             await reloadMeetings()
             if kind == .summary {
                 let suggestionModel = textModel
@@ -856,7 +866,7 @@ final class AppModel {
             }
             return text
         }
-        if let meetings, try await meetings.saveGeneratedTextToSession(id: id, text: text, kind: kind) {
+        if let meetings, try await meetings.saveGeneratedTextToSession(id: id, text: text, kind: kind, names: names) {
             await reloadMeetings()
             if kind == .summary {
                 let suggestionModel = textModel
@@ -866,7 +876,7 @@ final class AppModel {
         }
         var current = try await meetingStore.load(id: id)
         try Task.checkCancellation()
-        if kind == .summary { current.summary = text } else { current.actionItems = text }
+        current.setGeneratedText(text, kind: kind, names: names)
         try await meetingStore.save(current)
         await reloadMeetings()
         if kind == .summary {

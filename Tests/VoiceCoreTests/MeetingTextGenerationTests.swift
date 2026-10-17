@@ -156,3 +156,14 @@ private actor MeetingTextModelProbe: TextModel {
         return responses.indices.contains(index) ? responses[index] : "partial"
     }
 }
+
+extension MeetingTextGenerationTests {
+    @Test func oversizedFragmentsKeepNamedSpeakerInPrompts() {
+        let original = MeetingSegment(start: 12, end: 19, text: String(repeating: "A useful sentence. ", count: 1_200),
+                                      track: .system, speakerID: "s1", speakerName: "Dani")
+        let parts = MeetingTranscriptPart.split(transcript: [original], budget: .init(contextTokens: 2_048, outputTokens: 512))
+        #expect(parts.count > 1)
+        #expect(parts.allSatisfy { $0.segments.allSatisfy { $0.speakerID == "s1" && $0.speaker == "Dani" } })
+        #expect(parts.allSatisfy { $0.promptText.contains("Dani]") })
+    }
+}

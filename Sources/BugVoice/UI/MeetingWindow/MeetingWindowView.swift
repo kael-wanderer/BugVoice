@@ -221,6 +221,7 @@ struct MeetingWindowView: View {
         case .transcript:
             MeetingTranscriptView(
                 segments: controller.segments,
+                speakers: controller.speakers,
                 marks: controller.marks,
                 elapsed: controller.elapsed,
                 isListening: controller.isRecording,

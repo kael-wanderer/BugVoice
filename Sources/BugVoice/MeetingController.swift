@@ -27,6 +27,7 @@ final class MeetingController {
     private(set) var meetingStartedAt: Date?
     private(set) var folderID: FolderID?
     private(set) var segments: [MeetingSegment] = []
+    private(set) var speakers: [MeetingSpeaker] = []
     private(set) var marks: [MeetingMark] = []
     private(set) var transcriptProgress: Double = 0
     /// "Marked at 12:47" for 2 seconds after Mark.
@@ -211,9 +212,17 @@ final class MeetingController {
             if recovered.state == .interrupted {
                 recovered = try await session.retryTranscription()
             }
+            // Like Stop, a new recording may start while speakers and the summary are worked out.
             isTranscribing = false
             statusMessage = nil
             await model.reloadMeetings()
+            if recovered.state == .ready, !recovered.segments.isEmpty {
+                await model.findSpeakers(id: id, people: nil)
+                await refreshSnapshot()
+                // Recovery may have no visible meeting window. Finish the same sequence as Stop.
+                if shownMeetingID == id { await generateFinalSummary() }
+                else { _ = try? await model.generateMeetingText(id: id, kind: .summary) { _ in } }
+            }
         } catch {
             isTranscribing = false
             statusMessage = "Transcript could not be completed. Your meeting audio is saved. \(error.localizedDescription)"
@@ -350,6 +359,7 @@ final class MeetingController {
         meetingStartedAt = meeting.startedAt
         folderID = meeting.folderID
         segments = meeting.segments
+        speakers = meeting.speakers
         marks = meeting.marks
         transcriptProgress = meeting.transcriptProgress ?? 0
         notesSaveTask?.cancel()
@@ -372,12 +382,14 @@ final class MeetingController {
     func showTranslations(from meeting: MeetingManifest) {
         guard meeting.id == shownMeetingID, segments != meeting.segments else { return }
         segments = meeting.segments
+        speakers = meeting.speakers
     }
 
     /// Picks up transcript lines, marks and progress the session saved.
     private func refreshSnapshot() async {
         guard let session, let meeting = await session.snapshot(), meeting.id == shownMeetingID else { return }
         if segments != meeting.segments { segments = meeting.segments }
+        if speakers != meeting.speakers { speakers = meeting.speakers }
         if marks != meeting.marks { marks = meeting.marks }
         if let progress = meeting.transcriptProgress, transcriptProgress != progress { transcriptProgress = progress }
         if title != meeting.title { title = meeting.title }
@@ -407,7 +419,18 @@ final class MeetingController {
         monitorTask = nil
         await model.reloadMeetings()
         await model.recordMeetingInsights(seconds: recordedSeconds)
-        if transcribed { await generateFinalSummary() }
+        if transcribed, let id = meetingID, !segments.isEmpty {
+            await model.findSpeakers(id: id, people: nil)
+            await refreshSnapshot()
+            await generateFinalSummary()
+        }
+    }
+
+    func updateSpeakersInSession(id: MeetingID, change: @Sendable (MeetingManifest) throws -> MeetingManifest) async throws -> Bool {
+        guard let session, await session.snapshot()?.id == id else { return false }
+        try await session.updateSpeakers(change)
+        await refreshSnapshot()
+        return true
     }
 
     func renameSession(id: MeetingID, title: String) async throws -> Bool {
@@ -422,9 +445,11 @@ final class MeetingController {
         return true
     }
 
-    func saveGeneratedTextToSession(id: MeetingID, text: String, kind: MeetingTextKind) async throws -> Bool {
+    func saveGeneratedTextToSession(
+        id: MeetingID, text: String, kind: MeetingTextKind, names: [String: String]? = nil
+    ) async throws -> Bool {
         guard meetingID == id, let session else { return false }
-        try await session.saveGeneratedText(text, kind: kind)
+        try await session.saveGeneratedText(text, kind: kind, names: names)
         return true
     }
 

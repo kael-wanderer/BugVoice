@@ -181,8 +181,12 @@ public struct MeetingSegment: Codable, Equatable, Sendable, Identifiable {
     /// English for a non-English line: nil until translated, empty when the line needs none.
     public var translation: String?
 
+    public var speakerID: String?
+    public var speakerName: String?
+
     public var speaker: String {
-        switch track {
+        if let speakerName { return speakerName }
+        return switch track {
         case .mic: "You"
         case .system: "Others"
         case .file: "Speaker"
@@ -196,7 +200,9 @@ public struct MeetingSegment: Codable, Equatable, Sendable, Identifiable {
         text: String,
         track: MeetingTrack,
         sourceChunkID: String? = nil,
-        translation: String? = nil
+        translation: String? = nil,
+        speakerID: String? = nil,
+        speakerName: String? = nil
     ) {
         self.id = id
         self.start = start
@@ -204,6 +210,8 @@ public struct MeetingSegment: Codable, Equatable, Sendable, Identifiable {
         self.text = text
         self.track = track
         self.sourceChunkID = sourceChunkID
+        self.speakerID = speakerID
+        self.speakerName = speakerName
         self.translation = translation
     }
 }
@@ -239,6 +247,54 @@ public struct MeetingAudioFormat: Codable, Equatable, Sendable {
         self.bitDepth = bitDepth
         self.journalEncoding = journalEncoding
         self.finalEncoding = finalEncoding
+    }
+}
+
+public struct MeetingSpeaker: Codable, Equatable, Sendable, Identifiable {
+    public var id: String
+    public var name: String?
+    public var colorIndex: Int
+    public var centroid: [Float]?
+
+    public init(id: String, name: String? = nil, colorIndex: Int, centroid: [Float]? = nil) {
+        self.id = id
+        self.name = name
+        self.colorIndex = colorIndex
+        self.centroid = centroid
+    }
+}
+
+public enum SpeakerSplitState: Codable, Equatable, Sendable {
+    case none, running, done, failed(String)
+
+    private enum CodingKeys: String, CodingKey { case failed }
+
+    public init(from decoder: Decoder) throws {
+        let value = try decoder.singleValueContainer()
+        if let status = try? value.decode(String.self) {
+            switch status {
+            case "none": self = .none
+            case "running": self = .running
+            case "done": self = .done
+            default: throw DecodingError.dataCorruptedError(in: value, debugDescription: "Unknown speaker split status")
+            }
+        } else {
+            let fields = try decoder.container(keyedBy: CodingKeys.self)
+            self = .failed(try fields.decode(String.self, forKey: .failed))
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        switch self {
+        case .none, .running, .done:
+            var value = encoder.singleValueContainer()
+            let status: String
+            switch self { case .none: status = "none"; case .running: status = "running"; default: status = "done" }
+            try value.encode(status)
+        case .failed(let message):
+            var fields = encoder.container(keyedBy: CodingKeys.self)
+            try fields.encode(message, forKey: .failed)
+        }
     }
 }
 
@@ -280,6 +336,9 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
     /// Bundle ID of the app whose microphone use offered this recording.
     public var detectedApp: String?
     /// Show English under non-English transcript lines, and translate new ones.
+    public var speakers: [MeetingSpeaker]
+    public var speakerSplit: SpeakerSplitState
+    public var speakerNamesAtSummary: [String: String]?
     public var showEnglish: Bool
 
     public init(
@@ -310,7 +369,10 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
         liveSummaryUpdatedAt: Date? = nil,
         liveSummaryCutoff: TimeInterval = 0,
         detectedApp: String? = nil,
-        showEnglish: Bool = true
+        showEnglish: Bool = true,
+        speakers: [MeetingSpeaker] = [],
+        speakerSplit: SpeakerSplitState = .none,
+        speakerNamesAtSummary: [String: String]? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.id = id
@@ -340,12 +402,16 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
         self.liveSummaryCutoff = liveSummaryCutoff
         self.detectedApp = detectedApp
         self.showEnglish = showEnglish
+        self.speakers = speakers
+        self.speakerSplit = speakerSplit
+        self.speakerNamesAtSummary = speakerNamesAtSummary
     }
 
     private enum CodingKeys: String, CodingKey {
         case schemaVersion, id, title, startedAt, endedAt, duration, state
         case audioFormat, chunks, marks, segments, transcriptProgress
         case transcriptionError, summary, actionItems, source, sourceFileName, importedAt, folderID, tags, suggestedTags, languages
+        case speakers, speakerSplit, speakerNamesAtSummary
         case notes, liveSummary, liveSummaryUpdatedAt, liveSummaryCutoff, detectedApp, showEnglish
     }
 
@@ -378,7 +444,18 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
         liveSummaryUpdatedAt = try c.decodeIfPresent(Date.self, forKey: .liveSummaryUpdatedAt)
         liveSummaryCutoff = try c.decodeIfPresent(TimeInterval.self, forKey: .liveSummaryCutoff) ?? 0
         detectedApp = try c.decodeIfPresent(String.self, forKey: .detectedApp)
+        speakers = try c.decodeIfPresent([MeetingSpeaker].self, forKey: .speakers) ?? []
+        speakerSplit = try c.decodeIfPresent(SpeakerSplitState.self, forKey: .speakerSplit) ?? .none
+        speakerNamesAtSummary = try c.decodeIfPresent([String: String].self, forKey: .speakerNamesAtSummary)
         showEnglish = try c.decodeIfPresent(Bool.self, forKey: .showEnglish) ?? true
+    }
+
+    /// `names` are the speaker names the text was generated with; nil means the current ones.
+    public mutating func setGeneratedText(_ text: String, kind: MeetingTextKind, names: [String: String]? = nil) {
+        if kind == .summary {
+            summary = text
+            speakerNamesAtSummary = names ?? MeetingSpeakers.names(in: self)
+        } else { actionItems = text }
     }
 
     public static func new(startedAt: Date) -> MeetingManifest {
@@ -433,7 +510,8 @@ public enum MeetingListProjection {
         if LibraryTagSearch.matches(meeting.tags, query: needle) { return true }
         return meeting.title.localizedCaseInsensitiveContains(needle)
             || meeting.segments.contains {
-                $0.text.localizedCaseInsensitiveContains(needle)
+                $0.speaker.localizedCaseInsensitiveContains(needle)
+                    || $0.text.localizedCaseInsensitiveContains(needle)
                     || ($0.translation?.localizedCaseInsensitiveContains(needle) ?? false)
             }
     }

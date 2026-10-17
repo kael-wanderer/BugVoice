@@ -93,3 +93,14 @@ struct MeetingTranslationTests {
         #expect(MeetingTranslation.carryOver(from: live, to: final).map(\.translation) == ["Good morning", nil, nil, nil])
     }
 }
+
+extension MeetingTranslationTests {
+    @Test func carryOverKeepsSpeaker() {
+        let live = [MeetingSegment(id: "a", start: 10, end: 12, text: "Hello", track: .system, speakerID: "s2", speakerName: "Mariel")]
+        let final = [MeetingSegment(id: "b", start: 10.4, end: 12, text: "Hello", track: .system),
+                     MeetingSegment(id: "c", start: 30, end: 31, text: "New", track: .system)]
+        let carried = MeetingTranslation.carryOver(from: live, to: final)
+        #expect(carried[0].speakerID == "s2" && carried[0].speakerName == "Mariel")
+        #expect(carried[1].speakerID == nil && carried[1].speakerName == nil)
+    }
+}

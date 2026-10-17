@@ -129,6 +129,13 @@ public actor MeetingSession {
         try await store.save(meeting)
     }
 
+    public func updateSpeakers(_ change: @Sendable (MeetingManifest) throws -> MeetingManifest) async throws {
+        guard let meeting = manifest, Self.acceptsNotes(meeting.state) else { throw MeetingSessionError.invalidState }
+        let updated = try change(meeting)
+        manifest = updated
+        try await store.save(updated)
+    }
+
     public func setShowEnglish(_ show: Bool) async throws {
         guard var meeting = manifest, Self.acceptsNotes(meeting.state) else { throw MeetingSessionError.invalidState }
         meeting.showEnglish = show
@@ -150,10 +157,9 @@ public actor MeetingSession {
         }
     }
 
-    public func saveGeneratedText(_ text: String, kind: MeetingTextKind) async throws {
+    public func saveGeneratedText(_ text: String, kind: MeetingTextKind, names: [String: String]? = nil) async throws {
         guard var meeting = manifest else { throw MeetingSessionError.invalidState }
-        if kind == .summary { meeting.summary = text }
-        else { meeting.actionItems = text }
+        meeting.setGeneratedText(text, kind: kind, names: names)
         manifest = meeting
         try await store.save(meeting)
     }
@@ -172,7 +178,7 @@ public actor MeetingSession {
         }
         chunks.removeAll { $0.record.id == result.record.id }
         chunks.append(result)
-        meeting.segments = MeetingTranscriptMerger.merge(chunks)
+        meeting.segments = MeetingTranslation.carryOver(from: meeting.segments, to: MeetingTranscriptMerger.merge(chunks))
         manifest = meeting
         try await store.save(meeting)
     }
@@ -202,7 +208,7 @@ public actor MeetingSession {
             )
         }
         chunks.append(result)
-        meeting.segments = MeetingTranscriptMerger.merge(chunks)
+        meeting.segments = MeetingTranslation.carryOver(from: meeting.segments, to: MeetingTranscriptMerger.merge(chunks))
         manifest = meeting
         try await store.save(meeting)
     }

@@ -63,13 +63,16 @@ public enum MeetingTranslation {
     public static func carryOver(from live: [MeetingSegment], to final: [MeetingSegment]) -> [MeetingSegment] {
         final.map { segment in
             let text = segment.text.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard segment.translation == nil,
-                  let match = live.first(where: {
-                      $0.translation != nil && $0.track == segment.track && abs($0.start - segment.start) <= 1
+            guard let match = live.first(where: {
+                      $0.track == segment.track && abs($0.start - segment.start) <= 1
                           && $0.text.trimmingCharacters(in: .whitespacesAndNewlines) == text
                   }) else { return segment }
             var carried = segment
-            carried.translation = match.translation
+            if carried.translation == nil { carried.translation = match.translation }
+            if carried.speakerID == nil {
+                carried.speakerID = match.speakerID
+                carried.speakerName = match.speakerName
+            }
             return carried
         }
     }

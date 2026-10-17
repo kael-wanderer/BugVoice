@@ -42,6 +42,7 @@ struct MeetingsPage: View {
             Divider()
             if let meeting = model.selectedMeeting {
                 MeetingDetails(model: model, meeting: meeting, player: player)
+                    .environment(model)
             } else {
                 ContentUnavailableView("No meeting selected", systemImage: "waveform.path", description: Text("Choose a meeting or start a recording."))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -385,7 +386,8 @@ private struct MeetingDetails: View {
     private var transcript: some View {
         let activeSegmentID = MeetingTimeline.activeSegment(at: player.currentTime, segments: meeting.segments, isPlaying: player.isPlaying)?.id
         return ScrollView {
-            LazyVStack(alignment: .leading, spacing: 3) {
+            // The speaker row sits outside the lazy stack, so its open edits survive scrolling.
+            VStack(alignment: .leading, spacing: 3) {
                 if let error = meeting.transcriptionError {
                     Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(.orange).padding(8)
                 }
@@ -402,17 +404,22 @@ private struct MeetingDetails: View {
                     }
                     .padding(.horizontal, 9)
                 }
+                MeetingSpeakersRow(meeting: meeting)
+                LazyVStack(alignment: .leading, spacing: 3) {
                 let segments = meeting.segments.sorted { $0.start < $1.start }
                 ForEach(Array(segments.enumerated()), id: \.element.id) { index, segment in
                     let active = activeSegmentID == segment.id
                     ForEach(marks(from: index == 0 ? -.infinity : segments[index - 1].start, to: segment.start)) { mark in
                         markRow(mark)
                     }
-                    Button { player.seek(to: MeetingTimeline.seekTime(for: segment)) } label: {
-                        HStack(alignment: .top, spacing: 12) {
-                            Text("\(clock(segment.start)) – \(clock(segment.end))")
-                                .font(.caption.monospacedDigit()).foregroundStyle(.secondary).frame(width: 108, alignment: .leading)
-                            Text(segment.speaker).font(.caption.weight(.semibold)).frame(width: 60, alignment: .leading)
+                    HStack(alignment: .top, spacing: 12) {
+                        Button { player.seek(to: MeetingTimeline.seekTime(for: segment)) } label: {
+                            Text(clock(segment.start))
+                                .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                                .frame(width: 50, alignment: .leading)
+                        }
+                        MeetingSpeakerLineMenu(meeting: meeting, segment: segment)
+                        Button { player.seek(to: MeetingTimeline.seekTime(for: segment)) } label: {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(segment.text).font(.body)
                                 if meeting.showEnglish, let english = segment.translation, !english.isEmpty {
@@ -420,17 +427,19 @@ private struct MeetingDetails: View {
                                 }
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
                         }
-                        .padding(.horizontal, 9).padding(.vertical, 7)
-                        .background(active ? Color.accentColor.opacity(0.16) : .clear, in: RoundedRectangle(cornerRadius: 6))
                     }
                     .buttonStyle(.plain)
+                    .padding(.horizontal, 8).padding(.vertical, 6)
+                    .background(active ? Color.accentColor.opacity(0.16) : .clear, in: RoundedRectangle(cornerRadius: 6))
                 }
                 ForEach(marks(from: segments.last?.start ?? -.infinity, to: .infinity)) { mark in
                     markRow(mark)
                 }
                 if meeting.segments.isEmpty {
                     ContentUnavailableView("No transcript yet", systemImage: "text.bubble", description: Text("Transcript lines appear as speech is processed."))
+                }
                 }
             }
         }
