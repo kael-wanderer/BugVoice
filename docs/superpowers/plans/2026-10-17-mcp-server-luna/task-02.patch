@@ -1,0 +1,727 @@
+From a844292917e0caadd81cb82f24d4a14846cac383 Mon Sep 17 00:00:00 2001
+From: kael-wanderer <cong.buithanh@gmail.com>
+Date: Sat, 17 Oct 2026 21:05:19 +0700
+Subject: [PATCH] feat(core): MCP results, agent settings and Ask search
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../UI/Scratchpad/AskAnswerView.swift         |   9 +-
+ Sources/VoiceCore/Ask/AskPipeline.swift       | 106 ++++++++---
+ Sources/VoiceCore/MCP/MCPActivity.swift       |  31 ++++
+ Sources/VoiceCore/MCP/MCPFormat.swift         | 165 ++++++++++++++++++
+ Sources/VoiceCore/Meeting.swift               |  13 +-
+ Sources/VoiceCore/Settings.swift              |  25 +++
+ Tests/VoiceCoreTests/AskPipelineTests.swift   |  30 ++++
+ Tests/VoiceCoreTests/MCPActivityTests.swift   |  13 ++
+ Tests/VoiceCoreTests/MCPFormatTests.swift     | 124 +++++++++++++
+ Tests/VoiceCoreTests/SettingsTests.swift      |   8 +
+ .../VoiceCoreTests/UploadManifestTests.swift  |  15 ++
+ 11 files changed, 502 insertions(+), 37 deletions(-)
+ create mode 100644 Sources/VoiceCore/MCP/MCPActivity.swift
+ create mode 100644 Sources/VoiceCore/MCP/MCPFormat.swift
+ create mode 100644 Tests/VoiceCoreTests/MCPActivityTests.swift
+ create mode 100644 Tests/VoiceCoreTests/MCPFormatTests.swift
+
+diff --git a/Sources/BugVoice/UI/Scratchpad/AskAnswerView.swift b/Sources/BugVoice/UI/Scratchpad/AskAnswerView.swift
+index 1152192..6862063 100644
+--- a/Sources/BugVoice/UI/Scratchpad/AskAnswerView.swift
++++ b/Sources/BugVoice/UI/Scratchpad/AskAnswerView.swift
+@@ -63,7 +63,7 @@ struct AskAnswerView: View {
+                             Text("Nothing about this in your notes or meetings.")
+                             Text("Searched: \(model.askScopeTitle(saved.scope)) · \(saved.counts.meetings) meetings, \(saved.counts.notes) notes, \(saved.counts.dictations) dictations")
+                                 .font(.caption).foregroundStyle(.secondary)
+-                        case .failed(let failure): Text(Self.failureText(failure)).foregroundStyle(.orange)
++                        case .failed(let failure): Text(failure.message).foregroundStyle(.orange)
+                         }
+                     }
+                 }
+@@ -168,13 +168,6 @@ struct AskAnswerView: View {
+         switch part { case .summary: "Summary"; case .actionItems: "Action items"; case .myNotes: "My notes"; default: "" }
+     }
+     static func clock(_ time: Double) -> String { String(format: "%02d:%02d", max(0, Int(time)) / 60, max(0, Int(time)) % 60) }
+-    static func failureText(_ failure: AskFailure) -> String {
+-        switch failure {
+-        case .model: "Ask could not reach the model. Try again."
+-        case .unreadable: "Ask could not read the model's answer. Try again."
+-        case .tooSlow: "Ask took too long. Try a smaller scope."
+-        }
+-    }
+ }
+ 
+ struct AskMeetingPicker: View {
+diff --git a/Sources/VoiceCore/Ask/AskPipeline.swift b/Sources/VoiceCore/Ask/AskPipeline.swift
+index 153980d..44b6d68 100644
+--- a/Sources/VoiceCore/Ask/AskPipeline.swift
++++ b/Sources/VoiceCore/Ask/AskPipeline.swift
+@@ -8,7 +8,17 @@ public enum AskStep: Equatable, Sendable {
+ 
+ public enum WordOnlyReason: Equatable, Sendable { case noModel, notAnswering }
+ 
+-public enum AskFailure: Error, Equatable, Sendable { case model, unreadable, tooSlow }
++public enum AskFailure: Error, Equatable, Sendable {
++    case model, unreadable, tooSlow
++
++    public var message: String {
++        switch self {
++        case .model: "Ask could not reach the model. Try again."
++        case .unreadable: "Ask could not read the model's answer. Try again."
++        case .tooSlow: "Ask took too long. Try a smaller scope."
++        }
++    }
++}
+ 
+ public enum AskOutcome: Equatable, Sendable {
+     case answered(AskResult, wordSearchOnly: WordOnlyReason?)
+@@ -69,6 +79,17 @@ public struct AskCorpus: Sendable {
+     }
+ }
+ 
++/// Passages found without a model call, best first.
++public struct AskSearchResult: Equatable, Sendable {
++    public var passages: [AskPassage]
++    public var wordSearchOnly: WordOnlyReason?
++
++    public init(passages: [AskPassage], wordSearchOnly: WordOnlyReason?) {
++        self.passages = passages
++        self.wordSearchOnly = wordSearchOnly
++    }
++}
++
+ /// One Ask run: understand, search, read, check.
+ public struct AskPipeline: Sendable {
+     public static let meaningFloor: Float = 0.3
+@@ -144,33 +165,11 @@ public struct AskPipeline: Sendable {
+         counts.inRange = dated.count
+         guard !dated.isEmpty else { return .nothingFound(wordSearchOnly: embedder == nil ? .noModel : nil) }
+ 
+-        let scores = AskRanking.wordScores(dated, terms: query.terms, people: query.people)
+-        let wordRanking = dated.filter { (scores[$0.id] ?? 0) > 0 }
+-            .sorted { scores[$0.id]! > scores[$1.id]! }
+-            .map(\.id)
+-        counts.wordHits = wordRanking.count
+-
+-        var rankings = [wordRanking]
+-        var wordOnly: WordOnlyReason?
+-        if let embedder {
+-            let covered = dated.filter { corpus.vectors[$0.id] != nil }.count
+-            if covered * 2 >= dated.count {
+-                if let meaning = try await meaningRanking(question: question, passages: dated, corpus: corpus, embedder: embedder) {
+-                    rankings.append(meaning)
+-                    counts.meaningHits = meaning.count
+-                } else {
+-                    wordOnly = .notAnswering
+-                }
+-            } else {
+-                wordOnly = .notAnswering
+-            }
+-        } else {
+-            wordOnly = .noModel
+-        }
+-
+-        try Task.checkCancellation()
+-        let byID = Dictionary(dated.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+-        var fused = AskRanking.fuse(rankings).compactMap { byID[$0] }
++        let ranked = try await rank(question: question, query: query, passages: dated, corpus: corpus)
++        counts.wordHits = ranked.wordHits
++        counts.meaningHits = ranked.meaningHits
++        let wordOnly = ranked.wordOnly
++        var fused = ranked.passages
+         // A question that names only a time ("recent meetings") matches no words: read that time's newest passages.
+         if fused.isEmpty, query.from != nil || query.to != nil {
+             fused = dated.sorted { $0.date > $1.date }
+@@ -219,6 +218,57 @@ public struct AskPipeline: Sendable {
+         return .answered(result, wordSearchOnly: wordOnly)
+     }
+ 
++    /// Word and meaning search without a model call: the question's own words, stop words removed.
++    public func search(query: String, corpus: AskCorpus, limit: Int) async throws -> AskSearchResult {
++        guard !corpus.passages.isEmpty else {
++            return AskSearchResult(passages: [], wordSearchOnly: embedder == nil ? .noModel : nil)
++        }
++        let ranked = try await rank(
++            question: query, query: AskQueryPrompt.fallback(question: query), passages: corpus.passages, corpus: corpus)
++        return AskSearchResult(passages: Array(ranked.passages.prefix(max(0, limit))), wordSearchOnly: ranked.wordOnly)
++    }
++
++    private struct Ranked {
++        var passages: [AskPassage]
++        var wordOnly: WordOnlyReason?
++        var wordHits: Int
++        var meaningHits: Int?
++    }
++
++    /// Word ranking, meaning ranking when at least half the passages have vectors, fused.
++    /// Shared by `run` and `search` so both rank the same way.
++    private func rank(question: String, query: AskQuery, passages: [AskPassage], corpus: AskCorpus) async throws -> Ranked {
++        let scores = AskRanking.wordScores(passages, terms: query.terms, people: query.people)
++        let wordRanking = passages.filter { (scores[$0.id] ?? 0) > 0 }
++            .sorted { scores[$0.id]! > scores[$1.id]! }
++            .map(\.id)
++
++        var rankings = [wordRanking]
++        var wordOnly: WordOnlyReason?
++        var meaningHits: Int?
++        if let embedder {
++            let covered = passages.filter { corpus.vectors[$0.id] != nil }.count
++            if covered * 2 >= passages.count {
++                if let meaning = try await meaningRanking(question: question, passages: passages, corpus: corpus, embedder: embedder) {
++                    rankings.append(meaning)
++                    meaningHits = meaning.count
++                } else {
++                    wordOnly = .notAnswering
++                }
++            } else {
++                wordOnly = .notAnswering
++            }
++        } else {
++            wordOnly = .noModel
++        }
++
++        try Task.checkCancellation()
++        let byID = Dictionary(passages.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
++        return Ranked(
++            passages: AskRanking.fuse(rankings).compactMap { byID[$0] }, wordOnly: wordOnly,
++            wordHits: wordRanking.count, meaningHits: meaningHits)
++    }
++
+     private func understand(question: String, history: [NoteChatTurn]) async throws -> AskQuery {
+         let request = AskQueryPrompt.request(question: question, history: history, today: now(), modelID: modelID)
+         do {
+diff --git a/Sources/VoiceCore/MCP/MCPActivity.swift b/Sources/VoiceCore/MCP/MCPActivity.swift
+new file mode 100644
+index 0000000..47b8ee3
+--- /dev/null
++++ b/Sources/VoiceCore/MCP/MCPActivity.swift
+@@ -0,0 +1,31 @@
++import Foundation
++
++/// One agent tool call for Settings › Agents. Never carries arguments or results.
++public struct MCPActivityEntry: Equatable, Sendable {
++    public var time: Date
++    public var client: String
++    public var tool: String
++    /// The error sentence; nil when the call succeeded.
++    public var error: String?
++
++    public init(time: Date, client: String, tool: String, error: String?) {
++        self.time = time
++        self.client = client
++        self.tool = tool
++        self.error = error
++    }
++}
++
++/// The last calls since launch, newest first. Kept in memory only.
++public struct MCPActivity: Sendable {
++    public static let limit = 20
++
++    public private(set) var entries: [MCPActivityEntry] = []
++
++    public init() {}
++
++    public mutating func record(_ e: MCPActivityEntry) {
++        entries.insert(e, at: 0)
++        if entries.count > Self.limit { entries.removeLast(entries.count - Self.limit) }
++    }
++}
+diff --git a/Sources/VoiceCore/MCP/MCPFormat.swift b/Sources/VoiceCore/MCP/MCPFormat.swift
+new file mode 100644
+index 0000000..a97c2b8
+--- /dev/null
++++ b/Sources/VoiceCore/MCP/MCPFormat.swift
+@@ -0,0 +1,165 @@
++import Foundation
++
++/// A tool error: one plain sentence for the agent.
++public struct MCPFailure: Error, Equatable, Sendable {
++    public var message: String
++
++    public init(_ message: String) {
++        self.message = message
++    }
++}
++
++/// Turns notes, meetings and Ask results into what tools return.
++public enum MCPFormat {
++    /// Transcript lines per `get_meeting` call.
++    public static let transcriptPage = 1500
++
++    /// ISO 8601 with the local offset.
++    public static func iso(_ date: Date) -> String {
++        let f = ISO8601DateFormatter()
++        f.formatOptions = [.withInternetDateTime]
++        f.timeZone = .current
++        return f.string(from: date)
++    }
++
++    /// Pretty JSON with sorted keys.
++    public static func json(_ value: JSONValue) -> String {
++        let encoder = JSONEncoder()
++        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
++        guard let data = try? encoder.encode(value) else { return "null" }
++        return String(decoding: data, as: UTF8.self)
++    }
++
++    // MARK: Notes
++
++    public static func note(title: String, folder: String?, tags: [String], modified: Date, body: String, unsaved: Bool) -> String {
++        var header = "Folder: \(folder ?? "Unfiled") · Tags: \(tags.isEmpty ? "none" : tags.joined(separator: ", ")) · Modified: \(iso(modified))"
++        if unsaved { header += " · Unsaved changes included." }
++        return "# \(title)\n\(header)\n\n\(body)"
++    }
++
++    // MARK: Meetings
++
++    /// Speaker labels in the order they first speak.
++    public static func people(_ m: MeetingManifest) -> [String] {
++        var seen: Set<String> = []
++        return ordered(m.segments).map(\.speaker).filter { seen.insert($0).inserted }
++    }
++
++    public static func meeting(_ m: MeetingManifest, folder: String?, parts: Set<MCPMeetingPart>, fromLine: Int) -> String {
++        var header = "Date: \(iso(m.startedAt)) · Duration: \(clock(m.duration))"
++        let names = people(m)
++        if !names.isEmpty { header += " · People: \(names.joined(separator: ", "))" }
++        header += " · Folder: \(folder ?? "Unfiled")"
++        var out = ["# \(m.title)", header]
++
++        let texts: [(MCPMeetingPart, String, String?, String)] = [
++            (.summary, "Summary", m.summary, "No summary yet."),
++            (.actionItems, "Action items", m.actionItems, "No action items yet."),
++            (.myNotes, "My notes", m.notes, "No notes."),
++        ]
++        for (part, title, text, empty) in texts where parts.contains(part) {
++            let trimmed = (text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
++            out += ["", "## \(title)", "", trimmed.isEmpty ? empty : trimmed]
++        }
++
++        if parts.contains(.transcript) {
++            out += ["", "## Transcript", ""]
++            let segments = ordered(m.segments)
++            let start = max(1, fromLine)
++            let page = segments.dropFirst(start - 1).prefix(transcriptPage)
++            if segments.isEmpty {
++                out.append("No transcript yet.")
++            } else if page.isEmpty {
++                out.append("No lines from \(start). The transcript has \(segments.count) lines.")
++            }
++            for s in page {
++                out.append("[\(clock(s.start))] \(s.speaker): \(s.text)")
++                if let t = s.translation, !t.isEmpty { out.append("    English: \(t)") }
++            }
++            let next = start + page.count
++            if next <= segments.count { out.append("More: call get_meeting with from_line \(next).") }
++        }
++        return out.joined(separator: "\n")
++    }
++
++    /// `m:ss` as in the app's transcript view; `h:mm:ss` from one hour.
++    static func clock(_ seconds: TimeInterval) -> String {
++        let whole = max(0, Int(seconds))
++        if whole >= 3_600 { return String(format: "%d:%02d:%02d", whole / 3_600, whole / 60 % 60, whole % 60) }
++        return String(format: "%d:%02d", whole / 60, whole % 60)
++    }
++
++    private static func ordered(_ segments: [MeetingSegment]) -> [MeetingSegment] {
++        segments.enumerated().sorted {
++            $0.element.start != $1.element.start ? $0.element.start < $1.element.start : $0.offset < $1.offset
++        }.map(\.element)
++    }
++
++    // MARK: Search and Ask
++
++    /// The id and kind an agent sees for one Ask source.
++    public static func item(_ source: AskSource, info: AskItemInfo?) -> (id: String, kind: String) {
++        switch source {
++        case .meeting(let id): (id.rawValue, info?.kind == .uploaded ? "upload" : "meeting")
++        case .note(let id): (id.rawValue, "note")
++        case .dictations: ("dictations", "dictation")
++        }
++    }
++
++    public static func searchResult(_ result: AskSearchResult, info: [AskSource: AskItemInfo]) -> JSONValue {
++        let passages: [JSONValue] = result.passages.map { p in
++            let item = item(p.source, info: info[p.source])
++            var o: [String: JSONValue] = [
++                "item_id": .string(item.id), "item_kind": .string(item.kind),
++                "title": .string(info[p.source]?.title ?? ""), "date": .string(iso(p.date)),
++                "text": .string(p.searchText),
++            ]
++            if let start = p.lines.first?.start { o["start"] = .number(start) }
++            if let end = p.lines.last?.end { o["end"] = .number(end) }
++            if p.part == .transcript, let speaker = p.lines.first?.speaker { o["speaker"] = .string(speaker) }
++            return .object(o)
++        }
++        var out: [String: JSONValue] = ["passages": .array(passages)]
++        if result.wordSearchOnly != nil { out["word_search_only"] = .bool(true) }
++        return .object(out)
++    }
++
++    public static func askResult(_ outcome: AskOutcome, meetings: Int, notes: Int, dictations: Int) -> Result<JSONValue, MCPFailure> {
++        switch outcome {
++        case .failed(let failure):
++            return .failure(MCPFailure(failure.message))
++        case .nothingFound(let wordOnly):
++            var out: [String: JSONValue] = ["nothing_found": .bool(true)]
++            if wordOnly != nil { out["word_search_only"] = .bool(true) }
++            return .success(.object(out))
++        case .answered(let result, let wordOnly):
++            let cards: [JSONValue] = result.cards.map { card in
++                let item = item(card.source, info: card.info)
++                let citations: [JSONValue] = card.citations.map { c in
++                    var o: [String: JSONValue] = ["quote": .string(c.lines.map(\.text).joined(separator: "\n"))]
++                    if let start = c.start { o["start"] = .number(start) }
++                    if let end = c.end { o["end"] = .number(end) }
++                    if c.part == .transcript, let speaker = c.lines.first?.speaker { o["speaker"] = .string(speaker) }
++                    return .object(o)
++                }
++                return .object([
++                    "item_id": .string(item.id), "item_kind": .string(item.kind),
++                    "title": .string(card.info.title), "date": .string(iso(card.info.date)),
++                    "people": .array(card.info.people.map { .string($0) }),
++                    "citations": .array(citations),
++                ])
++            }
++            var out: [String: JSONValue] = [
++                "answer": .string(result.answer),
++                "cards": .array(cards),
++                "searched": .object([
++                    "meetings": .number(Double(meetings)), "notes": .number(Double(notes)),
++                    "dictations": .number(Double(dictations)),
++                ]),
++            ]
++            if wordOnly != nil { out["word_search_only"] = .bool(true) }
++            return .success(.object(out))
++        }
++    }
++}
+diff --git a/Sources/VoiceCore/Meeting.swift b/Sources/VoiceCore/Meeting.swift
+index ebf6c96..d523040 100644
+--- a/Sources/VoiceCore/Meeting.swift
++++ b/Sources/VoiceCore/Meeting.swift
+@@ -355,6 +355,10 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
+     /// Saved voices refused with No in this meeting; they are not suggested here again.
+     public var declinedVoices: [String]
+     public var showEnglish: Bool
++    /// The upload job that made this meeting when an agent added it, so `get_job` finds it after a relaunch.
++    public var uploadJobID: UUID?
++    /// MCP client name of the agent that uploaded this file.
++    public var addedBy: String?
+ 
+     public init(
+         schemaVersion: Int = MeetingManifest.currentSchemaVersion,
+@@ -388,7 +392,9 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
+         speakers: [MeetingSpeaker] = [],
+         speakerSplit: SpeakerSplitState = .none,
+         speakerNamesAtSummary: [String: String]? = nil,
+-        declinedVoices: [String] = []
++        declinedVoices: [String] = [],
++        uploadJobID: UUID? = nil,
++        addedBy: String? = nil
+     ) {
+         self.schemaVersion = schemaVersion
+         self.id = id
+@@ -422,6 +428,8 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
+         self.speakerSplit = speakerSplit
+         self.speakerNamesAtSummary = speakerNamesAtSummary
+         self.declinedVoices = declinedVoices
++        self.uploadJobID = uploadJobID
++        self.addedBy = addedBy
+     }
+ 
+     private enum CodingKeys: String, CodingKey {
+@@ -430,6 +438,7 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
+         case transcriptionError, summary, actionItems, source, sourceFileName, importedAt, folderID, tags, suggestedTags, languages
+         case speakers, speakerSplit, speakerNamesAtSummary, declinedVoices
+         case notes, liveSummary, liveSummaryUpdatedAt, liveSummaryCutoff, detectedApp, showEnglish
++        case uploadJobID, addedBy
+     }
+ 
+     public init(from decoder: Decoder) throws {
+@@ -466,6 +475,8 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
+         speakerNamesAtSummary = try c.decodeIfPresent([String: String].self, forKey: .speakerNamesAtSummary)
+         declinedVoices = try c.decodeIfPresent([String].self, forKey: .declinedVoices) ?? []
+         showEnglish = try c.decodeIfPresent(Bool.self, forKey: .showEnglish) ?? true
++        uploadJobID = try? c.decodeIfPresent(UUID.self, forKey: .uploadJobID)
++        addedBy = try? c.decodeIfPresent(String.self, forKey: .addedBy)
+     }
+ 
+     /// `names` are the speaker names the text was generated with; nil means the current ones.
+diff --git a/Sources/VoiceCore/Settings.swift b/Sources/VoiceCore/Settings.swift
+index d9d8417..15227ec 100644
+--- a/Sources/VoiceCore/Settings.swift
++++ b/Sources/VoiceCore/Settings.swift
+@@ -246,6 +246,29 @@ extension ScratchpadSettings {
+     }
+ }
+ 
++/// Settings › Agents: the MCP server and what connected agents may change.
++public struct AgentSettings: Codable, Equatable, Sendable {
++    public var mcpEnabled = false
++    public var allowNoteEdits = true
++    public var allowUploads = true
++
++    public init(mcpEnabled: Bool = false, allowNoteEdits: Bool = true, allowUploads: Bool = true) {
++        self.mcpEnabled = mcpEnabled
++        self.allowNoteEdits = allowNoteEdits
++        self.allowUploads = allowUploads
++    }
++}
++
++extension AgentSettings {
++    public init(from decoder: Decoder) throws {
++        self.init()
++        let c = try decoder.container(keyedBy: CodingKeys.self)
++        mcpEnabled = c.value(.mcpEnabled, default: mcpEnabled)
++        allowNoteEdits = c.value(.allowNoteEdits, default: allowNoteEdits)
++        allowUploads = c.value(.allowUploads, default: allowUploads)
++    }
++}
++
+ public struct AppSettings: Codable, Equatable, Sendable {
+     public var hotkey: HotkeyKey = .rightOption
+     public var handsFreeEnabled = true
+@@ -262,6 +285,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
+     public var styles = StyleSettings()
+     public var library = LibrarySettings()
+     public var scratchpad = ScratchpadSettings()
++    public var agents = AgentSettings()
+ 
+     public init() {}
+ }
+@@ -354,5 +378,6 @@ extension AppSettings {
+         styles = c.value(.styles, default: styles)
+         library = c.value(.library, default: library)
+         scratchpad = c.value(.scratchpad, default: scratchpad)
++        agents = c.value(.agents, default: agents)
+     }
+ }
+diff --git a/Tests/VoiceCoreTests/AskPipelineTests.swift b/Tests/VoiceCoreTests/AskPipelineTests.swift
+index 186cb1d..304e79e 100644
+--- a/Tests/VoiceCoreTests/AskPipelineTests.swift
++++ b/Tests/VoiceCoreTests/AskPipelineTests.swift
+@@ -296,4 +296,34 @@ struct AskPipelineTests {
+         task.cancel()
+         await #expect(throws: CancellationError.self) { try await task.value }
+     }
++
++    @Test func searchNeedsNoModelCall() async throws {
++        let model = StubModel()
++        let ps = [passage(1, "beta only"), passage(2, "alpha alpha bot"), passage(3, "alpha one")]
++        let result = try await pipeline(model).search(query: "the alpha bot", corpus: corpus(ps), limit: 10)
++        #expect(model.requests.isEmpty)
++        #expect(result.passages.map(\.id) == [ps[1].id, ps[2].id])
++        #expect(result.wordSearchOnly == .noModel)
++    }
++
++    @Test func searchRespectsLimit() async throws {
++        let ps = (1...5).map { passage($0, "alpha \($0)") }
++        let result = try await pipeline(StubModel()).search(query: "alpha", corpus: corpus(ps), limit: 2)
++        #expect(result.passages.count == 2)
++    }
++
++    @Test func searchWordOnlyWithoutEmbedder() async throws {
++        let result = try await pipeline(StubModel()).search(query: "alpha", corpus: corpus([passage(1, "alpha")]), limit: 5)
++        #expect(result.wordSearchOnly == .noModel)
++    }
++
++    @Test func searchUsesMeaningRanking() async throws {
++        let ps = [passage(1, "alpha one"), passage(2, "unrelated words")]
++        let vectors = [ps[0].id: [Float(1), 0], ps[1].id: [Float(0.9), 0.1]]
++        let result = try await pipeline(StubModel(), embedder: StubEmbedder()).search(
++            query: "alpha", corpus: corpus(ps, vectors: vectors), limit: 5)
++        #expect(result.wordSearchOnly == nil)
++        #expect(Set(result.passages.map(\.id)) == Set(ps.map(\.id)))
++        #expect(result.passages.first?.id == ps[0].id)
++    }
+ }
+diff --git a/Tests/VoiceCoreTests/MCPActivityTests.swift b/Tests/VoiceCoreTests/MCPActivityTests.swift
+new file mode 100644
+index 0000000..0c65440
+--- /dev/null
++++ b/Tests/VoiceCoreTests/MCPActivityTests.swift
+@@ -0,0 +1,13 @@
++import Foundation
++import Testing
++@testable import VoiceCore
++
++struct MCPActivityTests {
++    @Test func activityKeepsNewestTwenty() {
++        var a = MCPActivity()
++        for i in 0..<25 { a.record(.init(time: Date(timeIntervalSince1970: Double(i)), client: "c", tool: "ask", error: nil)) }
++        #expect(a.entries.count == 20)
++        #expect(a.entries.first?.time == Date(timeIntervalSince1970: 24))
++        #expect(a.entries.last?.time == Date(timeIntervalSince1970: 5))
++    }
++}
+diff --git a/Tests/VoiceCoreTests/MCPFormatTests.swift b/Tests/VoiceCoreTests/MCPFormatTests.swift
+new file mode 100644
+index 0000000..c7d3528
+--- /dev/null
++++ b/Tests/VoiceCoreTests/MCPFormatTests.swift
+@@ -0,0 +1,124 @@
++import Foundation
++import Testing
++@testable import VoiceCore
++
++struct MCPFormatTests {
++    private func meeting(segments: Int) -> MeetingManifest {
++        MeetingManifest(
++            title: "Standup", startedAt: Date(timeIntervalSince1970: 0), state: .ready,
++            segments: (0..<segments).map { MeetingSegment(id: "s\($0)", start: Double($0), end: Double($0) + 1, text: "line \($0)", track: .mic) })
++    }
++
++    @Test func meetingTranscriptPagesAt1500() {
++        let m = meeting(segments: 1600)
++        let first = MCPFormat.meeting(m, folder: nil, parts: [.transcript], fromLine: 1)
++        let lines = first.components(separatedBy: "\n")
++        #expect(lines.contains("[0:00] You: line 0"))
++        #expect(lines.filter { $0.hasPrefix("[") }.count == 1500)
++        #expect(lines.last == "More: call get_meeting with from_line 1501.")
++        let second = MCPFormat.meeting(m, folder: nil, parts: [.transcript], fromLine: 1501)
++        let rest = second.components(separatedBy: "\n")
++        #expect(rest.filter { $0.hasPrefix("[") }.count == 100)
++        #expect(rest.contains("[25:00] You: line 1500"))
++        #expect(!second.contains("More:"))
++    }
++
++    @Test func meetingLineFormat() {
++        var m = meeting(segments: 0)
++        m.segments = [
++            MeetingSegment(id: "a", start: 83, end: 85, text: "hi", track: .file, translation: "chào", speakerName: "Luna"),
++            MeetingSegment(id: "b", start: 3_725, end: 3_726, text: "bye", track: .file, translation: "", speakerName: "Luna"),
++        ]
++        let text = MCPFormat.meeting(m, folder: "Work", parts: [.transcript], fromLine: 1)
++        let lines = text.components(separatedBy: "\n")
++        let i = try? #require(lines.firstIndex(of: "[1:23] Luna: hi"))
++        #expect(i.map { lines[$0 + 1] } == "    English: chào")
++        #expect(lines.contains("[1:02:05] Luna: bye"))
++        #expect(!lines.contains("    English: "))
++        #expect(text.hasPrefix("# Standup\n"))
++        #expect(text.contains("Folder: Work"))
++        #expect(text.contains("People: Luna"))
++    }
++
++    @Test func meetingSectionsFollowParts() {
++        var m = meeting(segments: 1)
++        m.summary = "Sum."
++        m.actionItems = "- Do"
++        m.notes = "Mine"
++        let all = MCPFormat.meeting(m, folder: nil, parts: Set(MCPMeetingPart.allCases), fromLine: 1)
++        #expect(all.contains("## Summary\n\nSum."))
++        #expect(all.contains("## Action items\n\n- Do"))
++        #expect(all.contains("## My notes\n\nMine"))
++        #expect(all.contains("## Transcript"))
++        let some = MCPFormat.meeting(m, folder: nil, parts: [.summary], fromLine: 1)
++        #expect(!some.contains("## Transcript") && !some.contains("## My notes"))
++    }
++
++    @Test func peopleInFirstAppearanceOrder() {
++        var m = meeting(segments: 0)
++        m.segments = [
++            MeetingSegment(start: 5, end: 6, text: "x", track: .system),
++            MeetingSegment(start: 1, end: 2, text: "y", track: .mic),
++            MeetingSegment(start: 3, end: 4, text: "z", track: .system),
++        ]
++        #expect(MCPFormat.people(m) == ["You", "Others"])
++    }
++
++    @Test func noteMarksUnsaved() {
++        #expect(MCPFormat.note(title: "T", folder: nil, tags: [], modified: .init(timeIntervalSince1970: 0), body: "b", unsaved: true).contains("Unsaved changes included."))
++        let saved = MCPFormat.note(title: "T", folder: "Work", tags: ["a", "b"], modified: .init(timeIntervalSince1970: 0), body: "body", unsaved: false)
++        #expect(saved.hasPrefix("# T\nFolder: Work · Tags: a, b · Modified: "))
++        #expect(saved.hasSuffix("\n\nbody"))
++        #expect(!saved.contains("Unsaved"))
++    }
++
++    @Test func isoDatesCarryOffset() {
++        let s = MCPFormat.iso(Date(timeIntervalSince1970: 0))
++        #expect(s.count >= 20)
++        #expect(ISO8601DateFormatter().date(from: s) == Date(timeIntervalSince1970: 0))
++    }
++
++    @Test func askResultShapes() throws {
++        let line = AskLine(id: "s1", start: 10, end: 12, speaker: "Luna", text: "We ship Friday.")
++        let citation = AskCitation(id: "c1", part: .transcript, lines: [line])
++        let info = AskItemInfo(title: "Standup", kind: .meeting, date: Date(timeIntervalSince1970: 0), people: ["Luna"])
++        let card = AskCard(source: .meeting(MeetingID(rawValue: "m1")), info: info, citations: [citation])
++        let answered = try MCPFormat.askResult(
++            .answered(AskResult(answer: "Friday.", cards: [card]), wordSearchOnly: nil), meetings: 3, notes: 2, dictations: 1).get()
++        #expect(answered["answer"] == .string("Friday."))
++        let c0 = answered["cards"]?.arrayValue?.first
++        #expect(c0?["item_id"] == .string("m1"))
++        #expect(c0?["item_kind"] == .string("meeting"))
++        #expect(c0?["people"] == .array([.string("Luna")]))
++        let q = c0?["citations"]?.arrayValue?.first
++        #expect(q?["quote"] == .string("We ship Friday."))
++        #expect(q?["start"] == .number(10))
++        #expect(q?["speaker"] == .string("Luna"))
++        #expect(answered["searched"]?["meetings"] == .number(3))
++        #expect(answered["word_search_only"] == nil)
++
++        let nothing = try MCPFormat.askResult(.nothingFound(wordSearchOnly: .noModel), meetings: 0, notes: 0, dictations: 0).get()
++        #expect(nothing == .object(["nothing_found": .bool(true), "word_search_only": .bool(true)]))
++
++        #expect(MCPFormat.askResult(.failed(.tooSlow), meetings: 0, notes: 0, dictations: 0) == .failure(MCPFailure("Ask took too long. Try a smaller scope.")))
++    }
++
++    @Test func searchResultShape() {
++        let p = AskPassage(
++            source: .note(NoteID(rawValue: "n1")), part: .note, index: 0, date: Date(timeIntervalSince1970: 0),
++            lines: [AskLine(id: "b0.0", text: "alpha")])
++        let info: [AskSource: AskItemInfo] = [.note(NoteID(rawValue: "n1")): AskItemInfo(title: "N", kind: .note, date: .init(timeIntervalSince1970: 0))]
++        let v = MCPFormat.searchResult(AskSearchResult(passages: [p], wordSearchOnly: .noModel), info: info)
++        let first = v["passages"]?.arrayValue?.first
++        #expect(first?["item_id"] == .string("n1"))
++        #expect(first?["item_kind"] == .string("note"))
++        #expect(first?["title"] == .string("N"))
++        #expect(first?["text"] == .string("alpha"))
++        #expect(first?["start"] == nil)
++        #expect(v["word_search_only"] == .bool(true))
++    }
++
++    @Test func jsonIsPrettyAndSorted() {
++        #expect(MCPFormat.json(.object(["b": .number(1), "a": .string("x")])) == "{\n  \"a\" : \"x\",\n  \"b\" : 1\n}")
++    }
++}
+diff --git a/Tests/VoiceCoreTests/SettingsTests.swift b/Tests/VoiceCoreTests/SettingsTests.swift
+index c81173e..8784420 100644
+--- a/Tests/VoiceCoreTests/SettingsTests.swift
++++ b/Tests/VoiceCoreTests/SettingsTests.swift
+@@ -149,4 +149,12 @@ struct SettingsTests {
+         changed.microphoneUID = "device-uid"
+         #expect(SpeechTranscriberConfiguration(settings: changed, speechAPIKeyGeneration: 0) == initial)
+     }
++
++    @Test func agentSettingsDefaultsAndTolerantDecode() throws {
++        #expect(AppSettings().agents == AgentSettings(mcpEnabled: false, allowNoteEdits: true, allowUploads: true))
++        let s = try JSONDecoder().decode(AppSettings.self, from: Data(#"{"agents":{"mcpEnabled":true}}"#.utf8))
++        #expect(s.agents.mcpEnabled && s.agents.allowUploads && s.agents.allowNoteEdits)
++        let bad = try JSONDecoder().decode(AppSettings.self, from: Data(#"{"agents":{"mcpEnabled":"yes","allowUploads":false}}"#.utf8))
++        #expect(bad.agents == AgentSettings(mcpEnabled: false, allowNoteEdits: true, allowUploads: false))
++    }
+ }
+diff --git a/Tests/VoiceCoreTests/UploadManifestTests.swift b/Tests/VoiceCoreTests/UploadManifestTests.swift
+index d752d68..696b949 100644
+--- a/Tests/VoiceCoreTests/UploadManifestTests.swift
++++ b/Tests/VoiceCoreTests/UploadManifestTests.swift
+@@ -61,4 +61,19 @@ struct UploadManifestTests {
+         meeting.importedAt = now
+         #expect(MeetingRetention.expired(meeting, policy: .days30, now: now))
+     }
++
++    @Test func manifestKeepsUploadJobFields() throws {
++        var meeting = MeetingManifest(startedAt: Date(timeIntervalSince1970: 10), source: .upload)
++        meeting.uploadJobID = UUID()
++        meeting.addedBy = "claude-code"
++        let decoded = try JSONDecoder().decode(MeetingManifest.self, from: JSONEncoder().encode(meeting))
++        #expect(decoded == meeting)
++
++        let old = MeetingManifest(startedAt: Date(timeIntervalSince1970: 10))
++        let data = try JSONEncoder().encode(old)
++        let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
++        #expect(object["uploadJobID"] == nil && object["addedBy"] == nil)
++        let legacy = try JSONDecoder().decode(MeetingManifest.self, from: data)
++        #expect(legacy.uploadJobID == nil && legacy.addedBy == nil)
++    }
+ }

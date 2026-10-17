@@ -1,0 +1,755 @@
+From 54787b11727a3465fd525b0faff9cbf9ff10dafb Mon Sep 17 00:00:00 2001
+From: kael-wanderer <cong.buithanh@gmail.com>
+Date: Sat, 17 Oct 2026 21:21:58 +0700
+Subject: [PATCH] feat(app): MCP note writing and uploads
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ Sources/BugVoice/MCPService.swift             | 128 ++++++++++++++++-
+ Sources/BugVoice/UI/UploadPage.swift          |   9 +-
+ Sources/BugVoice/UploadController.swift       | 135 +++++++++++++++++-
+ Sources/VoiceCore/AppPaths.swift              |   5 +
+ Sources/VoiceCore/MCP/AgentUploadStore.swift  | 133 +++++++++++++++++
+ Sources/VoiceCore/UploadQueue.swift           |  10 +-
+ .../AgentUploadStoreTests.swift               | 107 ++++++++++++++
+ Tests/VoiceCoreTests/UploadQueueTests.swift   |  15 ++
+ 8 files changed, 529 insertions(+), 13 deletions(-)
+ create mode 100644 Sources/VoiceCore/MCP/AgentUploadStore.swift
+ create mode 100644 Tests/VoiceCoreTests/AgentUploadStoreTests.swift
+
+diff --git a/Sources/BugVoice/MCPService.swift b/Sources/BugVoice/MCPService.swift
+index 9af4a4b..2477eab 100644
+--- a/Sources/BugVoice/MCPService.swift
++++ b/Sources/BugVoice/MCPService.swift
+@@ -1,3 +1,4 @@
++import BugVoiceMac
+ import Foundation
+ import MCPKit
+ import Observation
+@@ -18,6 +19,8 @@ final class MCPService {
+     static let summaryFailed = "Could not write the summary. Try again."
+     static let summaryTooSlow = "Writing the summary took longer than 5 minutes. Try again."
+     static let otherInstance = "another BugVoice is answering agents."
++    static let editsOff = "Creating and editing notes is turned off in BugVoice Settings › Agents."
++    static let uploadsOff = "Uploading is turned off in BugVoice Settings › Agents."
+ 
+     private(set) var activity = MCPActivity()
+     /// "Listening", "Not started" or "Could not start: <reason>".
+@@ -71,7 +74,7 @@ final class MCPService {
+             // The socket is a trust boundary too: check again what the bridge checked.
+             switch MCPTools.check(r.tool, r.arguments) {
+             case .failure(let error): result = .failure(MCPFailure(error.message))
+-            case .success(let call): result = await run(call).map { MCPFormat.fitted($0, for: call) }
++            case .success(let call): result = await run(call, client: r.client).map { MCPFormat.fitted($0, for: call) }
+             }
+         }
+         let error: String? = if case .failure(let failure) = result { failure.message } else { nil }
+@@ -86,7 +89,7 @@ final class MCPService {
+         }
+     }
+ 
+-    private func run(_ call: MCPCall) async -> Result<String, MCPFailure> {
++    private func run(_ call: MCPCall, client: String) async -> Result<String, MCPFailure> {
+         switch call {
+         case .listFolders:
+             return .success(listFolders())
+@@ -119,8 +122,17 @@ final class MCPService {
+             let result = await summarize(MeetingID(rawValue: id), kind: kind, replace: replace)
+             await modelGate.leave()
+             return result
+-        case .createNote, .editNote, .uploadAudio, .getJob:
+-            return .failure(MCPFailure("Not available yet."))
++        case .createNote(let title, let body, let folder, let tags):
++            guard model.settings.agents.allowNoteEdits else { return .failure(MCPFailure(Self.editsOff)) }
++            return await createNote(title: title, body: body, folder: folder, tags: tags)
++        case .editNote(let id, let body, let mode, let title, let folder, let tags):
++            guard model.settings.agents.allowNoteEdits else { return .failure(MCPFailure(Self.editsOff)) }
++            return await editNote(NoteID(rawValue: id), body: body, mode: mode, title: title, folder: folder, tags: tags)
++        case .uploadAudio(let path, let title, let folder, let tags):
++            guard model.settings.agents.allowUploads else { return .failure(MCPFailure(Self.uploadsOff)) }
++            return await upload(path: path, title: title, folder: folder, tags: tags, client: client)
++        case .getJob(let jobID):
++            return getJob(jobID)
+         }
+     }
+ 
+@@ -146,6 +158,19 @@ final class MCPService {
+         return MCPFormat.json(.array(rows))
+     }
+ 
++    /// A folder argument: nil when absent, otherwise resolved or an error.
++    private func folderID(_ folder: String?) -> Result<FolderID?, MCPFailure> {
++        guard let folder else { return .success(nil) }
++        return MCPResolve.folder(folder, in: folders).map { $0 }
++    }
++
++    /// Normalized as the tag field does; invalid and extra tags are dropped.
++    private static func labels(folderID: FolderID?, tags: [String]) -> ItemLabels {
++        var labels = ItemLabels(folderID: folderID)
++        for tag in tags { labels.addTag(tag) }
++        return labels
++    }
++
+     private static func matchesTag(_ tags: [String], _ tag: String?) -> Bool {
+         guard let tag else { return true }
+         guard let wanted = TagName.normalize(tag) else { return false }
+@@ -201,6 +226,101 @@ final class MCPService {
+             modified: note.modifiedAt, body: note.body, unsaved: false))
+     }
+ 
++    private func createNote(title: String, body: String, folder: String?, tags: [String]) async -> Result<String, MCPFailure> {
++        let folderID: FolderID?
++        switch self.folderID(folder) {
++        case .success(let id): folderID = id
++        case .failure(let failure): return .failure(failure)
++        }
++        let labels = Self.labels(folderID: folderID, tags: tags)
++        do {
++            let note = try await model.notesController.createForAgent(
++                title: title, body: body, frontMatter: NoteFrontMatter(folderID: labels.folderID, tags: labels.tags))
++            return .success(MCPFormat.json(.object(["id": .string(note.id.rawValue), "title": .string(note.title)])))
++        } catch {
++            return .failure(MCPFailure("Could not create the note: \(error.localizedDescription)"))
++        }
++    }
++
++    private func editNote(
++        _ id: NoteID, body: String, mode: MCPEditMode, title: String?, folder: String?, tags: [String]?
++    ) async -> Result<String, MCPFailure> {
++        let controller = model.notesController
++        guard let current = controller.note(id: id) ?? controller.notes.first(where: { $0.id == id }) else {
++            return .failure(MCPFailure("No note with id \(id.rawValue)."))
++        }
++        var labels: (folderID: FolderID?, tags: [String])?
++        if folder != nil || tags != nil {
++            var folderID = current.frontMatter.folderID
++            if folder != nil {
++                switch self.folderID(folder) {
++                case .success(let id): folderID = id
++                case .failure(let failure): return .failure(failure)
++                }
++            }
++            let resolved = Self.labels(folderID: folderID, tags: tags ?? current.frontMatter.tags)
++            labels = (folderID: resolved.folderID, tags: resolved.tags)
++        }
++        do {
++            let note = try await controller.agentEdit(id: id, body: body, append: mode == .append, title: title, labels: labels)
++            return .success(MCPFormat.json(.object([
++                "id": .string(note.id.rawValue), "modified": .string(MCPFormat.iso(note.modifiedAt)),
++            ])))
++        } catch let refusal as AgentEditRefusal {
++            return .failure(MCPFailure(refusal.message))
++        } catch NotesStoreError.missing {
++            return .failure(MCPFailure("No note with id \(id.rawValue)."))
++        } catch {
++            return .failure(MCPFailure("Could not save the note. Try again."))
++        }
++    }
++
++    // MARK: Uploads
++
++    private func upload(path: String, title: String?, folder: String?, tags: [String], client: String) async -> Result<String, MCPFailure> {
++        let url = URL(fileURLWithPath: path)
++        var isDirectory: ObjCBool = false
++        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory), !isDirectory.boolValue,
++              FileManager.default.isReadableFile(atPath: url.path)
++        else { return .failure(MCPFailure("File not found: \(path).")) }
++        let ext = url.pathExtension.lowercased()
++        guard MCPTools.uploadExtensions.contains(ext) else { return .failure(MCPFailure(MCPTools.unsupportedType(ext))) }
++        let folderID: FolderID?
++        switch self.folderID(folder) {
++        case .success(let id): folderID = id
++        case .failure(let failure): return .failure(failure)
++        }
++        guard let uploads = model.uploads else { return .failure(MCPFailure(UploadController.AgentUploadError.notReady.localizedDescription)) }
++        let trimmed = title?.trimmingCharacters(in: .whitespacesAndNewlines)
++        do {
++            let id = try await uploads.submitForAgent(
++                url: url, title: trimmed?.isEmpty == false ? trimmed : nil,
++                labels: Self.labels(folderID: folderID, tags: tags), client: client)
++            return .success(MCPFormat.json(.object(["job_id": .string(id.uuidString)])))
++        } catch {
++            return .failure(MCPFailure(error.localizedDescription))
++        }
++    }
++
++    private func getJob(_ jobID: String) -> Result<String, MCPFailure> {
++        guard let id = UUID(uuidString: jobID), let job = model.uploads?.jobStatus(id: id) else {
++            return .failure(MCPFailure("No upload job with id \(jobID)."))
++        }
++        let state: String = switch job.state {
++        case .queued: "queued"
++        case .reading: "reading"
++        case .transcribing: "transcribing"
++        case .ready: job.meetingID.map { model.speakerTasks[$0] != nil } == true ? "finding_speakers" : "ready"
++        case .failed: "failed"
++        case .cancelled: "cancelled"
++        }
++        var out: [String: JSONValue] = ["state": .string(state)]
++        if let progress = job.progress, !job.state.isTerminal { out["progress"] = .number(progress) }
++        if let meetingID = job.meetingID, job.state == .ready { out["meeting_id"] = .string(meetingID.rawValue) }
++        if job.state == .failed { out["error"] = .string(job.errorMessage ?? UploadFailure.unreadable.localizedDescription) }
++        return .success(MCPFormat.json(.object(out)))
++    }
++
+     // MARK: Meetings
+ 
+     private func listMeetings(
+diff --git a/Sources/BugVoice/UI/UploadPage.swift b/Sources/BugVoice/UI/UploadPage.swift
+index a8b2512..cfed237 100644
+--- a/Sources/BugVoice/UI/UploadPage.swift
++++ b/Sources/BugVoice/UI/UploadPage.swift
+@@ -217,7 +217,7 @@ struct UploadPage: View {
+         .disabled(model.uploads?.accepting != true)
+     }
+ 
+-    private func metadataCard(name: String, kind: UploadMediaKind, duration: Double, bytes: Int64)
++    private func metadataCard(name: String, kind: UploadMediaKind, duration: Double, bytes: Int64, addedBy: String? = nil)
+         -> some View
+     {
+         HStack(spacing: 14) {
+@@ -225,6 +225,7 @@ struct UploadPage: View {
+                 .font(.title2).foregroundStyle(.tint)
+             VStack(alignment: .leading, spacing: 4) {
+                 Text(name).fontWeight(.medium).lineLimit(2)
++                if let addedBy { Text("Added by \(addedBy)").font(.caption).foregroundStyle(.secondary) }
+                 Text(
+                     "\(kind.rawValue) · \(clock(duration)) · \(ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file))"
+                 )
+@@ -253,6 +254,9 @@ struct UploadPage: View {
+             .font(.headline)
+             Text(job.fileName + (job.progress.map { " · \(Int($0 * 100))%" } ?? ""))
+                 .font(.caption).foregroundStyle(.secondary)
++            if let addedBy = job.addedBy {
++                Text("Added by \(addedBy)").font(.caption).foregroundStyle(.secondary)
++            }
+             HStack(spacing: 16) {
+                 Text("1 Reading file").foregroundStyle(job.state == .reading ? .primary : .secondary)
+                 Text("2 Transcribing locally").foregroundStyle(
+@@ -282,7 +286,8 @@ struct UploadPage: View {
+         } else {
+             VStack(alignment: .leading, spacing: 8) {
+                 metadataCard(
+-                    name: job.fileName, kind: job.kind, duration: job.duration, bytes: job.byteSize)
++                    name: job.fileName, kind: job.kind, duration: job.duration, bytes: job.byteSize,
++                    addedBy: job.addedBy)
+                 HStack {
+                     switch job.state {
+                     case .queued:
+diff --git a/Sources/BugVoice/UploadController.swift b/Sources/BugVoice/UploadController.swift
+index a16a8e1..c578166 100644
+--- a/Sources/BugVoice/UploadController.swift
++++ b/Sources/BugVoice/UploadController.swift
+@@ -13,10 +13,20 @@ final class UploadController {
+         let metadata: UploadMediaMetadata
+         let scoped: Bool
+         var labels = ItemLabels()
++        /// Set for files an agent added: the meeting title and the agent's name.
++        var title: String?
++        var addedBy: String?
++    }
++
++    enum AgentUploadError: LocalizedError {
++        case notReady
++        var errorDescription: String? { "BugVoice is still starting. Try again in a moment." }
+     }
+ 
+     private unowned let model: AppModel
+-    private(set) var queue = UploadQueue()
++    private(set) var queue = UploadQueue() {
++        didSet { saveAgentUploads() }
++    }
+     private(set) var drafts: [Draft] = []
+     private(set) var draftError: String?
+     private(set) var errorFileName: String?
+@@ -33,6 +43,9 @@ final class UploadController {
+     @ObservationIgnored private var activeID: UUID?
+     @ObservationIgnored private var activeDirectory: URL?
+     @ObservationIgnored private var progressMonitor: Task<Void, Never>?
++    /// Agent jobs, mirrored to `MCP/agent-uploads.json` on every state change.
++    @ObservationIgnored private var agentUploads: [AgentUploadEntry] = []
++    @ObservationIgnored private lazy var agentUploadStore = AgentUploadStore(url: model.paths.agentUploads)
+     private var stopping = false
+     private var selectionVersion = 0
+ 
+@@ -124,12 +137,120 @@ final class UploadController {
+         queue.clearFinished()
+     }
+ 
++    /// Queues a file for an agent as Transcribe does, without touching the
++    /// owner's drafts. The meeting saved for it keeps the job id, so the job
++    /// is found again after a relaunch. The original file is only read.
++    func submitForAgent(url: URL, title: String?, labels: ItemLabels, client: String) async throws -> UUID {
++        guard accepting else { throw AgentUploadError.notReady }
++        let metadata = try await Task.detached(priority: .utility) {
++            try await MediaAudioDecoder.probe(url)
++        }.value
++        guard accepting else { throw AgentUploadError.notReady }
++        var draft = Draft(url: url, metadata: metadata, scoped: false, labels: labels)
++        draft.title = title
++        draft.addedBy = client
++        let job = UploadJob(
++            fileName: metadata.fileName, kind: metadata.kind, duration: metadata.duration,
++            byteSize: metadata.byteSize, addedBy: client)
++        inputs[job.id] = draft
++        agentUploads.append(AgentUploadEntry(
++            id: job.id, path: url.path, title: title, folderID: labels.folderID, tags: labels.tags,
++            client: client, updatedAt: Date()))
++        saveAgentUploads(force: true)
++        queue.append([job])
++        pump()
++        return job.id
++    }
++
++    /// An upload job by id: the queue first, then the saved agent jobs, then
++    /// saved meetings, which keep an agent job's id across relaunches.
++    func jobStatus(id: UUID) -> UploadJob? {
++        if let job = queue.jobs.first(where: { $0.id == id }) { return job }
++        if let entry = agentUploads.first(where: { $0.id == id }),
++            entry.state != .transcribing || !model.meetingManifests.contains(where: { $0.uploadJobID == id })
++        {
++            return entry.job
++        }
++        guard let meeting = model.meetingManifests.first(where: { $0.uploadJobID == id }) else { return nil }
++        var job = UploadJob(
++            id: id, fileName: meeting.sourceFileName ?? meeting.title, kind: .audio, duration: meeting.duration,
++            byteSize: 0, addedBy: meeting.addedBy)
++        job.meetingID = meeting.id
++        switch meeting.state {
++        case .ready:
++            job.state = .ready
++            job.progress = 1
++        case .failed:
++            job.state = .failed
++            job.errorMessage = meeting.transcriptionError
++        case .transcribing:
++            job.state = .transcribing
++            job.progress = meeting.transcriptProgress
++        case .recording, .paused, .interrupted:
++            job.state = .queued
++        }
++        return job
++    }
++
+     func restore(_ manifests: [MeetingManifest]) {
+         for manifest in manifests.sorted(by: { $0.id.rawValue < $1.id.rawValue }) {
+             appendRecovery(manifest)
+         }
++        let loaded = agentUploadStore.load()
++        let recovered = AgentUploadStore.recovered(
++            loaded, now: Date(), fileExists: { FileManager.default.fileExists(atPath: $0) })
++        agentUploads = recovered.entries
++        saveAgentUploads(force: recovered.entries != loaded)
+         accepting = true
+         pump()
++        let waiting = recovered.requeue.filter { entry in !queue.jobs.contains { $0.id == entry.id } }
++        if !waiting.isEmpty {
++            Task { await requeueAgentUploads(waiting) }
++        }
++    }
++
++    /// Reads each waiting agent file again and queues it under its old job id.
++    private func requeueAgentUploads(_ entries: [AgentUploadEntry]) async {
++        for entry in entries {
++            let url = URL(fileURLWithPath: entry.path)
++            do {
++                let metadata = try await Task.detached(priority: .utility) {
++                    try await MediaAudioDecoder.probe(url)
++                }.value
++                guard accepting else { return }
++                var draft = Draft(
++                    url: url, metadata: metadata, scoped: false,
++                    labels: ItemLabels(folderID: entry.folderID, tags: entry.tags))
++                draft.title = entry.title
++                draft.addedBy = entry.client
++                let job = UploadJob(
++                    id: entry.id, fileName: metadata.fileName, kind: metadata.kind, duration: metadata.duration,
++                    byteSize: metadata.byteSize, addedBy: entry.client)
++                inputs[job.id] = draft
++                queue.append([job])
++                pump()
++            } catch {
++                guard let index = agentUploads.firstIndex(where: { $0.id == entry.id }) else { continue }
++                agentUploads[index].state = .failed
++                agentUploads[index].error = (error as? UploadFailure ?? .unreadable).localizedDescription
++                agentUploads[index].updatedAt = Date()
++                saveAgentUploads(force: true)
++            }
++        }
++    }
++
++    /// Mirrors agent job states to disk. Writes only when a state, meeting or
++    /// error changed, or when `force` is set; progress alone is not saved.
++    private func saveAgentUploads(force: Bool = false) {
++        guard !agentUploads.isEmpty else { return }
++        let now = Date()
++        let next = AgentUploadStore.pruned(
++            AgentUploadStore.merged(agentUploads, jobs: queue.jobs, now: now), now: now)
++        guard force || next != agentUploads else { return }
++        agentUploads = next
++        do { try agentUploadStore.save(agentUploads) } catch {
++            model.saveError = "Could not save the agent upload list: \(error.localizedDescription)"
++        }
+     }
+ 
+     func retry(_ meeting: MeetingManifest) {
+@@ -141,9 +262,11 @@ final class UploadController {
+     }
+ 
+     private func appendRecovery(_ meeting: MeetingManifest) {
++        // An agent's job keeps its id unless the queue still lists it (a retry after a failure).
++        let savedID = meeting.uploadJobID.flatMap { id in queue.jobs.contains { $0.id == id } ? nil : id }
+         var job = UploadJob(
+-            fileName: meeting.sourceFileName ?? meeting.title, kind: .audio, duration: meeting.duration,
+-            byteSize: 0)
++            id: savedID ?? UUID(), fileName: meeting.sourceFileName ?? meeting.title, kind: .audio,
++            duration: meeting.duration, byteSize: 0, addedBy: meeting.addedBy)
+         job.meetingID = meeting.id
+         restored[job.id] = meeting
+         queue.append([job])
+@@ -265,7 +388,7 @@ final class UploadController {
+                 let startedAt = draft.metadata.creationDate ?? now
+                 var manifest = MeetingManifest(
+                     id: id,
+-                    title: (draft.metadata.fileName as NSString).deletingPathExtension,
++                    title: draft.title ?? (draft.metadata.fileName as NSString).deletingPathExtension,
+                     startedAt: startedAt,
+                     endedAt: startedAt.addingTimeInterval(draft.metadata.duration),
+                     duration: draft.metadata.duration,
+@@ -274,7 +397,9 @@ final class UploadController {
+                     sourceFileName: draft.metadata.fileName,
+                     importedAt: now,
+                     folderID: draft.labels.folderID,
+-                    tags: draft.labels.tags
++                    tags: draft.labels.tags,
++                    uploadJobID: draft.addedBy == nil ? nil : job.id,
++                    addedBy: draft.addedBy
+                 )
+                 try await MeetingStore(root: model.paths.meetings).save(manifest)
+                 let decoding = Task.detached(priority: .utility) { [controller = self] in
+diff --git a/Sources/VoiceCore/AppPaths.swift b/Sources/VoiceCore/AppPaths.swift
+index 56c6102..b5570c5 100644
+--- a/Sources/VoiceCore/AppPaths.swift
++++ b/Sources/VoiceCore/AppPaths.swift
+@@ -33,6 +33,11 @@ public struct AppPaths: Sendable {
+     /// Notes stored as Markdown files.
+     public var notes: URL { root.appendingPathComponent("Notes", isDirectory: true) }
+ 
++    /// Files agents asked to transcribe, owner-only. See `AgentUploadStore`.
++    public var agentUploads: URL {
++        root.appendingPathComponent("MCP", isDirectory: true).appendingPathComponent("agent-uploads.json")
++    }
++
+     /// Search index for Notes and Meetings. See Ask AI.
+     public var searchIndex: URL { root.appendingPathComponent("SearchIndex", isDirectory: true) }
+ 
+diff --git a/Sources/VoiceCore/MCP/AgentUploadStore.swift b/Sources/VoiceCore/MCP/AgentUploadStore.swift
+new file mode 100644
+index 0000000..748981b
+--- /dev/null
++++ b/Sources/VoiceCore/MCP/AgentUploadStore.swift
+@@ -0,0 +1,133 @@
++import Foundation
++
++/// One file an agent asked BugVoice to transcribe. Kept on disk so the job id
++/// still answers `get_job` after BugVoice quits before the file was read.
++public struct AgentUploadEntry: Codable, Equatable, Sendable {
++    public let id: UUID
++    public var path: String
++    public var title: String?
++    public var folderID: FolderID?
++    public var tags: [String]
++    public var client: String
++    public var state: UploadJobState
++    public var meetingID: MeetingID?
++    public var error: String?
++    public var updatedAt: Date
++
++    public init(
++        id: UUID, path: String, title: String?, folderID: FolderID?, tags: [String], client: String,
++        state: UploadJobState = .queued, meetingID: MeetingID? = nil, error: String? = nil, updatedAt: Date
++    ) {
++        self.id = id
++        self.path = path
++        self.title = title
++        self.folderID = folderID
++        self.tags = tags
++        self.client = client
++        self.state = state
++        self.meetingID = meetingID
++        self.error = error
++        self.updatedAt = updatedAt
++    }
++
++    /// The job as `get_job` reports it when the queue no longer lists it.
++    public var job: UploadJob {
++        var job = UploadJob(
++            id: id, fileName: (path as NSString).lastPathComponent, kind: .audio, duration: 0, byteSize: 0,
++            addedBy: client)
++        job.state = state
++        job.meetingID = meetingID
++        job.errorMessage = error
++        return job
++    }
++}
++
++/// `MCP/agent-uploads.json`: owner-only file in an owner-only folder.
++public struct AgentUploadStore: Sendable {
++    /// Finished entries are kept this long so an agent can still read the outcome.
++    public static let keepFinished: TimeInterval = 7 * 86_400
++
++    public let url: URL
++
++    public init(url: URL) {
++        self.url = url
++    }
++
++    /// Entries on disk; none when the file is missing or unreadable.
++    public func load() -> [AgentUploadEntry] {
++        guard let data = try? Data(contentsOf: url) else { return [] }
++        let decoder = JSONDecoder()
++        decoder.dateDecodingStrategy = .iso8601
++        return (try? decoder.decode([AgentUploadEntry].self, from: data)) ?? []
++    }
++
++    public func save(_ entries: [AgentUploadEntry]) throws {
++        let fm = FileManager.default
++        let dir = url.deletingLastPathComponent()
++        try fm.createDirectory(at: dir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
++        try fm.setAttributes([.posixPermissions: 0o700], ofItemAtPath: dir.path)
++        let encoder = JSONEncoder()
++        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
++        encoder.dateEncodingStrategy = .iso8601
++        let data = try encoder.encode(entries)
++        // Written beside the file with owner-only access, then swapped in.
++        let temp = dir.appendingPathComponent(".agent-uploads-\(UUID().uuidString).tmp")
++        guard fm.createFile(atPath: temp.path, contents: data, attributes: [.posixPermissions: 0o600]) else {
++            throw CocoaError(.fileWriteUnknown)
++        }
++        do {
++            _ = try fm.replaceItemAt(url, withItemAt: temp)
++        } catch {
++            try? fm.removeItem(at: temp)
++            throw error
++        }
++        try fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
++    }
++
++    /// Drops finished entries last changed more than `keepFinished` ago.
++    public static func pruned(_ entries: [AgentUploadEntry], now: Date) -> [AgentUploadEntry] {
++        entries.filter { !$0.state.isTerminal || now.timeIntervalSince($0.updatedAt) <= keepFinished }
++    }
++
++    /// At launch: entries still waiting to be read go back in the queue when
++    /// their file is there, and fail when it is gone. Reading that was cut
++    /// short starts over, since its partial meeting is discarded at launch.
++    public static func recovered(
++        _ entries: [AgentUploadEntry], now: Date, fileExists: (String) -> Bool
++    ) -> (entries: [AgentUploadEntry], requeue: [AgentUploadEntry]) {
++        var requeue: [AgentUploadEntry] = []
++        let updated = pruned(entries, now: now).map { entry -> AgentUploadEntry in
++            guard entry.state == .queued || entry.state == .reading else { return entry }
++            var entry = entry
++            if fileExists(entry.path) {
++                if entry.state != .queued {
++                    entry.state = .queued
++                    entry.updatedAt = now
++                }
++                requeue.append(entry)
++            } else {
++                entry.state = .failed
++                entry.error = "File not found: \(entry.path)."
++                entry.updatedAt = now
++            }
++            return entry
++        }
++        return (updated, requeue)
++    }
++
++    /// Copies each queue job's state, meeting and error into its entry.
++    /// Progress alone is not saved.
++    public static func merged(_ entries: [AgentUploadEntry], jobs: [UploadJob], now: Date) -> [AgentUploadEntry] {
++        let byID = Dictionary(jobs.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
++        return entries.map { entry in
++            guard let job = byID[entry.id] else { return entry }
++            var next = entry
++            next.state = job.state
++            next.meetingID = job.meetingID ?? entry.meetingID
++            next.error = job.errorMessage
++            guard next != entry else { return entry }
++            next.updatedAt = now
++            return next
++        }
++    }
++}
+diff --git a/Sources/VoiceCore/UploadQueue.swift b/Sources/VoiceCore/UploadQueue.swift
+index e6e9600..2130a4d 100644
+--- a/Sources/VoiceCore/UploadQueue.swift
++++ b/Sources/VoiceCore/UploadQueue.swift
+@@ -5,7 +5,7 @@ public enum UploadMediaKind: String, Sendable {
+     case video = "Video"
+ }
+ 
+-public enum UploadJobState: Sendable {
++public enum UploadJobState: String, Codable, Sendable {
+     case queued
+     case reading
+     case transcribing
+@@ -28,13 +28,19 @@ public struct UploadJob: Identifiable, Equatable, Sendable {
+     public var state: UploadJobState = .queued
+     public var progress: Double?
+     public var errorMessage: String?
++    /// MCP client name when an agent added this file.
++    public var addedBy: String?
+ 
+-    public init(id: UUID = UUID(), fileName: String, kind: UploadMediaKind, duration: TimeInterval, byteSize: Int64) {
++    public init(
++        id: UUID = UUID(), fileName: String, kind: UploadMediaKind, duration: TimeInterval, byteSize: Int64,
++        addedBy: String? = nil
++    ) {
+         self.id = id
+         self.fileName = fileName
+         self.kind = kind
+         self.duration = duration
+         self.byteSize = byteSize
++        self.addedBy = addedBy
+     }
+ }
+ 
+diff --git a/Tests/VoiceCoreTests/AgentUploadStoreTests.swift b/Tests/VoiceCoreTests/AgentUploadStoreTests.swift
+new file mode 100644
+index 0000000..a5cca8e
+--- /dev/null
++++ b/Tests/VoiceCoreTests/AgentUploadStoreTests.swift
+@@ -0,0 +1,107 @@
++import Foundation
++import Testing
++@testable import VoiceCore
++
++struct AgentUploadStoreTests {
++    let now = Date(timeIntervalSince1970: 2_000_000_000)
++
++    func makeStore() -> (AgentUploadStore, URL) {
++        let dir = FileManager.default.temporaryDirectory
++            .appendingPathComponent("bv-agent-\(UUID().uuidString)", isDirectory: true)
++            .appendingPathComponent("MCP", isDirectory: true)
++        let url = dir.appendingPathComponent("agent-uploads.json")
++        return (AgentUploadStore(url: url), url)
++    }
++
++    func mode(_ path: String) throws -> Int {
++        try (FileManager.default.attributesOfItem(atPath: path)[.posixPermissions] as? NSNumber)?.intValue ?? -1
++    }
++
++    func entry(_ state: UploadJobState, path: String = "/tmp/a.m4a", updated: Date? = nil) -> AgentUploadEntry {
++        AgentUploadEntry(
++            id: UUID(), path: path, title: "Standup", folderID: FolderID(rawValue: "f1"), tags: ["work"],
++            client: "claude-code", state: state, updatedAt: updated ?? now)
++    }
++
++    @Test func missingOrCorruptFileLoadsEmpty() throws {
++        let (store, url) = makeStore()
++        #expect(store.load().isEmpty)
++        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
++        try Data("not json".utf8).write(to: url)
++        #expect(store.load().isEmpty)
++    }
++
++    @Test func saveRoundTripsOwnerOnly() throws {
++        let (store, url) = makeStore()
++        var failed = entry(.failed)
++        failed.meetingID = MeetingID(rawValue: "m1")
++        failed.error = "Could not read this file."
++        let entries = [entry(.queued), failed]
++        try store.save(entries)
++        #expect(store.load() == entries)
++        #expect(try mode(url.path) == 0o600)
++        #expect(try mode(url.deletingLastPathComponent().path) == 0o700)
++        let keys = try #require(try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [[String: Any]])
++        #expect(keys[1]["state"] as? String == "failed")
++        #expect(keys[1]["meetingID"] as? String == "m1")
++        #expect(Set(keys[0].keys) == ["id", "path", "title", "folderID", "tags", "client", "state", "updatedAt"])
++    }
++
++    @Test func pruneDropsOnlyOldFinishedEntries() {
++        let old = now.addingTimeInterval(-8 * 86_400)
++        let recent = now.addingTimeInterval(-6 * 86_400)
++        let oldReady = entry(.ready, updated: old)
++        let oldQueued = entry(.queued, updated: old)
++        let recentFailed = entry(.failed, updated: recent)
++        let oldCancelled = entry(.cancelled, updated: old)
++        #expect(AgentUploadStore.pruned([oldReady, oldQueued, recentFailed, oldCancelled], now: now) == [oldQueued, recentFailed])
++    }
++
++    @Test func recoveryRequeuesWaitingFilesAndFailsMissingOnes() {
++        let waiting = entry(.queued, path: "/here.m4a")
++        let interrupted = entry(.reading, path: "/here2.m4a")
++        let missing = entry(.queued, path: "/gone.m4a", updated: now.addingTimeInterval(-60))
++        let transcribing = entry(.transcribing, path: "/gone.m4a")
++        let done = entry(.ready, path: "/gone.m4a")
++        let result = AgentUploadStore.recovered(
++            [waiting, interrupted, missing, transcribing, done], now: now,
++            fileExists: { $0 != "/gone.m4a" })
++        #expect(result.requeue.map(\.id) == [waiting.id, interrupted.id])
++        #expect(result.entries.count == 5)
++        #expect(result.entries[1].state == .queued)
++        #expect(result.entries[2].state == .failed)
++        #expect(result.entries[2].error == "File not found: /gone.m4a.")
++        #expect(result.entries[2].updatedAt == now)
++        #expect(result.entries[3] == transcribing)
++        #expect(result.entries[4] == done)
++    }
++
++    @Test func mergeCopiesQueueStateAndStampsChanges() {
++        let a = entry(.queued)
++        let b = entry(.queued)
++        var job = UploadJob(id: a.id, fileName: "a.m4a", kind: .audio, duration: 1, byteSize: 1)
++        job.state = .transcribing
++        job.meetingID = MeetingID(rawValue: "m9")
++        job.progress = 0.4
++        let later = now.addingTimeInterval(10)
++        let merged = AgentUploadStore.merged([a, b], jobs: [job], now: later)
++        #expect(merged[0].state == .transcribing && merged[0].meetingID == MeetingID(rawValue: "m9"))
++        #expect(merged[0].updatedAt == later)
++        #expect(merged[1] == b)
++        // Progress alone is not a change.
++        job.progress = 0.8
++        #expect(AgentUploadStore.merged(merged, jobs: [job], now: later.addingTimeInterval(5)) == merged)
++        job.state = .failed
++        job.errorMessage = "Could not read this file."
++        let failed = AgentUploadStore.merged(merged, jobs: [job], now: later)
++        #expect(failed[0].state == .failed && failed[0].error == "Could not read this file.")
++    }
++
++    @Test func entryBecomesAJob() {
++        var e = entry(.failed, path: "/x/Standup.m4a")
++        e.error = "File not found: /x/Standup.m4a."
++        let job = e.job
++        #expect(job.id == e.id && job.fileName == "Standup.m4a" && job.addedBy == "claude-code")
++        #expect(job.state == .failed && job.errorMessage == e.error)
++    }
++}
+diff --git a/Tests/VoiceCoreTests/UploadQueueTests.swift b/Tests/VoiceCoreTests/UploadQueueTests.swift
+index 9b95c87..778a520 100644
+--- a/Tests/VoiceCoreTests/UploadQueueTests.swift
++++ b/Tests/VoiceCoreTests/UploadQueueTests.swift
+@@ -58,4 +58,19 @@ struct UploadQueueTests {
+         queue.clearFinished()
+         #expect(queue.jobs.count == 1)
+     }
++
++    @Test func uploadJobCarriesAddedBy() {
++        var a = UploadJob(id: UUID(), fileName: "a.m4a", kind: .audio, duration: 5, byteSize: 10, addedBy: "claude-code")
++        #expect(a.addedBy == "claude-code")
++        a.meetingID = nil
++        var queue = UploadQueue()
++        queue.append([a])
++        _ = queue.admit(meetingActive: false)
++        queue.apply(id: a.id, event: .progress(0.5))
++        queue.apply(id: a.id, event: .committed(MeetingID(rawValue: "m")))
++        queue.apply(id: a.id, event: .ready)
++        #expect(queue.jobs[0].state == .ready)
++        #expect(queue.jobs[0].addedBy == "claude-code")
++        #expect(job().addedBy == nil)
++    }
+ }

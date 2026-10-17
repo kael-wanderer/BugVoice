@@ -1,0 +1,752 @@
+From e03834c8a6df9603f4ffd15b02e21b1b3b025b3f Mon Sep 17 00:00:00 2001
+From: kael-wanderer <cong.buithanh@gmail.com>
+Date: Sat, 17 Oct 2026 21:02:20 +0700
+Subject: [PATCH] feat(core): MCP protocol, tool list and argument checks
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ Sources/VoiceCore/MCP/JSONValue.swift       |  80 +++++
+ Sources/VoiceCore/MCP/MCPProtocol.swift     | 100 ++++++
+ Sources/VoiceCore/MCP/MCPTools.swift        | 379 ++++++++++++++++++++
+ Tests/VoiceCoreTests/MCPProtocolTests.swift |  63 ++++
+ Tests/VoiceCoreTests/MCPToolsTests.swift    |  81 +++++
+ 5 files changed, 703 insertions(+)
+ create mode 100644 Sources/VoiceCore/MCP/JSONValue.swift
+ create mode 100644 Sources/VoiceCore/MCP/MCPProtocol.swift
+ create mode 100644 Sources/VoiceCore/MCP/MCPTools.swift
+ create mode 100644 Tests/VoiceCoreTests/MCPProtocolTests.swift
+ create mode 100644 Tests/VoiceCoreTests/MCPToolsTests.swift
+
+diff --git a/Sources/VoiceCore/MCP/JSONValue.swift b/Sources/VoiceCore/MCP/JSONValue.swift
+new file mode 100644
+index 0000000..5dc7bbb
+--- /dev/null
++++ b/Sources/VoiceCore/MCP/JSONValue.swift
+@@ -0,0 +1,80 @@
++import Foundation
++
++/// Any JSON value. MCP messages are untyped JSON; this keeps them Sendable and comparable.
++public indirect enum JSONValue: Codable, Equatable, Sendable {
++    case null
++    case bool(Bool)
++    case number(Double)
++    case string(String)
++    case array([JSONValue])
++    case object([String: JSONValue])
++
++    public init(from decoder: Decoder) throws {
++        let c = try decoder.singleValueContainer()
++        if c.decodeNil() {
++            self = .null
++        } else if let b = try? c.decode(Bool.self) {
++            self = .bool(b)
++        } else if let n = try? c.decode(Double.self) {
++            self = .number(n)
++        } else if let s = try? c.decode(String.self) {
++            self = .string(s)
++        } else if let a = try? c.decode([JSONValue].self) {
++            self = .array(a)
++        } else if let o = try? c.decode([String: JSONValue].self) {
++            self = .object(o)
++        } else {
++            throw DecodingError.dataCorruptedError(in: c, debugDescription: "Not a JSON value")
++        }
++    }
++
++    public func encode(to encoder: Encoder) throws {
++        var c = encoder.singleValueContainer()
++        switch self {
++        case .null: try c.encodeNil()
++        case .bool(let b): try c.encode(b)
++        case .number(let n): try c.encode(n)
++        case .string(let s): try c.encode(s)
++        case .array(let a): try c.encode(a)
++        case .object(let o): try c.encode(o)
++        }
++    }
++
++    public subscript(key: String) -> JSONValue? { objectValue?[key] }
++
++    public var stringValue: String? {
++        if case .string(let s) = self { return s }
++        return nil
++    }
++
++    /// Whole numbers only: 2.5 is not an Int.
++    public var intValue: Int? {
++        if case .number(let n) = self { return Int(exactly: n) }
++        return nil
++    }
++
++    public var boolValue: Bool? {
++        if case .bool(let b) = self { return b }
++        return nil
++    }
++
++    public var arrayValue: [JSONValue]? {
++        if case .array(let a) = self { return a }
++        return nil
++    }
++
++    public var objectValue: [String: JSONValue]? {
++        if case .object(let o) = self { return o }
++        return nil
++    }
++
++    /// Compact JSON with sorted keys and one trailing newline. JSON escapes every
++    /// newline inside strings, so the line never breaks.
++    public func encodedLine() -> Data {
++        let encoder = JSONEncoder()
++        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
++        var data = (try? encoder.encode(self)) ?? Data("null".utf8)
++        data.append(0x0A)
++        return data
++    }
++}
+diff --git a/Sources/VoiceCore/MCP/MCPProtocol.swift b/Sources/VoiceCore/MCP/MCPProtocol.swift
+new file mode 100644
+index 0000000..2b62561
+--- /dev/null
++++ b/Sources/VoiceCore/MCP/MCPProtocol.swift
+@@ -0,0 +1,100 @@
++import Foundation
++
++public struct JSONRPCError: Error, Equatable, Sendable {
++    public static let parse = -32700
++    public static let invalidRequest = -32600
++    public static let methodNotFound = -32601
++    public static let invalidParams = -32602
++
++    public var code: Int
++    public var message: String
++
++    public init(code: Int, message: String) {
++        self.code = code
++        self.message = message
++    }
++}
++
++/// One JSON-RPC 2.0 request, notification or response. A missing `id` means a
++/// notification; `.null` is the id of an error reply to a line that could not be read.
++public struct JSONRPCMessage: Equatable, Sendable {
++    public var id: JSONValue?
++    public var method: String?
++    public var params: JSONValue?
++    public var result: JSONValue?
++    public var error: JSONRPCError?
++
++    public init(
++        id: JSONValue? = nil, method: String? = nil, params: JSONValue? = nil,
++        result: JSONValue? = nil, error: JSONRPCError? = nil
++    ) {
++        self.id = id
++        self.method = method
++        self.params = params
++        self.result = result
++        self.error = error
++    }
++
++    public static func parse(_ line: Data) -> Result<JSONRPCMessage, JSONRPCError> {
++        guard let value = try? JSONDecoder().decode(JSONValue.self, from: line) else {
++            return .failure(JSONRPCError(code: JSONRPCError.parse, message: "Parse error."))
++        }
++        guard let object = value.objectValue else {
++            return .failure(JSONRPCError(code: JSONRPCError.invalidRequest, message: "Invalid request."))
++        }
++        var message = JSONRPCMessage(id: object["id"], params: object["params"], result: object["result"])
++        if let method = object["method"] {
++            guard let name = method.stringValue else {
++                return .failure(JSONRPCError(code: JSONRPCError.invalidRequest, message: "Invalid request."))
++            }
++            message.method = name
++        }
++        if let error = object["error"] {
++            message.error = JSONRPCError(
++                code: error["code"]?.intValue ?? 0, message: error["message"]?.stringValue ?? "")
++        }
++        guard message.method != nil || message.result != nil || message.error != nil else {
++            return .failure(JSONRPCError(code: JSONRPCError.invalidRequest, message: "Invalid request."))
++        }
++        return .success(message)
++    }
++
++    public var json: JSONValue {
++        var object: [String: JSONValue] = ["jsonrpc": .string("2.0")]
++        if let id { object["id"] = id }
++        if let method { object["method"] = .string(method) }
++        if let params { object["params"] = params }
++        if let result { object["result"] = result }
++        if let error {
++            object["error"] = .object(["code": .number(Double(error.code)), "message": .string(error.message)])
++        }
++        return .object(object)
++    }
++
++    public func encodedLine() -> Data { json.encodedLine() }
++}
++
++public enum MCPProtocol {
++    public static let supportedVersions = ["2025-06-18", "2025-03-26", "2024-11-05"]
++
++    /// The client's version when this server speaks it, otherwise the newest one.
++    public static func negotiate(_ requested: String?) -> String {
++        if let requested, supportedVersions.contains(requested) { return requested }
++        return supportedVersions[0]
++    }
++
++    public static func initializeResult(version: String, appVersion: String) -> JSONValue {
++        .object([
++            "protocolVersion": .string(version),
++            "capabilities": .object(["tools": .object([:])]),
++            "serverInfo": .object(["name": .string("bugvoice"), "version": .string(appVersion)]),
++        ])
++    }
++
++    public static func toolResult(text: String, isError: Bool) -> JSONValue {
++        .object([
++            "content": .array([.object(["type": .string("text"), "text": .string(text)])]),
++            "isError": .bool(isError),
++        ])
++    }
++}
+diff --git a/Sources/VoiceCore/MCP/MCPTools.swift b/Sources/VoiceCore/MCP/MCPTools.swift
+new file mode 100644
+index 0000000..6902963
+--- /dev/null
++++ b/Sources/VoiceCore/MCP/MCPTools.swift
+@@ -0,0 +1,379 @@
++import Foundation
++
++public enum MCPTool: String, CaseIterable, Sendable {
++    case listFolders = "list_folders"
++    case listNotes = "list_notes"
++    case getNote = "get_note"
++    case listMeetings = "list_meetings"
++    case getMeeting = "get_meeting"
++    case search
++    case ask
++    case createNote = "create_note"
++    case editNote = "edit_note"
++    case uploadAudio = "upload_audio"
++    case getJob = "get_job"
++    case summarizeMeeting = "summarize_meeting"
++}
++
++/// `scope` for `search` and `ask`, before folder names are resolved.
++public enum MCPScopeArgument: Equatable, Sendable {
++    case all, unfiled, folder(String), meeting(String), note(String)
++
++    /// Nil or empty means `.all`; an unknown form or an empty id is nil.
++    public static func parse(_ s: String?) -> MCPScopeArgument? {
++        let text = (s ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
++        if text.isEmpty || text == "all" { return .all }
++        if text == "unfiled" { return .unfiled }
++        let forms: [(String, (String) -> MCPScopeArgument)] = [
++            ("folder:", { .folder($0) }), ("meeting:", { .meeting($0) }), ("note:", { .note($0) }),
++        ]
++        for (prefix, make) in forms where text.hasPrefix(prefix) {
++            let value = text.dropFirst(prefix.count).trimmingCharacters(in: .whitespaces)
++            return value.isEmpty ? nil : make(value)
++        }
++        return nil
++    }
++}
++
++public enum MCPEditMode: String, Equatable, Sendable { case replace, append }
++
++public enum MCPTextKind: String, Equatable, Sendable {
++    case summary
++    case actionItems = "action_items"
++}
++
++public enum MCPMeetingPart: String, CaseIterable, Hashable, Sendable {
++    case summary
++    case actionItems = "action_items"
++    case myNotes = "my_notes"
++    case transcript
++}
++
++/// A tool call whose arguments passed the schema check, with defaults filled in.
++public enum MCPCall: Equatable, Sendable {
++    case listFolders
++    case listNotes(folder: String?, tag: String?, text: String?, limit: Int)
++    case getNote(id: String)
++    case listMeetings(folder: String?, tag: String?, from: Date?, to: Date?, text: String?, limit: Int)
++    case getMeeting(id: String, parts: Set<MCPMeetingPart>, fromLine: Int)
++    case search(query: String, scope: MCPScopeArgument, limit: Int)
++    case ask(question: String, scope: MCPScopeArgument)
++    case createNote(title: String, body: String, folder: String?, tags: [String])
++    case editNote(id: String, body: String, mode: MCPEditMode, title: String?, folder: String?, tags: [String]?)
++    case uploadAudio(path: String, title: String?, folder: String?, tags: [String])
++    case getJob(jobID: String)
++    case summarizeMeeting(id: String, kind: MCPTextKind, replace: Bool)
++
++    public var tool: MCPTool {
++        switch self {
++        case .listFolders: .listFolders
++        case .listNotes: .listNotes
++        case .getNote: .getNote
++        case .listMeetings: .listMeetings
++        case .getMeeting: .getMeeting
++        case .search: .search
++        case .ask: .ask
++        case .createNote: .createNote
++        case .editNote: .editNote
++        case .uploadAudio: .uploadAudio
++        case .getJob: .getJob
++        case .summarizeMeeting: .summarizeMeeting
++        }
++    }
++}
++
++public struct MCPArgumentError: Error, Equatable, Sendable {
++    public var message: String
++
++    public init(message: String) {
++        self.message = message
++    }
++}
++
++public enum MCPTools {
++    public static let listDefault = 50, listMax = 200
++    public static let searchDefault = 20, searchMax = 40
++    /// The Upload page's file types, lowercased.
++    public static let uploadExtensions: Set<String> = ["mp3", "wav", "m4a", "aiff", "aif", "caf", "mp4", "mov", "m4v"]
++    public static let supportedTypesText = "MP3, WAV, M4A, AIFF, CAF, MP4, MOV, M4V"
++
++    public static func unsupportedType(_ ext: String) -> String {
++        ext.isEmpty
++            ? "File type not supported. Supported: \(supportedTypesText)."
++            : "File type not supported: .\(ext). Supported: \(supportedTypesText)."
++    }
++
++    // MARK: Definitions
++
++    /// The `tools/list` result.
++    public static var definitions: JSONValue {
++        .object(["tools": .array(MCPTool.allCases.map(definition))])
++    }
++
++    private static let scopeText = "Where to look: all (default), folder:<id or name>, unfiled, meeting:<id> or note:<id>."
++
++    private static func definition(_ tool: MCPTool) -> JSONValue {
++        let (description, properties, required): (String, [String: JSONValue], [String]) = switch tool {
++        case .listFolders:
++            ("List folders with how many notes and meetings each holds.", [:], [])
++        case .listNotes:
++            ("List notes, newest edited first.", [
++                "folder": prop("string", "Folder id or name."),
++                "tag": prop("string", "Only notes with this tag."),
++                "text": prop("string", "Only notes whose title contains this text."),
++                "limit": prop("integer", "Most notes to return, 1 to 200. Default 50."),
++            ], [])
++        case .getNote:
++            ("Read one note as Markdown.", ["id": prop("string", "Note id.")], ["id"])
++        case .listMeetings:
++            ("List meetings and uploaded recordings, newest first.", [
++                "folder": prop("string", "Folder id or name."),
++                "tag": prop("string", "Only meetings with this tag."),
++                "from": prop("string", "Earliest start date, YYYY-MM-DD."),
++                "to": prop("string", "Latest start date, YYYY-MM-DD."),
++                "text": prop("string", "Only meetings whose title contains this text."),
++                "limit": prop("integer", "Most meetings to return, 1 to 200. Default 50."),
++            ], [])
++        case .getMeeting:
++            ("Read one meeting as Markdown: summary, action items, my notes and transcript.", [
++                "id": prop("string", "Meeting id."),
++                "parts": .object([
++                    "type": .string("array"),
++                    "description": .string("Parts to include. Default all."),
++                    "items": .object([
++                        "type": .string("string"),
++                        "enum": .array(MCPMeetingPart.allCases.map { .string($0.rawValue) }),
++                    ]),
++                ]),
++                "from_line": prop("integer", "First transcript line to return. Default 1."),
++            ], ["id"])
++        case .search:
++            ("Find passages in notes, meetings and dictations, without a model call.", [
++                "query": prop("string", "Words to look for."),
++                "scope": prop("string", scopeText),
++                "limit": prop("integer", "Most passages to return, 1 to 40. Default 20."),
++            ], ["query"])
++        case .ask:
++            ("Answer a question from notes, meetings and dictations, with the lines it used.", [
++                "question": prop("string", "The question."),
++                "scope": prop("string", scopeText),
++            ], ["question"])
++        case .createNote:
++            ("Create a note.", [
++                "title": prop("string", "Note title."),
++                "body": prop("string", "Note text, Markdown."),
++                "folder": prop("string", "Folder id or name."),
++                "tags": stringList("Tags."),
++            ], ["title", "body"])
++        case .editNote:
++            ("Replace or append to a note's text.", [
++                "id": prop("string", "Note id."),
++                "body": prop("string", "New text, Markdown."),
++                "mode": .object([
++                    "type": .string("string"),
++                    "enum": .array([.string("replace"), .string("append")]),
++                    "description": .string("replace swaps the whole text; append adds it at the end."),
++                ]),
++                "title": prop("string", "New title."),
++                "folder": prop("string", "Folder id or name."),
++                "tags": stringList("Tags that replace the note's tags."),
++            ], ["id", "body", "mode"])
++        case .uploadAudio:
++            ("Transcribe an audio or video file into a new meeting.", [
++                "path": prop("string", "Absolute path of an MP3, WAV, M4A, AIFF, CAF, MP4, MOV or M4V file."),
++                "title": prop("string", "Meeting title."),
++                "folder": prop("string", "Folder id or name."),
++                "tags": stringList("Tags."),
++            ], ["path"])
++        case .getJob:
++            ("Check an upload started by upload_audio.", ["job_id": prop("string", "Job id from upload_audio.")], ["job_id"])
++        case .summarizeMeeting:
++            ("Write and save a meeting's summary or action items.", [
++                "id": prop("string", "Meeting id."),
++                "kind": .object([
++                    "type": .string("string"),
++                    "enum": .array([.string("summary"), .string("action_items")]),
++                ]),
++                "replace": prop("boolean", "Write new text even when the meeting has some. Default false."),
++            ], ["id", "kind"])
++        }
++        var schema: [String: JSONValue] = ["type": .string("object"), "properties": .object(properties)]
++        if !required.isEmpty { schema["required"] = .array(required.map { .string($0) }) }
++        return .object([
++            "name": .string(tool.rawValue),
++            "description": .string(description),
++            "inputSchema": .object(schema),
++        ])
++    }
++
++    private static func prop(_ type: String, _ description: String) -> JSONValue {
++        .object(["type": .string(type), "description": .string(description)])
++    }
++
++    private static func stringList(_ description: String) -> JSONValue {
++        .object(["type": .string("array"), "items": .object(["type": .string("string")]), "description": .string(description)])
++    }
++
++    // MARK: Checking
++
++    public static func check(_ name: String, _ arguments: JSONValue?) -> Result<MCPCall, MCPArgumentError> {
++        guard let tool = MCPTool(rawValue: name) else {
++            return .failure(MCPArgumentError(message: "Unknown tool: \(name)."))
++        }
++        let args: [String: JSONValue]
++        switch arguments {
++        case nil, .null?: args = [:]
++        case .object(let o)?: args = o
++        default: return .failure(MCPArgumentError(message: "arguments must be an object."))
++        }
++        do {
++            return .success(try call(tool, Arguments(values: args)))
++        } catch let error as MCPArgumentError {
++            return .failure(error)
++        } catch {
++            return .failure(MCPArgumentError(message: "arguments must be an object."))
++        }
++    }
++
++    private static func call(_ tool: MCPTool, _ a: Arguments) throws -> MCPCall {
++        switch tool {
++        case .listFolders:
++            return .listFolders
++        case .listNotes:
++            return .listNotes(
++                folder: try a.string("folder"), tag: try a.string("tag"), text: try a.string("text"),
++                limit: try a.limit("limit", default: listDefault, max: listMax))
++        case .getNote:
++            return .getNote(id: try a.required("id"))
++        case .listMeetings:
++            return .listMeetings(
++                folder: try a.string("folder"), tag: try a.string("tag"),
++                from: try a.date("from", endOfDay: false), to: try a.date("to", endOfDay: true),
++                text: try a.string("text"), limit: try a.limit("limit", default: listDefault, max: listMax))
++        case .getMeeting:
++            return .getMeeting(id: try a.required("id"), parts: try a.parts(), fromLine: try a.fromLine())
++        case .search:
++            return .search(
++                query: try a.required("query"), scope: try a.scope(),
++                limit: try a.limit("limit", default: searchDefault, max: searchMax))
++        case .ask:
++            return .ask(question: try a.required("question"), scope: try a.scope())
++        case .createNote:
++            return .createNote(
++                title: try a.required("title"), body: try a.text("body"), folder: try a.string("folder"),
++                tags: try a.tags() ?? [])
++        case .editNote:
++            guard let mode = MCPEditMode(rawValue: try a.string("mode") ?? "") else {
++                throw MCPArgumentError(message: "mode must be replace or append.")
++            }
++            return .editNote(
++                id: try a.required("id"), body: try a.text("body"), mode: mode, title: try a.string("title"),
++                folder: try a.string("folder"), tags: try a.tags())
++        case .uploadAudio:
++            let path = try a.required("path")
++            guard path.hasPrefix("/") else { throw MCPArgumentError(message: "path must be an absolute file path.") }
++            let ext = (path as NSString).pathExtension.lowercased()
++            guard uploadExtensions.contains(ext) else { throw MCPArgumentError(message: unsupportedType(ext)) }
++            return .uploadAudio(path: path, title: try a.string("title"), folder: try a.string("folder"), tags: try a.tags() ?? [])
++        case .getJob:
++            return .getJob(jobID: try a.required("job_id"))
++        case .summarizeMeeting:
++            guard let kind = MCPTextKind(rawValue: try a.string("kind") ?? "") else {
++                throw MCPArgumentError(message: "kind must be summary or action_items.")
++            }
++            return .summarizeMeeting(id: try a.required("id"), kind: kind, replace: try a.bool("replace") ?? false)
++        }
++    }
++
++    private struct Arguments {
++        let values: [String: JSONValue]
++
++        private func present(_ name: String) -> JSONValue? {
++            guard let v = values[name], v != .null else { return nil }
++            return v
++        }
++
++        func string(_ name: String) throws -> String? {
++            guard let v = present(name) else { return nil }
++            guard let s = v.stringValue else { throw MCPArgumentError(message: "\(name) must be a string.") }
++            return s
++        }
++
++        /// A string that may be empty, such as a note body.
++        func text(_ name: String) throws -> String {
++            guard let s = try? string(name) else { throw MCPArgumentError(message: "\(name) must be a string.") }
++            return s
++        }
++
++        func required(_ name: String) throws -> String {
++            let s = (try? string(name))?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
++            guard !s.isEmpty else { throw MCPArgumentError(message: "\(name) must be a non-empty string.") }
++            return s
++        }
++
++        func bool(_ name: String) throws -> Bool? {
++            guard let v = present(name) else { return nil }
++            guard let b = v.boolValue else { throw MCPArgumentError(message: "\(name) must be true or false.") }
++            return b
++        }
++
++        /// Clamped to `max`; below 1 is an error.
++        func limit(_ name: String, default fallback: Int, max: Int) throws -> Int {
++            guard let v = present(name) else { return fallback }
++            guard let n = v.intValue, n >= 1 else {
++                throw MCPArgumentError(message: "\(name) must be a whole number from 1 to \(max).")
++            }
++            return min(n, max)
++        }
++
++        func fromLine() throws -> Int {
++            guard let v = present("from_line") else { return 1 }
++            guard let n = v.intValue, n >= 1 else { throw MCPArgumentError(message: "from_line must be a whole number of 1 or more.") }
++            return n
++        }
++
++        func tags() throws -> [String]? {
++            guard let v = present("tags") else { return nil }
++            guard let list = v.arrayValue, list.allSatisfy({ $0.stringValue != nil }) else {
++                throw MCPArgumentError(message: "tags must be a list of strings.")
++            }
++            return list.compactMap(\.stringValue)
++        }
++
++        /// An empty list means all parts.
++        func parts() throws -> Set<MCPMeetingPart> {
++            guard let v = present("parts") else { return Set(MCPMeetingPart.allCases) }
++            let names = v.arrayValue?.map(\.stringValue)
++            let parts = names?.compactMap { $0.flatMap(MCPMeetingPart.init(rawValue:)) }
++            guard let names, let parts, parts.count == names.count else {
++                throw MCPArgumentError(message: "parts must be a list of summary, action_items, my_notes or transcript.")
++            }
++            return parts.isEmpty ? Set(MCPMeetingPart.allCases) : Set(parts)
++        }
++
++        func scope() throws -> MCPScopeArgument {
++            let failure = MCPArgumentError(message: "scope must be all, unfiled, folder:<id or name>, meeting:<id> or note:<id>.")
++            let text: String?
++            do { text = try string("scope") } catch { throw failure }
++            guard let scope = MCPScopeArgument.parse(text) else { throw failure }
++            return scope
++        }
++
++        /// `YYYY-MM-DD` in the local time zone, or a full ISO 8601 date and time.
++        func date(_ name: String, endOfDay: Bool) throws -> Date? {
++            guard let s = try string(name)?.trimmingCharacters(in: .whitespaces) else { return nil }
++            let day = DateFormatter()
++            day.locale = Locale(identifier: "en_US_POSIX")
++            day.calendar = Calendar.current
++            day.timeZone = Calendar.current.timeZone
++            day.dateFormat = "yyyy-MM-dd"
++            day.isLenient = false
++            if let start = day.date(from: s) {
++                guard endOfDay else { return start }
++                return Calendar.current.date(byAdding: .day, value: 1, to: start).map { $0.addingTimeInterval(-1) }
++            }
++            if let full = ISO8601DateFormatter().date(from: s) { return full }
++            throw MCPArgumentError(message: "\(name) must be a date like 2026-10-17.")
++        }
++    }
++}
+diff --git a/Tests/VoiceCoreTests/MCPProtocolTests.swift b/Tests/VoiceCoreTests/MCPProtocolTests.swift
+new file mode 100644
+index 0000000..e3d2318
+--- /dev/null
++++ b/Tests/VoiceCoreTests/MCPProtocolTests.swift
+@@ -0,0 +1,63 @@
++import Foundation
++import Testing
++@testable import VoiceCore
++
++struct MCPProtocolTests {
++    @Test func negotiatesVersions() {
++        #expect(MCPProtocol.negotiate("2025-03-26") == "2025-03-26")
++        #expect(MCPProtocol.negotiate("1999-01-01") == "2025-06-18")
++        #expect(MCPProtocol.negotiate(nil) == "2025-06-18")
++    }
++    @Test func initializeResultShape() {
++        let r = MCPProtocol.initializeResult(version: "2025-06-18", appVersion: "1.3")
++        #expect(r["protocolVersion"] == .string("2025-06-18"))
++        #expect(r["serverInfo"]?["name"] == .string("bugvoice"))
++        #expect(r["serverInfo"]?["version"] == .string("1.3"))
++        #expect(r["capabilities"]?["tools"] == .object([:]))
++    }
++    @Test func parsesRequestAndRejectsGarbage() {
++        let ok = JSONRPCMessage.parse(Data(#"{"jsonrpc":"2.0","id":1,"method":"ping"}"#.utf8))
++        #expect((try? ok.get())?.method == "ping")
++        #expect((try? ok.get())?.id == .number(1))
++        guard case .failure(let e) = JSONRPCMessage.parse(Data("nope".utf8)) else { Issue.record("parsed"); return }
++        #expect(e.code == JSONRPCError.parse)
++    }
++    @Test func notificationHasNoID() throws {
++        let m = try JSONRPCMessage.parse(Data(#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#.utf8)).get()
++        #expect(m.id == nil)
++        #expect(m.method == "notifications/initialized")
++    }
++    @Test func nonObjectIsInvalidRequest() {
++        guard case .failure(let e) = JSONRPCMessage.parse(Data("[1,2]".utf8)) else { Issue.record("parsed"); return }
++        #expect(e.code == JSONRPCError.invalidRequest)
++    }
++    @Test func encodedLineIsOneLine() {
++        let d = JSONValue.object(["a": .string("x\ny")]).encodedLine()
++        let s = String(decoding: d, as: UTF8.self)
++        #expect(s.hasSuffix("\n") && s.dropLast().contains("\n") == false)
++    }
++    @Test func jsonValueRoundTrip() throws {
++        let v = JSONValue.object([
++            "n": .number(1.5), "i": .number(3), "b": .bool(true), "z": .null,
++            "a": .array([.string("s"), .number(-2)]), "o": .object(["k": .string("v")]),
++        ])
++        let back = try JSONDecoder().decode(JSONValue.self, from: v.encodedLine())
++        #expect(back == v)
++        #expect(back["i"]?.intValue == 3)
++        #expect(back["n"]?.intValue == nil)
++        #expect(back["b"]?.boolValue == true)
++    }
++    @Test func responseEncodesIDAndError() throws {
++        let line = JSONRPCMessage(id: .null, error: JSONRPCError(code: JSONRPCError.parse, message: "Parse error.")).encodedLine()
++        let v = try JSONDecoder().decode(JSONValue.self, from: line)
++        #expect(v["jsonrpc"] == .string("2.0"))
++        #expect(v["id"] == .null)
++        #expect(v["error"]?["code"]?.intValue == -32700)
++    }
++    @Test func toolResultShape() {
++        let r = MCPProtocol.toolResult(text: "hi", isError: true)
++        #expect(r["content"]?.arrayValue?.first?["type"] == .string("text"))
++        #expect(r["content"]?.arrayValue?.first?["text"] == .string("hi"))
++        #expect(r["isError"] == .bool(true))
++    }
++}
+diff --git a/Tests/VoiceCoreTests/MCPToolsTests.swift b/Tests/VoiceCoreTests/MCPToolsTests.swift
+new file mode 100644
+index 0000000..28b554b
+--- /dev/null
++++ b/Tests/VoiceCoreTests/MCPToolsTests.swift
+@@ -0,0 +1,81 @@
++import Foundation
++import Testing
++@testable import VoiceCore
++
++struct MCPToolsTests {
++    @Test func toolListHasAllTwelve() {
++        let names = MCPTools.definitions["tools"]?.arrayValue?.compactMap { $0["name"]?.stringValue } ?? []
++        #expect(names.count == 12)
++        #expect(Set(names) == Set(MCPTool.allCases.map(\.rawValue)))
++        for t in MCPTools.definitions["tools"]?.arrayValue ?? [] {
++            #expect(t["inputSchema"]?["type"] == .string("object"))
++            #expect((t["description"]?.stringValue ?? "").isEmpty == false)
++        }
++    }
++    @Test func folderScopeParses() {
++        #expect(MCPScopeArgument.parse(nil) == .all)
++        #expect(MCPScopeArgument.parse("all") == .all)
++        #expect(MCPScopeArgument.parse("folder:Lộ trình") == .folder("Lộ trình"))
++        #expect(MCPScopeArgument.parse("meeting:abc") == .meeting("abc"))
++        #expect(MCPScopeArgument.parse("note:n1") == .note("n1"))
++        #expect(MCPScopeArgument.parse("unfiled") == .unfiled)
++        #expect(MCPScopeArgument.parse("everything") == nil)
++        #expect(MCPScopeArgument.parse("folder:") == nil)
++    }
++    @Test func checkAppliesDefaultsAndLimits() throws {
++        #expect(try MCPTools.check("search", .object(["query": .string("bot")])).get() == .search(query: "bot", scope: .all, limit: 20))
++        #expect(try MCPTools.check("list_notes", .object(["limit": .number(500)])).get() == .listNotes(folder: nil, tag: nil, text: nil, limit: 200))
++        #expect(try MCPTools.check("list_notes", nil).get() == .listNotes(folder: nil, tag: nil, text: nil, limit: 50))
++        #expect(try MCPTools.check("search", .object(["query": .string("bot"), "limit": .number(99)])).get() == .search(query: "bot", scope: .all, limit: 40))
++        #expect(try MCPTools.check("get_meeting", .object(["id": .string("m")])).get()
++            == .getMeeting(id: "m", parts: Set(MCPMeetingPart.allCases), fromLine: 1))
++        #expect(try MCPTools.check("summarize_meeting", .object(["id": .string("m"), "kind": .string("action_items")])).get()
++            == .summarizeMeeting(id: "m", kind: .actionItems, replace: false))
++        #expect(try MCPTools.check("list_folders", nil).get() == .listFolders)
++    }
++    @Test func checkReadsAllArguments() throws {
++        #expect(try MCPTools.check("edit_note", .object([
++            "id": .string("n"), "body": .string("x"), "mode": .string("append"),
++            "title": .string("T"), "folder": .string("Work"), "tags": .array([.string("a")]),
++        ])).get() == .editNote(id: "n", body: "x", mode: .append, title: "T", folder: "Work", tags: ["a"]))
++        #expect(try MCPTools.check("get_meeting", .object([
++            "id": .string("m"), "parts": .array([.string("transcript")]), "from_line": .number(1501),
++        ])).get() == .getMeeting(id: "m", parts: [.transcript], fromLine: 1501))
++        #expect(try MCPTools.check("ask", .object(["question": .string("q"), "scope": .string("unfiled")])).get()
++            == .ask(question: "q", scope: .unfiled))
++        #expect(try MCPTools.check("create_note", .object(["title": .string("T"), "body": .string("b")])).get()
++            == .createNote(title: "T", body: "b", folder: nil, tags: []))
++        #expect(try MCPTools.check("get_job", .object(["job_id": .string("j")])).get() == .getJob(jobID: "j"))
++    }
++    @Test func listMeetingsDates() throws {
++        guard case .listMeetings(_, _, let from, let to, _, _) = try MCPTools.check(
++            "list_meetings", .object(["from": .string("2026-10-01"), "to": .string("2026-10-02")])).get()
++        else { Issue.record("wrong call"); return }
++        let calendar = Calendar.current
++        #expect(from == calendar.date(from: DateComponents(year: 2026, month: 10, day: 1)))
++        let endOfTo = calendar.date(from: DateComponents(year: 2026, month: 10, day: 3))!.addingTimeInterval(-1)
++        #expect(to == endOfTo)
++        #expect(throws: MCPArgumentError.self) { try MCPTools.check("list_meetings", .object(["from": .string("last week")])).get() }
++    }
++    @Test func checkRejectsBadArguments() {
++        #expect(throws: MCPArgumentError.self) { try MCPTools.check("search", .object([:])).get() }
++        #expect(throws: MCPArgumentError.self) { try MCPTools.check("upload_audio", .object(["path": .string("rel/a.mp3")])).get() }
++        #expect(throws: MCPArgumentError.self) { try MCPTools.check("upload_audio", .object(["path": .string("/tmp/a.txt")])).get() }
++        #expect(throws: MCPArgumentError.self) { try MCPTools.check("edit_note", .object(["id": .string("n"), "body": .string("x"), "mode": .string("merge")])).get() }
++        #expect(throws: MCPArgumentError.self) { try MCPTools.check("ask", .object(["question": .string("q"), "scope": .string("everything")])).get() }
++        #expect(throws: MCPArgumentError.self) { try MCPTools.check("list_notes", .object(["limit": .string("ten")])).get() }
++        #expect(throws: MCPArgumentError.self) { try MCPTools.check("list_notes", .string("x")).get() }
++    }
++    @Test func argumentErrorSentences() {
++        #expect(MCPTools.check("search", .object([:])) == .failure(MCPArgumentError(message: "query must be a non-empty string.")))
++        #expect(MCPTools.check("upload_audio", .object(["path": .string("/tmp/a.txt")]))
++            == .failure(MCPArgumentError(message: "File type not supported: .txt. Supported: MP3, WAV, M4A, AIFF, CAF, MP4, MOV, M4V.")))
++    }
++    @Test func checkUnknownToolFails() {
++        #expect(MCPTools.check("delete_note", nil) == .failure(MCPArgumentError(message: "Unknown tool: delete_note.")))
++    }
++    @Test func uploadExtensionCaseInsensitive() throws {
++        #expect(try MCPTools.check("upload_audio", .object(["path": .string("/x/A.MP4")])).get()
++            == .uploadAudio(path: "/x/A.MP4", title: nil, folder: nil, tags: []))
++    }
++}

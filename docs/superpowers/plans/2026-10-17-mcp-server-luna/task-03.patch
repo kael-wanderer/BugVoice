@@ -1,0 +1,906 @@
+From ad7e6295293081577746efc54d5152854444e9ed Mon Sep 17 00:00:00 2001
+From: kael-wanderer <cong.buithanh@gmail.com>
+Date: Sat, 17 Oct 2026 21:08:45 +0700
+Subject: [PATCH] feat(mcp): local socket server and client
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ Package.swift                          |  12 +
+ Sources/MCPKit/MCPSocketClient.swift   | 130 ++++++++++
+ Sources/MCPKit/MCPSocketPaths.swift    | 136 ++++++++++
+ Sources/MCPKit/MCPSocketServer.swift   | 224 ++++++++++++++++
+ Tests/MCPKitTests/MCPSocketTests.swift | 344 +++++++++++++++++++++++++
+ 5 files changed, 846 insertions(+)
+ create mode 100644 Sources/MCPKit/MCPSocketClient.swift
+ create mode 100644 Sources/MCPKit/MCPSocketPaths.swift
+ create mode 100644 Sources/MCPKit/MCPSocketServer.swift
+ create mode 100644 Tests/MCPKitTests/MCPSocketTests.swift
+
+diff --git a/Package.swift b/Package.swift
+index 4da4b91..e0e94e4 100644
+--- a/Package.swift
++++ b/Package.swift
+@@ -53,6 +53,13 @@ let package = Package(
+             dependencies: ["VoiceCore", "WhisperEngine", "BugVoiceMac"],
+             path: "Sources/BugVoice"
+         ),
++        // The local MCP socket shared by the app and the bugvoice-mcp bridge.
++        // Foundation and Darwin only, so the bridge starts fast.
++        .target(
++            name: "MCPKit",
++            dependencies: ["VoiceCore"],
++            path: "Sources/MCPKit"
++        ),
+         .executableTarget(
+             name: "BugVoiceBench",
+             dependencies: ["VoiceCore", "WhisperEngine"],
+@@ -63,6 +70,11 @@ let package = Package(
+             dependencies: ["VoiceCore"],
+             path: "Tests/VoiceCoreTests"
+         ),
++        .testTarget(
++            name: "MCPKitTests",
++            dependencies: ["MCPKit", "VoiceCore"],
++            path: "Tests/MCPKitTests"
++        ),
+         .testTarget(
+             name: "BugVoiceMacTests",
+             dependencies: ["BugVoiceMac"],
+diff --git a/Sources/MCPKit/MCPSocketClient.swift b/Sources/MCPKit/MCPSocketClient.swift
+new file mode 100644
+index 0000000..298b3c3
+--- /dev/null
++++ b/Sources/MCPKit/MCPSocketClient.swift
+@@ -0,0 +1,130 @@
++import Darwin
++import Foundation
++
++/// The bridge's end of the app socket. Several requests may wait at once;
++/// each response finds its request by `id`.
++public final class MCPSocketClient: @unchecked Sendable {
++    private let fd: Int32
++    private let lock = NSLock()
++    private var closed = false
++    private var pending: [String: Pending] = [:]
++    private var source: DispatchSourceRead?
++    private let reads = DispatchQueue(label: "com.kael.bugvoice.mcp.client.read")
++    private let writes = DispatchQueue(label: "com.kael.bugvoice.mcp.client.write")
++    // Touched only on `reads`.
++    private var buffer = MCPLineBuffer(limit: MCPWire.maxResponseLine)
++
++    private struct Pending {
++        let continuation: CheckedContinuation<MCPWireResponse, any Error>
++        /// Writing began and did not fail.
++        var written = false
++    }
++
++    private init(fd: Int32) {
++        self.fd = fd
++    }
++
++    deinit {
++        source?.cancel()
++    }
++
++    /// Throws `.notListening` when no app is listening at `paths`.
++    public static func connect(paths: MCPSocketPaths) throws -> MCPSocketClient {
++        var addr = try MCPSocketAddress.make(paths.socket.path)
++        guard FileManager.default.fileExists(atPath: paths.socket.path) else { throw MCPSocketError.notListening }
++        let fd = socket(AF_UNIX, SOCK_STREAM, 0)
++        guard fd >= 0 else { throw MCPSocketError.notListening }
++        MCPWire.noSigPipe(fd)
++        let result = withUnsafePointer(to: &addr) {
++            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
++                Darwin.connect(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
++            }
++        }
++        guard result == 0 else {
++            Darwin.close(fd)
++            throw MCPSocketError.notListening
++        }
++        let client = MCPSocketClient(fd: fd)
++        client.startReading()
++        return client
++    }
++
++    /// Throws `.notSent` when the request never fully reached the app, and
++    /// `.closed` when the app closed the connection after receiving it.
++    public func send(_ r: MCPWireRequest) async throws -> MCPWireResponse {
++        let line = MCPWire.line(r)
++        return try await withCheckedThrowingContinuation { continuation in
++            lock.lock()
++            guard !closed else {
++                lock.unlock()
++                continuation.resume(throwing: MCPSocketError.notSent)
++                return
++            }
++            pending[r.id] = Pending(continuation: continuation)
++            lock.unlock()
++            writes.async { [self] in
++                // Counted as sent from the first byte, so a close that races the
++                // write never makes the bridge run a request twice.
++                let stillWaiting = lock.withLock {
++                    pending[r.id]?.written = true
++                    return pending[r.id] != nil
++                }
++                guard stillWaiting else { return }
++                if !MCPWire.writeAll(fd, line) {
++                    lock.withLock { pending[r.id]?.written = false }
++                    close()
++                }
++            }
++        }
++    }
++
++    public func close() {
++        lock.lock()
++        let wasClosed = closed
++        closed = true
++        let waiting = pending
++        pending = [:]
++        let source = source
++        lock.unlock()
++        guard !wasClosed else { return }
++        shutdown(fd, SHUT_RDWR)
++        source?.cancel()
++        for request in waiting.values {
++            request.continuation.resume(throwing: request.written ? MCPSocketError.closed : MCPSocketError.notSent)
++        }
++    }
++
++    public var isClosed: Bool {
++        lock.lock()
++        defer { lock.unlock() }
++        return closed
++    }
++
++    private func startReading() {
++        let source = DispatchSource.makeReadSource(fileDescriptor: fd, queue: reads)
++        source.setEventHandler { [weak self] in self?.readAvailable() }
++        // Close after queued writes so a write never reaches a reused descriptor.
++        source.setCancelHandler { [fd, writes] in writes.async { _ = Darwin.close(fd) } }
++        lock.lock()
++        self.source = source
++        lock.unlock()
++        source.resume()
++    }
++
++    private func readAvailable() {
++        var chunk = [UInt8](repeating: 0, count: 64 * 1024)
++        let n = read(fd, &chunk, chunk.count)
++        if n < 0, errno == EINTR || errno == EAGAIN { return }
++        guard n > 0, let lines = buffer.append(Array(chunk[0..<n])) else {
++            close()
++            return
++        }
++        for line in lines {
++            guard let response = try? JSONDecoder().decode(MCPWireResponse.self, from: line) else { continue }
++            lock.lock()
++            let request = pending.removeValue(forKey: response.id)
++            lock.unlock()
++            request?.continuation.resume(returning: response)
++        }
++    }
++}
+diff --git a/Sources/MCPKit/MCPSocketPaths.swift b/Sources/MCPKit/MCPSocketPaths.swift
+new file mode 100644
+index 0000000..963fba1
+--- /dev/null
++++ b/Sources/MCPKit/MCPSocketPaths.swift
+@@ -0,0 +1,136 @@
++import Darwin
++import Foundation
++import VoiceCore
++
++/// Where the app listens for bridges. Dev and installed builds share it.
++public struct MCPSocketPaths: Sendable {
++    public let folder: URL
++
++    public init(folder: URL) {
++        self.folder = folder
++    }
++
++    public var socket: URL { folder.appendingPathComponent("bugvoice.sock") }
++
++    public static func standard() -> MCPSocketPaths {
++        MCPSocketPaths(folder: AppPaths.standard().root.appendingPathComponent("MCP", isDirectory: true))
++    }
++}
++
++/// Bridge to app: one JSON object per line.
++public struct MCPWireRequest: Codable, Equatable, Sendable {
++    public var id: String
++    public var tool: String
++    public var arguments: JSONValue?
++    /// `clientInfo.name` from the agent's `initialize`.
++    public var client: String
++
++    public init(id: String, tool: String, arguments: JSONValue?, client: String) {
++        self.id = id
++        self.tool = tool
++        self.arguments = arguments
++        self.client = client
++    }
++}
++
++/// App to bridge: one JSON object per line, matched to its request by `id`.
++public struct MCPWireResponse: Codable, Equatable, Sendable {
++    public var id: String
++    public var text: String
++    public var isError: Bool
++
++    public init(id: String, text: String, isError: Bool) {
++        self.id = id
++        self.text = text
++        self.isError = isError
++    }
++}
++
++public enum MCPSocketError: Error, Equatable {
++    case notListening
++    /// The connection closed after the request was fully written: the app may have run it.
++    case closed
++    /// The request was not fully written before the connection failed: the app never ran it.
++    case notSent
++    case pathTooLong
++    /// Another process already answers on the socket path.
++    case inUse
++}
++
++enum MCPWire {
++    /// Longest request line the app accepts.
++    static let maxLine = 4 * 1024 * 1024
++    /// Longest response line the bridge accepts. The app caps reply text well
++    /// below this; JSON escaping can still grow it several times.
++    static let maxResponseLine = 32 * 1024 * 1024
++
++    static func line<T: Encodable>(_ value: T) -> Data {
++        let encoder = JSONEncoder()
++        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
++        var data = (try? encoder.encode(value)) ?? Data()
++        data.append(0x0A)
++        return data
++    }
++
++    /// Writes every byte, retrying short writes. False when the peer is gone.
++    static func writeAll(_ fd: Int32, _ data: Data) -> Bool {
++        data.withUnsafeBytes { raw in
++            guard var p = raw.baseAddress else { return true }
++            var left = raw.count
++            while left > 0 {
++                let n = Darwin.write(fd, p, left)
++                if n < 0 {
++                    if errno == EINTR { continue }
++                    return false
++                }
++                p += n
++                left -= n
++            }
++            return true
++        }
++    }
++
++    /// Writing to a closed socket must fail with EPIPE, not kill the process.
++    static func noSigPipe(_ fd: Int32) {
++        var on: Int32 = 1
++        setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &on, socklen_t(MemoryLayout<Int32>.size))
++    }
++}
++
++enum MCPSocketAddress {
++    /// `sun_path` holds 104 bytes including the terminating zero.
++    static func make(_ path: String) throws -> sockaddr_un {
++        var addr = sockaddr_un()
++        addr.sun_family = sa_family_t(AF_UNIX)
++        addr.sun_len = UInt8(MemoryLayout<sockaddr_un>.size)
++        let bytes = Array(path.utf8)
++        guard bytes.count < MemoryLayout.size(ofValue: addr.sun_path) else { throw MCPSocketError.pathTooLong }
++        withUnsafeMutableBytes(of: &addr.sun_path) { $0.copyBytes(from: bytes) }
++        return addr
++    }
++}
++
++/// Splits a byte stream into lines without the newline. Nil once an unfinished line passes `limit`.
++struct MCPLineBuffer {
++    let limit: Int
++    private var pending: [UInt8] = []
++
++    init(limit: Int) {
++        self.limit = limit
++    }
++
++    mutating func append(_ chunk: [UInt8]) -> [Data]? {
++        var lines: [Data] = []
++        var start = 0
++        for i in chunk.indices where chunk[i] == 0x0A {
++            pending.append(contentsOf: chunk[start..<i])
++            guard pending.count <= limit else { return nil }
++            lines.append(Data(pending))
++            pending.removeAll(keepingCapacity: true)
++            start = i + 1
++        }
++        pending.append(contentsOf: chunk[start...])
++        guard pending.count <= limit else { return nil }
++        return lines
++    }
++}
+diff --git a/Sources/MCPKit/MCPSocketServer.swift b/Sources/MCPKit/MCPSocketServer.swift
+new file mode 100644
+index 0000000..bc22c11
+--- /dev/null
++++ b/Sources/MCPKit/MCPSocketServer.swift
+@@ -0,0 +1,224 @@
++import Darwin
++import Foundation
++
++/// The app's end of the bridge socket. Accepts up to `maxConnections` bridges of
++/// the same macOS user and answers each request line with one response line.
++/// Requests on one connection run concurrently and may be answered out of order.
++public final class MCPSocketServer: @unchecked Sendable {
++    public typealias Handler = @Sendable (MCPWireRequest) async -> MCPWireResponse
++
++    private let paths: MCPSocketPaths
++    private let maxConnections: Int
++    private let peerCheck: @Sendable (Int32) -> Bool
++    private let handler: Handler
++    private let queue = DispatchQueue(label: "com.kael.bugvoice.mcp.server")
++    // Touched only on `queue`.
++    private var listener: DispatchSourceRead?
++    private var connections: [ObjectIdentifier: Connection] = [:]
++    /// The socket file this server bound, so `stop` never removes another app's socket.
++    private var boundFile: (device: dev_t, inode: ino_t)?
++
++    public init(
++        paths: MCPSocketPaths, maxConnections: Int = 4,
++        peerCheck: @escaping @Sendable (Int32) -> Bool = MCPSocketServer.sameUser,
++        handler: @escaping Handler
++    ) {
++        self.paths = paths
++        self.maxConnections = maxConnections
++        self.peerCheck = peerCheck
++        self.handler = handler
++    }
++
++    /// True when the process on the other end runs as this user.
++    public static func sameUser(_ fd: Int32) -> Bool {
++        var uid: uid_t = 0
++        var gid: gid_t = 0
++        guard getpeereid(fd, &uid, &gid) == 0 else { return false }
++        return uid == getuid()
++    }
++
++    public func start() throws {
++        try queue.sync { try listen() }
++    }
++
++    public func stop() {
++        queue.sync {
++            listener?.cancel()
++            listener = nil
++            for connection in connections.values { connection.close() }
++            connections = [:]
++            if let boundFile, let current = Self.identity(paths.socket.path),
++               current.device == boundFile.device, current.inode == boundFile.inode {
++                unlink(paths.socket.path)
++            }
++            boundFile = nil
++        }
++    }
++
++    private static func identity(_ path: String) -> (device: dev_t, inode: ino_t)? {
++        var info = stat()
++        guard lstat(path, &info) == 0 else { return nil }
++        return (info.st_dev, info.st_ino)
++    }
++
++    /// True when a process accepts connections at `path`.
++    private static func answers(_ path: String) -> Bool {
++        guard var addr = try? MCPSocketAddress.make(path) else { return false }
++        let fd = socket(AF_UNIX, SOCK_STREAM, 0)
++        guard fd >= 0 else { return false }
++        defer { Darwin.close(fd) }
++        let result = withUnsafePointer(to: &addr) {
++            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
++                Darwin.connect(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
++            }
++        }
++        return result == 0
++    }
++
++    private func listen() throws {
++        guard listener == nil else { return }
++        let path = paths.socket.path
++        var addr = try MCPSocketAddress.make(path)
++        try FileManager.default.createDirectory(
++            at: paths.folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
++        guard chmod(paths.folder.path, 0o700) == 0 else { throw Self.posixError() }
++        // Dev and installed builds share the path: never take it from a live app.
++        // A socket file left by a crash refuses connections; replace it.
++        if Self.identity(path) != nil {
++            guard !Self.answers(path) else { throw MCPSocketError.inUse }
++            unlink(path)
++        }
++
++        let fd = socket(AF_UNIX, SOCK_STREAM, 0)
++        guard fd >= 0 else { throw Self.posixError() }
++        let bound = withUnsafePointer(to: &addr) {
++            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
++                bind(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
++            }
++        }
++        guard bound == 0, chmod(path, 0o600) == 0, Darwin.listen(fd, 16) == 0 else {
++            let error = Self.posixError()
++            Darwin.close(fd)
++            unlink(path)
++            throw error
++        }
++        boundFile = Self.identity(path)
++        _ = fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK)
++
++        let source = DispatchSource.makeReadSource(fileDescriptor: fd, queue: queue)
++        source.setEventHandler { [weak self] in self?.acceptPending(fd) }
++        source.setCancelHandler { Darwin.close(fd) }
++        listener = source
++        source.resume()
++    }
++
++    private func acceptPending(_ listenFD: Int32) {
++        while true {
++            let fd = accept(listenFD, nil, nil)
++            guard fd >= 0 else { return }
++            // Accepted sockets inherit O_NONBLOCK on macOS; reads run only when data is ready.
++            _ = fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) & ~O_NONBLOCK)
++            MCPWire.noSigPipe(fd)
++            guard connections.count < maxConnections, peerCheck(fd) else {
++                Darwin.close(fd)
++                continue
++            }
++            open(fd)
++        }
++    }
++
++    private func open(_ fd: Int32) {
++        let connection = Connection(fd: fd)
++        let key = ObjectIdentifier(connection)
++        connections[key] = connection
++        let source = DispatchSource.makeReadSource(fileDescriptor: fd, queue: queue)
++        source.setEventHandler { [weak self] in self?.readAvailable(connection) }
++        source.setCancelHandler { [weak self] in
++            connection.closeDescriptor()
++            self?.connections.removeValue(forKey: key)
++        }
++        connection.attach(source)
++        source.resume()
++    }
++
++    private func readAvailable(_ connection: Connection) {
++        var chunk = [UInt8](repeating: 0, count: 64 * 1024)
++        let n = read(connection.fd, &chunk, chunk.count)
++        if n < 0, errno == EINTR || errno == EAGAIN { return }
++        guard n > 0, let lines = connection.buffer.append(Array(chunk[0..<n])) else {
++            connection.close()
++            return
++        }
++        for line in lines where !line.isEmpty {
++            guard let request = try? JSONDecoder().decode(MCPWireRequest.self, from: line) else {
++                connection.send(MCPWire.line(MCPWireResponse(id: "", text: "Bad request.", isError: true)))
++                continue
++            }
++            let handler = handler
++            Task {
++                let response = await handler(request)
++                connection.send(MCPWire.line(response))
++            }
++        }
++    }
++
++    private static func posixError() -> POSIXError {
++        POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
++    }
++}
++
++/// One accepted bridge. Writes run on their own queue so a slow reader never
++/// blocks the server; the descriptor closes after the last queued write.
++private final class Connection: @unchecked Sendable {
++    let fd: Int32
++    // Touched only on the server queue.
++    var buffer = MCPLineBuffer(limit: MCPWire.maxLine)
++
++    private let lock = NSLock()
++    private var closed = false
++    private var source: DispatchSourceRead?
++    private let writes = DispatchQueue(label: "com.kael.bugvoice.mcp.connection")
++
++    init(fd: Int32) {
++        self.fd = fd
++    }
++
++    private var isClosed: Bool {
++        lock.lock()
++        defer { lock.unlock() }
++        return closed
++    }
++
++    func attach(_ source: DispatchSourceRead) {
++        lock.lock()
++        self.source = source
++        lock.unlock()
++    }
++
++    func send(_ data: Data) {
++        writes.async { [self] in
++            guard !isClosed else { return }
++            if !MCPWire.writeAll(fd, data) { close() }
++        }
++    }
++
++    /// Stops reading and writing; the descriptor itself closes in `closeDescriptor`.
++    func close() {
++        lock.lock()
++        let wasClosed = closed
++        closed = true
++        let source = source
++        lock.unlock()
++        guard !wasClosed else { return }
++        shutdown(fd, SHUT_RDWR)
++        source?.cancel()
++    }
++
++    /// Called from the read source's cancel handler.
++    func closeDescriptor() {
++        lock.lock()
++        source = nil
++        lock.unlock()
++        writes.async { [fd] in _ = Darwin.close(fd) }
++    }
++}
+diff --git a/Tests/MCPKitTests/MCPSocketTests.swift b/Tests/MCPKitTests/MCPSocketTests.swift
+new file mode 100644
+index 0000000..ecc781c
+--- /dev/null
++++ b/Tests/MCPKitTests/MCPSocketTests.swift
+@@ -0,0 +1,344 @@
++import Darwin
++import Foundation
++import Testing
++@testable import MCPKit
++
++/// A short folder under /tmp: `sun_path` holds 104 bytes.
++func shortTempPaths() -> MCPSocketPaths {
++    let hex = UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(8).lowercased()
++    return MCPSocketPaths(folder: URL(fileURLWithPath: "/tmp/bv-\(hex)", isDirectory: true))
++}
++
++func removeTemp(_ paths: MCPSocketPaths) {
++    try? FileManager.default.removeItem(at: paths.folder)
++}
++
++func echoServer(_ paths: MCPSocketPaths, maxConnections: Int = 4, peerCheck: @escaping @Sendable (Int32) -> Bool = MCPSocketServer.sameUser) -> MCPSocketServer {
++    MCPSocketServer(paths: paths, maxConnections: maxConnections, peerCheck: peerCheck) { r in
++        MCPWireResponse(id: r.id, text: r.tool, isError: false)
++    }
++}
++
++func request(_ tool: String = "ask") -> MCPWireRequest {
++    MCPWireRequest(id: UUID().uuidString, tool: tool, arguments: nil, client: "test")
++}
++
++/// A raw connected socket for writing bytes the client never would.
++func rawConnect(_ paths: MCPSocketPaths) throws -> Int32 {
++    let fd = socket(AF_UNIX, SOCK_STREAM, 0)
++    var on: Int32 = 1
++    setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &on, socklen_t(MemoryLayout<Int32>.size))
++    var addr = try MCPSocketAddress.make(paths.socket.path)
++    let result = withUnsafePointer(to: &addr) {
++        $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { Darwin.connect(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) }
++    }
++    guard result == 0 else { Darwin.close(fd); throw MCPSocketError.notListening }
++    return fd
++}
++
++/// Reads until a newline or end of file.
++func rawReadLine(_ fd: Int32) -> String? {
++    var bytes: [UInt8] = []
++    var byte: UInt8 = 0
++    while read(fd, &byte, 1) == 1 {
++        if byte == 0x0A { return String(decoding: bytes, as: UTF8.self) }
++        bytes.append(byte)
++    }
++    return nil
++}
++
++@Suite(.serialized)
++struct MCPSocketTests {
++    @Test func roundTrip() async throws {
++        let paths = shortTempPaths()
++        defer { removeTemp(paths) }
++        let server = echoServer(paths)
++        try server.start()
++        defer { server.stop() }
++        let client = try MCPSocketClient.connect(paths: paths)
++        defer { client.close() }
++        let r = request("ask")
++        let response = try await client.send(r)
++        #expect(response == MCPWireResponse(id: r.id, text: "ask", isError: false))
++        let second = try await client.send(request("search"))
++        #expect(second.text == "search")
++    }
++
++    @Test func concurrentRequestsMatchByID() async throws {
++        let paths = shortTempPaths()
++        defer { removeTemp(paths) }
++        let server = MCPSocketServer(paths: paths) { r in
++            if r.tool == "slow" { try? await Task.sleep(for: .milliseconds(300)) }
++            return MCPWireResponse(id: r.id, text: r.tool, isError: false)
++        }
++        try server.start()
++        defer { server.stop() }
++        let client = try MCPSocketClient.connect(paths: paths)
++        defer { client.close() }
++        async let slow = client.send(request("slow"))
++        try await Task.sleep(for: .milliseconds(50))
++        let fast = try await client.send(request("fast"))
++        #expect(fast.text == "fast")
++        #expect(try await slow.text == "slow")
++    }
++
++    @Test func permissions() throws {
++        let paths = shortTempPaths()
++        defer { removeTemp(paths) }
++        try FileManager.default.createDirectory(at: paths.folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o755])
++        let server = echoServer(paths)
++        try server.start()
++        defer { server.stop() }
++        let folder = try FileManager.default.attributesOfItem(atPath: paths.folder.path)[.posixPermissions] as? Int
++        let socket = try FileManager.default.attributesOfItem(atPath: paths.socket.path)[.posixPermissions] as? Int
++        #expect(folder == 0o700)
++        #expect(socket == 0o600)
++    }
++
++    @Test func staleSocketReplaced() async throws {
++        let paths = shortTempPaths()
++        defer { removeTemp(paths) }
++        try FileManager.default.createDirectory(at: paths.folder, withIntermediateDirectories: true)
++        try Data("stale".utf8).write(to: paths.socket)
++        let server = echoServer(paths)
++        try server.start()
++        defer { server.stop() }
++        let client = try MCPSocketClient.connect(paths: paths)
++        defer { client.close() }
++        #expect(try await client.send(request()).text == "ask")
++    }
++
++    @Test func rejectsForeignPeer() async throws {
++        let paths = shortTempPaths()
++        defer { removeTemp(paths) }
++        let server = echoServer(paths, peerCheck: { _ in false })
++        try server.start()
++        defer { server.stop() }
++        let client = try MCPSocketClient.connect(paths: paths)
++        defer { client.close() }
++        await expectClosedOrNotSent { try await client.send(request()) }
++    }
++
++    @Test func sameUserAcceptsThisProcess() async throws {
++        let paths = shortTempPaths()
++        defer { removeTemp(paths) }
++        let seen = Flag()
++        let server = echoServer(paths, peerCheck: { fd in
++            let ok = MCPSocketServer.sameUser(fd)
++            seen.set(ok)
++            return ok
++        })
++        try server.start()
++        defer { server.stop() }
++        let client = try MCPSocketClient.connect(paths: paths)
++        defer { client.close() }
++        #expect(try await client.send(request()).text == "ask")
++        #expect(seen.value)
++    }
++
++    @Test func fifthConnectionRefused() async throws {
++        let paths = shortTempPaths()
++        defer { removeTemp(paths) }
++        let server = echoServer(paths)
++        try server.start()
++        defer { server.stop() }
++        var clients: [MCPSocketClient] = []
++        for _ in 0..<4 {
++            let c = try MCPSocketClient.connect(paths: paths)
++            _ = try await c.send(request())
++            clients.append(c)
++        }
++        let fifth = try MCPSocketClient.connect(paths: paths)
++        await expectClosedOrNotSent { try await fifth.send(request()) }
++        fifth.close()
++        clients.removeFirst().close()
++        var worked = false
++        for _ in 0..<40 where !worked {
++            try await Task.sleep(for: .milliseconds(50))
++            let c = try MCPSocketClient.connect(paths: paths)
++            worked = (try? await c.send(request())) != nil
++            c.close()
++        }
++        #expect(worked)
++        clients.forEach { $0.close() }
++    }
++
++    @Test func oversizeLineClosesConnection() async throws {
++        let paths = shortTempPaths()
++        defer { removeTemp(paths) }
++        let server = echoServer(paths)
++        try server.start()
++        defer { server.stop() }
++        let fd = try rawConnect(paths)
++        defer { Darwin.close(fd) }
++        let writer = Thread {
++            let chunk = [UInt8](repeating: 0x61, count: 64 * 1024)
++            for _ in 0..<80 { if write(fd, chunk, chunk.count) < 0 { break } }
++        }
++        writer.start()
++        #expect(rawReadLine(fd) == nil)
++        let client = try MCPSocketClient.connect(paths: paths)
++        defer { client.close() }
++        #expect(try await client.send(request()).text == "ask")
++    }
++
++    @Test func badLineGetsError() throws {
++        let paths = shortTempPaths()
++        defer { removeTemp(paths) }
++        let server = echoServer(paths)
++        try server.start()
++        defer { server.stop() }
++        let fd = try rawConnect(paths)
++        defer { Darwin.close(fd) }
++        _ = write(fd, "nope\n", 5)
++        let line = try #require(rawReadLine(fd))
++        let response = try JSONDecoder().decode(MCPWireResponse.self, from: Data(line.utf8))
++        #expect(response == MCPWireResponse(id: "", text: "Bad request.", isError: true))
++    }
++
++    @Test func clientNotListening() {
++        let paths = shortTempPaths()
++        #expect(throws: MCPSocketError.notListening) { try MCPSocketClient.connect(paths: paths) }
++    }
++
++    @Test func longPathFailsClearly() {
++        let paths = MCPSocketPaths(folder: URL(fileURLWithPath: "/tmp/" + String(repeating: "x", count: 120), isDirectory: true))
++        #expect(throws: MCPSocketError.pathTooLong) { try MCPSocketClient.connect(paths: paths) }
++        #expect(throws: MCPSocketError.pathTooLong) { try echoServer(paths).start() }
++        try? FileManager.default.removeItem(at: paths.folder)
++    }
++
++    @Test func stopRemovesSocket() throws {
++        let paths = shortTempPaths()
++        defer { removeTemp(paths) }
++        let server = echoServer(paths)
++        try server.start()
++        #expect(FileManager.default.fileExists(atPath: paths.socket.path))
++        server.stop()
++        #expect(!FileManager.default.fileExists(atPath: paths.socket.path))
++    }
++
++    @Test func sendAfterCloseIsNotSent() async throws {
++        let paths = shortTempPaths()
++        defer { removeTemp(paths) }
++        let server = echoServer(paths)
++        try server.start()
++        defer { server.stop() }
++        let client = try MCPSocketClient.connect(paths: paths)
++        client.close()
++        await #expect(throws: MCPSocketError.notSent) { try await client.send(request()) }
++    }
++
++    @Test func writtenThenClosedIsClosed() async throws {
++        let paths = shortTempPaths()
++        defer { removeTemp(paths) }
++        let raw = try RawServer(paths: paths)
++        defer { raw.stop() }
++        let client = try MCPSocketClient.connect(paths: paths)
++        defer { client.close() }
++        await #expect(throws: MCPSocketError.closed) { try await client.send(request("create_note")) }
++        #expect(raw.lines == 1)
++    }
++
++    @Test func longResponseIsRead() async throws {
++        let paths = shortTempPaths()
++        defer { removeTemp(paths) }
++        let big = String(repeating: "a", count: 5 * 1024 * 1024)
++        let server = MCPSocketServer(paths: paths) { r in MCPWireResponse(id: r.id, text: big, isError: false) }
++        try server.start()
++        defer { server.stop() }
++        let client = try MCPSocketClient.connect(paths: paths)
++        defer { client.close() }
++        #expect(try await client.send(request()).text.utf8.count == big.utf8.count)
++    }
++
++    @Test func secondServerIsRefusedWhileFirstAnswers() async throws {
++        let paths = shortTempPaths()
++        defer { removeTemp(paths) }
++        let first = echoServer(paths)
++        try first.start()
++        defer { first.stop() }
++        let second = MCPSocketServer(paths: paths) { r in MCPWireResponse(id: r.id, text: "second", isError: false) }
++        #expect(throws: MCPSocketError.inUse) { try second.start() }
++        let client = try MCPSocketClient.connect(paths: paths)
++        defer { client.close() }
++        #expect(try await client.send(request()).text == "ask")
++    }
++
++    @Test func stopKeepsAReplacedSocketFile() throws {
++        let paths = shortTempPaths()
++        defer { removeTemp(paths) }
++        let first = echoServer(paths)
++        try first.start()
++        try FileManager.default.removeItem(at: paths.socket)
++        try Data("other".utf8).write(to: paths.socket)
++        first.stop()
++        #expect(FileManager.default.fileExists(atPath: paths.socket.path))
++    }
++
++    @Test func standardPathIsUnderAppSupport() {
++        #expect(MCPSocketPaths.standard().socket.path.hasSuffix("/BugVoice/MCP/bugvoice.sock"))
++    }
++
++    @Test func lineBufferSplitsAndLimits() {
++        var b = MCPLineBuffer(limit: 8)
++        #expect(b.append(Array("ab\ncd".utf8)) == [Data("ab".utf8)])
++        #expect(b.append(Array("e\n".utf8)) == [Data("cde".utf8)])
++        #expect(b.append(Array("123456789".utf8)) == nil)
++    }
++}
++
++final class Flag: @unchecked Sendable {
++    private let lock = NSLock()
++    private var _value = false
++    func set(_ v: Bool) { lock.lock(); _value = v; lock.unlock() }
++    var value: Bool { lock.lock(); defer { lock.unlock() }; return _value }
++}
++
++func expectClosedOrNotSent(_ body: () async throws -> MCPWireResponse, sourceLocation: SourceLocation = #_sourceLocation) async {
++    do {
++        _ = try await body()
++        Issue.record("no error", sourceLocation: sourceLocation)
++    } catch let error as MCPSocketError {
++        #expect(error == .closed || error == .notSent, sourceLocation: sourceLocation)
++    } catch {
++        Issue.record("unexpected \(error)", sourceLocation: sourceLocation)
++    }
++}
++
++/// Accepts connections, reads one line from each, counts it and closes without answering.
++final class RawServer: @unchecked Sendable {
++    private let fd: Int32
++    private let lock = NSLock()
++    private var count = 0
++    private var stopped = false
++
++    init(paths: MCPSocketPaths) throws {
++        try FileManager.default.createDirectory(at: paths.folder, withIntermediateDirectories: true)
++        fd = socket(AF_UNIX, SOCK_STREAM, 0)
++        var addr = try MCPSocketAddress.make(paths.socket.path)
++        let bound = withUnsafePointer(to: &addr) {
++            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { bind(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) }
++        }
++        guard bound == 0, listen(fd, 8) == 0 else { throw MCPSocketError.notListening }
++        Thread { [self] in loop() }.start()
++    }
++
++    var lines: Int { lock.withLock { count } }
++
++    func stop() {
++        lock.withLock { stopped = true }
++    }
++
++    private func loop() {
++        while !lock.withLock({ stopped }) {
++            var p = pollfd(fd: fd, events: Int16(POLLIN), revents: 0)
++            guard poll(&p, 1, 50) > 0 else { continue }
++            let c = accept(fd, nil, nil)
++            guard c >= 0 else { continue }
++            if rawReadLine(c) != nil { lock.withLock { count += 1 } }
++            Darwin.close(c)
++        }
++        Darwin.close(fd)
++    }
++}

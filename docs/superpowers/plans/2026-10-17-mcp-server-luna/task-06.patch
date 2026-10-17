@@ -1,0 +1,713 @@
+From 59bc498951abeaa4800f4fc694725eb622d150e5 Mon Sep 17 00:00:00 2001
+From: kael-wanderer <cong.buithanh@gmail.com>
+Date: Sat, 17 Oct 2026 21:18:47 +0700
+Subject: [PATCH] feat(app): MCP service with read, search, ask and summary
+ tools
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ Package.swift                                 |   2 +-
+ Sources/BugVoice/AppModel+Scratchpad.swift    |  19 +-
+ Sources/BugVoice/AppModel.swift               |   9 +
+ Sources/BugVoice/BugVoiceApp.swift            |   4 +
+ Sources/BugVoice/MCPService.swift             | 359 ++++++++++++++++++
+ Sources/BugVoiceMac/NotesController.swift     |   7 +
+ Sources/VoiceCore/MCP/MCPReplyLimit.swift     |  54 +++
+ Sources/VoiceCore/MCP/MCPResolve.swift        |  26 ++
+ Tests/VoiceCoreTests/MCPReplyLimitTests.swift |  58 +++
+ Tests/VoiceCoreTests/MCPResolveTests.swift    |  36 ++
+ 10 files changed, 569 insertions(+), 5 deletions(-)
+ create mode 100644 Sources/BugVoice/MCPService.swift
+ create mode 100644 Sources/VoiceCore/MCP/MCPReplyLimit.swift
+ create mode 100644 Sources/VoiceCore/MCP/MCPResolve.swift
+ create mode 100644 Tests/VoiceCoreTests/MCPReplyLimitTests.swift
+ create mode 100644 Tests/VoiceCoreTests/MCPResolveTests.swift
+
+diff --git a/Package.swift b/Package.swift
+index c5bfa03..c1131a6 100644
+--- a/Package.swift
++++ b/Package.swift
+@@ -51,7 +51,7 @@ let package = Package(
+         // by Scripts/build-app.sh.
+         .executableTarget(
+             name: "BugVoice",
+-            dependencies: ["VoiceCore", "WhisperEngine", "BugVoiceMac"],
++            dependencies: ["VoiceCore", "WhisperEngine", "BugVoiceMac", "MCPKit"],
+             path: "Sources/BugVoice"
+         ),
+         // The local MCP socket shared by the app and the bugvoice-mcp bridge.
+diff --git a/Sources/BugVoice/AppModel+Scratchpad.swift b/Sources/BugVoice/AppModel+Scratchpad.swift
+index e670e32..9d70b89 100644
+--- a/Sources/BugVoice/AppModel+Scratchpad.swift
++++ b/Sources/BugVoice/AppModel+Scratchpad.swift
+@@ -234,8 +234,16 @@ extension AppModel {
+ 
+     func askAcross(question: String, history: [NoteChatTurn], scope: AskScope,
+                    progress: @escaping @Sendable (AskStep) -> Void) async throws -> AskOutcome {
++        guard let pipeline = makeAskPipeline() else { return .failed(.model) }
++        let corpus = await searchIndexer.corpus(scope: scope)
++        try Task.checkCancellation()
++        return try await runAsk(pipeline, question: question, history: history, corpus: corpus, progress: progress)
++    }
++
++    /// Ask's pipeline with the Notes model, or nil when none is set. Agents' `ask` uses the same one.
++    func makeAskPipeline() -> AskPipeline? {
+         let plan = transformPlan
+-        guard canAskAcross, let model = ProviderFactory.textModel(plan, credentials: credentials) else { return .failed(.model) }
++        guard canAskAcross, let model = ProviderFactory.textModel(plan, credentials: credentials) else { return nil }
+         let modelID: String
+         let disableThinking: Bool
+         switch plan {
+@@ -243,7 +251,7 @@ extension AppModel {
+         case .appleIntelligence: modelID = "apple-intelligence"; disableThinking = false
+         default: modelID = ""; disableThinking = false
+         }
+-        let pipeline = AskPipeline(
++        return AskPipeline(
+             model: model, modelID: modelID, disableThinking: disableThinking,
+             embedder: ProviderFactory.embedder(settings: settings.models, credentials: credentials),
+             contextTokens: settings.models.search.askContextTokens, now: { Date() },
+@@ -258,8 +266,11 @@ extension AppModel {
+                     kept=\(t.keptCitations.map(String.init) ?? "-", privacy: .public)
+                     """)
+             })
+-        let corpus = await searchIndexer.corpus(scope: scope)
+-        try Task.checkCancellation()
++    }
++
++    /// Runs Ask over `corpus` and logs counts only.
++    func runAsk(_ pipeline: AskPipeline, question: String, history: [NoteChatTurn], corpus: AskCorpus,
++                progress: @escaping @Sendable (AskStep) -> Void) async throws -> AskOutcome {
+         let started = Date()
+         let outcome = try await pipeline.run(question: question, history: history, corpus: corpus, progress: progress)
+         let kind: String = switch outcome {
+diff --git a/Sources/BugVoice/AppModel.swift b/Sources/BugVoice/AppModel.swift
+index 53adda7..a7aff66 100644
+--- a/Sources/BugVoice/AppModel.swift
++++ b/Sources/BugVoice/AppModel.swift
+@@ -70,6 +70,8 @@ final class AppModel {
+     @ObservationIgnored private var systemAudioGrantedThisRun = false
+ 
+     @ObservationIgnored lazy var searchIndexer = SearchIndexer(model: self)
++    /// The MCP server for coding agents (Settings › Agents).
++    @ObservationIgnored lazy var mcp = MCPService(model: self)
+ 
+     var settings = AppSettings() {
+         didSet {
+@@ -228,6 +230,8 @@ final class AppModel {
+         searchIndexer.librariesDidLoad()
+         Task { await prepareSpeech() }
+         Task { await refreshCLIs() }
++        // Last, so agents never see half-loaded notes or meetings.
++        mcp.start()
+     }
+ 
+     /// Configured from the settings just loaded (loading does not fire
+@@ -868,6 +872,11 @@ final class AppModel {
+         }
+     }
+ 
++    /// True while a summary or action-items text is being written for this meeting.
++    func isWritingMeetingText(id: MeetingID) -> Bool {
++        meetingTextTasks[id] != nil
++    }
++
+     func cancelMeetingText(id: MeetingID) async {
+         let task = meetingTextTasks[id]
+         task?.cancel()
+diff --git a/Sources/BugVoice/BugVoiceApp.swift b/Sources/BugVoice/BugVoiceApp.swift
+index 109843c..5485378 100644
+--- a/Sources/BugVoice/BugVoiceApp.swift
++++ b/Sources/BugVoice/BugVoiceApp.swift
+@@ -93,6 +93,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
+         return false
+     }
+ 
++    func applicationWillTerminate(_ notification: Notification) {
++        model.mcp.stop()
++    }
++
+     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+         let meetings = model.meetings
+         let meetingIsActive = meetings?.isRecording == true || meetings?.isPaused == true
+diff --git a/Sources/BugVoice/MCPService.swift b/Sources/BugVoice/MCPService.swift
+new file mode 100644
+index 0000000..9af4a4b
+--- /dev/null
++++ b/Sources/BugVoice/MCPService.swift
+@@ -0,0 +1,359 @@
++import Foundation
++import MCPKit
++import Observation
++import OSLog
++import VoiceCore
++
++private let mcpLog = Logger(subsystem: "com.kael.bugvoice", category: "mcp")
++
++/// The app's side of the MCP server: listens on the local socket and runs each
++/// agent tool call through the same code paths as the app's own buttons.
++/// Logs and the activity list carry tool, client, time and the error sentence only.
++@MainActor
++@Observable
++final class MCPService {
++    static let offMessage = "MCP is off. Turn it on in BugVoice Settings › Agents."
++    static let noNotesModel = "Choose a Notes model in BugVoice Settings › Models."
++    static let summaryBusy = "BugVoice is already writing this meeting's summary. Try again in a minute."
++    static let summaryFailed = "Could not write the summary. Try again."
++    static let summaryTooSlow = "Writing the summary took longer than 5 minutes. Try again."
++    static let otherInstance = "another BugVoice is answering agents."
++
++    private(set) var activity = MCPActivity()
++    /// "Listening", "Not started" or "Could not start: <reason>".
++    private(set) var status = "Not started"
++
++    private unowned let model: AppModel
++    @ObservationIgnored private var server: MCPSocketServer?
++    /// `ask` and `summarize_meeting` run one at a time across all agents.
++    @ObservationIgnored private let modelGate = SerialGate()
++
++    init(model: AppModel) {
++        self.model = model
++    }
++
++    /// Listens whether MCP is on or off, so a bridge can tell "off" from "not running".
++    func start() {
++        guard server == nil else { return }
++        let server = MCPSocketServer(paths: .standard()) { [weak self] request in
++            guard let self else { return MCPWireResponse(id: request.id, text: "BugVoice is quitting.", isError: true) }
++            return await self.handle(request)
++        }
++        do {
++            try server.start()
++            self.server = server
++            status = "Listening"
++        } catch {
++            status = "Could not start: \(Self.reason(error))"
++            mcpLog.error("mcp start failed: \(Self.reason(error), privacy: .public)")
++        }
++    }
++
++    func stop() {
++        server?.stop()
++        server = nil
++    }
++
++    private static func reason(_ error: Error) -> String {
++        if case MCPSocketError.pathTooLong = error { return "the socket path is too long." }
++        if case MCPSocketError.inUse = error { return otherInstance }
++        return error.localizedDescription
++    }
++
++    // MARK: Calls
++
++    func handle(_ r: MCPWireRequest) async -> MCPWireResponse {
++        let started = Date()
++        let result: Result<String, MCPFailure>
++        if !model.settings.agents.mcpEnabled {
++            result = .failure(MCPFailure(Self.offMessage))
++        } else {
++            // The socket is a trust boundary too: check again what the bridge checked.
++            switch MCPTools.check(r.tool, r.arguments) {
++            case .failure(let error): result = .failure(MCPFailure(error.message))
++            case .success(let call): result = await run(call).map { MCPFormat.fitted($0, for: call) }
++            }
++        }
++        let error: String? = if case .failure(let failure) = result { failure.message } else { nil }
++        activity.record(MCPActivityEntry(time: started, client: r.client, tool: r.tool, error: error))
++        mcpLog.notice("""
++            mcp tool=\(r.tool, privacy: .public) client=\(r.client, privacy: .public) \
++            seconds=\(Int(Date().timeIntervalSince(started)), privacy: .public) ok=\(error == nil, privacy: .public)
++            """)
++        switch result {
++        case .success(let text): return MCPWireResponse(id: r.id, text: text, isError: false)
++        case .failure(let failure): return MCPWireResponse(id: r.id, text: failure.message, isError: true)
++        }
++    }
++
++    private func run(_ call: MCPCall) async -> Result<String, MCPFailure> {
++        switch call {
++        case .listFolders:
++            return .success(listFolders())
++        case .listNotes(let folder, let tag, let text, let limit):
++            return listNotes(folder: folder, tag: tag, text: text, limit: limit)
++        case .getNote(let id):
++            return await getNote(NoteID(rawValue: id))
++        case .listMeetings(let folder, let tag, let from, let to, let text, let limit):
++            return listMeetings(folder: folder, tag: tag, from: from, to: to, text: text, limit: limit)
++        case .getMeeting(let id, let parts, let fromLine):
++            return await getMeeting(MeetingID(rawValue: id), parts: parts, fromLine: fromLine)
++        case .search(let query, let scope, let limit):
++            return await search(query: query, scope: scope, limit: limit)
++        case .ask(let question, let scope):
++            await modelGate.enter()
++            // MCP may have been turned off while this call waited its turn.
++            guard model.settings.agents.mcpEnabled else {
++                await modelGate.leave()
++                return .failure(MCPFailure(Self.offMessage))
++            }
++            let result = await ask(question: question, scope: scope)
++            await modelGate.leave()
++            return result
++        case .summarizeMeeting(let id, let kind, let replace):
++            await modelGate.enter()
++            guard model.settings.agents.mcpEnabled else {
++                await modelGate.leave()
++                return .failure(MCPFailure(Self.offMessage))
++            }
++            let result = await summarize(MeetingID(rawValue: id), kind: kind, replace: replace)
++            await modelGate.leave()
++            return result
++        case .createNote, .editNote, .uploadAudio, .getJob:
++            return .failure(MCPFailure("Not available yet."))
++        }
++    }
++
++    // MARK: Folders
++
++    private var folders: [LibraryFolder] { model.library.folders }
++
++    private func folderName(_ id: FolderID?) -> String? {
++        id.flatMap { id in folders.first { $0.id == id }?.name }
++    }
++
++    private func listFolders() -> String {
++        let notes = model.notesController.notes
++        let meetings = model.meetingManifests
++        let rows: [JSONValue] = LibraryFolders.sorted(folders).map { folder in
++            .object([
++                "id": .string(folder.id.rawValue),
++                "name": .string(folder.name),
++                "notes": .number(Double(notes.filter { $0.frontMatter.folderID == folder.id }.count)),
++                "meetings": .number(Double(meetings.filter { $0.folderID == folder.id }.count)),
++            ])
++        }
++        return MCPFormat.json(.array(rows))
++    }
++
++    private static func matchesTag(_ tags: [String], _ tag: String?) -> Bool {
++        guard let tag else { return true }
++        guard let wanted = TagName.normalize(tag) else { return false }
++        return tags.contains(wanted)
++    }
++
++    private static func matchesText(_ title: String, _ text: String?) -> Bool {
++        guard let text, !text.isEmpty else { return true }
++        return AskText.fold(title).contains(AskText.fold(text))
++    }
++
++    // MARK: Notes
++
++    private func listNotes(folder: String?, tag: String?, text: String?, limit: Int) -> Result<String, MCPFailure> {
++        var folderID: FolderID?
++        if let folder {
++            switch MCPResolve.folder(folder, in: folders) {
++            case .success(let id): folderID = id
++            case .failure(let failure): return .failure(failure)
++            }
++        }
++        let rows: [JSONValue] = model.notesController.notes
++            .filter { folderID == nil || $0.frontMatter.folderID == folderID }
++            .filter { Self.matchesTag($0.frontMatter.tags, tag) && Self.matchesText($0.title, text) }
++            .sorted { $0.modifiedAt > $1.modifiedAt }
++            .prefix(limit)
++            .map { note in
++                .object([
++                    "id": .string(note.id.rawValue),
++                    "title": .string(note.title),
++                    "folder": folderName(note.frontMatter.folderID).map(JSONValue.string) ?? .null,
++                    "tags": .array(note.frontMatter.tags.map(JSONValue.string)),
++                    "modified": .string(MCPFormat.iso(note.modifiedAt)),
++                    "words": .number(Double(note.body.split(whereSeparator: \.isWhitespace).count)),
++                ])
++            }
++        return .success(MCPFormat.json(.array(rows)))
++    }
++
++    private func getNote(_ id: NoteID) async -> Result<String, MCPFailure> {
++        let controller = model.notesController
++        if controller.hasUnsavedChanges(id: id), let open = controller.note(id: id) {
++            return .success(MCPFormat.note(
++                title: open.title, folder: folderName(open.frontMatter.folderID), tags: open.frontMatter.tags,
++                modified: open.modifiedAt, body: open.body, unsaved: true))
++        }
++        let disk = try? await model.notesStore.open(id: id)
++        guard let note = disk ?? controller.notes.first(where: { $0.id == id }) else {
++            return .failure(MCPFailure("No note with id \(id.rawValue)."))
++        }
++        return .success(MCPFormat.note(
++            title: note.title, folder: folderName(note.frontMatter.folderID), tags: note.frontMatter.tags,
++            modified: note.modifiedAt, body: note.body, unsaved: false))
++    }
++
++    // MARK: Meetings
++
++    private func listMeetings(
++        folder: String?, tag: String?, from: Date?, to: Date?, text: String?, limit: Int
++    ) -> Result<String, MCPFailure> {
++        var folderID: FolderID?
++        if let folder {
++            switch MCPResolve.folder(folder, in: folders) {
++            case .success(let id): folderID = id
++            case .failure(let failure): return .failure(failure)
++            }
++        }
++        let rows: [JSONValue] = model.meetingManifests
++            .filter { folderID == nil || $0.folderID == folderID }
++            .filter { Self.matchesTag($0.tags, tag) && Self.matchesText($0.title, text) }
++            .filter { m in (from.map { m.startedAt >= $0 } ?? true) && (to.map { m.startedAt <= $0 } ?? true) }
++            .sorted { $0.startedAt > $1.startedAt }
++            .prefix(limit)
++            .map { m in
++                .object([
++                    "id": .string(m.id.rawValue),
++                    "title": .string(m.title),
++                    "started": .string(MCPFormat.iso(m.startedAt)),
++                    "duration_seconds": .number(m.duration.rounded()),
++                    "kind": .string(m.source == .upload ? "uploaded" : "recorded"),
++                    "people": .array(MCPFormat.people(m).map(JSONValue.string)),
++                    "has_summary": .bool(!(m.summary ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty),
++                    "has_action_items": .bool(!(m.actionItems ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty),
++                    "state": .string(m.state.rawValue),
++                ])
++            }
++        return .success(MCPFormat.json(.array(rows)))
++    }
++
++    /// The saved manifest, so a summary written a moment ago is included.
++    private func loadMeeting(_ id: MeetingID) async -> MeetingManifest? {
++        guard model.meetingManifests.contains(where: { $0.id == id }) else { return nil }
++        return try? await MeetingStore(root: model.paths.meetings).load(id: id)
++    }
++
++    private func getMeeting(_ id: MeetingID, parts: Set<MCPMeetingPart>, fromLine: Int) async -> Result<String, MCPFailure> {
++        guard let meeting = await loadMeeting(id) else { return .failure(MCPFailure("No meeting with id \(id.rawValue).")) }
++        return .success(MCPFormat.meeting(meeting, folder: folderName(meeting.folderID), parts: parts, fromLine: fromLine))
++    }
++
++    // MARK: Search and Ask
++
++    private func askScope(_ argument: MCPScopeArgument) -> Result<AskScope, MCPFailure> {
++        switch MCPResolve.scope(argument, folders: folders) {
++        case .success(.meeting(let id)) where !model.meetingManifests.contains(where: { $0.id == id }):
++            .failure(MCPFailure("No meeting with id \(id.rawValue)."))
++        case .success(.note(let id)) where !model.notesController.notes.contains(where: { $0.id == id }):
++            .failure(MCPFailure("No note with id \(id.rawValue)."))
++        case let other:
++            other
++        }
++    }
++
++    private func search(query: String, scope: MCPScopeArgument, limit: Int) async -> Result<String, MCPFailure> {
++        let resolved: AskScope
++        switch askScope(scope) {
++        case .success(let s): resolved = s
++        case .failure(let failure): return .failure(failure)
++        }
++        // Search calls no model; the pipeline only needs the embedder.
++        let pipeline = AskPipeline(
++            model: NoTextModel(), modelID: "", disableThinking: true,
++            embedder: ProviderFactory.embedder(settings: model.settings.models, credentials: model.credentials),
++            contextTokens: model.settings.models.search.askContextTokens, now: { Date() })
++        let corpus = await model.searchIndexer.corpus(scope: resolved)
++        do {
++            let result = try await pipeline.search(query: query, corpus: corpus, limit: limit)
++            return .success(MCPFormat.json(MCPFormat.searchResult(result, info: corpus.info)))
++        } catch {
++            return .failure(MCPFailure("Search stopped. Try again."))
++        }
++    }
++
++    private func ask(question: String, scope: MCPScopeArgument) async -> Result<String, MCPFailure> {
++        let resolved: AskScope
++        switch askScope(scope) {
++        case .success(let s): resolved = s
++        case .failure(let failure): return .failure(failure)
++        }
++        guard !resolved.questionIsTooLong(question) else {
++            return .failure(MCPFailure("question must be at most \(AskScope.maxQuestionLength) characters."))
++        }
++        guard let pipeline = model.makeAskPipeline() else { return .failure(MCPFailure(Self.noNotesModel)) }
++        let corpus = await model.searchIndexer.corpus(scope: resolved)
++        do {
++            let outcome = try await model.runAsk(pipeline, question: question, history: [], corpus: corpus, progress: { _ in })
++            return MCPFormat.askResult(outcome, meetings: corpus.meetings, notes: corpus.notes, dictations: corpus.dictations)
++                .map(MCPFormat.json)
++        } catch {
++            return .failure(MCPFailure("Ask stopped before it finished. Try again."))
++        }
++    }
++
++    // MARK: Summary
++
++    static let summaryTimeLimit: Double = 300
++
++    private func summarize(_ id: MeetingID, kind: MCPTextKind, replace: Bool) async -> Result<String, MCPFailure> {
++        guard let meeting = await loadMeeting(id) else { return .failure(MCPFailure("No meeting with id \(id.rawValue).")) }
++        let existing = (kind == .summary ? meeting.summary : meeting.actionItems) ?? ""
++        if !replace, !existing.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return .success(existing) }
++        guard meeting.state == .ready, !meeting.segments.isEmpty else {
++            return .failure(MCPFailure("This meeting has no transcript yet."))
++        }
++        // The app's own Summarize button may be writing this meeting's text now.
++        if model.isWritingMeetingText(id: id) { return .failure(MCPFailure(Self.summaryBusy)) }
++        let textKind: MeetingTextKind = kind == .summary ? .summary : .actionItems
++        let model = model
++        do {
++            // abandoningOnCancel lets the time limit return, and free the model gate,
++            // even when the model call does not stop at once.
++            let text = try await withTimeout(seconds: Self.summaryTimeLimit) {
++                try await abandoningOnCancel {
++                    try await model.generateMeetingText(id: id, kind: textKind, progress: { _ in })
++                }
++            }
++            return .success(text)
++        } catch is TimeoutError {
++            return .failure(MCPFailure(Self.summaryTooSlow))
++        } catch is CancellationError {
++            return .failure(MCPFailure(Self.summaryFailed))
++        } catch {
++            return .failure(MCPFailure(error.localizedDescription))
++        }
++    }
++}
++
++/// First come, first served: one holder at a time.
++private actor SerialGate {
++    private var busy = false
++    private var waiting: [CheckedContinuation<Void, Never>] = []
++
++    func enter() async {
++        guard busy else {
++            busy = true
++            return
++        }
++        await withCheckedContinuation { waiting.append($0) }
++    }
++
++    func leave() {
++        if waiting.isEmpty { busy = false } else { waiting.removeFirst().resume() }
++    }
++}
++
++/// Stands in for the Notes model where Ask's pipeline only searches.
++private struct NoTextModel: TextModel {
++    func clean(_ request: CleanupRequest) async throws -> String {
++        throw ProviderError.unavailable("No model is used for search.")
++    }
++}
+diff --git a/Sources/BugVoiceMac/NotesController.swift b/Sources/BugVoiceMac/NotesController.swift
+index 10ee789..5524a72 100644
+--- a/Sources/BugVoiceMac/NotesController.swift
++++ b/Sources/BugVoiceMac/NotesController.swift
+@@ -414,6 +414,13 @@ public final class NotesController {
+         return loaded[id]?.note
+     }
+ 
++    /// True while the open editor holds text or a title not yet on disk.
++    public func hasUnsavedChanges(id: NoteID) -> Bool {
++        _ = changeCounter
++        guard let state = loaded[id] else { return false }
++        return state.isDirty || state.titleDraft != state.note.title
++    }
++
+     public func isLoaded(id: NoteID) -> Bool {
+         _ = changeCounter
+         return loaded[id] != nil
+diff --git a/Sources/VoiceCore/MCP/MCPReplyLimit.swift b/Sources/VoiceCore/MCP/MCPReplyLimit.swift
+new file mode 100644
+index 0000000..f746407
+--- /dev/null
++++ b/Sources/VoiceCore/MCP/MCPReplyLimit.swift
+@@ -0,0 +1,54 @@
++import Foundation
++
++/// Keeps every reply well under the 4 MB socket line, whatever a note or list holds.
++extension MCPFormat {
++    /// Most UTF-8 bytes of reply text sent to an agent.
++    public static let maxReplyBytes = 3_500_000
++    public static let noteTooLong = "More: this note is longer than an agent reply can hold. Open it in BugVoice."
++    public static let replyTooLong = "More: this reply is longer than an agent reply can hold. Open it in BugVoice."
++
++    /// `text` when it fits; otherwise cut at the last line break that leaves room
++    /// for a newline and `notice`, which ends the reply.
++    public static func capped(_ text: String, notice: String, limit: Int = maxReplyBytes) -> String {
++        guard text.utf8.count > limit else { return text }
++        let budget = max(0, limit - notice.utf8.count - 1)
++        var bytes = Array(text.utf8.prefix(budget))
++        if let lastBreak = bytes.lastIndex(of: 0x0A) {
++            bytes.removeSubrange(lastBreak...)
++        } else {
++            // No line break: drop a character cut in half.
++            while let last = bytes.last, last & 0xC0 == 0x80 { bytes.removeLast() }
++            if let last = bytes.last, last >= 0xC0 { bytes.removeLast() }
++        }
++        return String(decoding: bytes, as: UTF8.self) + "\n" + notice
++    }
++
++    /// Pretty JSON of as many leading rows as fit in `limit` bytes.
++    public static func jsonRows(_ rows: [JSONValue], limit: Int = maxReplyBytes) -> String {
++        let all = json(.array(rows))
++        guard all.utf8.count > limit else { return all }
++        var low = 0, high = rows.count
++        while low < high {
++            let mid = (low + high + 1) / 2
++            if json(.array(Array(rows.prefix(mid)))).utf8.count <= limit { low = mid } else { high = mid - 1 }
++        }
++        return json(.array(Array(rows.prefix(low))))
++    }
++
++    /// Any tool's reply, kept under `limit`: lists lose rows from the end, a note
++    /// is cut at a line, anything else is cut with a general notice.
++    public static func fitted(_ text: String, for call: MCPCall, limit: Int = maxReplyBytes) -> String {
++        guard text.utf8.count > limit else { return text }
++        switch call {
++        case .listFolders, .listNotes, .listMeetings:
++            if let rows = (try? JSONDecoder().decode(JSONValue.self, from: Data(text.utf8)))?.arrayValue {
++                return jsonRows(rows, limit: limit)
++            }
++            return capped(text, notice: replyTooLong, limit: limit)
++        case .getNote:
++            return capped(text, notice: noteTooLong, limit: limit)
++        default:
++            return capped(text, notice: replyTooLong, limit: limit)
++        }
++    }
++}
+diff --git a/Sources/VoiceCore/MCP/MCPResolve.swift b/Sources/VoiceCore/MCP/MCPResolve.swift
+new file mode 100644
+index 0000000..8234302
+--- /dev/null
++++ b/Sources/VoiceCore/MCP/MCPResolve.swift
+@@ -0,0 +1,26 @@
++import Foundation
++
++/// Turns folder names and scope arguments from agents into the app's own ids.
++public enum MCPResolve {
++    /// An exact id first, then a name compared without case or diacritics.
++    public static func folder(_ nameOrID: String, in folders: [LibraryFolder]) -> Result<FolderID, MCPFailure> {
++        let text = nameOrID.trimmingCharacters(in: .whitespacesAndNewlines)
++        if let byID = folders.first(where: { $0.id.rawValue == text }) { return .success(byID.id) }
++        let key = AskText.fold(text)
++        if let byName = folders.first(where: { AskText.fold($0.name) == key }) { return .success(byName.id) }
++        let names = LibraryFolders.sorted(folders).map(\.name)
++        let known = names.isEmpty ? "No folders yet." : "Folders: \(names.joined(separator: ", "))."
++        return .failure(MCPFailure("No folder named \(text). \(known)"))
++    }
++
++    /// `.note` is read-only here: Ask never changes a note for an agent.
++    public static func scope(_ s: MCPScopeArgument, folders: [LibraryFolder]) -> Result<AskScope, MCPFailure> {
++        switch s {
++        case .all: .success(.all)
++        case .unfiled: .success(.folder(nil))
++        case .folder(let name): folder(name, in: folders).map { .folder($0) }
++        case .meeting(let id): .success(.meeting(MeetingID(rawValue: id)))
++        case .note(let id): .success(.note(NoteID(rawValue: id)))
++        }
++    }
++}
+diff --git a/Tests/VoiceCoreTests/MCPReplyLimitTests.swift b/Tests/VoiceCoreTests/MCPReplyLimitTests.swift
+new file mode 100644
+index 0000000..1a061ab
+--- /dev/null
++++ b/Tests/VoiceCoreTests/MCPReplyLimitTests.swift
+@@ -0,0 +1,58 @@
++import Foundation
++import Testing
++@testable import VoiceCore
++
++struct MCPReplyLimitTests {
++    @Test func shortTextIsUnchanged() {
++        #expect(MCPFormat.capped("a\nb", notice: "N", limit: 100) == "a\nb")
++    }
++
++    @Test func longTextIsCutAtALineAndEndsWithTheNotice() {
++        let text = (1...50).map { "line \($0)" }.joined(separator: "\n")
++        let out = MCPFormat.capped(text, notice: MCPFormat.noteTooLong, limit: 200)
++        #expect(out.utf8.count <= 200)
++        #expect(out.hasSuffix("\n" + MCPFormat.noteTooLong))
++        let kept = out.dropLast(MCPFormat.noteTooLong.count + 1)
++        #expect(text.hasPrefix(kept))
++        #expect(text.contains(kept + "\n"))
++    }
++
++    @Test func cutNeverSplitsACharacter() {
++        let text = String(repeating: "ộ", count: 100)
++        let out = MCPFormat.capped(text, notice: "N", limit: 51)
++        #expect(out.utf8.count <= 51)
++        #expect(out.hasSuffix("\nN"))
++        #expect(!out.contains("\u{FFFD}"))
++    }
++
++    @Test func noteNoticeText() {
++        #expect(MCPFormat.noteTooLong == "More: this note is longer than an agent reply can hold. Open it in BugVoice.")
++        #expect(MCPFormat.maxReplyBytes == 3_500_000)
++    }
++
++    @Test func rowsAreDroppedFromTheEndToFit() throws {
++        let rows = (0..<100).map { JSONValue.object(["id": .string("item-\($0)"), "pad": .string(String(repeating: "x", count: 50))]) }
++        let out = MCPFormat.jsonRows(rows, limit: 2_000)
++        #expect(out.utf8.count <= 2_000)
++        let decoded = try JSONDecoder().decode(JSONValue.self, from: Data(out.utf8))
++        let kept = try #require(decoded.arrayValue)
++        #expect(kept.count > 0 && kept.count < 100)
++        #expect(kept == Array(rows.prefix(kept.count)))
++        let all = MCPFormat.jsonRows(rows, limit: 1_000_000)
++        #expect(try JSONDecoder().decode(JSONValue.self, from: Data(all.utf8)).arrayValue?.count == 100)
++    }
++
++    @Test func fittedPicksTheNoticeByTool() throws {
++        let long = (1...400).map { "line \($0)" }.joined(separator: "\n")
++        let note = MCPFormat.fitted(long, for: .getNote(id: "n"), limit: 500)
++        #expect(note.utf8.count <= 500 && note.hasSuffix(MCPFormat.noteTooLong))
++        let meeting = MCPFormat.fitted(long, for: .getMeeting(id: "m", parts: [.transcript], fromLine: 1), limit: 500)
++        #expect(meeting.utf8.count <= 500 && meeting.hasSuffix(MCPFormat.replyTooLong))
++        let rows = (0..<50).map { JSONValue.object(["id": .string("n\($0)")]) }
++        let list = MCPFormat.fitted(MCPFormat.json(.array(rows)), for: .listNotes(folder: nil, tag: nil, text: nil, limit: 50), limit: 300)
++        #expect(list.utf8.count <= 300)
++        let kept = try #require(try JSONDecoder().decode(JSONValue.self, from: Data(list.utf8)).arrayValue)
++        #expect(!kept.isEmpty && kept == Array(rows.prefix(kept.count)))
++        #expect(MCPFormat.fitted("short", for: .getNote(id: "n")) == "short")
++    }
++}
+diff --git a/Tests/VoiceCoreTests/MCPResolveTests.swift b/Tests/VoiceCoreTests/MCPResolveTests.swift
+new file mode 100644
+index 0000000..56aa06e
+--- /dev/null
++++ b/Tests/VoiceCoreTests/MCPResolveTests.swift
+@@ -0,0 +1,36 @@
++import Foundation
++import Testing
++@testable import VoiceCore
++
++struct MCPResolveTests {
++    private func folder(_ id: String, _ name: String) -> LibraryFolder {
++        LibraryFolder(id: FolderID(rawValue: id), name: name, createdAt: Date(timeIntervalSince1970: 0))
++    }
++
++    @Test func folderByIDThenFoldedName() throws {
++        let f = [folder("f1", "Lộ trình"), folder("f2", "Work")]
++        #expect(try MCPResolve.folder("f2", in: f).get() == FolderID(rawValue: "f2"))
++        #expect(try MCPResolve.folder("lo trinh", in: f).get() == FolderID(rawValue: "f1"))
++        #expect(try MCPResolve.folder("Lộ Trình", in: f).get() == FolderID(rawValue: "f1"))
++        #expect(try MCPResolve.folder("WORK", in: f).get() == FolderID(rawValue: "f2"))
++        #expect(try MCPResolve.folder(" work ", in: f).get() == FolderID(rawValue: "f2"))
++    }
++
++    @Test func unknownFolderListsNames() {
++        guard case .failure(let m) = MCPResolve.folder("Roadmap", in: [folder("f", "Work")]) else { Issue.record("found"); return }
++        #expect(m.message == "No folder named Roadmap. Folders: Work.")
++        let two = MCPResolve.folder("x", in: [folder("b", "Work"), folder("a", "Personal")])
++        #expect(two == .failure(MCPFailure("No folder named x. Folders: Personal, Work.")))
++        #expect(MCPResolve.folder("x", in: []) == .failure(MCPFailure("No folder named x. No folders yet.")))
++    }
++
++    @Test func scopeMapping() {
++        let f = [folder("f1", "Work")]
++        #expect(MCPResolve.scope(.all, folders: f) == .success(.all))
++        #expect(MCPResolve.scope(.unfiled, folders: f) == .success(.folder(nil)))
++        #expect(MCPResolve.scope(.folder("work"), folders: f) == .success(.folder(FolderID(rawValue: "f1"))))
++        #expect(MCPResolve.scope(.meeting("m"), folders: f) == .success(.meeting(MeetingID(rawValue: "m"))))
++        #expect(MCPResolve.scope(.note("n"), folders: f) == .success(.note(NoteID(rawValue: "n"))))
++        #expect(MCPResolve.scope(.folder("nope"), folders: f) == .failure(MCPFailure("No folder named nope. Folders: Work.")))
++    }
++}
