@@ -149,19 +149,69 @@ struct AskAnswerTests {
         #expect(c?[0].part == .transcript)
     }
 
-    @Test func gapOver5sSplits() {
+    private func gapCase(_ second: (Double, Double), cite: [String]) -> Int? {
+        // a: 0-10, mid: 12-13 (uncited), then the second line
         let d = date(2026, 9, 20)
-        let ps = [transcript(m1, d, [line("a", 0, 10), line("mid", 11, 40), line("b", 16, 20), line("c", 30, 35)])]
-        // a -> b: gap 6 s, not adjacent in order either (mid between) -> split
-        let split = check(["P1.1", "P1.3"], ps)
-        #expect(split?.cards[0].citations.count == 2)
-        // a -> mid: next line -> merge even with... gap 1; a -> b: gap 6
-        let merged = check(["P1.1", "P1.2"], ps)
-        #expect(merged?.cards[0].citations.count == 1)
-        // b -> c gap 10 but not next? c is next line, so merge by adjacency
-        // within 5 s across an uncited line merges
-        let ps2 = [transcript(m1, d, [line("a", 0, 10), line("mid", 11, 12), line("b", 15, 20)])]
-        #expect(check(["P1.1", "P1.3"], ps2)?.cards[0].citations.count == 1)
+        let ps = [transcript(m1, d, [line("a", 0, 10), line("mid", 12, 13), line("b", second.0, second.1)])]
+        return check(cite, ps)?.cards[0].citations.count
+    }
+
+    @Test func gapOf5sMerges() { #expect(gapCase((15, 20), cite: ["P1.1", "P1.3"]) == 1) }
+    @Test func gapOver5sSplits() { #expect(gapCase((16, 20), cite: ["P1.1", "P1.3"]) == 2) }
+    @Test func nextSegmentMergesRegardlessOfGap() { #expect(gapCase((16, 20), cite: ["P1.2", "P1.3"]) == 1) }
+
+    @Test func outOfTimeOrderPassagesDoNotMergeBackwards() {
+        let d = date(2026, 9, 20)
+        let ps = [
+            transcript(m1, d, [line("l1", 290, 295), line("l2", 300, 310)], index: 5),
+            transcript(m1, d, [line("e1", 90, 100), line("e2", 101, 110)], index: 1),
+        ]
+        let r = check(["P1.2", "P2.1"], ps)
+        let c = r?.cards[0].citations
+        #expect(c?.count == 2)
+        #expect(c?.map(\.start) == [90, 300])
+        #expect(c?.allSatisfy { ($0.start ?? 0) <= ($0.end ?? 0) } == true)
+    }
+
+    @Test func textLinesMergeOnlyWhenConsecutive() {
+        let d = date(2026, 9, 2)
+        func p(_ i: Int, _ ids: [String]) -> AskPassage {
+            AskPassage(source: n1, part: .note, index: i, date: d, lines: ids.map { AskLine(id: $0, text: $0) })
+        }
+        let ni = [n1: info("T", .note, d)]
+        let ps = [p(0, ["b0.0", "b0.1"]), p(1, ["b1.0"]), p(3, ["b3.0"])]
+        func count(_ refs: [String]) -> Int? {
+            AskAnswerPrompt.check(lineRefs: refs, passages: ps, info: ni, answer: "A")?.cards[0].citations.count
+        }
+        #expect(count(["P1.1", "P1.2"]) == 1)
+        #expect(count(["P1.2", "P2.1"]) == 1)
+        #expect(count(["P1.1", "P2.1"]) == 2)
+        #expect(count(["P2.1", "P3.1"]) == 2)
+    }
+
+    @Test func eachDictationIsItsOwnCard() {
+        let early = date(2026, 9, 1), late = date(2026, 9, 5)
+        func p(_ id: String, _ d: Date, _ app: String) -> AskPassage {
+            AskPassage(source: .dictations, part: .dictation, index: 0, date: d, lines: [AskLine(id: id, speaker: app, text: "t \(id)")])
+        }
+        let ps = [p("d1", early, "Slack"), p("d2", late, "Notes")]
+        let r = AskAnswerPrompt.check(lineRefs: ["P1.1", "P2.1"], passages: ps, info: [:], answer: "A")
+        #expect(r?.cards.count == 2)
+        #expect(r?.cards.map(\.info.title) == ["Notes", "Slack"])
+        #expect(r?.cards.allSatisfy { $0.info.kind == .dictation && $0.info.people.isEmpty } == true)
+        #expect(Set(r?.cards.map(\.id) ?? []).count == 2)
+    }
+
+    @Test func citationsOrderedByPartThenTimeBeforeCap() {
+        let d = date(2026, 9, 20)
+        let ps = [
+            AskPassage(source: m1, part: .summary, index: 0, date: d, lines: [AskLine(id: "b0.0", text: "S")]),
+            transcript(m1, d, (0..<12).map { line("l\($0)", Double($0 * 100), Double($0 * 100 + 10)) }),
+        ]
+        let refs = ["P1.1"] + (0..<6).map { "P2.\($0 * 2 + 1)" }
+        let c = check(refs, ps)?.cards[0].citations
+        #expect(c?.count == 5)
+        #expect(c?.allSatisfy { $0.part == .transcript } == true)
     }
 
     @Test func differentPartsDoNotMerge() {

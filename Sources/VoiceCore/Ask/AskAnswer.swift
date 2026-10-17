@@ -39,7 +39,7 @@ public struct AskCard: Equatable, Sendable, Identifiable {
     public var source: AskSource
     public var info: AskItemInfo
     public var citations: [AskCitation]
-    public var id: String { source.key }
+    public var id: String { source == .dictations ? (citations.first?.id ?? source.key) : source.key }
 
     public init(source: AskSource, info: AskItemInfo, citations: [AskCitation]) {
         self.source = source
@@ -75,7 +75,7 @@ public enum AskAnswerPrompt {
 
     public static func request(
         question: String, history: [NoteChatTurn], passages: [AskPassage], info: [AskSource: AskItemInfo],
-        modelID: String, disableThinking: Bool, maxOutputTokens: Int
+        modelID: String, disableThinking: Bool, maxOutputTokens: Int, calendar: Calendar = .current
     ) -> CleanupRequest {
         var user = ""
         let earlier = history.suffix(NoteTransformPrompt.chatHistoryLimit)
@@ -90,7 +90,7 @@ public enum AskAnswerPrompt {
             let item = info[passage.source]
             var header = "[P\(n)] \(kindWord(item?.kind ?? defaultKind(passage.source)))"
             if let title = item?.title, !title.isEmpty { header += " \"\(flat(title))\"" }
-            header += " · \(day(item?.date ?? passage.date, calendar: .current))"
+            header += " · \(day(item?.date ?? passage.date, calendar: calendar))"
             if let people = item?.people, !people.isEmpty { header += " · \(people.map(flat).joined(separator: ", "))" }
             user += header + "\n"
             for (j, line) in passage.lines.enumerated() {
@@ -134,64 +134,113 @@ public enum AskAnswerPrompt {
     public static func check(
         lineRefs: [String], passages: [AskPassage], info: [AskSource: AskItemInfo], answer: String
     ) -> AskResult? {
-        struct GroupKey: Hashable { var source: AskSource; var part: AskPart }
+        struct GroupKey: Hashable { var source: AskSource; var part: AskPart; var unit: String }
+        struct Entry { var line: AskLine; var passageIndex: Int; var lineIndex: Int; var lineCount: Int; var seen: Int }
 
-        // Item line order: unique lines (by id) across passages in prompt order.
-        var order: [GroupKey: [AskLine]] = [:]
-        var position: [GroupKey: [String: Int]] = [:]
+        func key(_ p: AskPassage, _ at: Int) -> GroupKey {
+            // Each dictation entry is its own item.
+            GroupKey(source: p.source, part: p.part, unit: p.source == .dictations ? "\(at)" : "")
+        }
+
+        // Unique lines per item and part (by line id), in the order the prompt showed them.
+        var entries: [GroupKey: [String: Entry]] = [:]
         var groupOrder: [GroupKey] = []
-        for passage in passages {
-            let key = GroupKey(source: passage.source, part: passage.part)
-            if order[key] == nil { groupOrder.append(key) }
-            for line in passage.lines where position[key, default: [:]][line.id] == nil {
-                position[key, default: [:]][line.id] = order[key, default: []].count
-                order[key, default: []].append(line)
+        var seen = 0
+        for (at, passage) in passages.enumerated() {
+            let k = key(passage, at)
+            if entries[k] == nil { groupOrder.append(k) }
+            for (j, line) in passage.lines.enumerated() where entries[k, default: [:]][line.id] == nil {
+                entries[k, default: [:]][line.id] = Entry(
+                    line: line, passageIndex: passage.index, lineIndex: j, lineCount: passage.lines.count, seen: seen)
+                seen += 1
             }
+        }
+
+        // Item line order: time order for transcripts, own passage then line order for text.
+        var ordered: [GroupKey: [Entry]] = [:]
+        var position: [GroupKey: [String: Int]] = [:]
+        for k in groupOrder {
+            let list = (entries[k] ?? [:]).values.sorted {
+                if k.part == .transcript {
+                    let a = $0.line.start ?? 0, b = $1.line.start ?? 0
+                    return a != b ? a < b : $0.seen < $1.seen
+                }
+                return ($0.passageIndex, $0.lineIndex, $0.seen) < ($1.passageIndex, $1.lineIndex, $1.seen)
+            }
+            ordered[k] = list
+            position[k] = Dictionary(uniqueKeysWithValues: list.enumerated().map { ($1.line.id, $0) })
         }
 
         var kept: [GroupKey: Set<Int>] = [:]
         for ref in lineRefs {
             guard let (n, m) = parseRef(ref), n >= 1, n <= passages.count else { continue }
             let passage = passages[n - 1]
-            guard m >= 1, m <= passage.lines.count, info[passage.source] != nil else { continue }
-            let key = GroupKey(source: passage.source, part: passage.part)
-            guard let pos = position[key]?[passage.lines[m - 1].id] else { continue }
-            kept[key, default: []].insert(pos)
+            guard m >= 1, m <= passage.lines.count else { continue }
+            if passage.source != .dictations, info[passage.source] == nil { continue }
+            let k = key(passage, n - 1)
+            guard let pos = position[k]?[passage.lines[m - 1].id] else { continue }
+            kept[k, default: []].insert(pos)
         }
 
-        var citationsBySource: [AskSource: [AskCitation]] = [:]
-        var sourceOrder: [AskSource] = []
-        for key in groupOrder {
-            guard let positions = kept[key], let lines = order[key] else { continue }
-            var runs: [[AskLine]] = []
-            var lastPos = -1
+        func follows(_ prev: Entry, _ next: Entry, part: AskPart, adjacentInOrder: Bool) -> Bool {
+            if part == .transcript {
+                if adjacentInOrder { return true }
+                guard let end = prev.line.end, let start = next.line.start else { return false }
+                let gap = start - end
+                return gap >= 0 && gap <= joinGap
+            }
+            guard adjacentInOrder else { return false }
+            if prev.passageIndex == next.passageIndex { return next.lineIndex == prev.lineIndex + 1 }
+            return next.passageIndex == prev.passageIndex + 1
+                && prev.lineIndex == prev.lineCount - 1 && next.lineIndex == 0
+        }
+
+        struct Made { var rank: Int; var order: Int; var citation: AskCitation }
+        var madeByCard: [String: [Made]] = [:]
+        var cardInfo: [String: (AskSource, AskItemInfo)] = [:]
+        var cardOrder: [String] = []
+
+        for k in groupOrder {
+            guard let positions = kept[k], let list = ordered[k] else { continue }
+            var runs: [[Entry]] = []
+            var lastPos = -2
             for pos in positions.sorted() {
-                let line = lines[pos]
-                if let prev = runs.last?.last,
-                   pos == lastPos + 1 || (key.part == .transcript && joins(prev, line))
-                {
-                    runs[runs.count - 1].append(line)
+                let e = list[pos]
+                if let prev = runs.last?.last, follows(prev, e, part: k.part, adjacentInOrder: pos == lastPos + 1) {
+                    runs[runs.count - 1].append(e)
                 } else {
-                    runs.append([line])
+                    runs.append([e])
                 }
                 lastPos = pos
             }
-            var made = runs.map {
-                AskCitation(id: "\(key.source.key)#\(key.part.rawValue)#\($0[0].id)", part: key.part, lines: $0)
+            let cardID = k.source == .dictations ? "dictation-\(k.unit)" : k.source.key
+            if madeByCard[cardID] == nil {
+                let item: AskItemInfo
+                if k.source == .dictations {
+                    guard let at = Int(k.unit), passages.indices.contains(at) else { continue }
+                    let passage = passages[at]
+                    let app = passage.lines.first?.speaker ?? ""
+                    item = AskItemInfo(title: app.isEmpty ? "Dictation" : app, kind: .dictation, date: passage.date)
+                } else {
+                    guard let found = info[k.source] else { continue }
+                    item = found
+                }
+                cardInfo[cardID] = (k.source, item)
+                cardOrder.append(cardID)
             }
-            if key.part == .transcript {
-                made = made.enumerated().sorted {
-                    let a = $0.element.start ?? 0, b = $1.element.start ?? 0
-                    return a != b ? a < b : $0.offset < $1.offset
-                }.map(\.element)
+            for (i, run) in runs.enumerated() {
+                let lines = run.map(\.line)
+                let c = AskCitation(id: "\(k.source.key)#\(k.part.rawValue)#\(lines[0].id)", part: k.part, lines: lines)
+                madeByCard[cardID, default: []].append(Made(rank: partRank(k.part), order: i, citation: c))
             }
-            if citationsBySource[key.source] == nil { sourceOrder.append(key.source) }
-            citationsBySource[key.source, default: []] += made
         }
 
-        let cards = sourceOrder.compactMap { source -> AskCard? in
-            guard let item = info[source], let citations = citationsBySource[source], !citations.isEmpty else { return nil }
-            return AskCard(source: source, info: item, citations: Array(citations.prefix(maxCitationsPerCard)))
+        let cards = cardOrder.compactMap { id -> AskCard? in
+            guard let (source, item) = cardInfo[id], let made = madeByCard[id], !made.isEmpty else { return nil }
+            let sorted = made.enumerated().sorted {
+                ($0.element.rank, $0.offset) < ($1.element.rank, $1.offset)
+            }.map(\.element.citation)
+            return AskCard(source: source, info: item, citations: Array(sorted.prefix(maxCitationsPerCard)))
         }.enumerated().sorted {
             $0.element.info.date != $1.element.info.date
                 ? $0.element.info.date > $1.element.info.date : $0.offset < $1.offset
@@ -199,12 +248,19 @@ public enum AskAnswerPrompt {
         return cards.isEmpty ? nil : AskResult(answer: answer, cards: cards)
     }
 
-    // MARK: Helpers
-
-    private static func joins(_ prev: AskLine, _ next: AskLine) -> Bool {
-        guard let end = prev.end, let start = next.start else { return false }
-        return start - end <= joinGap
+    private static func partRank(_ part: AskPart) -> Int {
+        switch part {
+        case .transcript: 0
+        case .summary: 1
+        case .actionItems: 2
+        case .myNotes: 3
+        case .note: 4
+        case .title: 5
+        case .dictation: 6
+        }
     }
+
+    // MARK: Helpers
 
     /// "P3.2" in any case with spaces around: (3, 2). Anything else is nil.
     private static func parseRef(_ ref: String) -> (Int, Int)? {

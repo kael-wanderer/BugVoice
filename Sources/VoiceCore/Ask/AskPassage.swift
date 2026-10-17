@@ -41,6 +41,7 @@ public struct AskLine: Hashable, Sendable {
 
 public struct AskPassage: Hashable, Sendable, Identifiable {
     public var id: String
+    public var index: Int
     public var source: AskSource
     public var part: AskPart
     public var date: Date
@@ -50,6 +51,7 @@ public struct AskPassage: Hashable, Sendable, Identifiable {
 
     public init(source: AskSource, part: AskPart, index: Int, date: Date, lines: [AskLine]) {
         self.id = "\(source.key)#\(part.rawValue)#\(index)"
+        self.index = index
         self.source = source
         self.part = part
         self.date = date
