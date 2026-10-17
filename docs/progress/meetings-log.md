@@ -342,6 +342,26 @@ have accessibility labels. Rows 196, 197 and 201 checked on an upload; rows
 198, 200 and 205 partly (Return rename, file-line fix, Try again). Recorded
 meetings (Stop, call track, meeting window colours) still need the owner.
 
-Part 2 waits for the same-podcast centroid-distance measurement in spec section
-8.4. Do not build known voices until same-person and different-person distances
-can be separated with a measured threshold.
+## Known voices (Meeting speakers Part 2), 2026-10-17
+
+Measurement (spec 8.4): on call audio the same person was 0.09–0.10 apart and
+two different people 0.28–0.35; microphones and quiet speech spread one person
+up to 1.07, so no single threshold covers all audio. Owner chose the cautious
+rule: a suggestion needs distance 0.2 or less and a 0.1 margin over the next
+saved voice, and every suggestion waits for Yes or No. Each suggestion keeps its
+distance in `meeting.json`; check them after the monthly Dani and Mariel call.
+
+Plan: `docs/superpowers/plans/2026-10-17-known-voices.md`, executed natively on
+`feat/known-voices`. Upload check with two `say` clips sharing two voices: the
+second clip suggested both correctly (0.087 and 0.089); Yes named Dan and added
+a second meeting to Dan; No declined Sam for that meeting; Delete removed Sam;
+`voices.json` was 0600.
+
+| # | Check | Result |
+|---|---|---|
+| 207 | Name call speakers in one meeting; a later meeting with the same people shows "Name?" dashed chips with Yes and No, and "Name?" on their lines. | Pass 2026-10-17 (uploads) |
+| 208 | Yes names the speaker everywhere and Settings shows one more meeting; No returns to Other N and the name is not suggested again in that meeting. | Pass 2026-10-17 (uploads) |
+| 209 | Export, summary and Ask keep Other N until Yes. | Pending |
+| 210 | Settings › Meetings › Known voices: switch off hides suggestions and saves nothing; Delete removes a voice, meetings keep their names. | Pass 2026-10-17 (uploads; Delete also hides a waiting suggestion) |
+| 211 | Renaming Dani to David moves the meeting to David; clearing removes it; deleting a meeting drops its count. | Pending |
+| 212 | Real call: two meetings with the same people on Zoom or Meet; note each suggestion's distance from `meeting.json`. | Pending (monthly Dani and Mariel call) |

@@ -250,17 +250,30 @@ public struct MeetingAudioFormat: Codable, Equatable, Sendable {
     }
 }
 
+/// A saved voice that matched a split speaker, with its cosine distance.
+public struct SpeakerSuggestion: Codable, Equatable, Sendable {
+    public var name: String
+    public var distance: Double
+    public init(name: String, distance: Double) {
+        self.name = name
+        self.distance = distance
+    }
+}
+
 public struct MeetingSpeaker: Codable, Equatable, Sendable, Identifiable {
     public var id: String
     public var name: String?
     public var colorIndex: Int
     public var centroid: [Float]?
+    /// Shown as "Dani?" while `name` is nil; kept after Yes so the distance can be reviewed.
+    public var suggestion: SpeakerSuggestion?
 
-    public init(id: String, name: String? = nil, colorIndex: Int, centroid: [Float]? = nil) {
+    public init(id: String, name: String? = nil, colorIndex: Int, centroid: [Float]? = nil, suggestion: SpeakerSuggestion? = nil) {
         self.id = id
         self.name = name
         self.colorIndex = colorIndex
         self.centroid = centroid
+        self.suggestion = suggestion
     }
 }
 
@@ -339,6 +352,8 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
     public var speakers: [MeetingSpeaker]
     public var speakerSplit: SpeakerSplitState
     public var speakerNamesAtSummary: [String: String]?
+    /// Saved voices refused with No in this meeting; they are not suggested here again.
+    public var declinedVoices: [String]
     public var showEnglish: Bool
 
     public init(
@@ -372,7 +387,8 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
         showEnglish: Bool = true,
         speakers: [MeetingSpeaker] = [],
         speakerSplit: SpeakerSplitState = .none,
-        speakerNamesAtSummary: [String: String]? = nil
+        speakerNamesAtSummary: [String: String]? = nil,
+        declinedVoices: [String] = []
     ) {
         self.schemaVersion = schemaVersion
         self.id = id
@@ -405,13 +421,14 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
         self.speakers = speakers
         self.speakerSplit = speakerSplit
         self.speakerNamesAtSummary = speakerNamesAtSummary
+        self.declinedVoices = declinedVoices
     }
 
     private enum CodingKeys: String, CodingKey {
         case schemaVersion, id, title, startedAt, endedAt, duration, state
         case audioFormat, chunks, marks, segments, transcriptProgress
         case transcriptionError, summary, actionItems, source, sourceFileName, importedAt, folderID, tags, suggestedTags, languages
-        case speakers, speakerSplit, speakerNamesAtSummary
+        case speakers, speakerSplit, speakerNamesAtSummary, declinedVoices
         case notes, liveSummary, liveSummaryUpdatedAt, liveSummaryCutoff, detectedApp, showEnglish
     }
 
@@ -447,6 +464,7 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
         speakers = try c.decodeIfPresent([MeetingSpeaker].self, forKey: .speakers) ?? []
         speakerSplit = try c.decodeIfPresent(SpeakerSplitState.self, forKey: .speakerSplit) ?? .none
         speakerNamesAtSummary = try c.decodeIfPresent([String: String].self, forKey: .speakerNamesAtSummary)
+        declinedVoices = try c.decodeIfPresent([String].self, forKey: .declinedVoices) ?? []
         showEnglish = try c.decodeIfPresent(Bool.self, forKey: .showEnglish) ?? true
     }
 

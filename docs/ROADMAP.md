@@ -11,7 +11,7 @@ implementation, like Dictation, Meetings and Notes before it.
 | Meetings | Built (You/Others tracks, transcript, Summary, Action items). Untested on device; waits for a real meeting and the system-audio spike. |
 | Notes | Built, but failed when tried. On hold until item 0. |
 | Insights | Built (Usage tab). Device checks 73–80 pending. |
-| Meeting speakers | Part 1 implemented on `feat/meeting-speakers` (2026-10-17), not merged; device checks 195–206 and tuning pending. Part 2 known voices waits for the same-podcast measurement (spec 8.4). |
+| Meeting speakers | Part 1 merged (2026-10-17); device checks 195–206 and tuning pending. Part 2 known voices built (2026-10-17) with a cautious 0.2 rule; checks 209–212 and a real-call check pending. |
 | Upload audio/video | Implemented (Upload queue, local media extraction, file-only transcription, recovery and uploaded Meetings). Device checks 103–119 pending. |
 
 ## Order
@@ -57,4 +57,3 @@ implementation, like Dictation, Meetings and Notes before it.
 | Idea | Reason |
 |---|---|
 | Import from a URL (YouTube, audio link) | Needs yt-dlp, a second dependency, and a network fetch. |
-| Known voices (Meeting speakers Part 2) | Part 1 labels/names implemented with SpeakerKit from the existing WhisperKit package; device checks 195–206 and tuning pending. Part 2 waits for the same-podcast centroid-distance measurement in `docs/superpowers/specs/2026-10-17-meeting-speakers-design.md` section 8.4. |
