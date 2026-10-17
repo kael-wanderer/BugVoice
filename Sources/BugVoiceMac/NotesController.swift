@@ -13,6 +13,18 @@ public enum NotesInsertionResult: Equatable, Sendable {
     case saveFailed
 }
 
+/// Why an agent's note edit was refused. Nothing changes when it is.
+public enum AgentEditRefusal: Error, Equatable {
+    case unsaved, dictating
+
+    public var message: String {
+        switch self {
+        case .unsaved: "This note has unsaved changes in BugVoice. Try again after it saves."
+        case .dictating: "BugVoice is dictating into this note. Try again in a moment."
+        }
+    }
+}
+
 public struct NotesInsertionRecovery: Identifiable, Equatable, Sendable {
     public let id: UUID
     public let noteID: NoteID
@@ -34,6 +46,10 @@ public final class NotesController {
     @ObservationIgnored private var loaded: [NoteID: LoadedNote] = [:]
     @ObservationIgnored private var saveTasks: [NoteID: Task<Void, Never>] = [:]
     @ObservationIgnored private var saveTokens: [NoteID: UUID] = [:]
+    /// Dictation captures not yet released, per note. Agent edits wait for zero.
+    @ObservationIgnored private var dictating: [NoteID: Int] = [:]
+    /// Tests only: runs after the last await before an agent edit changes the note.
+    @ObservationIgnored var agentEditWillMutate: (() -> Void)?
     public private(set) var selectedNoteID: NoteID?
     public private(set) var notes: [NoteDocument] = []
     public private(set) var changeCounter: UInt64 = 0
@@ -276,19 +292,121 @@ public final class NotesController {
             noteRevision: state.note.revision,
             editingBlocked: state.externalChangeDetected
         )
-        return NotesRoutePolicy.capture(atStart: conditions)
+        return holding(NotesRoutePolicy.capture(atStart: conditions))
     }
 
     public func captureSelectedNoteForMic() -> NotesDictationCapture? {
         guard let id = selectedNoteID, let state = loaded[id] else { return nil }
-        return NotesRoutePolicy.captureForMic(
+        return holding(NotesRoutePolicy.captureForMic(
             selectedNoteID: id,
             editorID: state.editorID,
             lastSelection: NotesTextRange(location: state.lastSelection.location, length: state.lastSelection.length),
             bodyUTF16Length: (state.note.body as NSString).length,
             noteRevision: state.note.revision,
             editingBlocked: state.externalChangeDetected
-        )
+        ))
+    }
+
+    /// Ends a capture from `captureAtStart` or `captureSelectedNoteForMic`, after
+    /// its dictation was inserted, cancelled or failed.
+    public func releaseCapture(_ capture: NotesDictationCapture) {
+        let count = (dictating[capture.noteID] ?? 0) - 1
+        dictating[capture.noteID] = count > 0 ? count : nil
+    }
+
+    private func holding(_ capture: NotesDictationCapture?) -> NotesDictationCapture? {
+        if let capture { dictating[capture.noteID, default: 0] += 1 }
+        return capture
+    }
+
+    // MARK: Agents
+
+    /// Saves a new note without selecting it, saving the selected note, or opening a window.
+    public func createForAgent(title: String, body: String, frontMatter: NoteFrontMatter) async throws -> NoteDocument {
+        let note = try await store.create(title: title, body: body, frontMatter: frontMatter)
+        onSaved?(note.id)
+        await reloadList()
+        changed()
+        return note
+    }
+
+    /// Replaces or appends to a note for an agent. Refused, with nothing changed,
+    /// while the owner has unsaved changes in it or dictation targets it.
+    /// `labels` replaces the folder and tags when given.
+    public func agentEdit(
+        id: NoteID, body: String, append: Bool, title: String?, labels: (folderID: FolderID?, tags: [String])?
+    ) async throws -> NoteDocument {
+        guard dictating[id] == nil else { throw AgentEditRefusal.dictating }
+        let newTitle = title?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+        guard loaded[id] != nil else {
+            return try await agentEditOnDisk(id: id, body: body, append: append, title: newTitle, labels: labels)
+        }
+
+        await refresh(id: id, trigger: .beforeSave)
+        agentEditWillMutate?()
+        // Dictation may have started while the refresh waited.
+        guard dictating[id] == nil else { throw AgentEditRefusal.dictating }
+        guard let state = loaded[id] else { throw NotesStoreError.missing(id) }
+        guard !state.isDirty, state.titleDraft == state.note.title, !state.externalChangeDetected else {
+            throw AgentEditRefusal.unsaved
+        }
+        let newBody = append ? Self.appending(body, to: state.note.body) : body
+        if newBody != state.note.body {
+            registerUndo(for: id, body: state.note.body, selection: state.editor?.selectedRange(), actionName: "Agent edit")
+            state.note.body = newBody
+            if let editor = state.editor { replaceEditorContentsWithoutUndo(editor, with: newBody) }
+        }
+        if let labels {
+            state.note.frontMatter.folderID = labels.folderID
+            state.note.frontMatter.tags = labels.tags
+        }
+        state.note.revision &+= 1
+        state.note.modifiedAt = .now
+        state.isDirty = true
+        state.saveError = nil
+        guard await flushBody(id: id) else { throw NotesControllerError.saveFailed(id) }
+        if let newTitle, newTitle != state.note.title {
+            state.titleDraft = newTitle
+            await commitTitle(id: id, reason: .returnKey)
+            guard loaded[id]?.note.title == newTitle else { throw NotesControllerError.saveFailed(id) }
+        }
+        guard let saved = loaded[id]?.note else { throw NotesStoreError.missing(id) }
+        updateListRow(saved)
+        changed()
+        return saved
+    }
+
+    private func agentEditOnDisk(
+        id: NoteID, body: String, append: Bool, title: String?, labels: (folderID: FolderID?, tags: [String])?
+    ) async throws -> NoteDocument {
+        let current = try await store.open(id: id)
+        agentEditWillMutate?()
+        // The note may have been opened, or dictation started, while the file was read.
+        guard dictating[id] == nil else { throw AgentEditRefusal.dictating }
+        guard loaded[id] == nil else { throw AgentEditRefusal.unsaved }
+        var updated = current
+        updated.body = append ? Self.appending(body, to: current.body) : body
+        if let labels {
+            updated.frontMatter.folderID = labels.folderID
+            updated.frontMatter.tags = labels.tags
+        }
+        updated.revision &+= 1
+        guard case .saved(var saved, let version) = try await store.save(
+            updated, expectedVersion: current.fileVersion, isDirty: true)
+        else { throw NotesControllerError.saveFailed(id) }
+        if let title, title != saved.title {
+            saved = try await store.rename(id: id, title: title, revision: saved.revision &+ 1, expectedVersion: version)
+        }
+        updateListRow(saved)
+        changed()
+        return saved
+    }
+
+    /// One blank line between the old text and the new; an empty note takes the text as is.
+    static func appending(_ text: String, to body: String) -> String {
+        guard !body.isEmpty else { return text }
+        let base = body.hasSuffix("\n") ? String(body.dropLast()) : body
+        return base + "\n\n" + text
     }
 
     public func note(id: NoteID) -> NoteDocument? {
@@ -631,13 +749,13 @@ public final class NotesController {
         return !state.isDirty && !state.externalChangeDetected && state.saveError == nil
     }
 
-    private func registerUndo(for id: NoteID, body: String, selection: NSRange?) {
+    private func registerUndo(for id: NoteID, body: String, selection: NSRange?, actionName: String = "Dictation") {
         guard let manager = loaded[id]?.undoManager else { return }
         manager.beginUndoGrouping()
         manager.registerUndo(withTarget: self) { controller in
             controller.restore(id: id, body: body, selection: selection)
         }
-        manager.setActionName("Dictation")
+        manager.setActionName(actionName)
         manager.endUndoGrouping()
     }
 
@@ -713,4 +831,8 @@ private final class LoadedNote {
         self.titleDraft = note.title
         self.lastPersistedRevision = note.revision
     }
+}
+
+private extension String {
+    var nilIfEmpty: String? { isEmpty ? nil : self }
 }
