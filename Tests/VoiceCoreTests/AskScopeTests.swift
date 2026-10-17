@@ -23,4 +23,16 @@ struct AskScopeTests {
         #expect(AskScope.note(NoteID(rawValue: "n")).includes(.note(NoteID(rawValue: "n")), folderID: nil))
         #expect(!AskScope.note(NoteID(rawValue: "n")).includes(.dictations, folderID: nil))
     }
+    @Test func questionLimitAppliesOutsideThisNote() {
+        let long = String(repeating: "a", count: AskScope.maxQuestionLength + 1)
+        let edge = String(repeating: "a", count: AskScope.maxQuestionLength)
+        for scope in [AskScope.all, .folder(nil), .meeting(MeetingID(rawValue: "m"))] {
+            #expect(scope.questionIsTooLong(long))
+            #expect(!scope.questionIsTooLong(edge))
+        }
+    }
+    @Test func thisNoteHasNoQuestionLimit() {
+        let long = String(repeating: "a", count: 5_000)
+        #expect(!AskScope.note(NoteID(rawValue: "n")).questionIsTooLong(long))
+    }
 }

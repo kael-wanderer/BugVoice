@@ -68,10 +68,10 @@ struct AIBar: View {
                         Image(systemName: "arrow.up.circle.fill").font(.title3)
                     }
                     .buttonStyle(.borderless)
-                    .disabled(assistant.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || assistant.message.count > 1_000)
+                    .disabled(assistant.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || assistant.scope.questionIsTooLong(assistant.message))
                     .accessibilityLabel("Send")
                 }
-                if assistant.message.count > 1_000 { Text("Shorter question, please.").font(.caption).foregroundStyle(.secondary) }
+                if assistant.scope.questionIsTooLong(assistant.message) { Text("Shorter question, please.").font(.caption).foregroundStyle(.secondary) }
             }
         }
     }

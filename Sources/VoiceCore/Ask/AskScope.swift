@@ -11,4 +11,12 @@ public enum AskScope: Equatable, Sendable {
         case .folder(let id): return source != .dictations && id == folderID
         }
     }
+
+    /// Longest question asked across items; This note keeps the note chat's own rules.
+    public static let maxQuestionLength = 1_000
+
+    public func questionIsTooLong(_ question: String) -> Bool {
+        if case .note = self { return false }
+        return question.trimmingCharacters(in: .whitespacesAndNewlines).count > Self.maxQuestionLength
+    }
 }

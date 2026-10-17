@@ -90,7 +90,7 @@ final class ScratchpadAssistant {
 
     func send(input: TransformInput, model: AppModel) {
         let text = message.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, text.count <= 1_000 else { return }
+        guard !text.isEmpty, !scope.questionIsTooLong(text) else { return }
         if scope != .note(input.noteID) {
             sendAcross(text, model: model)
             return
