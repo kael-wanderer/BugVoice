@@ -10,7 +10,7 @@ final class CitationPlayerModel {
     var isPlaying = false
     @ObservationIgnored private var boundary: Any?
     @ObservationIgnored private var periodic: Any?
-    @ObservationIgnored private var active = true
+    @ObservationIgnored private(set) var active = true
     @ObservationIgnored private var playGeneration = 0
     @ObservationIgnored private var ended: NSObjectProtocol?
 
@@ -65,29 +65,51 @@ final class CitationPlayerModel {
     }
 }
 
+/// The player and its observers are made once, when the view first appears: `State(initialValue:)`
+/// would build a new player on every parent redraw and leak the observers of discarded ones.
 struct CitationPlayer: View {
-    @State private var playback: CitationPlayerModel
+    let url: URL
+    let start: Double
+    let end: Double
     let pauseRequest: UInt64
+    @State private var playback: CitationPlayerModel?
 
     init(url: URL, start: Double, end: Double, pauseRequest: UInt64 = 0) {
+        self.url = url
+        self.start = start
+        self.end = end
         self.pauseRequest = pauseRequest
-        _playback = State(initialValue: CitationPlayerModel(url: url, start: start, end: end))
     }
 
     var body: some View {
         HStack(spacing: 10) {
-            Button {
-                if playback.isPlaying { playback.pause() }
-                else { Task { await playback.play() } }
-            } label: { Image(systemName: playback.isPlaying ? "pause.fill" : "play.fill") }
-            .accessibilityLabel(playback.isPlaying ? "Pause" : "Play")
-            Slider(value: Binding(get: { playback.time }, set: { playback.seek($0) }), in: playback.start...playback.end)
-                .accessibilityLabel("Citation audio")
-            Text("\(AskAnswerView.clock(playback.time)) / \(AskAnswerView.clock(playback.end))")
-                .font(.caption.monospacedDigit())
+            if let playback {
+                Button {
+                    if playback.isPlaying { playback.pause() }
+                    else { Task { await playback.play() } }
+                } label: { Image(systemName: playback.isPlaying ? "pause.fill" : "play.fill") }
+                .accessibilityLabel(playback.isPlaying ? "Pause" : "Play")
+                Slider(value: Binding(get: { playback.time }, set: { playback.seek($0) }), in: playback.start...playback.end)
+                    .accessibilityLabel("Citation audio")
+                Text("\(AskAnswerView.clock(playback.time)) / \(AskAnswerView.clock(playback.end))")
+                    .font(.caption.monospacedDigit())
+            } else {
+                Image(systemName: "play.fill").foregroundStyle(.tertiary)
+                Slider(value: .constant(max(0, start)), in: max(0, start)...max(start + 0.01, end)).disabled(true)
+                Text("\(AskAnswerView.clock(max(0, start))) / \(AskAnswerView.clock(max(start + 0.01, end)))")
+                    .font(.caption.monospacedDigit())
+            }
         }
-        .task { await playback.play() }
-        .onChange(of: pauseRequest) { _, _ in playback.pause() }
-        .onDisappear { playback.stop() }
+        .task {
+            let current: CitationPlayerModel
+            if let playback, playback.active { current = playback }
+            else {
+                current = CitationPlayerModel(url: url, start: start, end: end)
+                playback = current
+            }
+            await current.play()
+        }
+        .onChange(of: pauseRequest) { _, _ in playback?.pause() }
+        .onDisappear { playback?.stop() }
     }
 }
