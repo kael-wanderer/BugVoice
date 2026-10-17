@@ -9,23 +9,23 @@ implementation, like Dictation, Meetings and Notes before it.
 |---|---|
 | Dictation (speech → text at the cursor) | Works. Device checks passed for Terminal, VS Code, Notion, Chrome, Vietnamese, hands-free. |
 | Meetings | Built (You/Others tracks, transcript, Summary, Action items). Untested on device; waits for a real meeting and the system-audio spike. |
-| Notes | Built, but failed when tried. On hold until item 0. |
+| Notes | Fixes BV-0004/5/6 landed (2026-10-15); notes are edited in the Scratchpad window (item 8). Device checks 63–72 pending. |
 | Insights | Built (Usage tab). Device checks 73–80 pending. |
 | Meeting speakers | Part 1 merged (2026-10-17); device checks 195–206 and tuning pending. Part 2 known voices built (2026-10-17) with a cautious 0.2 rule; checks 209–212 and a real-call check pending. |
 | Upload audio/video | Implemented (Upload queue, local media extraction, file-only transcription, recovery and uploaded Meetings). Device checks 103–119 pending. |
-| Ask AI | Built on `feat/ask-ai` (2026-10-17), not merged. Per-tab Scratchpad scope, checked cards, translated audio citations, local search index and Meetings jumps. Device checks 1–40 in `docs/progress/ask-log.md` pending. MCP next. |
+| Ask AI | Merged and pushed (2026-10-17, `dcc4b21`). Per-tab Scratchpad scope, checked cards, translated audio citations, local search index (Qwen3-Embedding-0.6B on oMLX) and Meetings jumps. Tried on device in English and Vietnamese. Device checks 1–40 in `docs/progress/ask-log.md` pending. MCP server next. |
 
 ## Order
 
 | # | Project | Scope | Why here |
 |---|---|---|---|
-| 0 | Fix Notes + finish device checks | Debug the failed Notes run; finish the manual checklist and system-audio spike | Notes is broken and item 6 depends on it |
+| 0 | Fix Notes + finish device checks | Debug the failed Notes run; finish the manual checklist and system-audio spike | Notes fixes done (2026-10-15); manual checklist and system-audio spike remain |
 | 1 | Insights | New page: words, words per minute, dictations, notes, meetings, streak, activity heatmap, per-app and per-style use | Small; uses data already recorded |
 | 2 | Snippets + Styles | Snippets: spoken trigger → saved text (acronyms, links, prompts). Styles: tone per app group (personal message, work message, email, other) | Improves every dictation |
 | 3 | Models per feature | Pick a model for dictation, meetings and notes separately; cloud API keys (OpenAI, Anthropic, OpenRouter…); coding CLIs (claude, codex, gemini, pi) as providers for slow tasks | Groundwork for 4–6 |
 | 4 | Upload audio/video | Upload page (drop or browse → file card → Transcribe → progress), as in OpenWhispr. AVFoundation formats (MP3, WAV, M4A, AIFF, CAF, MP4, MOV, M4V). Result is a meeting with an "Uploaded" badge: timestamped transcript labelled "Speaker", click a line to play, Summary, Action items, export. Keeps `audio.m4a` only | Reuses the meeting pipeline; keeps timestamps so item 6 can cite audio |
 | 5 | Meetings v2 | 5a: Meeting detected popup; meeting window docked to the right third with My notes / Transcript / Summary (live) tabs and Ask anything about this meeting; marks feedback and marks on the detail page. Spec: `docs/superpowers/specs/2026-10-16-meetings-v2-design.md`. 5b: live English translation under each Transcript line. Spec: `docs/superpowers/specs/2026-10-16-meetings-translation-design.md` | 5a implemented 2026-10-16 (plan `docs/superpowers/plans/2026-10-16-meetings-v2.md`); device checks 172–187 pending. 5b implemented 2026-10-16 (plan `docs/superpowers/plans/2026-10-16-meetings-translation.md`); device checks 188–194 pending |
-| 6 | Ask AI + MCP server | Ask built: Scratchpad scopes (This note / This folder / A meeting… / All notes and meetings), word and local meaning search across notes, meetings, uploads and dictations, checked proof, translated range playback and Open in Meetings. The live meeting Ask box stays unchanged. Spec: `docs/superpowers/specs/2026-10-17-ask-ai-design.md` | Ask implemented on `feat/ask-ai` (2026-10-17), not merged; device checks pending in `docs/progress/ask-log.md`. MCP server is the next separate project. |
+| 6 | Ask AI + MCP server | Ask built: Scratchpad scopes (This note / This folder / A meeting… / All notes and meetings), word and local meaning search across notes, meetings, uploads and dictations, checked proof, translated range playback and Open in Meetings. The live meeting Ask box stays unchanged. Spec: `docs/superpowers/specs/2026-10-17-ask-ai-design.md` | Ask merged on `main` (2026-10-17); device checks pending in `docs/progress/ask-log.md`. MCP server is the next project, in spec. |
 | 7 | Calendar + export | Calendar via EventKit (Google and Microsoft accounts already added to macOS Calendar, no sign-in); export to Apple Notes and Notion | Polish |
 | 8 | Scratchpad (Notes v2) | Note window with tabs for several open notes, formatting toolbar, Transforms (Polish, More concise, More professional, ask a question) using the Notes model; uploaded and dictated text can land here. As in Wispr Flow | Built (2026-10-16). Spec: `docs/superpowers/specs/2026-10-15-scratchpad-design.md`. Floating Scratchpad window (the only editor; the page lists cards): spec `docs/superpowers/specs/2026-10-16-scratchpad-window-design.md`, merged (2026-10-16) |
 | 9 | Folders and tags | One level of folders plus tags, shared by meetings, uploads and notes; AI suggests existing tags after a summary. Spec: `docs/superpowers/specs/2026-10-15-folders-tags-design.md` | Built before item 8 |
