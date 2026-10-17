@@ -11,14 +11,22 @@ struct AIBar: View {
     let noteID: NoteID
     let input: () -> TransformInput?
 
+    @State private var choosingMeeting = false
+
     var body: some View {
+        content.sheet(isPresented: $choosingMeeting) { meetingPicker }
+    }
+
+    @ViewBuilder private var content: some View {
         switch assistant.phase {
         case .running(let label):
             HStack(spacing: 10) {
-                ProgressView().controlSize(.small)
-                Text(label).foregroundStyle(.secondary)
+                if assistant.askStep == nil {
+                    ProgressView().controlSize(.small)
+                    Text(label).foregroundStyle(.secondary)
+                }
                 Spacer()
-                Button("Cancel") { assistant.cancel() }
+                Button(assistant.askStep == nil ? "Cancel" : "Stop") { assistant.cancel() }
                     .keyboardShortcut(.escape, modifiers: [])
             }
             .padding(.vertical, 4)
@@ -34,6 +42,7 @@ struct AIBar: View {
                 HStack(spacing: 6) {
                     ForEach(NoteTransform.allCases, id: \.self) { transform in
                         Button(transform.title) { run(transform) }
+                            .disabled(assistant.scope != .note(noteID))
                             .buttonStyle(.bordered)
                             .buttonBorderShape(.capsule)
                             .help("\(transform.title) (⌘\(String(transform.shortcutKey)))")
@@ -51,18 +60,41 @@ struct AIBar: View {
                 }
                 Divider()
                 HStack(spacing: 8) {
+                    scopeMenu
                     TextField("Follow up or ask a question", text: $assistant.message)
                         .textFieldStyle(.plain)
                         .onSubmit(send)
-                    Text("Press Enter or").font(.caption).foregroundStyle(.secondary)
                     Button(action: send) {
                         Image(systemName: "arrow.up.circle.fill").font(.title3)
                     }
                     .buttonStyle(.borderless)
-                    .disabled(assistant.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(assistant.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || assistant.message.count > 1_000)
                     .accessibilityLabel("Send")
                 }
+                if assistant.message.count > 1_000 { Text("Shorter question, please.").font(.caption).foregroundStyle(.secondary) }
             }
+        }
+    }
+
+    private var scopeMenu: some View {
+        Menu {
+            Button("This note") { assistant.changeScope(.note(noteID)) }
+            let folder = model.notesController.note(id: noteID)?.frontMatter.folderID
+            Button(model.askScopeTitle(.folder(folder))) { assistant.changeScope(.folder(folder)) }
+            Button("A meeting…") { choosingMeeting = true }
+            Button("All notes and meetings") { assistant.changeScope(.all) }
+        } label: {
+            Text(model.askScopeTitle(assistant.scope)).lineLimit(1).frame(maxWidth: 160)
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize(horizontal: false, vertical: true)
+        .accessibilityLabel("Search in")
+    }
+
+    private var meetingPicker: some View {
+        AskMeetingPicker(meetings: model.meetingManifests) { id in
+            assistant.changeScope(.meeting(id))
+            choosingMeeting = false
         }
     }
 

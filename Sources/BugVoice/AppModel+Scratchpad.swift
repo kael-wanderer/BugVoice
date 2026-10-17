@@ -218,3 +218,49 @@ extension AppModel {
             seconds: max(1, Int(Date().timeIntervalSince(started).rounded())))
     }
 }
+
+extension AppModel {
+    var canAskAcross: Bool {
+        switch transformPlan {
+        case .none, .unavailable: false
+        default: true
+        }
+    }
+
+    func askAcross(question: String, history: [NoteChatTurn], scope: AskScope,
+                   progress: @escaping @Sendable (AskStep) -> Void) async throws -> AskOutcome {
+        let plan = transformPlan
+        guard canAskAcross, let model = ProviderFactory.textModel(plan, credentials: credentials) else { return .failed(.model) }
+        let modelID: String
+        let disableThinking: Bool
+        switch plan {
+        case .connection(_, _, let id, let off, _): modelID = id; disableThinking = off
+        case .appleIntelligence: modelID = "apple-intelligence"; disableThinking = false
+        default: modelID = ""; disableThinking = false
+        }
+        let pipeline = AskPipeline(
+            model: model, modelID: modelID, disableThinking: disableThinking,
+            embedder: ProviderFactory.embedder(settings: settings.models, credentials: credentials),
+            contextTokens: settings.models.search.askContextTokens, now: { Date() })
+        let corpus = await searchIndexer.corpus(scope: scope)
+        try Task.checkCancellation()
+        return try await pipeline.run(question: question, history: history, corpus: corpus, progress: progress)
+    }
+
+    func askScopeTitle(_ scope: AskScope) -> String {
+        switch scope {
+        case .note: "This note"
+        case .folder(let id): id.flatMap { folder in library.folders.first { $0.id == folder }?.name }.map { "This folder (\($0))" } ?? "Unfiled notes and meetings"
+        case .meeting(let id): meetingManifests.first { $0.id == id }?.title ?? "A meeting…"
+        case .all: "All notes and meetings"
+        }
+    }
+
+    func newNoteFromAsk(question: String, result: AskResult) async {
+        do {
+            _ = try await createScratchpadNote(title: question,
+                body: AskMarkdown.render(question: question, result: result, calendar: .current), frontMatter: NoteFrontMatter())
+            notesFocusRequest &+= 1
+        } catch { saveError = "Could not create note: \(error.localizedDescription)" }
+    }
+}

@@ -54,7 +54,9 @@ struct ScratchpadNoteEditor: View {
             statusRow
 
             ZStack(alignment: .topLeading) {
-                if model.scratchpadView == .markdown {
+                if assistant.askStep != nil || assistant.askResult != nil || assistant.askError != nil {
+                    AskAnswerView(assistant: assistant, model: model)
+                } else if model.scratchpadView == .markdown {
                     NotesBodyEditor(
                         controller: controller,
                         noteID: note.id,

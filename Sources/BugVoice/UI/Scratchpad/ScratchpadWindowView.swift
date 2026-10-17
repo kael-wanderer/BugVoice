@@ -7,6 +7,8 @@ import VoiceCore
 struct ScratchpadWindowView: View {
     @Bindable var model: AppModel
     @State private var assistant = ScratchpadAssistant()
+    @State private var assistants: [NoteID: ScratchpadAssistant] = [:]
+    @State private var assistantNoteID: NoteID?
     @State private var searchText = ""
     @State private var bodyFocusRequested = false
     @FocusState private var searchFocused: Bool
@@ -37,9 +39,16 @@ struct ScratchpadWindowView: View {
         .task {
             await controller.reloadList()
             model.syncScratchpadTabs()
+            activateAssistant(controller.selectedNoteID)
         }
         .onChange(of: controller.notes) { _, _ in model.syncScratchpadTabs() }
-        .onChange(of: controller.selectedNoteID) { _, _ in assistant.noteChanged() }
+        .onChange(of: controller.selectedNoteID) { _, id in activateAssistant(id) }
+        .onChange(of: model.scratchpadTabs.ids) { _, ids in
+            for (id, saved) in assistants where !ids.contains(id) { saved.cancel() }
+            assistants = assistants.filter { ids.contains($0.key) }
+            if let assistantNoteID, !ids.contains(assistantNoteID) { assistant.cancel() }
+        }
+        .onDisappear { assistant.cancel(); for saved in assistants.values { saved.cancel() } }
         .onChange(of: model.notesFocusRequest) { _, _ in bodyFocusRequested = true }
         .animation(.easeInOut(duration: 0.2), value: model.notice)
         .animation(.easeInOut(duration: 0.2), value: assistant.notice)
@@ -53,6 +62,21 @@ struct ScratchpadWindowView: View {
             Button("OK") { model.saveError = nil }
         } message: {
             Text(model.saveError ?? "")
+        }
+    }
+
+    private func activateAssistant(_ id: NoteID?) {
+        guard assistantNoteID != id else { return }
+        assistant.noteChanged()
+        if let previous = assistantNoteID, model.scratchpadTabs.ids.contains(previous) { assistants[previous] = assistant }
+        assistantNoteID = id
+        guard let id else { return }
+        if let saved = assistants[id] { assistant = saved }
+        else {
+            let fresh = ScratchpadAssistant()
+            fresh.scope = .note(id)
+            assistants[id] = fresh
+            assistant = fresh
         }
     }
 

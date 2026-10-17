@@ -52,6 +52,13 @@ final class ScratchpadAssistant {
     }
 
     var phase: Phase = .idle
+    var scope: AskScope = .note(NoteID(rawValue: ""))
+    var askStep: AskStep?
+    var askResult: (question: String, outcome: AskOutcome, scope: AskScope, counts: (meetings: Int, notes: Int, dictations: Int))?
+    var askHistory: [NoteChatTurn] = []
+    var askError: String?
+    var searchedCounts = (meetings: 0, notes: 0, dictations: 0)
+    @ObservationIgnored private var askRunID: UUID?
     var message = ""
     var reply: AssistantReply?
     var notice: AssistantNotice?
@@ -68,25 +75,86 @@ final class ScratchpadAssistant {
     }
 
     func canRunAgain(noteID: NoteID, controller: NotesController) -> Bool {
-        guard !isBusy, let lastChange, let revision = controller.note(id: noteID)?.revision else { return false }
+        guard scope == .note(noteID), !isBusy, let lastChange, let revision = controller.note(id: noteID)?.revision else { return false }
         return lastChange.canRunAgain(noteID: noteID, revision: revision)
     }
 
     // MARK: Requests
 
     func run(_ transform: NoteTransform, input: TransformInput, model: AppModel) {
-        guard start(input) else { return }
+        guard scope == .note(input.noteID), start(input) else { return }
+        askResult = nil
+        askError = nil
         rewrite(transform, input: input, model: model, again: false)
     }
 
     func send(input: TransformInput, model: AppModel) {
         let text = message.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, start(input) else { return }
+        guard !text.isEmpty, text.count <= 1_000 else { return }
+        if scope != .note(input.noteID) {
+            sendAcross(text, model: model)
+            return
+        }
+        guard start(input) else { return }
+        askResult = nil
+        askError = nil
         if conversationNote != input.noteID { resetConversation() }
         conversationNote = input.noteID
         message = ""
         reply = nil
         ask(text, input: input, history: conversation, model: model, again: false)
+    }
+
+    func changeScope(_ scope: AskScope) {
+        guard self.scope != scope else { return }
+        cancel()
+        self.scope = scope
+        askHistory = []
+    }
+
+    private func sendAcross(_ question: String, model: AppModel) {
+        guard !isBusy else { return }
+        guard model.canAskAcross else {
+            askError = "Choose a Notes model in Settings to ask questions."
+            return
+        }
+        let scope = scope, history = askHistory, runID = UUID()
+        askRunID = runID
+        askError = nil
+        askStep = .understanding
+        message = ""
+        phase = .running("")
+        task = Task {
+            do {
+                let outcome = try await model.askAcross(question: question, history: history, scope: scope) { [weak self] step in
+                    Task { @MainActor in
+                        guard let self, self.askRunID == runID else { return }
+                        self.askStep = step
+                        if case .searching(let meetings, let notes, let dictations) = step {
+                            self.searchedCounts = (meetings, notes, dictations)
+                        }
+                    }
+                }
+                // Stop may arrive just after the model returns an outcome.
+                guard !Task.isCancelled, askRunID == runID else { return }
+                if case .failed(.tooSlow) = outcome {
+                    askError = "Ask took too long. Try a smaller scope."
+                } else {
+                    askResult = (question, outcome, scope, searchedCounts)
+                    if case .answered(let result, _) = outcome {
+                        askHistory.append(NoteChatTurn(message: question, reply: result.answer))
+                        askHistory = Array(askHistory.suffix(3))
+                    }
+                }
+            } catch {
+                guard !Task.isCancelled, askRunID == runID else { return }
+            }
+            guard askRunID == runID else { return }
+            askRunID = nil
+            askStep = nil
+            phase = .idle
+            task = nil
+        }
     }
 
     /// The last change again, on the same original text, replacing its result.
@@ -117,30 +185,42 @@ final class ScratchpadAssistant {
 
     private func rewrite(_ transform: NoteTransform, input: TransformInput, model: AppModel, again: Bool) {
         phase = .running("Working… \(transform.title) · \(input.words) words")
+        let runID = UUID()
+        askRunID = runID
         task = Task {
             do {
                 let answer = try await model.askNotesModel { modelID, disableThinking in
                     NoteTransformPrompt.request(transform, text: input.text, modelID: modelID, disableThinking: disableThinking)
                 }
+                try Task.checkCancellation()
+                guard askRunID == runID else { return }
                 guard let result = NoteTransformPrompt.clean(answer.output) else { throw ScratchpadAIError.empty }
                 apply(result, kind: .transform(transform), input: input, controller: model.notesController, again: again)
             } catch is CancellationError {
+                guard askRunID == runID else { return }
                 phase = .idle
             } catch {
+                guard askRunID == runID else { return }
                 phase = .failed(Self.message(for: error))
             }
+            guard askRunID == runID else { return }
+            askRunID = nil
             task = nil
         }
     }
 
     private func ask(_ text: String, input: TransformInput, history: [NoteChatTurn], model: AppModel, again: Bool) {
         phase = .running("Working… · \(input.words) words")
+        let runID = UUID()
+        askRunID = runID
         task = Task {
             do {
                 let answer = try await model.askNotesModel { modelID, disableThinking in
                     NoteTransformPrompt.chatRequest(
                         message: text, text: input.text, history: history, modelID: modelID, disableThinking: disableThinking)
                 }
+                try Task.checkCancellation()
+                guard askRunID == runID else { return }
                 guard let cleaned = NoteTransformPrompt.clean(answer.output),
                       let parsed = NoteTransformPrompt.parseChatReply(cleaned) else { throw ScratchpadAIError.empty }
                 if again, !conversation.isEmpty { conversation.removeLast() }
@@ -154,10 +234,14 @@ final class ScratchpadAssistant {
                     phase = .idle
                 }
             } catch is CancellationError {
+                guard askRunID == runID else { return }
                 phase = .idle
             } catch {
+                guard askRunID == runID else { return }
                 phase = .failed(Self.message(for: error))
             }
+            guard askRunID == runID else { return }
+            askRunID = nil
             task = nil
         }
     }
@@ -241,6 +325,8 @@ final class ScratchpadAssistant {
     func cancel() {
         task?.cancel()
         task = nil
+        askRunID = nil
+        askStep = nil
         phase = .idle
     }
 
