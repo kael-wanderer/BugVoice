@@ -44,6 +44,12 @@ struct AskQueryTests {
         #expect(q.to != nil)
     }
 
+    @Test func emptyTermsUseFallbackTerms() {
+        let q = AskQueryPrompt.parse(#"{"terms": [], "people": ["Luna"]}"#, question: "what about pricing", calendar: calendar)
+        #expect(q.terms == ["pricing"])
+        #expect(q.people == ["Luna"])
+    }
+
     @Test func termsCappedAt24() {
         let terms = (0..<40).map { "\"t\($0)\"" }.joined(separator: ",")
         let q = AskQueryPrompt.parse(#"{"terms": [\#(terms)], "from": null, "to": null, "people": []}"#, question: "q", calendar: calendar)

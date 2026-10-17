@@ -60,7 +60,7 @@ public enum AskQueryPrompt {
             .compactMap { ($0 as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
         return AskQuery(
-            terms: Array(terms.prefix(maxTerms)),
+            terms: Array((terms.isEmpty ? fallback(question: question).terms : terms).prefix(maxTerms)),
             from: day(object["from"], calendar: calendar, endOfDay: false),
             to: day(object["to"], calendar: calendar, endOfDay: true),
             people: people
