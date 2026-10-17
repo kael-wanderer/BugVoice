@@ -52,6 +52,32 @@ struct NotesDocumentTests {
         #expect(NotesSlug.make("   ... ") == "note")
     }
 
+    @Test func longSlugIsCappedOnAWordBoundary() {
+        let title = String(repeating: "what did we decide about ", count: 20)
+        let slug = NotesSlug.make(title)
+        #expect(slug.count <= NotesSlug.maxLength)
+        #expect(slug.count > 60)
+        #expect(!slug.hasSuffix("-"))
+        #expect(title.lowercased().replacingOccurrences(of: " ", with: "-").hasPrefix(slug + "-"))
+    }
+
+    @Test func longSingleWordSlugIsCutAtTheCap() {
+        let slug = NotesSlug.make(String(repeating: "a", count: 300))
+        #expect(slug == String(repeating: "a", count: NotesSlug.maxLength))
+    }
+
+    @Test func shortSlugIsUnchangedByTheCap() {
+        let title = String(repeating: "b", count: 80)
+        #expect(NotesSlug.make(title) == title)
+    }
+
+    @Test func cappedSlugKeepsRoomForCollisionSuffix() {
+        let title = String(repeating: "word ", count: 100)
+        let slug = NotesSlug.available(title, existingFilenames: [NotesSlug.make(title) + ".md"])
+        #expect(slug.hasSuffix("-2"))
+        #expect((slug + ".md").utf8.count < 255)
+    }
+
     @Test func collisionAllocationIsCaseInsensitiveAndSkipsExistingSuffixes() {
         #expect(NotesSlug.available("Notes", existingFilenames: ["notes.md", "NOTES-2.MD"]) == "notes-3")
         #expect(NotesSlug.available("Notes", existingFilenames: ["notes.md", "notes-3.md"]) == "notes-2")

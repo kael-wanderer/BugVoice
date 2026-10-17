@@ -156,6 +156,9 @@ public enum NotesMarkdownDocument {
 }
 
 public enum NotesSlug {
+    /// Longest slug `make` returns, so `<slug>-<n>.md` stays far below the 255-byte file name limit.
+    public static let maxLength = 80
+
     public static func make(_ title: String) -> String {
         let mapped = title
             .replacingOccurrences(of: "Đ", with: "D")
@@ -177,7 +180,19 @@ public enum NotesSlug {
                 needsHyphen = true
             }
         }
-        return slug.isEmpty ? "note" : slug
+        return slug.isEmpty ? "note" : capped(slug)
+    }
+
+    /// Cuts an ASCII slug to `maxLength`, at the last word break when there is one.
+    private static func capped(_ slug: String) -> String {
+        guard slug.count > maxLength else { return slug }
+        let next = slug[slug.index(slug.startIndex, offsetBy: maxLength)]
+        var cut = String(slug.prefix(maxLength))
+        if next != "-", let hyphen = cut.lastIndex(of: "-"), hyphen > cut.startIndex {
+            cut = String(cut[..<hyphen])
+        }
+        while cut.hasSuffix("-") { cut.removeLast() }
+        return cut
     }
 
     public static func available(
