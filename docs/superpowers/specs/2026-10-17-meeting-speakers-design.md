@@ -192,7 +192,11 @@ split." [Find speakers] in place of the Speakers row.
   contribution from the same meeting and speaker. Renaming the chip again (Dani, then David) moves
   the contribution from Dani to David; clearing the name removes it. A voice left with no
   contributions is deleted. Split again carries names over without adding contributions twice.
-- Contributions follow the meeting: deleting a meeting removes its contributions.
+- Contributions follow the meeting: deleting a meeting removes its contributions. Contributions
+  whose meeting no longer exists are removed whenever the meeting list loads, which covers
+  deletion, the retention policy and folders removed by hand.
+- A voice deleted in Settings is not brought back by later edits in older meetings: only a
+  rename, a Yes, or a split in a meeting writes that meeting's contribution.
 - `you` and `pN` speakers save nothing (no centroid). Lines fixed one by one do not change any
   voiceprint.
 - Nothing is saved while Settings › Meetings › Known voices › "Suggest names from known voices" is
@@ -200,12 +204,17 @@ split." [Find speakers] in place of the Speakers row.
 
 ### 8.2 Suggestions
 
-- After a split, each `sN` centroid is compared with every saved voice by cosine distance. A pair
-  under the threshold (section 8.4) is a match; each saved voice matches at most one speaker,
-  closest pairs first.
+- After a split, each unnamed `sN` centroid is compared with every saved voice by cosine
+  distance. Names already on a speaker in this meeting and names refused with No in this meeting
+  are skipped. A pair is a match when its distance is at most 0.2 and the speaker's next closest
+  saved voice is at least 0.1 farther (section 8.4). Each saved voice matches at most one
+  speaker, closest pairs first.
+- The suggestion and its distance are kept on the speaker in `meeting.json`
+  (`suggestion: { name, distance }`), also after Yes, so real calls show whether 0.2 holds.
 - A matched chip shows "Dani?" dashed with [Yes] [No]; its lines show "Dani?".
 - Yes: the name is set and the voice updated (8.1). No: the chip goes back to Other N and the
-  same voice is not suggested again in this meeting.
+  same voice is not suggested again in this meeting (`declinedVoices: [name]` in
+  `meeting.json`). Renaming a suggested chip by hand also clears the suggestion.
 - A suggestion is not a name: export, summary and Ask use Other N until Yes.
 
 ### 8.3 Settings › Meetings › Known voices
@@ -223,6 +232,24 @@ Measure it first: take two recordings with the same people (owner's choice: two 
 same podcast played from YouTube; the monthly meeting with Dani and Mariel confirms later), split both, compute distances
 between same-person and different-person centroids, and pick a threshold that separates them.
 If no threshold separates them, Part 2 stops and the owner is told; Part 1 stands on its own.
+
+Measured 2026-10-17 (owner's recordings, numbers only kept):
+
+| Pair | Same person | Cosine distance |
+| --- | --- | --- |
+| Call audio, one YouTube video, two parts 8 minutes apart: man A–B, woman A–B | yes | 0.09, 0.10 |
+| Same call audio: man vs woman | no | 0.28–0.35 |
+| Owner on the Mac microphone, two meetings | yes | 0.46 |
+| Owner, Mac microphone vs phone memos | yes | 0.48–0.66 |
+| Owner speaking quietly vs normal | yes | 0.92–1.07 |
+| Child, two phone memos | yes | 0.40 |
+
+No single threshold separates all audio: two different people on one call track are closer
+than the owner's own voice across microphones. Known voices only ever match call-track speakers,
+and there same-person 0.09–0.10 vs different-person 0.28–0.35 separate at 0.2. The owner chose
+to build Part 2 with that cautious rule: 0.2 and a 0.1 margin, every suggestion confirmed, the
+distance kept for retuning after the monthly Dani and Mariel call. The sample is two speakers
+from one video; real calls add compression and a different microphone per person.
 
 ## 9. Errors and edge cases
 
@@ -255,8 +282,11 @@ from known voices", "N meetings", "Delete", the caption in 8.3.
 - Split again: names carried to the closest new centroids, one name each; line fixes cleared.
 - Export, search and prompts use display names.
 - Names changed notice: shown when names differ from `speakerNamesAtSummary`.
-- Part 2: matching picks closest pairs, one speaker per voice, threshold respected; running mean
-  update; nothing saved when the switch is off; `voices.json` permissions 0600.
+- Part 2: matching picks closest pairs, one speaker per voice, threshold and margin respected,
+  named and declined names skipped; voiceprint is the mean of contributions; rename moves a
+  contribution, clear removes it, an emptied voice is deleted; contributions of missing meetings
+  pruned; nothing saved or suggested when the switch is off; `voices.json` permissions 0600;
+  suggestion kept after Yes, cleared by No and by a manual rename.
 
 ## 12. Left to the plan
 
