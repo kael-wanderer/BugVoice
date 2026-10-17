@@ -3,6 +3,10 @@ import VoiceCore
 
 struct SearchCard: View {
     @Bindable var model: AppModel
+    /// The model name as typed. Saved on Return or when the field loses focus: each saved change
+    /// rebuilds the index, so a keystroke must not.
+    @State private var modelNameDraft = ""
+    @FocusState private var modelNameFocused: Bool
 
     private var connections: [ModelConnection] {
         model.settings.models.connections.filter {
@@ -18,7 +22,12 @@ struct SearchCard: View {
                     ForEach(connections) { Text($0.name).tag(Optional($0.id)) }
                 }
                 if model.settings.models.search.embeddingConnectionID != nil {
-                    TextField("Model name", text: $model.settings.models.search.embeddingModel)
+                    TextField("Model name", text: $modelNameDraft)
+                        .focused($modelNameFocused)
+                        .onSubmit(commitModelName)
+                        .onChange(of: modelNameFocused) { wasFocused, isFocused in
+                            if wasFocused && !isFocused { commitModelName() }
+                        }
                 }
                 Stepper(value: $model.settings.models.search.askContextTokens, in: 4_096...262_144, step: 4_096) {
                     HStack {
@@ -39,5 +48,16 @@ struct SearchCard: View {
                     .font(.caption).foregroundStyle(.secondary)
             }.padding(8)
         } label: { Text("Search").font(.headline) }
+        .onAppear { modelNameDraft = model.settings.models.search.embeddingModel }
+        .onChange(of: model.settings.models.search.embeddingModel) { _, saved in
+            if !modelNameFocused { modelNameDraft = saved }
+        }
+        .onDisappear(perform: commitModelName)
+    }
+
+    private func commitModelName() {
+        let name = modelNameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard name != model.settings.models.search.embeddingModel else { return }
+        model.settings.models.search.embeddingModel = name
     }
 }
