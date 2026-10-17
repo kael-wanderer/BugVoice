@@ -53,6 +53,13 @@ let package = Package(
             dependencies: ["VoiceCore", "WhisperEngine", "BugVoiceMac"],
             path: "Sources/BugVoice"
         ),
+        // The local MCP socket shared by the app and the bugvoice-mcp bridge.
+        // Foundation and Darwin only, so the bridge starts fast.
+        .target(
+            name: "MCPKit",
+            dependencies: ["VoiceCore"],
+            path: "Sources/MCPKit"
+        ),
         .executableTarget(
             name: "BugVoiceBench",
             dependencies: ["VoiceCore", "WhisperEngine"],
@@ -62,6 +69,11 @@ let package = Package(
             name: "VoiceCoreTests",
             dependencies: ["VoiceCore"],
             path: "Tests/VoiceCoreTests"
+        ),
+        .testTarget(
+            name: "MCPKitTests",
+            dependencies: ["MCPKit", "VoiceCore"],
+            path: "Tests/MCPKitTests"
         ),
         .testTarget(
             name: "BugVoiceMacTests",
