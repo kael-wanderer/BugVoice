@@ -17,6 +17,24 @@ enum SpeakerColors {
     }
 }
 
+extension SpeakerColors {
+    /// A filled dot as an image, so menus keep its colour.
+    static func dot(_ index: Int) -> Image {
+        let color = NSColor(color(index))
+        let image = NSImage(size: NSSize(width: 10, height: 10), flipped: false) { rect in
+            color.setFill()
+            NSBezierPath(ovalIn: rect.insetBy(dx: 1, dy: 1)).fill()
+            return true
+        }
+        return Image(nsImage: image)
+    }
+}
+
+extension MeetingSpeaker {
+    /// The saved voice waiting for Yes or No, while suggestions are on.
+    func pendingSuggestion(enabled: Bool) -> String? { enabled && name == nil ? suggestion?.name : nil }
+}
+
 struct MeetingSpeakersRow: View {
     let meeting: MeetingManifest
     @Environment(AppModel.self) private var model
@@ -163,22 +181,49 @@ struct MeetingSpeakersRow: View {
                             .accessibilityLabel("Name for \(display(speaker))")
                             .onSubmit { saveName() }
                             .onExitCommand { editingID = nil; nameFocused = false; editError = nil }
+                    } else if let suggested = speaker.pendingSuggestion(enabled: suggesting) {
+                        Text("\(suggested)?")
+                        Button("Yes") { decide(.accept(speakerID: speaker.id)) }
+                            .buttonStyle(.borderedProminent).controlSize(.mini)
+                            .accessibilityLabel("Yes, this is \(suggested)")
+                        Button("No") { decide(.decline(speakerID: speaker.id)) }
+                            .controlSize(.mini)
+                            .accessibilityLabel("No, this is not \(suggested)")
                     } else {
                         Button(display(speaker)) {
                             if editingID != nil { saveName() }
                             editingID = speaker.id; draft = display(speaker); editError = nil; nameFocused = true
                         }
                         .buttonStyle(.plain)
+                        .accessibilityHint("Rename this speaker on every line")
                     }
                 }
+                .fixedSize()
                 .padding(.horizontal, 9).padding(.vertical, 3)
                 .background(Color(nsColor: .quaternaryLabelColor).opacity(0.20), in: Capsule())
-                .overlay(Capsule().stroke(Color(nsColor: .separatorColor), lineWidth: 0.5))
+                .overlay {
+                    if speaker.pendingSuggestion(enabled: suggesting) != nil {
+                        Capsule().stroke(Color.accentColor, style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
+                    } else {
+                        Capsule().stroke(Color(nsColor: .separatorColor), lineWidth: 0.5)
+                    }
+                }
             }
         }
     }
 
     private func display(_ speaker: MeetingSpeaker) -> String { speaker.name ?? MeetingSpeakers.defaultName(for: speaker.id) }
+    private var suggesting: Bool { model.settings.meetings.suggestKnownVoices }
+    private func decide(_ edit: MeetingSpeakers.Edit) {
+        guard meeting.speakerSplit == .done, !saving else { return }
+        saving = true
+        Task {
+            if case let .duplicateName(name) = await model.editMeetingSpeakers(id: meeting.id, edit: edit) {
+                editError = "\(name) is already a speaker."
+            }
+            saving = false
+        }
+    }
     private func find(_ people: Int?) { Task { await model.findSpeakers(id: meeting.id, people: people) } }
     private func saveName() {
         guard meeting.speakerSplit != .running else { editingID = nil; return }
@@ -219,13 +264,13 @@ struct MeetingSpeakerLineMenu: View {
                 Button { edit(.assign(segmentID: segment.id, speakerID: speaker.id)) } label: {
                     Label {
                         Text(speaker.name ?? MeetingSpeakers.defaultName(for: speaker.id))
-                    } icon: { Image(systemName: "circle.fill").foregroundStyle(SpeakerColors.color(speaker.colorIndex)) }
+                    } icon: { SpeakerColors.dot(speaker.colorIndex) }
                 }
             }
             Divider()
             Button("New person…") { draft = ""; error = nil; newPerson = true }
         } label: {
-            Text(segment.speaker)
+            Text(label)
                 .font(.system(size: 12, weight: .semibold))
                 .underline(true, pattern: .dot)
                 .foregroundStyle(color)
@@ -244,6 +289,12 @@ struct MeetingSpeakerLineMenu: View {
             .padding(12).frame(width: 210)
             .onAppear { focused = true }
         }
+    }
+    /// "Dani?" while the line's speaker waits for Yes or No; export and prompts keep Other N.
+    private var label: String {
+        let speaker = meeting.speakers.first { $0.id == segment.speakerID }
+        if let suggested = speaker?.pendingSuggestion(enabled: model.settings.meetings.suggestKnownVoices) { return "\(suggested)?" }
+        return segment.speaker
     }
     private var color: Color {
         if let speaker = meeting.speakers.first(where: { $0.id == segment.speakerID }) { return SpeakerColors.color(speaker.colorIndex) }

@@ -75,6 +75,28 @@ struct MeetingsTab: View {
                 Text("Meeting time between updates of the summary in the meeting window. Pauses do not count. Shorter times keep the Meetings model busier.")
                     .font(.caption).foregroundStyle(.secondary)
             }
+            SettingsCard(title: "Known voices") {
+                SettingsRow(title: "Suggest names from known voices") {
+                    Toggle("Suggest names from known voices", isOn: $model.settings.meetings.suggestKnownVoices)
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .controlSize(.small)
+                }
+                ForEach(Array(model.knownVoices.enumerated()), id: \.element.id) { index, voice in
+                    HStack(spacing: 8) {
+                        Circle().fill(SpeakerColors.color(index + 1)).frame(width: 8, height: 8)
+                        Text(voice.name)
+                        Text(voice.contributions.count == 1 ? "1 meeting" : "\(voice.contributions.count) meetings")
+                            .font(.caption).foregroundStyle(.secondary)
+                        Spacer()
+                        Button("Delete") { Task { await model.deleteKnownVoice(name: voice.name) } }
+                            .controlSize(.small)
+                            .accessibilityLabel("Delete \(voice.name)")
+                    }
+                }
+                Text("A voice is saved when you name a speaker and confirm it. Saved voices stay on this Mac. Delete one to stop suggesting it.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             SettingsCard(title: "Summary and action item budget") {
                 SettingsRow(title: "Context size") {
                     Text("\(model.settings.meetings.generationContextTokens.formatted()) tokens").monospacedDigit()
