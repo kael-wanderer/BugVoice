@@ -260,6 +260,14 @@ struct AskPipelineTests {
         #expect(model.readingRequests.count == 2)
     }
 
+    @Test func unreadableCiteRetryIsNothingFound() async throws {
+        let model = StubModel(reading: { n in n == 1 ? #"{"answer":"Done.","citations":[]}"# : "Here is the answer in prose." })
+        let outcome = try await run(pipeline(model), corpus([passage(1, "alpha")]))
+        #expect(outcome == .nothingFound(wordSearchOnly: .noModel))
+        #expect(model.readingRequests.count == 3)
+        #expect(AskAnswerPrompt.citeAgain.hasSuffix("Reply with JSON only, in the same shape."))
+    }
+
     @Test func noCitationRetriedOnceThenAnswers() async throws {
         let model = StubModel(reading: { n in
             n == 1 ? #"{"answer":"Done.","citations":[]}"# : #"{"answer":"Done.","citations":[{"line":"P1.1"}]}"#

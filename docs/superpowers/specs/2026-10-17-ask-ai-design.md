@@ -142,7 +142,8 @@ Progress text: "Reading 40 passages…".
   duplicates and ids from passages not sent are dropped. Kept lines that are adjacent in the same
   item (next segment, or within 5 s) join into one citation range.
 - No kept citation: ask once more with "Your answer cited no passage lines. Cite the lines that
-  support it, like P1.2." Still none: show "Nothing about this in your notes or meetings." The
+  support it, like P1.2. Reply with JSON only, in the same shape." Still none, or the retry is
+  unreadable: show "Nothing about this in your notes or meetings." The
   model's answer is not shown.
 - The answer uses the current question's language, even when earlier turns use another.
 - Bad JSON: one retry with "Reply with JSON only"; then the generic error "Ask could not read the

@@ -204,7 +204,11 @@ public struct AskPipeline: Sendable {
                 parsed = AskAnswerPrompt.parse(reply)
                 if parsed != nil { break }
             }
-            guard let parsed else { return .failed(.unreadable) }
+            guard let parsed else {
+                // The first reply was readable but cited nothing; a garbled retry adds no proof.
+                if citeAttempt == 1 { break }
+                return .failed(.unreadable)
+            }
             counts.citedLines = parsed.lineRefs.count
             checked = AskAnswerPrompt.check(
                 lineRefs: parsed.lineRefs, passages: chosen, info: corpus.info, answer: parsed.answer)
