@@ -414,6 +414,13 @@ public final class NotesController {
         return loaded[id]?.note
     }
 
+    /// True while the open editor holds text or a title not yet on disk.
+    public func hasUnsavedChanges(id: NoteID) -> Bool {
+        _ = changeCounter
+        guard let state = loaded[id] else { return false }
+        return state.isDirty || state.titleDraft != state.note.title
+    }
+
     public func isLoaded(id: NoteID) -> Bool {
         _ = changeCounter
         return loaded[id] != nil

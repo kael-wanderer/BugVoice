@@ -51,7 +51,7 @@ let package = Package(
         // by Scripts/build-app.sh.
         .executableTarget(
             name: "BugVoice",
-            dependencies: ["VoiceCore", "WhisperEngine", "BugVoiceMac"],
+            dependencies: ["VoiceCore", "WhisperEngine", "BugVoiceMac", "MCPKit"],
             path: "Sources/BugVoice"
         ),
         // The local MCP socket shared by the app and the bugvoice-mcp bridge.

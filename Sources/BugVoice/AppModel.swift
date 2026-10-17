@@ -70,6 +70,8 @@ final class AppModel {
     @ObservationIgnored private var systemAudioGrantedThisRun = false
 
     @ObservationIgnored lazy var searchIndexer = SearchIndexer(model: self)
+    /// The MCP server for coding agents (Settings › Agents).
+    @ObservationIgnored lazy var mcp = MCPService(model: self)
 
     var settings = AppSettings() {
         didSet {
@@ -228,6 +230,8 @@ final class AppModel {
         searchIndexer.librariesDidLoad()
         Task { await prepareSpeech() }
         Task { await refreshCLIs() }
+        // Last, so agents never see half-loaded notes or meetings.
+        mcp.start()
     }
 
     /// Configured from the settings just loaded (loading does not fire
@@ -866,6 +870,11 @@ final class AppModel {
         } onCancel: {
             task.cancel()
         }
+    }
+
+    /// True while a summary or action-items text is being written for this meeting.
+    func isWritingMeetingText(id: MeetingID) -> Bool {
+        meetingTextTasks[id] != nil
     }
 
     func cancelMeetingText(id: MeetingID) async {
