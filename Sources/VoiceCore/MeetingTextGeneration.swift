@@ -123,7 +123,8 @@ public struct MeetingTextGenerator: Sendable {
             let answer = try await model.clean(CleanupRequest(
                 system: systemPrompt(kind: kind, stage: .part, followsNotes: !notesText.isEmpty),
                 user: notesPrefix + "Part \(index + 1) of \(parts.count):\n\(part.promptText)",
-                maxTokens: budget.outputTokens
+                maxTokens: budget.outputTokens,
+                disableThinking: true
             ))
             try Task.checkCancellation()
             results.append(answer.trimmingCharacters(in: .whitespacesAndNewlines))
@@ -143,7 +144,8 @@ public struct MeetingTextGenerator: Sendable {
                 let answer = try await model.clean(CleanupRequest(
                     system: systemPrompt(kind: kind, stage: .merge, followsNotes: !notesText.isEmpty),
                     user: notesPrefix + "Merge these results (group \(index + 1) of \(groups.count)):\n\(group.joined(separator: "\n"))",
-                    maxTokens: budget.outputTokens
+                    maxTokens: budget.outputTokens,
+                    disableThinking: true
                 ))
                 try Task.checkCancellation()
                 next.append(answer.trimmingCharacters(in: .whitespacesAndNewlines))

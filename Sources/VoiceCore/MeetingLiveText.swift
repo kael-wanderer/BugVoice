@@ -81,7 +81,7 @@ public enum LiveSummaryPlanner {
         New transcript lines:
         \(kept.isEmpty ? "None" : kept.map(MeetingPromptLines.line).joined(separator: "\n"))
         """
-        return (CleanupRequest(system: systemPrompt, user: user, maxTokens: budget.outputTokens), newCutoff)
+        return (CleanupRequest(system: systemPrompt, user: user, maxTokens: budget.outputTokens, disableThinking: true), newCutoff)
     }
 }
 
@@ -117,7 +117,7 @@ public enum MeetingQuestion {
 
         Question: \(question)
         """
-        return CleanupRequest(system: systemPrompt, user: user, maxTokens: min(1_024, budget.outputTokens))
+        return CleanupRequest(system: systemPrompt, user: user, maxTokens: min(1_024, budget.outputTokens), disableThinking: true)
     }
 
     /// "What did I miss?": the last 5 minutes of meeting time before `now`.

@@ -43,6 +43,8 @@ struct MeetingTextGenerationTests {
 
         #expect(output == "Merged summary")
         #expect(await model.requests.allSatisfy { $0.maxTokens == 256 })
+        // A reasoning model writes its reasoning into the reply unless thinking is off.
+        #expect(await model.requests.allSatisfy { $0.disableThinking })
         #expect(events.values.contains { $0.completedParts == $0.totalParts && $0.phase == .merge })
     }
 

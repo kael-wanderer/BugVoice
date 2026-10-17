@@ -43,6 +43,7 @@ struct MeetingLiveTextTests {
         #expect(request.user.contains("[3:20] Others: new line"))
         #expect(!request.user.contains("old line"))
         #expect(request.maxTokens == MeetingTextBudget().outputTokens)
+        #expect(request.disableThinking)
         #expect(cutoff == 205)
     }
 
@@ -75,6 +76,7 @@ struct MeetingLiveTextTests {
         #expect(request.user.contains("[0:10] Others: HR approves"))
         #expect(request.user.contains("My notes:\n- HR?"))
         #expect(request.user.hasSuffix("Question: Who approves terminations?"))
+        #expect(request.disableThinking)
     }
 
     @Test func whatDidIMissKeepsOnlyTheLastFiveMinutes() {
