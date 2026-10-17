@@ -95,6 +95,13 @@ struct MeetingWindowView: View {
             }
             .buttonStyle(.borderless)
             .help(collapsed ? "Expand" : "Collapse")
+            if controller.isFinished {
+                Button(action: onClose) {
+                    Image(systemName: "xmark")
+                }
+                .buttonStyle(.borderless)
+                .help("Close")
+            }
         }
         .padding(.horizontal, 14)
         .frame(height: MeetingWindowController.topBarHeight)

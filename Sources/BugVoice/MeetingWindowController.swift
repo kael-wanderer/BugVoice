@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import VoiceCore
 
 /// Owns the meeting window: docked to the right third of the screen, above
 /// other windows on every Space. Buttons and tabs do not take the keyboard
@@ -17,6 +18,8 @@ final class MeetingWindowController: NSObject, NSWindowDelegate {
     private var window: MeetingPanel?
     /// The height before Collapse, so expanding restores it.
     private var expandedHeight: CGFloat?
+    /// A check is waiting for the mouse button to come up after a drag.
+    private var dragCheckPending = false
 
     init(model: AppModel, controller: MeetingController) {
         self.model = model
@@ -49,22 +52,59 @@ final class MeetingWindowController: NSObject, NSWindowDelegate {
     private func applyCollapsed(animate: Bool) {
         guard let window else { return }
         var frame = window.frame
+        let screen = window.screen ?? NSScreen.main
         if model.settings.meetings.windowCollapsed {
             window.contentMinSize = NSSize(width: Self.minWidth, height: Self.topBarHeight)
-            guard frame.height > Self.topBarHeight + 1 else { return }
-            expandedHeight = frame.height
-            frame.origin.y += frame.height - Self.topBarHeight
-            frame.size.height = Self.topBarHeight
+            // Keeps window tiling from stretching the bar into a tall empty window.
+            window.contentMaxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: Self.topBarHeight)
+            if frame.height > Self.topBarHeight + 1 {
+                expandedHeight = frame.height
+                frame.origin.y += frame.height - Self.topBarHeight
+                frame.size.height = Self.topBarHeight
+            }
         } else {
             window.contentMinSize = NSSize(width: Self.minWidth, height: Self.minHeight)
-            guard frame.height < Self.minHeight else { return }
-            let screen = window.screen ?? NSScreen.main
-            let height = expandedHeight ?? screen.map { Self.defaultFrame(on: $0).height } ?? 700
-            frame.origin.y -= height - frame.height
-            if let visible = screen?.visibleFrame, frame.minY < visible.minY { frame.origin.y = visible.minY }
-            frame.size.height = height
+            window.contentMaxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+            if frame.height < Self.minHeight {
+                let height = expandedHeight ?? screen.map { Self.defaultFrame(on: $0).height } ?? 700
+                frame.origin.y -= height - frame.height
+                frame.size.height = height
+            }
         }
+        if let screen { frame = Self.onScreen(frame, screen: screen) }
+        guard frame != window.frame else { return }
         window.setFrame(frame, display: true, animate: animate)
+    }
+
+    /// A window dragged past a display edge would hide the bar's buttons.
+    private static func onScreen(_ frame: NSRect, screen: NSScreen) -> NSRect {
+        let visible = screen.visibleFrame
+        let placed = WindowPlacement.onScreen(
+            .init(x: frame.minX, y: frame.minY, width: frame.width, height: frame.height),
+            visible: .init(x: visible.minX, y: visible.minY, width: visible.width, height: visible.height)
+        )
+        return NSRect(x: placed.x, y: placed.y, width: placed.width, height: placed.height)
+    }
+
+    func windowDidMove(_ notification: Notification) {
+        keepOnScreenAfterDrag()
+    }
+
+    /// Moves the window back inside its display once the drag ends.
+    private func keepOnScreenAfterDrag() {
+        guard !dragCheckPending, let window else { return }
+        guard NSEvent.pressedMouseButtons == 0 else {
+            dragCheckPending = true
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .milliseconds(200))
+                self?.dragCheckPending = false
+                self?.keepOnScreenAfterDrag()
+            }
+            return
+        }
+        guard let screen = window.screen ?? NSScreen.main else { return }
+        let frame = Self.onScreen(window.frame, screen: screen)
+        if frame != window.frame { window.setFrame(frame, display: true, animate: true) }
     }
 
     private func makeWindow() -> MeetingPanel {
