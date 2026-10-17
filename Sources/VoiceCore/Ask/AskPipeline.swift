@@ -16,6 +16,37 @@ public enum AskOutcome: Equatable, Sendable {
     case failed(AskFailure)
 }
 
+/// Counts from one Ask run, for logs. Never carries question, passage or answer text.
+public struct AskTrace: Equatable, Sendable {
+    public var terms = 0
+    public var hasDateRange = false
+    /// Days before today, so logs show the range without dates from the question.
+    public var fromDaysAgo: Int?
+    public var toDaysAgo: Int?
+    public var inRange = 0
+    public var wordHits = 0
+    /// Nil when meaning search did not run.
+    public var meaningHits: Int?
+    public var read = 0
+    /// Nil when the model was not asked to read.
+    public var citedLines: Int?
+    public var keptCitations: Int?
+
+    public init(
+        terms: Int = 0, hasDateRange: Bool = false, inRange: Int = 0, wordHits: Int = 0, meaningHits: Int? = nil,
+        read: Int = 0, citedLines: Int? = nil, keptCitations: Int? = nil
+    ) {
+        self.terms = terms
+        self.hasDateRange = hasDateRange
+        self.inRange = inRange
+        self.wordHits = wordHits
+        self.meaningHits = meaningHits
+        self.read = read
+        self.citedLines = citedLines
+        self.keptCitations = keptCitations
+    }
+}
+
 /// The passages Ask may search, already limited to the scope.
 public struct AskCorpus: Sendable {
     public var passages: [AskPassage]
@@ -54,12 +85,13 @@ public struct AskPipeline: Sendable {
     public let embedTimeout: Double
     public let totalTimeout: Double
     public let calendar: Calendar
+    public let trace: @Sendable (AskTrace) -> Void
 
     public init(
         model: any TextModel, modelID: String, disableThinking: Bool, embedder: (any Embedder)?,
         contextTokens: Int, now: @escaping @Sendable () -> Date,
         understandingTimeout: Double = 20, embedTimeout: Double = 5, totalTimeout: Double = 120,
-        calendar: Calendar = .current
+        calendar: Calendar = .current, trace: @escaping @Sendable (AskTrace) -> Void = { _ in }
     ) {
         self.model = model
         self.modelID = modelID
@@ -71,6 +103,7 @@ public struct AskPipeline: Sendable {
         self.embedTimeout = embedTimeout
         self.totalTimeout = totalTimeout
         self.calendar = calendar
+        self.trace = trace
     }
 
     /// Throws only `CancellationError`; every other result is an `AskOutcome`.
@@ -91,21 +124,31 @@ public struct AskPipeline: Sendable {
         question: String, history: [NoteChatTurn], corpus: AskCorpus,
         progress: @Sendable (AskStep) -> Void
     ) async throws -> AskOutcome {
+        var counts = AskTrace()
+        defer { trace(counts) }
         try Task.checkCancellation()
         progress(.understanding)
         let query = try await understand(question: question, history: history)
+        counts.terms = query.terms.count
+        counts.hasDateRange = query.from != nil || query.to != nil
+        let today = calendar.startOfDay(for: now())
+        let daysAgo = { (d: Date) in calendar.dateComponents([.day], from: calendar.startOfDay(for: d), to: today).day }
+        counts.fromDaysAgo = query.from.flatMap(daysAgo)
+        counts.toDaysAgo = query.to.flatMap(daysAgo)
 
         try Task.checkCancellation()
         progress(.searching(meetings: corpus.meetings, notes: corpus.notes, dictations: corpus.dictations))
         let dated = corpus.passages.filter { p in
             (query.from.map { p.date >= $0 } ?? true) && (query.to.map { p.date <= $0 } ?? true)
         }
+        counts.inRange = dated.count
         guard !dated.isEmpty else { return .nothingFound(wordSearchOnly: embedder == nil ? .noModel : nil) }
 
         let scores = AskRanking.wordScores(dated, terms: query.terms, people: query.people)
         let wordRanking = dated.filter { (scores[$0.id] ?? 0) > 0 }
             .sorted { scores[$0.id]! > scores[$1.id]! }
             .map(\.id)
+        counts.wordHits = wordRanking.count
 
         var rankings = [wordRanking]
         var wordOnly: WordOnlyReason?
@@ -114,6 +157,7 @@ public struct AskPipeline: Sendable {
             if covered * 2 >= dated.count {
                 if let meaning = try await meaningRanking(question: question, passages: dated, corpus: corpus, embedder: embedder) {
                     rankings.append(meaning)
+                    counts.meaningHits = meaning.count
                 } else {
                     wordOnly = .notAnswering
                 }
@@ -134,6 +178,7 @@ public struct AskPipeline: Sendable {
         let chosen = fit(Array(fused.prefix(AskRanking.maxPassages)), question: question, history: history, info: corpus.info)
         guard !chosen.isEmpty else { return .nothingFound(wordSearchOnly: wordOnly) }
 
+        counts.read = chosen.count
         progress(.reading(passages: chosen.count))
         var request = AskAnswerPrompt.request(
             question: question, history: history, passages: chosen, info: corpus.info,
@@ -158,9 +203,14 @@ public struct AskPipeline: Sendable {
             if parsed != nil { break }
         }
         guard let parsed else { return .failed(.unreadable) }
+        counts.citedLines = parsed.lineRefs.count
         guard let result = AskAnswerPrompt.check(
             lineRefs: parsed.lineRefs, passages: chosen, info: corpus.info, answer: parsed.answer)
-        else { return .nothingFound(wordSearchOnly: wordOnly) }
+        else {
+            counts.keptCitations = 0
+            return .nothingFound(wordSearchOnly: wordOnly)
+        }
+        counts.keptCitations = result.cards.reduce(0) { $0 + $1.citations.count }
         return .answered(result, wordSearchOnly: wordOnly)
     }
 

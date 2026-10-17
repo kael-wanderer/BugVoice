@@ -289,4 +289,8 @@ struct AskAnswerTests {
         ])
         #expect(AskMarkdown.render(question: "q", result: result, calendar: calendar).contains("**Plan** · Sep 20, 2026\n"))
     }
+
+    @Test func answersInTheCurrentQuestionsLanguage() {
+        #expect(AskAnswerPrompt.rules.contains("in the language of the current question, even when earlier turns use another language"))
+    }
 }

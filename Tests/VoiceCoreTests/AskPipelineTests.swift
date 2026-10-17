@@ -52,6 +52,13 @@ private final class Steps: @unchecked Sendable {
     var all: [AskStep] { lock.lock(); defer { lock.unlock() }; return list }
 }
 
+private final class Traces: @unchecked Sendable {
+    private let lock = NSLock()
+    private var list: [AskTrace] = []
+    func add(_ t: AskTrace) { lock.lock(); list.append(t); lock.unlock() }
+    var all: [AskTrace] { lock.lock(); defer { lock.unlock() }; return list }
+}
+
 @Suite("AskPipeline")
 struct AskPipelineTests {
     private var calendar: Calendar {
@@ -77,12 +84,13 @@ struct AskPipelineTests {
 
     private func pipeline(
         _ model: StubModel, embedder: (any Embedder)? = nil, context: Int = 16_384,
-        understanding: Double = 5, embed: Double = 5, total: Double = 30
+        understanding: Double = 5, embed: Double = 5, total: Double = 30, traces: Traces? = nil
     ) -> AskPipeline {
         AskPipeline(
             model: model, modelID: "m", disableThinking: true, embedder: embedder, contextTokens: context,
             now: { Date(timeIntervalSince1970: 1_790_000_000) },
-            understandingTimeout: understanding, embedTimeout: embed, totalTimeout: total, calendar: calendar)
+            understandingTimeout: understanding, embedTimeout: embed, totalTimeout: total, calendar: calendar,
+            trace: { traces?.add($0) })
     }
 
     private func run(_ p: AskPipeline, _ c: AskCorpus, steps: Steps = Steps()) async throws -> AskOutcome {
@@ -107,7 +115,7 @@ struct AskPipelineTests {
 
     @Test func dateRangeFilters() async throws {
         let model = StubModel(understanding: {
-            #"{"terms":["alpha"],"from":"2026-09-10","to":"2026-09-20","people":[]}"#
+            #"{"terms":["alpha"],"time":"alpha","from":"2026-09-10","to":"2026-09-20","people":[]}"#
         })
         let steps = Steps()
         let c = corpus([
@@ -179,7 +187,7 @@ struct AskPipelineTests {
 
     @Test func dateRangeWithoutWordHitsReadsNewestFirst() async throws {
         let model = StubModel(
-            understanding: { #"{"terms":["zzz"],"from":"2026-09-01","to":"2026-09-30","people":[]}"# })
+            understanding: { #"{"terms":["zzz"],"time":"alpha","from":"2026-09-01","to":"2026-09-30","people":[]}"# })
         let ps = [passage(1, "older", date(2026, 9, 5)), passage(2, "newer", date(2026, 9, 20)), passage(3, "outside", date(2026, 8, 1))]
         let steps = Steps()
         let outcome = try await run(pipeline(model), corpus(ps), steps: steps)
@@ -190,6 +198,38 @@ struct AskPipelineTests {
         let older = try #require(user.range(of: "older"))
         #expect(newer.lowerBound < older.lowerBound)
         #expect(!user.contains("outside"))
+    }
+
+    @Test func traceCountsAnsweredRun() async throws {
+        let traces = Traces()
+        _ = try await run(pipeline(StubModel(), traces: traces), corpus([passage(1, "alpha one"), passage(2, "alpha two")]))
+        #expect(traces.all == [AskTrace(
+            terms: 1, hasDateRange: false, inRange: 2, wordHits: 2, meaningHits: nil, read: 2, citedLines: 1, keptCitations: 1)])
+    }
+
+    @Test func traceCountsUncitedAnswer() async throws {
+        let traces = Traces()
+        let model = StubModel(reading: { _ in #"{"answer":"Maybe.","citations":[{"line":"P9.9"}]}"# })
+        _ = try await run(pipeline(model, traces: traces), corpus([passage(1, "alpha")]))
+        #expect(traces.all.first?.citedLines == 1)
+        #expect(traces.all.first?.keptCitations == 0)
+    }
+
+    @Test func traceCountsEmptySearch() async throws {
+        let traces = Traces()
+        let ps = [passage(1, "nothing relevant")]
+        _ = try await run(pipeline(StubModel(), embedder: StubEmbedder(), traces: traces), corpus(ps, vectors: [ps[0].id: [0, 1]]))
+        #expect(traces.all == [AskTrace(
+            terms: 1, hasDateRange: false, inRange: 1, wordHits: 0, meaningHits: 0, read: 0, citedLines: nil, keptCitations: nil)])
+    }
+
+    @Test func traceCountsRangeInDaysAgo() async throws {
+        let traces = Traces()
+        // now is 2026-09-21 (1_790_000_000 UTC).
+        let model = StubModel(understanding: { #"{"terms":["alpha"],"time":"alpha","from":"2026-09-11","to":"2026-09-21","people":[]}"# })
+        _ = try await run(pipeline(model, traces: traces), corpus([passage(1, "alpha")]))
+        #expect(traces.all.first?.fromDaysAgo == 10)
+        #expect(traces.all.first?.toDaysAgo == 0)
     }
 
     @Test func badJSONRetriedOnce() async throws {

@@ -15,7 +15,7 @@ struct AskQueryTests {
     }
 
     @Test func parsesTermsDatesPeople() {
-        let reply = #"{"terms": ["budget", " ", "ngân sách"], "from": "2026-09-01", "to": "2026-09-30", "people": ["Linh"]}"#
+        let reply = #"{"terms": ["budget", " ", "ngân sách"], "time": "last month", "from": "2026-09-01", "to": "2026-09-30", "people": ["Linh"]}"#
         let q = AskQueryPrompt.parse(reply, question: "budget last month", calendar: calendar)
         #expect(q.terms == ["budget", "ngân sách"])
         #expect(q.from == date(2026, 9, 1))
@@ -37,10 +37,30 @@ struct AskQueryTests {
     }
 
     @Test func badDateIsNilOnly() {
-        let reply = #"{"terms": ["a1"], "from": "last month", "to": "2026-09-30", "people": []}"#
-        let q = AskQueryPrompt.parse(reply, question: "q", calendar: calendar)
+        let reply = #"{"terms": ["a1"], "time": "September", "from": "last month", "to": "2026-09-30", "people": []}"#
+        let q = AskQueryPrompt.parse(reply, question: "q in September", calendar: calendar)
         #expect(q.terms == ["a1"])
         #expect(q.from == nil)
+        #expect(q.to != nil)
+    }
+
+    @Test func rangeWithoutTimeWordsIsDropped() {
+        let reply = #"{"terms": ["bot"], "time": null, "from": "2026-10-17", "to": "2026-10-17", "people": []}"#
+        let q = AskQueryPrompt.parse(reply, question: "Which features did we decide to build?", calendar: calendar)
+        #expect(q.from == nil && q.to == nil)
+        #expect(q.terms == ["bot"])
+    }
+
+    @Test func rangeWithTimeWordsNotInQuestionIsDropped() {
+        let reply = #"{"terms": ["bot"], "time": "today", "from": "2026-10-17", "to": "2026-10-17", "people": []}"#
+        let q = AskQueryPrompt.parse(reply, question: "Chúng ta đã quyết định làm gì cho con bot?", calendar: calendar)
+        #expect(q.from == nil && q.to == nil)
+    }
+
+    @Test func timeWordsMatchFolded() {
+        let reply = #"{"terms": ["bot"], "time": "tuan truoc", "from": "2026-10-05", "to": "2026-10-11", "people": []}"#
+        let q = AskQueryPrompt.parse(reply, question: "Tuần trước chúng ta nói gì về bot?", calendar: calendar)
+        #expect(q.from == date(2026, 10, 5))
         #expect(q.to != nil)
     }
 
@@ -85,5 +105,9 @@ struct AskQueryTests {
 
     @Test func recentMeansLastFourteenDays() {
         #expect(AskQueryPrompt.rules.contains("recent, recently, lately or latest mean the last 14 days"))
+    }
+
+    @Test func tenseIsNotATime() {
+        #expect(AskQueryPrompt.rules.contains("Past tense alone (did, was, đã, fue) is not a time"))
     }
 }

@@ -2,7 +2,11 @@ import AppKit
 import BugVoiceMac
 import Foundation
 import NaturalLanguage
+import os
 import VoiceCore
+
+/// Ask logs counts only, never question, passage or answer text.
+private let askLog = Logger(subsystem: "com.kael.bugvoice", category: "ask")
 
 enum ScratchpadAIError: LocalizedError {
     case noModel, tooLong, empty
@@ -242,10 +246,32 @@ extension AppModel {
         let pipeline = AskPipeline(
             model: model, modelID: modelID, disableThinking: disableThinking,
             embedder: ProviderFactory.embedder(settings: settings.models, credentials: credentials),
-            contextTokens: settings.models.search.askContextTokens, now: { Date() })
+            contextTokens: settings.models.search.askContextTokens, now: { Date() },
+            trace: { t in
+                askLog.notice("""
+                    ask terms=\(t.terms, privacy: .public) dates=\(t.hasDateRange, privacy: .public) \
+                    fromDaysAgo=\(t.fromDaysAgo.map(String.init) ?? "-", privacy: .public) \
+                    toDaysAgo=\(t.toDaysAgo.map(String.init) ?? "-", privacy: .public) \
+                    inRange=\(t.inRange, privacy: .public) wordHits=\(t.wordHits, privacy: .public) \
+                    meaningHits=\(t.meaningHits.map(String.init) ?? "off", privacy: .public) \
+                    read=\(t.read, privacy: .public) cited=\(t.citedLines.map(String.init) ?? "-", privacy: .public) \
+                    kept=\(t.keptCitations.map(String.init) ?? "-", privacy: .public)
+                    """)
+            })
         let corpus = await searchIndexer.corpus(scope: scope)
         try Task.checkCancellation()
-        return try await pipeline.run(question: question, history: history, corpus: corpus, progress: progress)
+        let started = Date()
+        let outcome = try await pipeline.run(question: question, history: history, corpus: corpus, progress: progress)
+        let kind: String = switch outcome {
+        case .answered: "answered"
+        case .nothingFound: "nothingFound"
+        case .failed(let failure): "failed.\(failure)"
+        }
+        askLog.notice("""
+            ask outcome=\(kind, privacy: .public) passages=\(corpus.passages.count, privacy: .public) \
+            vectors=\(corpus.vectors.count, privacy: .public) seconds=\(Int(Date().timeIntervalSince(started)), privacy: .public)
+            """)
+        return outcome
     }
 
     func askScopeTitle(_ scope: AskScope) -> String {
