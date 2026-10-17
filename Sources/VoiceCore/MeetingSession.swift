@@ -178,7 +178,7 @@ public actor MeetingSession {
         }
         chunks.removeAll { $0.record.id == result.record.id }
         chunks.append(result)
-        meeting.segments = MeetingTranscriptMerger.merge(chunks)
+        meeting.segments = MeetingTranslation.carryOver(from: meeting.segments, to: MeetingTranscriptMerger.merge(chunks))
         manifest = meeting
         try await store.save(meeting)
     }
@@ -208,7 +208,7 @@ public actor MeetingSession {
             )
         }
         chunks.append(result)
-        meeting.segments = MeetingTranscriptMerger.merge(chunks)
+        meeting.segments = MeetingTranslation.carryOver(from: meeting.segments, to: MeetingTranscriptMerger.merge(chunks))
         manifest = meeting
         try await store.save(meeting)
     }

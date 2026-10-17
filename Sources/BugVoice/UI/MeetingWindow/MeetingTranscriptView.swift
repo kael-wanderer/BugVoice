@@ -5,6 +5,7 @@ import VoiceCore
 /// Live transcript lines and marks, newest at the bottom.
 struct MeetingTranscriptView: View {
     let segments: [MeetingSegment]
+    let speakers: [MeetingSpeaker]
     let marks: [MeetingMark]
     let elapsed: TimeInterval
     let isListening: Bool
@@ -39,7 +40,7 @@ struct MeetingTranscriptView: View {
         let needle = query.trimmingCharacters(in: .whitespaces)
         let lines = segments
             .filter {
-                needle.isEmpty || $0.text.localizedCaseInsensitiveContains(needle)
+                needle.isEmpty || $0.speaker.localizedCaseInsensitiveContains(needle) || $0.text.localizedCaseInsensitiveContains(needle)
                     || (showEnglish && ($0.translation?.localizedCaseInsensitiveContains(needle) ?? false))
             }
             .map(Row.line)
@@ -122,8 +123,8 @@ struct MeetingTranscriptView: View {
                     .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                     .frame(width: 44, alignment: .leading)
                 Text(segment.speaker).font(.caption.weight(.semibold))
-                    .foregroundStyle(segment.track == .mic ? Color.accentColor : .secondary)
-                    .frame(width: 46, alignment: .leading)
+                    .foregroundStyle(speakerColor(segment))
+                    .frame(width: 62, alignment: .leading)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(segment.text)
                     if let english = english(segment) {
@@ -141,6 +142,13 @@ struct MeetingTranscriptView: View {
             .font(.caption.weight(.semibold))
             .foregroundStyle(.orange)
         }
+    }
+
+    private func speakerColor(_ segment: MeetingSegment) -> Color {
+        if let speaker = speakers.first(where: { $0.id == segment.speakerID }) {
+            return SpeakerColors.color(speaker.colorIndex)
+        }
+        return segment.track == .mic ? .accentColor : .secondary
     }
 
     /// The English shown under a line, or nil.

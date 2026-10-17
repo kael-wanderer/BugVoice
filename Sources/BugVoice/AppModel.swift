@@ -771,6 +771,12 @@ final class AppModel {
     }
 
     func deleteMeeting(id: MeetingID) async {
+        // A finished window may still own the manifest while a split is running.
+        // Drain it before deleting so its eventual session save cannot recreate the folder.
+        if let task = speakerTasks[id] {
+            task.cancel()
+            await task.value
+        }
         if let uploads,
             let job = uploads.queue.jobs.first(where: { $0.meetingID == id && !$0.state.isTerminal })
         {

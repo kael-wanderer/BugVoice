@@ -753,3 +753,22 @@ extension MeetingSessionTests {
         #expect(await session.snapshot()?.speakerNamesAtSummary == ["you": "You"])
     }
 }
+
+extension MeetingSessionTests {
+    @Test func retryFinalChunkRebuildKeepsNamedSpeakers() async throws {
+        let final = chunk("system-final-0", track: .system, segments: [
+            MeetingSegment(start: 1.4, end: 2, text: "Hello", track: .system, sourceChunkID: "system-final-0")
+        ])
+        let rig = SessionRig(finalChunks: [final])
+        let session = rig.makeSession()
+        await rig.scheduler.bind(session)
+        let saved = MeetingManifest(startedAt: Date(timeIntervalSince1970: 0), state: .transcribing,
+            chunks: [final.record], segments: [
+                MeetingSegment(start: 1, end: 2, text: "Hello", track: .system, sourceChunkID: "system-final-0", speakerID: "s1", speakerName: "Dani")
+            ], speakers: [.init(id: "s1", name: "Dani", colorIndex: 1)], speakerSplit: .done)
+        try await rig.store.save(saved)
+        let ready = try await session.recover(id: saved.id)
+        #expect(ready.segments.first?.speakerID == "s1")
+        #expect(ready.segments.first?.speaker == "Dani")
+    }
+}

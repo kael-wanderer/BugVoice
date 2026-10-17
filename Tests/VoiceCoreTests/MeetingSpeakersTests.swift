@@ -146,3 +146,26 @@ extension MeetingSpeakersTests {
             to: recorded([line("m", 0, 2, .mic), line("a", 3, 5, .system), line("b", 6, 8, .system)]), tracks: [.system])
     }
 }
+
+extension MeetingSpeakersTests {
+    @Test func movingOneLineInvalidatesSummaryWithTheSameNames() throws {
+        var meeting = split3()
+        var extra = meeting.segments[1]
+        extra.id = "extra"
+        meeting.segments.append(extra)
+        meeting.setGeneratedText("- Done", kind: .summary)
+        meeting = try MeetingSpeakers.apply(.assign(segmentID: "extra", speakerID: "s2"), to: meeting)
+        #expect(meeting.speakers.count == 3)
+        #expect(MeetingSpeakers.namesChangedSinceSummary(meeting))
+    }
+}
+
+extension MeetingSpeakersTests {
+    @Test func splitStatusUsesPlainJSONStrings() throws {
+        for (state, status) in [(SpeakerSplitState.none, "none"), (.running, "running"), (.done, "done")] {
+            let data = Data("\"\(status)\"".utf8)
+            #expect(try JSONDecoder().decode(SpeakerSplitState.self, from: data) == state)
+            #expect(try JSONEncoder().encode(state) == data)
+        }
+    }
+}

@@ -27,6 +27,7 @@ final class MeetingController {
     private(set) var meetingStartedAt: Date?
     private(set) var folderID: FolderID?
     private(set) var segments: [MeetingSegment] = []
+    private(set) var speakers: [MeetingSpeaker] = []
     private(set) var marks: [MeetingMark] = []
     private(set) var transcriptProgress: Double = 0
     /// "Marked at 12:47" for 2 seconds after Mark.
@@ -214,6 +215,9 @@ final class MeetingController {
             if recovered.state == .ready, !recovered.segments.isEmpty {
                 await model.findSpeakers(id: id, people: nil)
                 await refreshSnapshot()
+                // Recovery may have no visible meeting window. Finish the same sequence as Stop.
+                if shownMeetingID == id { await generateFinalSummary() }
+                else { _ = try? await model.generateMeetingText(id: id, kind: .summary) { _ in } }
             }
             isTranscribing = false
             statusMessage = nil
@@ -354,6 +358,7 @@ final class MeetingController {
         meetingStartedAt = meeting.startedAt
         folderID = meeting.folderID
         segments = meeting.segments
+        speakers = meeting.speakers
         marks = meeting.marks
         transcriptProgress = meeting.transcriptProgress ?? 0
         notesSaveTask?.cancel()
@@ -376,12 +381,14 @@ final class MeetingController {
     func showTranslations(from meeting: MeetingManifest) {
         guard meeting.id == shownMeetingID, segments != meeting.segments else { return }
         segments = meeting.segments
+        speakers = meeting.speakers
     }
 
     /// Picks up transcript lines, marks and progress the session saved.
     private func refreshSnapshot() async {
         guard let session, let meeting = await session.snapshot(), meeting.id == shownMeetingID else { return }
         if segments != meeting.segments { segments = meeting.segments }
+        if speakers != meeting.speakers { speakers = meeting.speakers }
         if marks != meeting.marks { marks = meeting.marks }
         if let progress = meeting.transcriptProgress, transcriptProgress != progress { transcriptProgress = progress }
         if title != meeting.title { title = meeting.title }

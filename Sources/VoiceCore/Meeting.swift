@@ -266,6 +266,36 @@ public struct MeetingSpeaker: Codable, Equatable, Sendable, Identifiable {
 
 public enum SpeakerSplitState: Codable, Equatable, Sendable {
     case none, running, done, failed(String)
+
+    private enum CodingKeys: String, CodingKey { case failed }
+
+    public init(from decoder: Decoder) throws {
+        let value = try decoder.singleValueContainer()
+        if let status = try? value.decode(String.self) {
+            switch status {
+            case "none": self = .none
+            case "running": self = .running
+            case "done": self = .done
+            default: throw DecodingError.dataCorruptedError(in: value, debugDescription: "Unknown speaker split status")
+            }
+        } else {
+            let fields = try decoder.container(keyedBy: CodingKeys.self)
+            self = .failed(try fields.decode(String.self, forKey: .failed))
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        switch self {
+        case .none, .running, .done:
+            var value = encoder.singleValueContainer()
+            let status: String
+            switch self { case .none: status = "none"; case .running: status = "running"; default: status = "done" }
+            try value.encode(status)
+        case .failed(let message):
+            var fields = encoder.container(keyedBy: CodingKeys.self)
+            try fields.encode(message, forKey: .failed)
+        }
+    }
 }
 
 public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {

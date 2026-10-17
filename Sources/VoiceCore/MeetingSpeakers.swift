@@ -139,6 +139,7 @@ public enum MeetingSpeakers {
             guard updated.speakers.contains(where: { $0.id == speakerID }) else { throw EditError.unknownSpeaker }
             guard let index = updated.segments.firstIndex(where: { $0.id == segmentID }) else { throw EditError.unknownSegment }
             updated.segments[index].speakerID = speakerID
+            updated.speakerNamesAtSummary = nil
         case let .newPerson(segmentID, raw):
             guard let index = updated.segments.firstIndex(where: { $0.id == segmentID }) else { throw EditError.unknownSegment }
             let name = raw.trimmingCharacters(in: .whitespacesAndNewlines)

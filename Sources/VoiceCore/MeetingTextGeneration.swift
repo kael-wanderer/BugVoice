@@ -60,7 +60,8 @@ public struct MeetingTranscriptPart: Equatable, Sendable {
             for fragment in textFragments(segment.text, maximumCharacters: max(1, maxCharacters - markerLength)) {
                 let piece = MeetingSegment(
                     start: segment.start, end: segment.end, text: fragment,
-                    track: segment.track, sourceChunkID: segment.sourceChunkID
+                    track: segment.track, sourceChunkID: segment.sourceChunkID,
+                    speakerID: segment.speakerID, speakerName: segment.speakerName
                 )
                 parts.append(MeetingTranscriptPart(segments: [piece]))
             }
