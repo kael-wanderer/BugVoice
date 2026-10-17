@@ -147,6 +147,9 @@ final class AppModel {
 
     @ObservationIgnored let speakerSplitter = SpeakerSplitter(downloadBase: AppPaths.standard().models)
     @ObservationIgnored var speakerTasks: [MeetingID: Task<Void, Never>] = [:]
+    @ObservationIgnored let voiceStore = KnownVoiceStore(url: AppPaths.standard().voices)
+    /// Saved voices for Settings › Meetings › Known voices.
+    var knownVoices: [KnownVoice] = []
 
     init() {
         let notesStore = NotesStore(directory: AppPaths.standard().notes)
@@ -654,6 +657,8 @@ final class AppModel {
                 }
             }
             meetingManifests = listed.sorted { $0.startedAt > $1.startedAt }
+            // Every meeting folder on disk keeps its voices, even one that failed to load.
+            await pruneKnownVoices(keeping: Set(directories.map { MeetingID(rawValue: $0.lastPathComponent) }))
             uploads?.reconcile(meetingManifests)
             if let selectedMeetingID, !meetingManifests.contains(where: { $0.id == selectedMeetingID }) {
                 self.selectedMeetingID = nil
