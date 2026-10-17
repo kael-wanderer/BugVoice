@@ -1,6 +1,7 @@
 import AppKit
 import BugVoiceMac
 import Foundation
+import NaturalLanguage
 import VoiceCore
 
 enum ScratchpadAIError: LocalizedError {
@@ -262,5 +263,64 @@ extension AppModel {
                 body: AskMarkdown.render(question: question, result: result, calendar: .current), frontMatter: NoteFrontMatter())
             notesFocusRequest &+= 1
         } catch { saveError = "Could not create note: \(error.localizedDescription)" }
+    }
+}
+
+extension AppModel {
+    /// The existing speaker-update path also owns translation changes, including open sessions.
+    func translateCitation(meetingID: MeetingID, lineIDs: Set<String>) async -> [String: String]? {
+        do {
+            let snapshot = try await MeetingStore(root: paths.meetings).load(id: meetingID)
+            let lines = snapshot.segments.filter { lineIDs.contains($0.id) && $0.translation == nil }
+            if lines.isEmpty {
+                return Dictionary(snapshot.segments.filter { lineIDs.contains($0.id) }.compactMap { line in
+                    line.translation.map { (line.id, $0) }
+                }, uniquingKeysWith: { first, _ in first })
+            }
+            var translations: [String: String] = [:]
+            var pending: [MeetingSegment] = []
+            for line in lines {
+                let recognizer = NLLanguageRecognizer()
+                recognizer.processString(line.text)
+                if recognizer.dominantLanguage == .english { translations[line.id] = "" }
+                else { pending.append(line) }
+            }
+            if !pending.isEmpty {
+                let request = MeetingTranslation.request(lines: pending,
+                    budget: MeetingTextBudget(contextTokens: settings.models.search.askContextTokens))
+                let answer = try await askNotesModel { _, _ in request }
+                try Task.checkCancellation()
+                let parsed = MeetingTranslation.parse(answer.output, lines: pending)
+                guard pending.allSatisfy({ parsed[$0.id] != nil }) else { return nil }
+                translations.merge(parsed) { _, new in new }
+            }
+            try Task.checkCancellation()
+            let english = translations
+            let original = Dictionary(lines.map { ($0.id, $0.text) }, uniquingKeysWith: { first, _ in first })
+            let change = try await updateMeetingSpeakers(id: meetingID) { current in
+                var updated = current
+                for index in updated.segments.indices {
+                    let line = updated.segments[index]
+                    if line.translation == nil, original[line.id] == line.text, let text = english[line.id] {
+                        updated.segments[index].translation = text
+                    }
+                }
+                return updated
+            }
+            await reloadMeetings()
+            return Dictionary(change.after.segments.filter { lineIDs.contains($0.id) }.compactMap { line in
+                line.translation.map { (line.id, $0) }
+            }, uniquingKeysWith: { first, _ in first })
+        } catch {
+            if !Task.isCancelled { await reloadMeetings() }
+            return nil
+        }
+    }
+
+    func openAskMeeting(id: MeetingID, citation: AskCitation) {
+        guard meetingManifests.contains(where: { $0.id == id }),
+              FileManager.default.fileExists(atPath: paths.meetings.appendingPathComponent(id.rawValue).appendingPathComponent("meeting.json").path) else { return }
+        selectedMeetingID = id
+        openMainWindow(.meetings)
     }
 }

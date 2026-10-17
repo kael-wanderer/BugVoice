@@ -5,8 +5,32 @@ import VoiceCore
 struct AskAnswerView: View {
     @Bindable var assistant: ScratchpadAssistant
     let model: AppModel
+    @State private var selection: AskCitationSelection?
 
     var body: some View {
+        GeometryReader { geometry in
+            let compact = geometry.size.width < 700
+            HStack(spacing: 0) {
+                ZStack {
+                    answer.opacity(compact && selection != nil ? 0 : 1)
+                        .allowsHitTesting(!(compact && selection != nil))
+                        .accessibilityHidden(compact && selection != nil)
+                    if compact, let selection {
+                        CitationPanel(model: model, selection: selection, compact: true) { self.selection = nil }
+                            .id(selection.id)
+                    }
+                }.frame(maxWidth: .infinity)
+                if !compact, let selection {
+                    Divider()
+                    CitationPanel(model: model, selection: selection, compact: false) { self.selection = nil }
+                        .id(selection.id).frame(maxWidth: .infinity)
+                }
+            }
+        }
+        .onChange(of: assistant.askStep) { _, step in if step != nil { selection = nil } }
+    }
+
+    private var answer: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 if let step = assistant.askStep { progress(step) }
@@ -92,7 +116,9 @@ struct AskAnswerView: View {
             ForEach(card.citations) { citation in
                 VStack(alignment: .leading, spacing: 5) {
                     if let start = citation.start, let end = citation.end {
-                        Button("▶ \(Self.clock(start))–\(Self.clock(end))") { }
+                        Button("▶ \(Self.clock(start))–\(Self.clock(end))") {
+                            selection = AskCitationSelection(card: card, citation: citation)
+                        }
                     } else if case .note(let id) = card.source {
                         Button("Open note") { Task { await model.openNoteInWindow(id) } }
                     } else if case .meeting = card.source {
@@ -105,7 +131,7 @@ struct AskAnswerView: View {
         }
         .padding(12).frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.secondary.opacity(0.2)))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(selection?.card.id == card.id ? Color.accentColor : Color.secondary.opacity(0.2), lineWidth: selection?.card.id == card.id ? 2 : 1))
     }
 
     private func badge(_ kind: AskItemInfo.Kind) -> String {

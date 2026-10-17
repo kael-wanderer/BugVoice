@@ -85,7 +85,7 @@ extension AppModel {
 
     /// Applies `change` through whichever session owns the meeting, and returns the meeting before and after.
     @discardableResult
-    private func updateMeetingSpeakers(
+    func updateMeetingSpeakers(
         id: MeetingID, change: @escaping @Sendable (MeetingManifest) throws -> MeetingManifest
     ) async throws -> (before: MeetingManifest, after: MeetingManifest) {
         let captured = CapturedChange()
