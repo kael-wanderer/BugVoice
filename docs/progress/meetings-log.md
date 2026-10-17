@@ -219,3 +219,116 @@ Tasks 1–13 and whole-branch review items 1–8 are implemented on `feat/meetin
 - UI inspection via CUA was denied with “Computer Use was not approved to use BugVoice.” The process and model resources were verified through read-only process/log inspection, but no visual UI state or dictation interaction was confirmed. Do not report the manual checklist as run.
 - Unverified on device: System Audio Recording prompt/denial behavior, process-tap capture and self-audio exclusion, aggregate input conversion, recorder focus retention, sleep/quit/crash recovery, actual AAC playback, export dialogs, and end-to-end dictation interaction. Exact spike run steps remain above in Task 8a.
 - No other skipped automated checks. The app process remains open after the required launch check.
+
+## Meeting speakers — Part 1 (2026-10-17)
+
+Implemented on `feat/meeting-speakers` in `../BugVoice-meeting-speakers`, from
+`main`. Spec: `docs/superpowers/specs/2026-10-17-meeting-speakers-design.md`;
+plan: `docs/superpowers/plans/2026-10-17-meeting-speakers.md`.
+Part 1 is implemented pending device checks; Part 2 is not implemented.
+
+Tuning pending: needs the owner's test clips (2, 3, 4 people).
+
+`SpeakerSplitter.Tuning.clusterDistanceThreshold` and `minClusterSize` stay nil.
+No owner audio or application data was read, changed, played, or sent anywhere.
+The app was built and signed, not launched. SpeakerKit's first-use model download
+and real-audio inference remain unverified. The initial baseline was explicitly
+authorized to finish fetching the pinned Swift package dependencies.
+
+### Automated verification and task review
+
+- Baseline: 619 VoiceCore tests / 75 suites and 84 BugVoiceMac tests / 16 suites passed.
+- Task 1: older-file defaults, display-name override, split-state round trips,
+  speaker carry-over. Tests first failed on the missing API; full run passed
+  623 VoiceCore + 84 BugVoiceMac tests before commit.
+- Task 2: all planned placement, split, name transfer, edit, people, notice,
+  export and search assertions. Tests first failed on the missing API; full
+  run passed 634 VoiceCore + 84 BugVoiceMac tests before commit.
+- Task 3: session routing, interrupted-state refusal, summary stamp. Tests
+  first failed on the missing session method; full run passed 637 VoiceCore
+  + 84 BugVoiceMac tests before commit.
+- Task 4: builds and tests passed (637 + 84); `git diff main -- Package.resolved`
+  was empty. SpeakerKit comes from WhisperKit 1.1.1. Model notice copied verbatim.
+- Task 5: builds and tests passed (637 + 84). `Scripts/build-app.sh` succeeded,
+  signed with `Bugler Local Dev`. Recording/inspection step skipped as requested.
+- Task 6: UI built from the HTML source, using spec section 10 for copy. Full
+  tests passed (641 VoiceCore / 76 suites + 84 BugVoiceMac / 16 suites).
+  `Scripts/build-app.sh` succeeded, signed with `Bugler Local Dev`.
+  Running-app walkthrough, screenshots and test recordings skipped as requested.
+- Task 7: documentation and pending device checklist recorded; final `swift test`
+  passed 641 VoiceCore / 76 suites + 84 BugVoiceMac / 16 suites.
+- Each task reviewed against its interfaces/assertions and the plan's five
+  Review Focus items. The plan has no separate Self-Review section.
+- Test and build output is saved in `/tmp/bugvoice-speakers-*.log` for this session.
+
+### Minimal plan adaptations and open choices
+
+- Superpowers workflow skills waived by the owner; executed the plan directly.
+  Browser requirement waived; read the HTML markup and CSS instead.
+- There is no `MeetingExport` type or `JSONDecoder.meeting` helper. Used
+  `MeetingExporter`, the standard JSON decoder and an encoded manifest with
+  all new keys removed to exercise older-file decoding.
+- Session pseudocode helpers were not present. Built `readyRecordedSession`
+  with the existing `SessionRig`/store/recover path and used start/cancel to
+  construct the interrupted case. No capture device is involved.
+- Empty New person names use `EditError.duplicateName("")` because the fixed
+  error interface has no empty-name case; the UI keeps an empty field open.
+  Equal-distance/identical-start placement ties use the voice ID as the final
+  deterministic tie-breaker. Name-transfer ties use old ID, then new index.
+  The general empty-rename rule applies to manual pN speakers too; their unnamed
+  fallback is Other N, with the same duplicate-name validation as other speakers.
+- Only speakers with lines are retained, including You. Microphone-only
+  recordings get an empty system-track split (You only) without model inference,
+  as required by spec section 9. The first counted call split includes the
+  owner when converting People to a voice count even before speaker records exist.
+- Reused `FlowLayout` for wrapping chips, dynamic AppKit colours for the exact
+  six light/dark palettes, and the AppModel environment for the new views.
+  Added speaker metadata to the meeting-window controller and its view call
+  site, since read-only colours need the manifest's speaker records.
+  Chips are displayed in first-line order, with You first, after line edits too.
+  The timestamp uses the mockup's start-only column; time and text retain seeking.
+- Review found that the summary chunker constructed fresh segments for long
+  lines and lost speaker fields. Added a failing regression test, then carried
+  ID/name onto fragments so all summary/action-item prompts retain names.
+- Review found that assigning a line between existing speakers did not change
+  the name map, leaving the summary falsely current. Added a failing test,
+  then invalidated `speakerNamesAtSummary` for line assignments. Notice dismissal
+  also tracks line assignments, so the next fix shows it again without adding
+  persisted fields.
+- Review Focus 1 exposed another rebuild before the final carry-over pass:
+  `persistFinal` (and the corresponding `persistInterim`) merged fresh segments.
+  Added a failing actual-session retry test, then used the existing carry-over
+  rule at both rebuilds. This also preserves translations at those boundaries.
+
+- Recovery previously transcribed without generating a final summary. It now requests
+  the summary after the split even without a visible window, matching spec section 4.
+  Summary failure does not relabel successful transcription as a transcript failure.
+- Deleting a meeting drains its running split before deleting the folder, preventing
+  a late session save from recreating it. Focus-loss rename and New person submissions
+  are disabled when splitting starts, including an already-open popover.
+
+- The plan's inspection/older-meeting step uses literal JSON statuses (`"done"`,
+  `"none"`). Synthesized enum Codable instead used objects. Added a failing
+  format regression, then encoded none/running/done as strings and failure as
+  `{ "failed": "message" }`. All split-state round-trip tests still pass.
+
+### Device checklist — speakers (pending)
+
+| # | Check | Result |
+|---|---|---|
+| 195 | Stop a recording with multiple guests: split runs after final transcription and before summary; microphone stays You and call lines become Other N. | Pending |
+| 196 | Upload a recording with multiple people: all file lines are split, nobody is forced to You. | Pending |
+| 197 | People −/+ stays within bounds, confirms before splitting again, clears line fixes, and carries names to the closest voices; shows the actual resulting count. | Pending |
+| 198 | Rename each chip (including You), save with Return or focus loss, cancel with Escape, and clear to restore its default; every line changes. | Pending |
+| 199 | Duplicate names, including case/space variations, are refused without merging speakers; inline error uses the name. | Pending |
+| 200 | Move one line to another speaker, including microphone lines; other lines stay unchanged and empty speakers disappear. | Pending |
+| 201 | New person creates a named chip, moves only the chosen line, and gives its lines the matching colour. | Pending |
+| 202 | Markdown, SRT, Send to Scratchpad and meeting search use speaker names; translation stays on its line. | Pending |
+| 203 | Ask, What did I miss, summary and action-item prompts use speaker names. | Pending |
+| 204 | Rename/fix shows the names-changed notice; Not now lasts until the next change; revisiting and Regenerate summary use the saved stamp. | Pending |
+| 205 | Older meeting loads without new fields, Find speakers works, failure offers Try again, and silence leaves unplaced call lines as Others. | Pending |
+| 206 | Finished meeting window shows matching names/colours read only; while splitting it keeps Others, then updates; later session saves do not overwrite edits. | Pending |
+
+Part 2 waits for the same-podcast centroid-distance measurement in spec section
+8.4. Do not build known voices until same-person and different-person distances
+can be separated with a measured threshold.
