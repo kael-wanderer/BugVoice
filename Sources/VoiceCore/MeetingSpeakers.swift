@@ -21,6 +21,10 @@ public enum MeetingSpeakers {
         case rename(speakerID: String, name: String)
         case assign(segmentID: String, speakerID: String)
         case newPerson(segmentID: String, name: String)
+        /// Yes on a "Dani?" suggestion.
+        case accept(speakerID: String)
+        /// No on a "Dani?" suggestion.
+        case decline(speakerID: String)
     }
     public enum EditError: Error, Equatable {
         case duplicateName(String), unknownSpeaker, unknownSegment
@@ -139,6 +143,7 @@ public enum MeetingSpeakers {
             if name.isEmpty, id.hasPrefix("p") { return meeting }
             try validate(name.isEmpty ? defaultName(for: id) : name, excluding: id, in: meeting)
             updated.speakers[index].name = name.isEmpty ? nil : name
+            updated.speakers[index].suggestion = nil
         case let .assign(segmentID, speakerID):
             guard updated.speakers.contains(where: { $0.id == speakerID }) else { throw EditError.unknownSpeaker }
             guard let index = updated.segments.firstIndex(where: { $0.id == segmentID }) else { throw EditError.unknownSegment }
@@ -156,6 +161,16 @@ public enum MeetingSpeakers {
             let id = "p\(next)"
             updated.speakers.append(.init(id: id, name: name, colorIndex: color))
             updated.segments[index].speakerID = id
+        case let .accept(id):
+            guard let index = updated.speakers.firstIndex(where: { $0.id == id }),
+                  let name = updated.speakers[index].suggestion?.name else { throw EditError.unknownSpeaker }
+            try validate(name, excluding: id, in: meeting)
+            updated.speakers[index].name = name
+        case let .decline(id):
+            guard let index = updated.speakers.firstIndex(where: { $0.id == id }),
+                  let name = updated.speakers[index].suggestion?.name else { throw EditError.unknownSpeaker }
+            updated.speakers[index].suggestion = nil
+            if !updated.declinedVoices.contains(name) { updated.declinedVoices.append(name) }
         }
         let used = Set(updated.segments.compactMap(\.speakerID))
         updated.speakers.removeAll { !used.contains($0.id) }

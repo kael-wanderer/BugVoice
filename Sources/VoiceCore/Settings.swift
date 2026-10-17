@@ -87,6 +87,9 @@ public struct MeetingSettings: Codable, Equatable, Sendable {
         }
     }
 
+    /// Suggest names for call speakers from voices named in earlier meetings, and save them.
+    public var suggestKnownVoices = true
+
     public init() {}
 }
 
@@ -102,6 +105,7 @@ extension MeetingSettings {
         mutedMeetingApps = c.value(.mutedMeetingApps, default: mutedMeetingApps)
         windowCollapsed = c.value(.windowCollapsed, default: windowCollapsed)
         liveSummaryInterval = LiveSummaryPlanner.normalizedInterval(c.value(.liveSummaryInterval, default: liveSummaryInterval))
+        suggestKnownVoices = c.value(.suggestKnownVoices, default: suggestKnownVoices)
     }
 }
 
