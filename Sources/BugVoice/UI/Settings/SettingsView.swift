@@ -1,6 +1,6 @@
 import SwiftUI
 
-enum SettingsTab: Hashable { case general, speech, models, meetings, storage }
+enum SettingsTab: Hashable { case general, speech, models, agents, meetings, storage }
 
 struct SettingsView: View {
     @Bindable var model: AppModel
@@ -13,6 +13,7 @@ struct SettingsView: View {
                     .init(value: SettingsTab.general, title: "General"),
                     .init(value: SettingsTab.speech, title: "Speech"),
                     .init(value: SettingsTab.models, title: "Models"),
+                    .init(value: SettingsTab.agents, title: "Agents"),
                     .init(value: SettingsTab.meetings, title: "Meetings"),
                     .init(value: SettingsTab.storage, title: "Storage"),
                 ],
@@ -23,6 +24,7 @@ struct SettingsView: View {
                 case .general: GeneralTab(model: model)
                 case .speech: SpeechTab(model: model)
                 case .models: ModelsTab(model: model)
+                case .agents: AgentsSettings(model: model)
                 case .meetings: MeetingsTab(model: model)
                 case .storage: StorageTab(model: model)
                 }
