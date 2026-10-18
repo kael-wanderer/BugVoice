@@ -6,18 +6,15 @@ struct BugVoiceApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
 
     var body: some Scene {
-        MenuBarExtra {
-            MenuContent(model: delegate.model)
-        } label: {
-            MenuBarIcon(model: delegate.model)
-        }
-        .menuBarExtraStyle(.menu)
-        .commands { delegate.installViewMenu() }
+        // Hidden: the menu bar icon and popover are `MenuPanelController`.
+        // The scene stays only to carry the View menu commands.
+        MenuBarExtra("BugVoice", isInserted: .constant(false)) { EmptyView() }
+            .commands { delegate.installViewMenu() }
     }
 }
 
-/// Start-up and the main window live here, not on a SwiftUI view: the menu
-/// bar label is not guaranteed to appear (or run `.task`) at launch.
+/// Start-up, the menu bar popover and the main window live here, not on a
+/// SwiftUI view.
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let model = AppModel()
@@ -25,12 +22,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var permissionsWindow = PermissionsWindowController(model: model)
     private lazy var scratchpadWindow = ScratchpadWindowController(model: model)
     private var meetingWindow: MeetingWindowController?
+    private var menuPanel: MenuPanelController?
     private var sleepObserver: NSObjectProtocol?
     private var wakeObserver: NSObjectProtocol?
     private var textSizeAlternateMonitor: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         FontRegistry.registerBundledFonts()
+        menuPanel = MenuPanelController(model: model)
         model.presentMainWindow = { [weak self] in
             self?.mainWindow.show()
         }

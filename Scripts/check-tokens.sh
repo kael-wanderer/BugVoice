@@ -4,7 +4,7 @@ set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-ALLOW='Sources/BugVoice/UI/MenuContent.swift  # native NSMenu, redesign spec'
+ALLOW=''
 PENDING=''
 
 is_exempt() {
