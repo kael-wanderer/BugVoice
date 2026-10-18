@@ -107,13 +107,13 @@ struct FoldersTab: View {
     private var unfiledText: String {
         let notes = LibraryProjection.counts(model.notesController.notes, known: model.library.knownIDs).unfiled
         let meetings = LibraryProjection.counts(model.meetingManifests, known: model.library.knownIDs).unfiled
-        return "Unfiled: \(notes) notes · \(meetings) meetings"
+        return "Unfiled: \(counted(notes, "note")) · \(counted(meetings, "meeting"))"
     }
 
     private func countText(_ id: FolderID) -> String {
         let meetings = LibraryProjection.counts(model.meetingManifests, known: model.library.knownIDs).count(id)
         let notes = LibraryProjection.counts(model.notesController.notes, known: model.library.knownIDs).count(id)
-        return "\(notes) \(notes == 1 ? "note" : "notes") · \(meetings) \(meetings == 1 ? "meeting" : "meetings")"
+        return "\(counted(notes, "note")) · \(counted(meetings, "meeting"))"
     }
 
     private func save(_ id: FolderID) {
@@ -141,6 +141,10 @@ private struct TagsTab: View {
     @State private var pendingMerge: Merge?
     @State private var pendingDelete: TagRow?
     @State private var saving = false
+    /// The open name field: the new tag field, or the tag being renamed.
+    @FocusState private var focusedField: String?
+
+    private static let newTagField = "\u{0}new"
 
     private struct Merge {
         let old: String
@@ -155,6 +159,8 @@ private struct TagsTab: View {
                 VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {
                     if creating {
                         TextField("#tag", text: $newName)
+                            .focused($focusedField, equals: Self.newTagField)
+                            .onAppear { focusedField = Self.newTagField }
                             .onSubmit {
                                 Task {
                                     saving = true
@@ -207,7 +213,7 @@ private struct TagsTab: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: { merge in
-            Text("\(merge.notes) notes and \(merge.meetings) meetings will use #\(merge.target).")
+            Text("\(counted(merge.notes, "note")) and \(counted(merge.meetings, "meeting")) will use #\(merge.target).")
         }
         .confirmationDialog(
             "Delete #\(pendingDelete?.name ?? "")?",
@@ -224,7 +230,7 @@ private struct TagsTab: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: { tag in
-            Text("It will be removed from \(tag.notes) notes and \(tag.meetings) meetings. The notes and meetings stay.")
+            Text("It will be removed from \(counted(tag.notes, "note")) and \(counted(tag.meetings, "meeting")). The notes and meetings stay.")
         }
     }
 
@@ -235,15 +241,20 @@ private struct TagsTab: View {
             Button { palette = palette == tag.name ? nil : tag.name } label: {
                 Group {
                     if let color = tag.color { Circle().fill(TagColors.color(color)) }
-                    else { Circle().stroke(.bvSeparator) }
+                    else { Circle().stroke(.bvSecondary) }
                 }
                 .frame(width: store.scaled(10), height: store.scaled(10))
                 .padding(LayoutTokens.spacing[0])
+                // A hollow dot only takes clicks on its outline without this.
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Colour for #\(tag.name)")
             if editing == tag.name {
-                TextField("#tag", text: $draft).onSubmit { rename(tag.name) }
+                TextField("#tag", text: $draft)
+                    .focused($focusedField, equals: tag.name)
+                    .onAppear { focusedField = tag.name }
+                    .onSubmit { rename(tag.name) }
             } else {
                 Text("#\(tag.name)")
             }
@@ -300,4 +311,9 @@ private struct TagsTab: View {
         case .failed: break
         }
     }
+}
+
+/// "1 note", "2 notes".
+func counted(_ count: Int, _ word: String) -> String {
+    "\(count) \(word)\(count == 1 ? "" : "s")"
 }

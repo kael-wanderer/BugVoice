@@ -730,6 +730,8 @@ final class AppModel {
     var allTagCatalog: [TagCount] {
         var totals: [String: Int] = [:]
         for tag in meetingTagCatalog + noteTagCatalog { totals[tag.name, default: 0] += tag.count }
+        // Tags made with New tag in the Manage library sheet, not on any item yet.
+        for tag in library.tags where totals[tag.name] == nil { totals[tag.name] = 0 }
         return totals.map { TagCount(name: $0.key, count: $0.value) }
             .sorted { $0.count != $1.count ? $0.count > $1.count : $0.name < $1.name }
     }

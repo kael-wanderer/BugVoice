@@ -80,17 +80,20 @@ struct TagFilterBar: View {
             Button("Clear tags") { selected = [] }.disabled(selected.isEmpty)
             Button("Manage tags…", action: onManage)
         } label: {
-            HStack(spacing: LayoutTokens.spacing[0]) {
-                Label("Tags", systemImage: "tag")
-                if !selected.isEmpty {
-                    Text("\(selected.count)").bvFont(.caption)
-                        .foregroundStyle(.bvOnAccent)
-                        .padding(.horizontal, LayoutTokens.spacing[1])
-                        .background(.bvAccent, in: Capsule())
-                }
-            }
+            Label("Tags", systemImage: "tag")
         }
         .fixedSize()
+        // A menu button draws only its label's icon and title, so the count sits on top of it.
+        .overlay(alignment: .topTrailing) {
+            if !selected.isEmpty {
+                Text("\(selected.count)").bvFont(.caption)
+                    .foregroundStyle(.bvOnAccent)
+                    .padding(.horizontal, LayoutTokens.spacing[0])
+                    .background(.bvAccent, in: Capsule())
+                    .offset(x: LayoutTokens.spacing[1], y: -LayoutTokens.spacing[1])
+                    .allowsHitTesting(false)
+            }
+        }
         .accessibilityLabel("Tags, \(selected.count) selected")
     }
 }

@@ -29,7 +29,7 @@ struct GeneralTab: View {
                 }
             }
             SettingsCard(title: "Folders and tags") {
-                SettingsRow(title: "\(model.library.folders.count) folders · \(model.tagRows.count) tags") {
+                SettingsRow(title: "\(counted(model.library.folders.count, "folder")) · \(counted(model.tagRows.count, "tag"))") {
                     Button("Manage…") { librarySheet = .folders }
                 }
             }
