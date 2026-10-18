@@ -7,52 +7,19 @@ struct MainWindow: View {
     @Bindable var model: AppModel
 
     var body: some View {
-        NavigationSplitView {
-            List(selection: $model.page) {
-                ForEach(SidebarGroup.allCases, id: \.self) { group in
-                    Section {
-                        ForEach(group.pages) { page in
-                            HStack {
-                                // Not a Label: its icon column keeps a fixed width and the
-                                // icon runs into the title at large text sizes.
-                                HStack(spacing: LayoutTokens.spacing[1]) {
-                                    Image(systemName: page.symbol).frame(width: store.scaled(20))
-                                    Text(page.title).lineLimit(1)
-                                }
-                                .bvFont(.body)
-                                Spacer()
-                                if page == .upload, let job = model.uploads?.active {
-                                    UploadRing(progress: job.progress)
-                                }
-                            }
-                            .tag(page)
-                        }
-                    }
-                    header: {
-                        if let title = group.title {
-                            Text(title.uppercased())
-                        }
-                    }
-                }
+        HStack(spacing: 0) {
+            if !model.sidebarHidden {
+                AppSidebar(model: model).frame(width: ShellLayout.sidebarWidth(scale: model.settings.appearance.textScale))
+                Rectangle().fill(.bvSeparator).frame(width: 1)
             }
-            .scrollContentBackground(.hidden)
-            .background(.bvSidebar)
-            .navigationSplitViewColumnWidth(store.scaled(200))
-        } detail: {
-            switch model.page {
-            case .dictation: DictationHistoryView(model: model)
-            case .insights: InsightsPage(model: model)
-            case .dictionary: DictionaryPage(model: model)
-            case .style: StylePage(model: model)
-            case .meetings: MeetingsPage(model: model)
-            case .upload: UploadPage(model: model)
-            case .notes: NotesPage(model: model)
-            case .integrations: ComingSoonPage(page: .integrations, model: model)
-            case .settings: SettingsView(model: model)
-            case .help: ComingSoonPage(page: .help, model: model)
+            VStack(spacing: 0) {
+                TitleBar(model: model, title: model.page.title) { EmptyView() }
+                Rectangle().fill(.bvSeparator).frame(height: 1)
+                pageContent.frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+            .background(.bvBackground)
         }
-        .frame(minWidth: 820, minHeight: 560)
+        .ignoresSafeArea(.container, edges: .top)
         .overlay(alignment: .bottom) {
             if let notice = model.notice {
                 Text(notice)
@@ -79,6 +46,21 @@ struct MainWindow: View {
             Text(model.saveError ?? "")
         }
     }
+    @ViewBuilder private var pageContent: some View {
+            switch model.page {
+            case .dictation: DictationHistoryView(model: model)
+            case .insights: InsightsPage(model: model)
+            case .dictionary: DictionaryPage(model: model)
+            case .style: StylePage(model: model)
+            case .meetings: MeetingsPage(model: model)
+            case .upload: UploadPage(model: model)
+            case .notes: NotesPage(model: model)
+            case .integrations: ComingSoonPage(page: .integrations, model: model)
+            case .settings: SettingsView(model: model)
+            case .help: ComingSoonPage(page: .help, model: model)
+            }
+    }
+
 }
 
 /// Owns the main window. AppKit-managed rather than a SwiftUI `Window` scene
@@ -128,7 +110,33 @@ final class MainWindowController: NSObject, NSWindowDelegate {
         }
         window.setFrameAutosaveName("BugVoiceMain")
         AppWindow.placeForDevelopment(window)
+        updateMinimum(window)
+        observeScale()
         return window
+    }
+
+    private func observeScale() {
+        withObservationTracking {
+            _ = model.settings.appearance.textScale
+        } onChange: { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if let window = self.window { self.updateMinimum(window) }
+                self.observeScale()
+            }
+        }
+    }
+
+    private func updateMinimum(_ window: NSWindow) {
+        let visible = (window.screen ?? NSScreen.main)?.visibleFrame ?? window.frame
+        let scale = model.settings.appearance.textScale
+        let width = ShellLayout.minimumWindowWidth(scale: scale, screenWidth: visible.width)
+        window.contentMinSize = NSSize(width: width, height: ShellLayout.minimumWindowHeight)
+        if ShellLayout.sidebarMustHide(scale: scale, screenWidth: visible.width) { model.sidebarHidden = true }
+        var frame = window.frame
+        frame.size.width = max(frame.width, width)
+        frame.origin.x = max(visible.minX, min(frame.minX, visible.maxX - frame.width))
+        window.setFrame(frame, display: true)
     }
 
     func windowWillClose(_ notification: Notification) {

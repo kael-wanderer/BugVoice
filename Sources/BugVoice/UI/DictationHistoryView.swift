@@ -48,8 +48,7 @@ struct DictationHistoryView: View {
             }
             .padding(LayoutTokens.spacing[4])
         }
-        .searchable(text: $query, prompt: "Search dictations")
-        .navigationTitle("Dictation")
+
         .task { await model.reloadHistory() }
     }
 

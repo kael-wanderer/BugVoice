@@ -40,6 +40,6 @@ struct SettingsView: View {
         }
         .padding(LayoutTokens.spacing[4])
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .navigationTitle("Settings")
+
     }
 }

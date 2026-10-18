@@ -144,6 +144,12 @@ final class AppModel {
     /// The latest dictation, for the menu preview and *Paste last*. A
     /// secure-field result is stored without its text.
     var lastResult: DictationResult?
+    var sidebarHidden = UserDefaults.standard.bool(forKey: "BugVoice.sidebarHidden") {
+        didSet { UserDefaults.standard.set(sidebarHidden, forKey: "BugVoice.sidebarHidden") }
+    }
+    var searchFocusRequest: UInt64 = 0
+    var mainWindowIsKey: Bool { NSApp.keyWindow?.identifier == AppWindow.main && NSApp.keyWindow?.attachedSheet == nil }
+    func toggleSidebar() { withAnimation(.easeInOut(duration: 0.2)) { sidebarHidden.toggle() } }
     var page: Page = .dictation
     var speechState: WhisperKitTranscriber.LoadState = .notLoaded
     /// Coding CLIs found on this Mac, looked up at launch and when Settings → Models opens.

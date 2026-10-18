@@ -111,6 +111,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func installViewMenu() -> some Commands {
         CommandGroup(before: .toolbar) {
+            Button(model.sidebarHidden ? "Show Sidebar" : "Hide Sidebar") { self.model.toggleSidebar() }
+                .keyboardShortcut("s", modifiers: [.control, .command])
+                .disabled(!model.mainWindowIsKey)
+            Button("Search") {
+                self.model.openMainWindow()
+                self.model.searchFocusRequest &+= 1
+            }
+                .keyboardShortcut("k", modifiers: .command)
+                .disabled(NSApp.keyWindow != nil && !model.mainWindowIsKey)
+            Divider()
             Button("Bigger Text") { self.model.settings.appearance.stepTextScale(by: 10) }
                 .keyboardShortcut("+", modifiers: .command)
             Button("Bigger Text") { self.model.settings.appearance.stepTextScale(by: 10) }
