@@ -21,7 +21,9 @@ appearance settings and puts the common actions first.
   3. Last dictation: app, time, up to three lines of text, Copy and Retry.
   4. Library ›, Dictation options ›.
   5. Open BugVoice ⌃⌥B, Settings… ⌘,, Tools ›, Quit BugVoice ⌘Q.
-- It follows text size, font and theme like every other window.
+- It follows the theme (colours, light/dark). Text size and font family do
+  not apply: the popover keeps a fixed size and the system font at 100%
+  (owner decision, 2026-10-18).
 - Nothing the current menu can do is lost (table below).
 - Usable from the keyboard alone and with VoiceOver.
 
@@ -113,12 +115,14 @@ before it pastes, so the text lands where the cursor was.
 hints. ⌃⌥B and ⌃⌥N are the app's existing global shortcuts. ⌘, and ⌘Q work
 while the popover is open.
 
-**Size and look.** Width `store.scaled(330)`, capped at 520 pt. Card colour,
-separator lines, `cardRadius`-style corners scaled up to about 14 pt, a
-shadow. Fonts: status bold line `.bodyStrong`, secondary lines `.footnote`,
-rows and buttons `.body`, last dictation text `.reading`. Spacing from
-`LayoutTokens.spacing`. The popover grows downward with its content; at
-large text it scrolls if taller than the screen below the menu bar.
+**Size and look.** Fixed width 330 pt. Text size and font family settings
+do not change it: the popover renders at 100% scale in the system font, and
+only the theme colours follow the app. Card colour, separator lines, 14 pt
+corners (`largeCardRadius`), a shadow. Fonts at 100%: status bold line
+`.bodyStrong`, secondary lines `.footnote`, rows and buttons `.body`, last
+dictation text `.reading`. Spacing from `LayoutTokens.spacing`. The popover
+grows downward with its content and scrolls if taller than the screen below
+the menu bar.
 
 **Keyboard.** When it opens, no row is highlighted. Down arrow highlights the
 first control; Up and Down then move through every control in reading order
@@ -166,7 +170,8 @@ switches read "on" or "off"; checked options read "selected"; › rows read
 
 ## Manual checks
 
-1. Open from the menu bar at 100% and 160%, light and dark: matches the mockup.
+1. Open from the menu bar, light and dark: matches the mockup. At 160% text
+   or another font family, the popover looks the same as at 100%.
 2. Every row of the table above works from the popover.
 3. Paste last pastes into the previously focused app.
 4. Keyboard only: Down, Up, Return, Right into a submenu, Escape out, Escape closes.

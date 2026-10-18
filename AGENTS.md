@@ -80,6 +80,8 @@ version and build live in `App/Info.plist`. App icon source is `App/Icon/AppIcon
   `BUGVOICE_DEV_SCREEN=primary Scripts/run-dev-app.sh` keeps them on the
   primary display. Find the window's position before a screenshot or click,
   and capture the BugVoice window itself, not a screen region.
+- Test the menu bar popover on that same non-primary display: click the
+  BugVoice icon in the second display's menu bar, never the primary one.
 - Never paste into a secure text field. Never send audio or text off this Mac
   unless the user configured a remote server.
 - UI copy: plain English, no hedging words, no emoji.

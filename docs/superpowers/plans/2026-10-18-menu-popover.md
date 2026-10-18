@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace the native menu bar `NSMenu` with a themed popover (status, 2 × 2 grid, last dictation, in-place submenus) that follows text size, font and theme.
+**Goal:** Replace the native menu bar `NSMenu` with a themed popover (status, 2 × 2 grid, last dictation, in-place submenus) that follows the theme at a fixed size (text size and font family do not apply).
 
 **Architecture:** An `NSStatusItem` opens a borderless, non-activating `NSPanel` that can become key, so it takes the keyboard without activating BugVoice. When it closes, focus goes straight back to the app the owner was using, and Paste last lands there. The SwiftUI content lives under `Sources/BugVoice/UI/Menu/`. Two small pure types go in VoiceCore with tests: the status priority/copy (`MenuStatus`) and the keyboard highlight (`MenuNavigator`). The `MenuBarExtra` scene stays, not inserted, so the View menu commands keep working.
 
@@ -24,7 +24,7 @@
 
 1. **Paste last with the popover open from another app.** The text lands in that app's field, not in BugVoice, and nothing in BugVoice takes focus. (Task 3 manual step: paste into TextEdit.)
 2. **The status item clicked while the popover is open.** It closes, not closes-then-reopens: the outside-click monitor and the button action must not both fire. (Task 3 step.)
-3. **Text at 160% on a small screen.** The panel stops at the screen's visible bottom and scrolls, never off screen. (Task 3 step: `maxHeight` from `visibleFrame`.)
+3. **Text size 160% or another font family.** The popover is unchanged: 330 pt, system font at 100%. On a short screen it stops at the visible bottom and scrolls. (Task 3 fix: fixed-size appearance store.)
 4. **A highlighted control that disappears**, e.g. Paste last becomes disabled, or the meeting strip goes away while highlighted. The next Down starts from the first control, with no crash. (Task 2 test `highlightLostWhenItemDisappears`.)
 5. **A shortcut letter changed in Settings.** Hints show the configured letters (`settings.shortcuts.letter(for:)`), not hard-coded B/N. (Task 3: hints read from settings.)
 
@@ -231,13 +231,14 @@ Swaps the native menu for the popover with the main list. Submenu rows are prese
 
 - [ ] **Step 1: Write `MenuPanelController`.**
   - `NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)`. `button.action` calls `toggle()`. Image = `BrandImages.menuBar(logo: model.settings.appearance.menuBarIcon, badge: !model.permissionsGranted)`, kept current with a re-arming `withObservationTracking`. `button.setAccessibilityLabel("BugVoice")`.
+  - Fixed appearance: the controller owns its own `AppearanceStore` for the popover and keeps it in step with `model.appearance.settings` (re-arming `withObservationTracking`), applying a copy with text scale 100 and the default font family, so only theme colours follow. The hosted view uses `.bvTheme(menuAppearance)`.
   - Panel: private `MenuPanel: NSPanel` with `styleMask: [.borderless, .nonactivatingPanel]`, `canBecomeKey = true`, `canBecomeMain = false`, `level = .popUpMenu`, `isOpaque = false`, `backgroundColor = .clear`, `hasShadow = true`, `hidesOnDeactivate = false`, `collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]`. Host the view in an `NSHostingView` wrapped in `.bvTheme(model.appearance)`. Size it from `fittingSize` and resize on intrinsic-size changes, the way `HUDController`'s `SizingHostingView` does. Call `model.appearance.attach(panel)`.
   - Position: top edge 4 pt below the status button's screen frame. Centre on the button, clamped inside `screen.visibleFrame` with an 8 pt margin.
   - `toggle()`: open if closed, else `close()`. On open: `model.refreshPermissions()`, `Task { await model.refreshSpeechState() }`, then `panel.makeKeyAndOrderFront(nil)` **without** `NSApp.activate`.
   - Close on: `NSWindow.didResignKeyNotification` for the panel, and a global `leftMouseDown`/`rightMouseDown` monitor installed while open. Remove the monitor on close. A click on the status button must only toggle once: in the monitor, ignore events whose location is inside the button's screen frame.
   - `close()`: `panel.orderOut(nil)`, remove the monitor, and reset the popover state (submenu and highlight) by giving the hosting view a fresh `MenuPopover` on each open.
 - [ ] **Step 2: Write `MenuPopover` main list and `MenuSections`** to the mockup, state 1/3/4.
-  - Width `min(store.scaled(330), 520)`. Padding `spacing[1]`, background `.bvCard`, 1 pt `.bvSeparator` border, corner `store.scaled(LayoutTokens.largeCardRadius)` capped at 20, shadow like `SearchResults`.
+  - Width 330 pt fixed (owner decision 2026-10-18: text size and font family do not apply; see the fixed appearance store below). Padding `spacing[1]`, background `.bvCard`, 1 pt `.bvSeparator` border, corner `LayoutTokens.largeCardRadius`, shadow like `SearchResults`.
   - Wrap the content in `ScrollView` with `.frame(maxHeight:)` = the screen's visible height below the menu bar minus 16 pt, passed in by the controller as `maxHeight: CGFloat`. `ScrollView(.vertical)` with `.scrollBounceBehavior(.basedOnSize)`.
   - Fonts: status title `.bodyStrong`, secondary lines `.footnote`, rows and buttons `.body`, last text `.reading` with `.lineLimit(3)`, group headers `.caption` uppercased.
   - Status: `MenuStatus.resolve(...)` from the model, in the same order as the old `MenuContent.status`. `missingPermissions` comes from `model.permissionStatus` for `.microphone` "Microphone", `.accessibility` "Accessibility", `.inputMonitoring` "Input Monitoring", false entries only. `secureInputApp` is `SecureInputMonitor.isActive ? (SecureInputMonitor.owningAppName ?? "another app") : nil`. Speech is from `model.settings.speech.engine == .whisperKit ? model.speechState : nil`, mapped to `MenuSpeechState` (nil or loaded → `.ready`). Hotkey name is `model.settings.hotkey.displayName`. Dot colour by tone: `.bvSuccess`, `.bvWarning`, `.bvRecording`.
@@ -282,7 +283,7 @@ Swaps the native menu for the popover with the main list. Submenu rows are prese
     - (c) Clicking outside closes it.
     - (d) Focus TextEdit, open the popover, click Paste last: the text lands in TextEdit (Review Focus 1).
     - (e) With the main window open, ⌘K and ⌘+ still work (View menu commands survived). If they do not, replace the hidden `MenuBarExtra` with `Window("BugVoice", id: "commands") { EmptyView() }.defaultLaunchBehavior(.suppressed).commands { … }` and check again.
-    - (f) Set text size to 160%: the panel fits on screen and scrolls if needed.
+    - (f) Set text size to 160% and another font family: the popover looks the same as at 100%.
     - (g) New note, Upload, Open BugVoice and Settings… each open the right window.
   - Restore settings.json and `cmp` it.
 - [ ] **Step 5: Commit** `feat(app): menu bar popover replaces the native menu`.
@@ -371,6 +372,6 @@ Swaps the native menu for the popover with the main list. Submenu rows are prese
 - Create: `docs/progress/menu-popover-log.md`: one line per task with commit, plus the spec's seven manual checks as an owner checklist with what was verified in the dev app.
 - Modify: `AGENTS.md`: add `Menu popover execution log and manual checks: docs/progress/menu-popover-log.md` under the spec line. Also modify `docs/progress/HANDOFF.md` with one line under current state: popover on `feat/menu-popover`, owner checks pending.
 
-- [ ] **Step 1: Run the spec's manual checks 1–7 in the dev app** (settings backed up, restored and `cmp`'d). Record pass or fail per check in the log. VoiceOver and 160% go in the log as done by the agent or left for the owner.
+- [ ] **Step 1: Run the spec's manual checks 1–7 in the dev app** (settings backed up, restored and `cmp`'d). Record pass or fail per check in the log. VoiceOver and the fixed-size check go in the log as done by the agent or left for the owner.
 - [ ] **Step 2: Final** `swift test` PASS and `Scripts/check-tokens.sh` exit 0.
 - [ ] **Step 3: Commit** `docs: menu popover log and manual checks`.
