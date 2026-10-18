@@ -8,22 +8,26 @@ struct MenuStatusLine: View {
     let hotkey: String
     let unavailableShortcuts: [String]
     let highlight: MenuHighlight
-    let runAction: (MenuStatusAction) -> Void
 
     var body: some View {
+        let detail = status.detail(hotkey: hotkey)
         VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {
             HStack(spacing: LayoutTokens.spacing[1]) {
-                Circle().fill(dotStyle).frame(width: store.scaled(10), height: store.scaled(10))
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(status.title).bvFont(.bodyStrong)
-                    if let detail = status.detail(hotkey: hotkey) {
-                        Text(detail).bvFont(.footnote).foregroundStyle(.bvSecondary)
+                HStack(spacing: LayoutTokens.spacing[1]) {
+                    Circle().fill(dotStyle).frame(width: store.scaled(10), height: store.scaled(10))
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(status.title).bvFont(.bodyStrong)
+                        if let detail {
+                            Text(detail).bvFont(.footnote).foregroundStyle(.bvSecondary)
+                        }
                     }
                 }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(spokenStatus(detail))
+                .accessibilitySortPriority(1)
                 Spacer(minLength: LayoutTokens.spacing[1])
-                if let action = status.action, let title = status.actionTitle {
-                    MenuButton(small: true, primary: true, highlighted: highlight.isOn(.statusAction),
-                               onHover: highlight.hover(.statusAction), action: { runAction(action) }) {
+                if let title = status.actionTitle {
+                    MenuButton(id: .statusAction, small: true, primary: true, highlight: highlight) {
                         Text(title)
                     }
                 }
@@ -35,6 +39,13 @@ struct MenuStatusLine: View {
         .padding(.horizontal, LayoutTokens.spacing[1])
         .padding(.top, LayoutTokens.spacing[0])
         .padding(.bottom, LayoutTokens.spacing[1])
+    }
+
+    /// "Ready to dictate, hold Right Option to speak, release to paste".
+    private func spokenStatus(_ detail: String?) -> String {
+        guard let detail else { return status.title }
+        let spoken = detail.replacingOccurrences(of: " · ", with: ", ").replacingOccurrences(of: "·", with: ",")
+        return "\(status.title), \(spoken)"
     }
 
     private var dotStyle: BVColorStyle {
@@ -50,7 +61,6 @@ struct MenuStatusLine: View {
 struct MenuMeetingStrip: View {
     let meetings: MeetingController
     let highlight: MenuHighlight
-    let close: () -> Void
 
     var body: some View {
         HStack(spacing: LayoutTokens.spacing[1]) {
@@ -60,21 +70,11 @@ struct MenuMeetingStrip: View {
             } else {
                 Text(MeetingTimeText.text(meetings.elapsed)).bvFont(.bodyStrong).monospacedDigit()
                 Spacer(minLength: LayoutTokens.spacing[1])
-                if meetings.isPaused {
-                    MenuButton(small: true, highlighted: highlight.isOn(.meetingPause),
-                               onHover: highlight.hover(.meetingPause),
-                               action: { Task { await meetings.resume() } }) { Text("Resume") }
-                } else {
-                    MenuButton(small: true, highlighted: highlight.isOn(.meetingPause),
-                               onHover: highlight.hover(.meetingPause),
-                               action: { Task { await meetings.pause() } }) { Text("Pause") }
+                MenuButton(id: .meetingPause, small: true, highlight: highlight) {
+                    Text(meetings.isPaused ? "Resume" : "Pause")
                 }
-                MenuButton(small: true, highlighted: highlight.isOn(.meetingMark),
-                           onHover: highlight.hover(.meetingMark),
-                           action: { Task { await meetings.mark() } }) { Text("Mark moment") }
-                MenuButton(small: true, highlighted: highlight.isOn(.meetingStop),
-                           onHover: highlight.hover(.meetingStop),
-                           action: { close(); Task { await meetings.stop() } }) {
+                MenuButton(id: .meetingMark, small: true, highlight: highlight) { Text("Mark moment") }
+                MenuButton(id: .meetingStop, small: true, highlight: highlight) {
                     Text("Stop").foregroundStyle(.bvRecording)
                 }
             }
@@ -88,43 +88,24 @@ struct MenuMeetingStrip: View {
 struct MenuActionGrid: View {
     let model: AppModel
     let highlight: MenuHighlight
-    let close: () -> Void
 
     var body: some View {
         let meetings = model.meetings
         let meetingRunning = meetings?.isRecording == true || meetings?.isPaused == true
         Grid(horizontalSpacing: LayoutTokens.spacing[1], verticalSpacing: LayoutTokens.spacing[1]) {
             GridRow {
-                tile(.newNote, "New note", "square.and.pencil") {
-                    close()
-                    Task { await model.openScratchpadWindow(newNote: true) }
-                }
+                tile(.newNote, "New note", "square.and.pencil")
                 if meetingRunning {
-                    tile(.meeting, "Stop meeting", "stop.fill", recording: true) {
-                        close()
-                        Task { await model.meetings?.stop() }
-                    }
+                    tile(.meeting, "Stop meeting", "stop.fill", recording: true)
                 } else {
-                    tile(.meeting, "Record meeting", "record.circle", iconRecording: true) {
-                        close()
-                        Task { await model.meetings?.start() }
-                    }
-                    .disabled(meetings?.isTranscribing == true)
+                    tile(.meeting, "Record meeting", "record.circle", iconRecording: true)
+                        .disabled(meetings?.isTranscribing == true)
                 }
             }
             GridRow {
-                tile(.upload, "Upload", "square.and.arrow.up") {
-                    close()
-                    model.openMainWindow(.upload)
-                }
-                tile(.pasteLast, "Paste last", "doc.on.clipboard") {
-                    close()
-                    Task {
-                        try? await Task.sleep(for: .milliseconds(60))
-                        model.dictation?.pasteLast()
-                    }
-                }
-                .disabled(model.lastResult?.finalText.isEmpty ?? true)
+                tile(.upload, "Upload", "square.and.arrow.up")
+                tile(.pasteLast, "Paste last", "doc.on.clipboard")
+                    .disabled(model.lastResult?.finalText.isEmpty ?? true)
             }
         }
         .padding(.horizontal, LayoutTokens.spacing[0])
@@ -132,11 +113,12 @@ struct MenuActionGrid: View {
     }
 
     private func tile(_ id: MenuControl, _ title: String, _ symbol: String, recording: Bool = false,
-                      iconRecording: Bool = false, action: @escaping () -> Void) -> some View {
-        MenuButton(fillsWidth: true, highlighted: highlight.isOn(id), onHover: highlight.hover(id), action: action) {
+                      iconRecording: Bool = false) -> some View {
+        MenuButton(id: id, fillsWidth: true, highlight: highlight) {
             HStack(spacing: LayoutTokens.spacing[1]) {
                 Image(systemName: symbol)
                     .foregroundStyle(recording || iconRecording ? AnyShapeStyle(.bvRecording) : AnyShapeStyle(.bvSecondary))
+                    .accessibilityHidden(true)
                 Text(title).foregroundStyle(recording ? AnyShapeStyle(.bvRecording) : AnyShapeStyle(.bvText))
             }
         }
@@ -146,23 +128,23 @@ struct MenuActionGrid: View {
 /// App, time, up to three lines of the last dictation, Copy and Retry.
 struct MenuLastDictation: View {
     let result: DictationResult
-    let model: AppModel
     let highlight: MenuHighlight
-    let close: () -> Void
 
     var body: some View {
+        let app = result.appName ?? "Unknown"
+        let time = result.startedAt.formatted(date: .omitted, time: .shortened)
         VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
             VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
-                Text("Last dictation · \(result.appName ?? "Unknown") · \(result.startedAt.formatted(date: .omitted, time: .shortened))")
+                Text("Last dictation · \(app) · \(time)")
                     .bvFont(.footnote).foregroundStyle(.bvSecondary)
                 Text(result.finalText).bvFont(.reading).lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Last dictation, \(app), \(time), \(result.finalText)")
             HStack(spacing: LayoutTokens.spacing[1]) {
-                MenuButton(small: true, highlighted: highlight.isOn(.copyLast), onHover: highlight.hover(.copyLast),
-                           action: { close(); model.dictation?.copy(result.finalText) }) { Text("Copy") }
-                MenuButton(small: true, highlighted: highlight.isOn(.retryLast), onHover: highlight.hover(.retryLast),
-                           action: { close(); model.dictation?.retryLast() }) { Text("Retry") }
+                MenuButton(id: .copyLast, small: true, highlight: highlight) { Text("Copy") }
+                MenuButton(id: .retryLast, small: true, highlight: highlight) { Text("Retry") }
             }
             .padding(.top, LayoutTokens.spacing[0])
         }

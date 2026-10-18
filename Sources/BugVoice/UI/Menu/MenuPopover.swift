@@ -14,12 +14,14 @@ enum MenuControl: Hashable, Sendable {
     case back, item(String)
 }
 
-/// How a control asks whether it is highlighted and reports hover.
+/// How a control asks whether it is highlighted, reports hover and runs its action.
 struct MenuHighlight {
     let isOn: (MenuControl) -> Bool
     let set: (MenuControl, Bool) -> Void
+    let activate: (MenuControl) -> Void
 
     func hover(_ id: MenuControl) -> (Bool) -> Void { { set(id, $0) } }
+    func action(_ id: MenuControl) -> () -> Void { { activate(id) } }
 }
 
 /// The menu bar popover (spec: docs/superpowers/specs/2026-10-18-menu-popover-design.md).
@@ -30,6 +32,7 @@ struct MenuPopover: View {
     @State private var submenu: MenuSubmenu?
     @State private var nav = MenuNavigator<MenuControl>()
     @State private var contentHeight: CGFloat = 0
+    @FocusState private var focused: Bool
 
     init(model: AppModel, maxHeight: CGFloat, close: @escaping () -> Void) {
         self.model = model
@@ -39,71 +42,182 @@ struct MenuPopover: View {
 
     var body: some View {
         let radius = LayoutTokens.largeCardRadius
-        ScrollView(.vertical) {
-            VStack(alignment: .leading, spacing: 0) {
-                if let submenu {
-                    MenuSubmenuView(model: model, submenu: submenu, highlight: highlight,
-                                    back: { self.submenu = nil; nav.hover(.submenu(submenu)) },
-                                    close: close)
-                } else {
-                    mainList
+        ScrollViewReader { proxy in
+            ScrollView(.vertical) {
+                VStack(alignment: .leading, spacing: 0) {
+                    if let submenu {
+                        MenuSubmenuView(model: model, submenu: submenu, highlight: highlight)
+                    } else {
+                        mainList
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(LayoutTokens.spacing[1])
+                .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { contentHeight = $0 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(LayoutTokens.spacing[1])
-            .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { contentHeight = $0 }
+            .scrollBounceBehavior(.basedOnSize)
+            .onChange(of: nav.highlighted) { _, id in
+                if let id { proxy.scrollTo(id) }
+            }
         }
-        .scrollBounceBehavior(.basedOnSize)
         .frame(width: 330, height: min(contentHeight, maxHeight))
+        .focusable()
+        .focusEffectDisabled()
+        .focused($focused)
+        .onAppear { focused = true }
+        .onKeyPress(phases: .down, action: handleKey)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(submenu?.title ?? "BugVoice menu")
         .background(.bvCard, in: RoundedRectangle(cornerRadius: radius))
         .overlay(RoundedRectangle(cornerRadius: radius).stroke(.bvSeparator, lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: radius))
     }
 
     private var highlight: MenuHighlight {
-        MenuHighlight(isOn: { nav.highlighted == $0 }) { id, inside in
+        MenuHighlight(isOn: { nav.highlighted == $0 }, set: { id, inside in
             if inside { nav.hover(id) } else if nav.highlighted == id { nav.clear() }
+        }, activate: activate)
+    }
+
+    private var items: MenuSubmenuItems { MenuSubmenuItems(model: model, close: close) }
+
+    private var hasLast: Bool { !(model.lastResult?.finalText.isEmpty ?? true) }
+
+    private var meetingRunning: Bool { model.meetings?.isRecording == true || model.meetings?.isPaused == true }
+
+    /// The enabled controls of the visible list, in reading order.
+    func controls() -> [MenuControl] {
+        if let submenu { return [.back] + items.ids(submenu).map(MenuControl.item) }
+        var ids: [MenuControl] = []
+        if status.action != nil { ids.append(.statusAction) }
+        if meetingRunning, model.meetings?.isTranscribing != true { ids += [.meetingPause, .meetingMark, .meetingStop] }
+        ids.append(.newNote)
+        if meetingRunning || model.meetings?.isTranscribing != true { ids.append(.meeting) }
+        ids.append(.upload)
+        if hasLast { ids += [.pasteLast, .copyLast, .retryLast] }
+        ids += [.submenu(.library), .submenu(.dictationOptions), .openApp, .settings, .submenu(.tools), .quit]
+        return ids
+    }
+
+    /// Runs the same action as a click on `control`.
+    func activate(_ control: MenuControl) {
+        switch control {
+        case .statusAction:
+            if let action = status.action { runStatusAction(action) }
+        case .meetingPause:
+            guard let meetings = model.meetings else { return }
+            Task { if meetings.isPaused { await meetings.resume() } else { await meetings.pause() } }
+        case .meetingMark:
+            guard let meetings = model.meetings else { return }
+            Task { await meetings.mark() }
+        case .meetingStop:
+            close()
+            Task { await model.meetings?.stop() }
+        case .newNote:
+            close()
+            Task { await model.openScratchpadWindow(newNote: true) }
+        case .meeting:
+            close()
+            if meetingRunning {
+                Task { await model.meetings?.stop() }
+            } else {
+                Task { await model.meetings?.start() }
+            }
+        case .upload:
+            close()
+            model.openMainWindow(.upload)
+        case .pasteLast:
+            close()
+            Task {
+                try? await Task.sleep(for: .milliseconds(60))
+                model.dictation?.pasteLast()
+            }
+        case .copyLast:
+            guard let text = model.lastResult?.finalText else { return }
+            close()
+            model.dictation?.copy(text)
+        case .retryLast:
+            close()
+            model.dictation?.retryLast()
+        case .submenu(let target):
+            submenu = target
+            nav.clear()
+        case .openApp:
+            close()
+            model.openMainWindow(.dictation)
+        case .settings:
+            close()
+            model.openMainWindow(.settings)
+        case .quit:
+            NSApp.terminate(nil)
+        case .back:
+            guard let current = submenu else { return }
+            submenu = nil
+            nav.hover(.submenu(current))
+        case .item(let id):
+            items.run(id)
         }
+    }
+
+    // MARK: Keys
+
+    private func handleKey(_ press: KeyPress) -> KeyPress.Result {
+        // The panel never activates BugVoice, so the main menu's ⌘, and ⌘Q may not fire.
+        if press.modifiers.contains(.command) {
+            switch press.key.character.lowercased() {
+            case ",": activate(.settings)
+            case "q": activate(.quit)
+            default: return .ignored
+            }
+            return .handled
+        }
+        switch press.key {
+        case .downArrow: nav.next(in: controls())
+        case .upArrow: nav.previous(in: controls())
+        case .tab:
+            if press.modifiers.contains(.shift) { nav.previous(in: controls()) } else { nav.next(in: controls()) }
+        case .return, .space:
+            guard let current = nav.highlighted, controls().contains(current) else { return .handled }
+            activate(current)
+        case .rightArrow:
+            guard case .submenu(let target)? = nav.highlighted else { return .ignored }
+            submenu = target
+            if let first = items.ids(target).first { nav.hover(.item(first)) } else { nav.hover(.back) }
+        case .leftArrow:
+            guard submenu != nil else { return .ignored }
+            activate(.back)
+        case .escape:
+            if submenu != nil { activate(.back) } else { close() }
+        default:
+            // Shift-Tab arrives as back-tab (U+0019) on macOS.
+            guard press.characters == "\u{19}" else { return .ignored }
+            nav.previous(in: controls())
+        }
+        return .handled
     }
 
     // MARK: Main list
 
     @ViewBuilder private var mainList: some View {
         MenuStatusLine(status: status, hotkey: model.settings.hotkey.displayName,
-                       unavailableShortcuts: model.unavailableShortcuts, highlight: highlight,
-                       runAction: runStatusAction)
+                       unavailableShortcuts: model.unavailableShortcuts, highlight: highlight)
         if let meetings = model.meetings, meetings.isRecording || meetings.isPaused || meetings.isTranscribing {
-            MenuMeetingStrip(meetings: meetings, highlight: highlight, close: close)
+            MenuMeetingStrip(meetings: meetings, highlight: highlight)
         }
-        MenuActionGrid(model: model, highlight: highlight, close: close)
+        MenuActionGrid(model: model, highlight: highlight)
         MenuSeparator()
         if let last = model.lastResult, !last.finalText.isEmpty {
-            MenuLastDictation(result: last, model: model, highlight: highlight, close: close)
+            MenuLastDictation(result: last, highlight: highlight)
             MenuSeparator()
         }
-        MenuSubmenuRow(icon: "books.vertical", title: "Library", highlighted: highlight.isOn(.submenu(.library)),
-                       onHover: highlight.hover(.submenu(.library))) { submenu = .library; nav.clear() }
-        MenuSubmenuRow(icon: "mic", title: "Dictation options",
-                       highlighted: highlight.isOn(.submenu(.dictationOptions)),
-                       onHover: highlight.hover(.submenu(.dictationOptions))) { submenu = .dictationOptions; nav.clear() }
+        MenuSubmenuRow(submenu: .library, icon: "books.vertical", title: "Library", highlight: highlight)
+        MenuSubmenuRow(submenu: .dictationOptions, icon: "mic", title: "Dictation options", highlight: highlight)
         MenuSeparator()
-        MenuRow(icon: "macwindow", title: "Open BugVoice",
-                hint: "⌃⌥\(model.settings.shortcuts.letter(for: .openApp))",
-                highlighted: highlight.isOn(.openApp), onHover: highlight.hover(.openApp)) {
-            close()
-            model.openMainWindow(.dictation)
-        }
-        MenuRow(icon: "gearshape", title: "Settings…", hint: "⌘,",
-                highlighted: highlight.isOn(.settings), onHover: highlight.hover(.settings)) {
-            close()
-            model.openMainWindow(.settings)
-        }
-        MenuSubmenuRow(title: "Tools", highlighted: highlight.isOn(.submenu(.tools)),
-                       onHover: highlight.hover(.submenu(.tools))) { submenu = .tools; nav.clear() }
-        MenuRow(title: "Quit BugVoice", hint: "⌘Q",
-                highlighted: highlight.isOn(.quit), onHover: highlight.hover(.quit)) {
-            NSApp.terminate(nil)
-        }
+        MenuRow(id: .openApp, icon: "macwindow", title: "Open BugVoice",
+                hint: "⌃⌥\(model.settings.shortcuts.letter(for: .openApp))", highlight: highlight)
+        MenuRow(id: .settings, icon: "gearshape", title: "Settings…", hint: "⌘,", highlight: highlight)
+        MenuSubmenuRow(submenu: .tools, title: "Tools", highlight: highlight)
+        MenuRow(id: .quit, title: "Quit BugVoice", hint: "⌘Q", highlight: highlight)
     }
 
     // MARK: Status

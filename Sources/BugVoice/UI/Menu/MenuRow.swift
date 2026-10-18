@@ -21,54 +21,55 @@ private struct MenuRowChrome: ViewModifier {
 /// Plain row: optional SF Symbol, title, optional right-aligned hint.
 struct MenuRow: View {
     @Environment(AppearanceStore.self) private var store
+    let id: MenuControl
     var icon: String?
     let title: String
     var hint: String?
-    let highlighted: Bool
-    let onHover: (Bool) -> Void
-    let action: () -> Void
+    let highlight: MenuHighlight
 
     var body: some View {
-        Button(action: action) {
+        Button(action: highlight.action(id)) {
             HStack(spacing: LayoutTokens.spacing[1]) {
                 Group {
                     if let icon { Image(systemName: icon) } else { Color.clear }
                 }
                 .foregroundStyle(.bvSecondary)
                 .frame(width: store.scaled(16))
+                .accessibilityHidden(true)
                 Text(title).bvFont(.body)
                 Spacer(minLength: LayoutTokens.spacing[1])
-                if let hint { Text(hint).bvFont(.footnote).foregroundStyle(.bvSecondary) }
+                if let hint { Text(hint).bvFont(.footnote).foregroundStyle(.bvSecondary).accessibilityHidden(true) }
             }
-            .modifier(MenuRowChrome(highlighted: highlighted, onHover: onHover))
+            .modifier(MenuRowChrome(highlighted: highlight.isOn(id), onHover: highlight.hover(id)))
         }
         .buttonStyle(.plain)
+        .id(id)
     }
 }
 
 /// Row that opens a submenu in place; shows › on the right.
 struct MenuSubmenuRow: View {
+    let submenu: MenuSubmenu
     var icon: String?
     let title: String
-    let highlighted: Bool
-    let onHover: (Bool) -> Void
-    let action: () -> Void
+    let highlight: MenuHighlight
 
     var body: some View {
-        MenuRow(icon: icon, title: title, hint: "›", highlighted: highlighted, onHover: onHover, action: action)
+        MenuRow(id: .submenu(submenu), icon: icon, title: title, hint: "›", highlight: highlight)
+            .accessibilityValue("submenu")
     }
 }
 
 /// Row with a small capsule switch on the right.
 struct MenuSwitchRow: View {
     @Environment(AppearanceStore.self) private var store
+    let id: MenuControl
     let title: String
-    @Binding var isOn: Bool
-    let highlighted: Bool
-    let onHover: (Bool) -> Void
+    let isOn: Bool
+    let highlight: MenuHighlight
 
     var body: some View {
-        Button { isOn.toggle() } label: {
+        Button(action: highlight.action(id)) {
             HStack(spacing: LayoutTokens.spacing[1]) {
                 Text(title).bvFont(.body)
                 Spacer(minLength: LayoutTokens.spacing[1])
@@ -78,36 +79,41 @@ struct MenuSwitchRow: View {
                     .overlay(alignment: isOn ? .trailing : .leading) {
                         Circle().fill(.bvBackground).padding(store.scaled(2))
                     }
+                    .accessibilityHidden(true)
             }
-            .modifier(MenuRowChrome(highlighted: highlighted, onHover: onHover))
+            .modifier(MenuRowChrome(highlighted: highlight.isOn(id), onHover: highlight.hover(id)))
         }
         .buttonStyle(.plain)
-        .accessibilityValue(isOn ? "On" : "Off")
+        .accessibilityAddTraits(.isToggle)
+        .accessibilityValue(isOn ? "on" : "off")
+        .id(id)
     }
 }
 
 /// One choice in a group; a check mark marks the selected one.
 struct MenuCheckRow: View {
     @Environment(AppearanceStore.self) private var store
+    let id: MenuControl
     let title: String
     let checked: Bool
-    let highlighted: Bool
-    let onHover: (Bool) -> Void
-    let action: () -> Void
+    let highlight: MenuHighlight
 
     var body: some View {
-        Button(action: action) {
+        Button(action: highlight.action(id)) {
             HStack(spacing: LayoutTokens.spacing[1]) {
                 Group {
                     if checked { Image(systemName: "checkmark") } else { Color.clear }
                 }
                 .frame(width: store.scaled(16))
+                .accessibilityHidden(true)
                 Text(title).bvFont(.body)
                 Spacer(minLength: 0)
             }
-            .modifier(MenuRowChrome(highlighted: highlighted, onHover: onHover))
+            .modifier(MenuRowChrome(highlighted: highlight.isOn(id), onHover: highlight.hover(id)))
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(checked ? .isSelected : [])
+        .id(id)
     }
 }
 
@@ -135,19 +141,19 @@ struct MenuSeparator: View {
 }
 
 /// Bordered button used in the grid, the meeting strip and the last dictation block.
-/// Highlighted shows a 2 pt accent outline.
+/// Highlighted shows a 2 pt accent outline. A disabled button never highlights.
 struct MenuButton<Label: View>: View {
+    let id: MenuControl
     var small = false
     var primary = false
     var fillsWidth = false
-    let highlighted: Bool
-    let onHover: (Bool) -> Void
-    let action: () -> Void
+    let highlight: MenuHighlight
     @ViewBuilder let label: () -> Label
     @Environment(\.isEnabled) private var isEnabled
 
     var body: some View {
-        Button(action: action) {
+        let onHover = highlight.hover(id)
+        Button(action: highlight.action(id)) {
             label()
                 .bvFont(small ? .footnote : .body)
                 .fontWeight(primary ? .semibold : nil)
@@ -161,11 +167,12 @@ struct MenuButton<Label: View>: View {
                 .overlay(RoundedRectangle(cornerRadius: LayoutTokens.controlRadius)
                     .stroke(primary ? AnyShapeStyle(.bvAccent) : AnyShapeStyle(.bvSeparator), lineWidth: 1))
                 .overlay(RoundedRectangle(cornerRadius: LayoutTokens.controlRadius + 1)
-                    .stroke(.bvAccent, lineWidth: 2).padding(-2).opacity(highlighted ? 1 : 0))
+                    .stroke(.bvAccent, lineWidth: 2).padding(-2).opacity(isEnabled && highlight.isOn(id) ? 1 : 0))
                 .opacity(isEnabled ? 1 : 0.45)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .onHover(perform: onHover)
+        .onHover { inside in if isEnabled || !inside { onHover(inside) } }
+        .id(id)
     }
 }
