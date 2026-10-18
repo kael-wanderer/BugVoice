@@ -12,6 +12,7 @@ struct ScratchpadWindowView: View {
     @State private var assistants: [NoteID: ScratchpadAssistant] = [:]
     @State private var assistantNoteID: NoteID?
     @State private var searchText = ""
+    @State private var pendingDelete: NotesListItem?
     @State private var bodyFocusRequested = false
     @FocusState private var searchFocused: Bool
 
@@ -51,6 +52,20 @@ struct ScratchpadWindowView: View {
             if let assistantNoteID, !ids.contains(assistantNoteID) { assistant.cancel() }
         }
         .onDisappear { assistant.cancel(); for saved in assistants.values { saved.cancel() } }
+        .confirmationDialog(
+            "Move \(pendingDelete?.title ?? "this note") to the Trash?",
+            isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }),
+            titleVisibility: .visible
+        ) {
+            Button("Move to Trash", role: .destructive) {
+                guard let item = pendingDelete else { return }
+                Task {
+                    do { try await model.deleteNote(item.id) }
+                    catch { model.saveError = "Could not move note to the Trash: \(error.localizedDescription)" }
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        }
         .onChange(of: model.scratchpadAskRequest) { _, _ in
             activateAssistant(controller.selectedNoteID)
             assistant.changeScope(.all)
@@ -126,6 +141,20 @@ struct ScratchpadWindowView: View {
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
+                        .contextMenu {
+                            Button(item.pinned ? "Unpin" : "Pin") { Task { await model.setNotePinned(item.id, pinned: !item.pinned) } }
+                            Menu("Move to folder") {
+                                Button("Unfiled") { Task { await model.setNoteLabels(id: item.id, folderID: nil, tags: item.tags) } }
+                                Divider()
+                                ForEach(model.sortedFolders) { folder in
+                                    Button(folder.name) {
+                                        Task { await model.setNoteLabels(id: item.id, folderID: folder.id, tags: item.tags) }
+                                    }
+                                }
+                            }
+                            Divider()
+                            Button("Move to Trash…", role: .destructive) { pendingDelete = item }
+                        }
                     }
                 }
                 .padding(.horizontal, LayoutTokens.spacing[1])
