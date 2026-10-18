@@ -6,7 +6,7 @@ struct BVTypography {
     var settings: AppearanceSettings
     func font(_ token: TextToken) -> Font {
         switch settings.font {
-        case .custom, .hyperlegible:
+        case .custom:
             let resolved = nsFont(token)
             return .custom(resolved.fontName, fixedSize: resolved.pointSize)
         default: return Font(nsFont(token))
@@ -24,7 +24,7 @@ struct BVTypography {
         case .rounded: return designed(.rounded, size: size, weight: weight)
         case .serif: return designed(.serif, size: size, weight: weight)
         case .monospaced: return .monospacedSystemFont(ofSize: size, weight: weight)
-        case .hyperlegible: return custom("Atkinson Hyperlegible Next", size: size, weight: weight)
+        case .hyperlegible: return .systemFont(ofSize: size, weight: weight)
         case .custom(let name): return custom(name, size: size, weight: weight)
         }
     }

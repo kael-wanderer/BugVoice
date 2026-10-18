@@ -29,6 +29,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var wakeObserver: NSObjectProtocol?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        FontRegistry.registerBundledFonts()
         model.presentMainWindow = { [weak self] in
             self?.mainWindow.show()
         }
