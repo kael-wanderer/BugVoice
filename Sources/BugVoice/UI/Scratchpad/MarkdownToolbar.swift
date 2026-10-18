@@ -73,12 +73,12 @@ struct MarkdownToolbar: View {
     }
 
     private func divider(_ padding: CGFloat) -> some View {
-        Divider().frame(height: 16).padding(.horizontal, padding)
+        Divider().frame(height: 16).padding(.horizontal, LayoutTokens.spacing[0])
     }
 
     private func button(_ title: String, help: String, width: CGFloat, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Text(title).bvFont(.footnote).frame(width: width, height: 24)
+            Text(title).bvFont(.footnote).frame(width: store.scaled(width), height: 24)
         }
         .help(help)
         .accessibilityLabel(help)

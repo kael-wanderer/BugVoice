@@ -45,7 +45,7 @@ struct SnippetsView: View {
 
     private func row(_ snippet: Snippet) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: LayoutTokens.spacing[2]) {
-            Text("“\(snippet.trigger)”").bold().frame(minWidth: 140, alignment: .leading)
+            Text("“\(snippet.trigger)”").bold().frame(minWidth: store.scaled(140), alignment: .leading)
             Text("↳ " + snippet.text.replacingOccurrences(of: "\n", with: " ⏎ "))
                 .bvCode(.body).foregroundStyle(.bvSecondary)
                 .lineLimit(1).truncationMode(.tail).frame(maxWidth: .infinity, alignment: .leading)

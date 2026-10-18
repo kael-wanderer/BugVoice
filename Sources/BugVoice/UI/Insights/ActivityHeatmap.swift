@@ -7,7 +7,7 @@ struct ActivityHeatmap: View {
     @State private var hovered: HeatCell?
 
     private var cell: CGFloat { store.scaled(12) }
-    private let gap: CGFloat = 3
+    private let gap: CGFloat = LayoutTokens.spacing[0]
 
     var body: some View {
         VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {

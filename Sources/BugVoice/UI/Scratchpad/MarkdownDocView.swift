@@ -31,7 +31,7 @@ struct MarkdownDocView: View {
         switch block {
         case .heading(let level, let text):
             inline(text).bvFont(level == 1 ? .title1 : level == 2 ? .title2 : .title3)
-                .padding(.top, level <= 2 ? 6 : 2)
+                .padding(.top, LayoutTokens.spacing[0])
         case .paragraph(let text):
             inline(text)
         case .bullet(let indent, let text):
@@ -50,7 +50,7 @@ struct MarkdownDocView: View {
                     .strikethrough(checked)
                     .foregroundStyle(checked ? store.theme.secondaryText : store.theme.text)
             }
-            .padding(.leading, CGFloat(indent) * 20)
+            .padding(.leading, CGFloat(indent) * LayoutTokens.spacing[3])
         case .quote(let text):
             HStack(spacing: LayoutTokens.spacing[1]) {
                 Rectangle().fill(store.theme.secondaryText.opacity(0.4)).frame(width: 3)
@@ -101,7 +101,7 @@ struct MarkdownDocView: View {
             marker.foregroundStyle(.bvSecondary)
             inline(text)
         }
-        .padding(.leading, CGFloat(indent) * 20)
+        .padding(.leading, CGFloat(indent) * LayoutTokens.spacing[3])
     }
 
     /// Inline Markdown through Foundation; raw text when it does not parse.

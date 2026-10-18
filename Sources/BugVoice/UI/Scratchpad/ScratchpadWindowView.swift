@@ -29,8 +29,8 @@ struct ScratchpadWindowView: View {
                 editorArea
                     .background(store.theme.background, in: RoundedRectangle(cornerRadius: LayoutTokens.cardRadius))
                     .overlay(RoundedRectangle(cornerRadius: LayoutTokens.cardRadius).stroke(store.theme.secondaryText.opacity(0.18)))
-                    .padding([.trailing, .bottom], 8)
-                    .padding(.leading, showsSideList ? 0 : 8)
+                    .padding([.trailing, .bottom], LayoutTokens.spacing[1])
+                    .padding(.leading, showsSideList ? 0 : LayoutTokens.spacing[1])
             }
         }
         .background(store.theme.background)

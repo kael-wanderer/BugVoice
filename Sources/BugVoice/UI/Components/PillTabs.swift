@@ -46,13 +46,13 @@ struct PillTabs<Value: Hashable>: View {
             .bvFont(size == .small ? .footnote : .body)
             .fontWeight(selected ? .semibold : .regular)
             .foregroundStyle(selected ? store.theme.text : store.theme.secondaryText)
-            .padding(.horizontal, size == .small ? 10 : 14)
-            .padding(.vertical, size == .small ? 3 : 5)
+            .padding(.horizontal, size == .small ? LayoutTokens.spacing[1] : LayoutTokens.spacing[3])
+            .padding(.vertical, LayoutTokens.spacing[0])
             .background {
                 if selected {
                     Capsule()
                         .fill(store.theme.card)
-                        .shadow(color: .black.opacity(0.12), radius: 1, y: 1)
+                        .shadow(color: store.theme.separator.opacity(0.12), radius: 1, y: 1)
                 }
             }
             .contentShape(Capsule())

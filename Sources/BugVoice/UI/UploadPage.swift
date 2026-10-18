@@ -208,7 +208,7 @@ struct UploadPage: View {
                 Text("MP3, WAV, M4A, AIFF, CAF, MP4, MOV, M4V")
                     .bvFont(.footnote).foregroundStyle(.bvSecondary)
             }
-            .padding(compact ? 20 : 38)
+            .padding(compact ? LayoutTokens.spacing[3] : LayoutTokens.spacing[5])
             .frame(maxWidth: .infinity)
             .background(store.theme.card, in: RoundedRectangle(cornerRadius: LayoutTokens.largeCardRadius))
             .overlay(

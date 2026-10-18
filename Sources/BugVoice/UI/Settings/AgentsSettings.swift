@@ -61,11 +61,11 @@ struct AgentsSettings: View {
         let status = model.mcp.status
         let (text, color): (String, Color) =
             if status.hasPrefix("Could not start") { (status, store.theme.warning) }
-            else if !enabled { ("Off", .secondary) }
+            else if !enabled { ("Off", store.theme.secondaryText) }
             else { (status, status == "Listening" ? store.theme.success : store.theme.secondaryText) }
         return HStack(spacing: LayoutTokens.spacing[0]) {
             Circle().fill(color).frame(width: 7, height: 7)
-            Text(text).bvFont(.footnote).foregroundStyle(color == .secondary ? .secondary : .primary)
+            Text(text).bvFont(.footnote).foregroundStyle(!enabled ? store.theme.secondaryText : store.theme.text)
         }
         .padding(.top, LayoutTokens.spacing[0])
     }

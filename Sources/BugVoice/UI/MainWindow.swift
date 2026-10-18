@@ -18,6 +18,8 @@ struct MainWindow: View {
                 }
                 .tag(page)
             }
+            .scrollContentBackground(.hidden)
+            .background(.bvSidebar)
             .navigationSplitViewColumnWidth(store.scaled(200))
         } detail: {
             switch model.page {

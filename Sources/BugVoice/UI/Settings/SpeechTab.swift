@@ -4,6 +4,7 @@ import VoiceCore
 import WhisperEngine
 
 struct SpeechTab: View {
+    @Environment(AppearanceStore.self) private var store
     @Bindable var model: AppModel
     @State private var devices: [AudioInputDevice] = []
 
@@ -35,15 +36,15 @@ struct SpeechTab: View {
                 } else {
                     SettingsRow(title: "Base URL") {
                         TextField("Base URL", text: $model.settings.speech.serverBaseURL)
-                            .textFieldStyle(.roundedBorder).labelsHidden().frame(maxWidth: 360)
+                            .textFieldStyle(.roundedBorder).labelsHidden().frame(maxWidth: store.scaled(360))
                     }
                     SettingsRow(title: "Model") {
                         TextField("Model", text: $model.settings.speech.serverModel)
-                            .textFieldStyle(.roundedBorder).labelsHidden().frame(maxWidth: 360)
+                            .textFieldStyle(.roundedBorder).labelsHidden().frame(maxWidth: store.scaled(360))
                     }
                     SettingsRow(title: "API key") {
                         KeyField(model: model, title: "Paste the key", account: "speech-openai")
-                            .textFieldStyle(.roundedBorder).frame(maxWidth: 360)
+                            .textFieldStyle(.roundedBorder).frame(maxWidth: store.scaled(360))
                     }
                 }
             }

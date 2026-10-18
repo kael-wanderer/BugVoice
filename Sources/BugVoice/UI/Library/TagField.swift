@@ -113,7 +113,7 @@ struct TagField: View {
 
 /// Wraps chips onto new lines.
 struct FlowRow: Layout {
-    var spacing: CGFloat = 6
+    var spacing: CGFloat = LayoutTokens.spacing[1]
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         let width = proposal.width ?? .infinity

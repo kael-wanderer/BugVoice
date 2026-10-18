@@ -27,6 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var meetingWindow: MeetingWindowController?
     private var sleepObserver: NSObjectProtocol?
     private var wakeObserver: NSObjectProtocol?
+    private var textSizeAlternateMonitor: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         FontRegistry.registerBundledFonts()
@@ -38,6 +39,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         model.scratchpadWindow = scratchpadWindow
         installEditMenu()
+        installTextSizeAlternate()
         sleepObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.willSleepNotification,
             object: nil,
@@ -89,6 +91,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         item.submenu = edit
         main.addItem(item)
         NSApp.mainMenu = main
+    }
+
+    /// SwiftUI hides the alternate menu item without enabling hidden key equivalents.
+    /// Local key events also reach the floating panels and their AppKit editors.
+    private func installTextSizeAlternate() {
+        guard textSizeAlternateMonitor == nil else { return }
+        textSizeAlternateMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard event.modifierFlags.intersection([.command, .control, .option, .shift]) == .command,
+                  event.charactersIgnoringModifiers == "=" else { return event }
+            let handled = MainActor.assumeIsolated {
+                guard let self else { return false }
+                self.model.settings.appearance.stepTextScale(by: 10)
+                return true
+            }
+            return handled ? nil : event
+        }
     }
 
     func installViewMenu() -> some Commands {

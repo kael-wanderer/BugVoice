@@ -31,7 +31,7 @@ struct HeroCard<Illustration: View>: View {
                 .disabled(isDisabled)
                 if let hint { Text(hint).bvFont(.footnote).foregroundStyle(.bvSecondary) }
             }
-            .frame(maxWidth: 520, alignment: .leading)
+            .frame(maxWidth: store.scaled(520), alignment: .leading)
             if cardWidth >= 700 {
                 Spacer(minLength: 0)
                 illustration.frame(width: store.scaled(260), height: 150)
@@ -80,6 +80,6 @@ struct HeroChip<Content: View>: View {
             .padding(.horizontal, LayoutTokens.spacing[1]).padding(.vertical, LayoutTokens.spacing[0])
             .background(Capsule().fill(store.theme.background))
             .overlay(Capsule().strokeBorder(store.theme.separator))
-            .shadow(color: .black.opacity(0.08), radius: 2, y: 1)
+            .shadow(color: store.theme.separator.opacity(0.08), radius: 2, y: 1)
     }
 }

@@ -39,7 +39,7 @@ struct LabelsBox: View {
                                 .padding(.horizontal, LayoutTokens.spacing[1])
                                 .padding(.vertical, LayoutTokens.spacing[0])
                                 .foregroundStyle(.bvAccent)
-                                .overlay(Capsule().strokeBorder(.purple, style: StrokeStyle(lineWidth: 1, dash: [3])))
+                                .overlay(Capsule().strokeBorder(.bvAccent, style: StrokeStyle(lineWidth: 1, dash: [3])))
                         }
                         Text("From the summary · \(suggestionSource) · click to add")
                             .bvFont(.footnote).foregroundStyle(.bvSecondary)

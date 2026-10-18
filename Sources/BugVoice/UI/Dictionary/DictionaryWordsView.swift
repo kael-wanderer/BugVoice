@@ -66,7 +66,7 @@ private struct WordRow: View {
                     .textFieldStyle(.roundedBorder).frame(width: store.scaled(180))
                     .onSubmit(rename).onExitCommand { newName = nil }
             } else {
-                Text(word.word).bold().frame(minWidth: 140, alignment: .leading)
+                Text(word.word).bold().frame(minWidth: store.scaled(140), alignment: .leading)
             }
             FlowLayout(spacing: LayoutTokens.spacing[0]) {
                 if !word.heardAs.isEmpty { Text("Heard as").bvFont(.footnote).foregroundStyle(.bvSecondary) }

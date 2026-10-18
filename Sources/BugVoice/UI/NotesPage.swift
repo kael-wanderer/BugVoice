@@ -144,7 +144,7 @@ struct NotesPage: View {
                 ScrollView {
                     LazyVGrid(
                         columns: Array(repeating: GridItem(.flexible(), spacing: LayoutTokens.spacing[2]), count: proxy.size.width < 640 ? 1 : 2),
-                        spacing: 12
+                        spacing: LayoutTokens.spacing[2]
                     ) {
                         ForEach(items) { item in card(item) }
                     }
