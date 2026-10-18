@@ -130,10 +130,6 @@ struct ScratchpadWindowView: View {
                 .padding(.horizontal, LayoutTokens.spacing[1])
             }
             Spacer(minLength: 0)
-            Divider().padding(.horizontal, LayoutTokens.spacing[1])
-            barButton(.ai, title: "AI", symbol: "sparkles")
-            barButton(.formatting, title: "Formatting", symbol: "textformat")
-                .padding(.bottom, LayoutTokens.spacing[1])
         }
         .padding(.top, LayoutTokens.spacing[0])
     }
@@ -170,25 +166,6 @@ struct ScratchpadWindowView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-    }
-
-    private func barButton(_ bar: ScratchpadBottomBar, title: String, symbol: String) -> some View {
-        let on = model.settings.scratchpad.bottomBar == bar
-        return Button {
-            model.settings.scratchpad.bottomBar = bar
-        } label: {
-            HStack(spacing: LayoutTokens.spacing[1]) {
-                Image(systemName: symbol).frame(width: 16)
-                Text(title)
-                Spacer()
-            }
-            .padding(.horizontal, LayoutTokens.spacing[2])
-            .padding(.vertical, LayoutTokens.spacing[1])
-            .background(on ? store.theme.secondaryText.opacity(0.15) : .clear)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(on ? .isSelected : [])
     }
 
     // MARK: Editor

@@ -198,11 +198,6 @@ public enum NoteViewMode: String, Codable, Sendable, CaseIterable {
     }
 }
 
-/// The bar under the editor in the Scratchpad window.
-public enum ScratchpadBottomBar: String, Codable, Sendable, CaseIterable {
-    case ai, formatting
-}
-
 /// Order of the Scratchpad cards and the window's note list. Pinned notes come first.
 public enum NotesSort: String, Codable, Sendable, CaseIterable {
     case editedNewest, editedOldest, title
@@ -225,7 +220,7 @@ public struct ScratchpadSettings: Codable, Equatable, Sendable {
     public var keepOnTop = true
     public var sideListHidden = false
     public var compact = false
-    public var bottomBar: ScratchpadBottomBar = .ai
+    public var aiBarShown = false
     public var sort: NotesSort = .editedNewest
 
     public init() {}
@@ -241,7 +236,7 @@ extension ScratchpadSettings {
         keepOnTop = c.value(.keepOnTop, default: keepOnTop)
         sideListHidden = c.value(.sideListHidden, default: sideListHidden)
         compact = c.value(.compact, default: compact)
-        bottomBar = c.value(.bottomBar, default: bottomBar)
+        aiBarShown = c.value(.aiBarShown, default: aiBarShown)
         sort = c.value(.sort, default: sort)
     }
 }

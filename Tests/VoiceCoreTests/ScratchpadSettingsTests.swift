@@ -30,23 +30,28 @@ struct ScratchpadSettingsTests {
         #expect(decoded.scratchpad.keepOnTop)
         #expect(!decoded.scratchpad.sideListHidden)
         #expect(!decoded.scratchpad.compact)
-        #expect(decoded.scratchpad.bottomBar == .ai)
+        #expect(decoded.scratchpad.aiBarShown == false)
         #expect(decoded.scratchpad.sort == .editedNewest)
         var changed = decoded
         changed.scratchpad.keepOnTop = false
         changed.scratchpad.sideListHidden = true
         changed.scratchpad.compact = true
-        changed.scratchpad.bottomBar = .formatting
+        changed.scratchpad.aiBarShown = true
         changed.scratchpad.sort = .title
         let again = try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(changed))
         #expect(again.scratchpad == changed.scratchpad)
+        #expect(again.scratchpad.aiBarShown == true)
     }
 
     @Test func unknownSortAndBarFallBack() throws {
-        let json = #"{"scratchpad":{"bottomBar":"chat","sort":"size","keepOnTop":false}}"#
+        let json = #"{"scratchpad":{"bottomBar":"formatting","sort":"size","keepOnTop":false}}"#
         let decoded = try JSONDecoder().decode(AppSettings.self, from: Data(json.utf8))
-        #expect(decoded.scratchpad.bottomBar == .ai)
+        #expect(decoded.scratchpad.aiBarShown == false)
         #expect(decoded.scratchpad.sort == .editedNewest)
         #expect(!decoded.scratchpad.keepOnTop)
+        let oldAI = #"{"scratchpad":{"bottomBar":"ai"}}"#
+        let decodedAI = try JSONDecoder().decode(AppSettings.self, from: Data(oldAI.utf8))
+        #expect(decodedAI.scratchpad.aiBarShown == false)
+        #expect(!String(decoding: try JSONEncoder().encode(AppSettings()), as: UTF8.self).contains("bottomBar"))
     }
 }

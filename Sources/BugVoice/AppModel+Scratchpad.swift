@@ -97,7 +97,7 @@ extension AppModel {
 
     func openScratchpadAsk() async {
         await openScratchpadWindow(newNote: false)
-        settings.scratchpad.bottomBar = .ai
+        settings.scratchpad.aiBarShown = true
         scratchpadAskRequest &+= 1
     }
 

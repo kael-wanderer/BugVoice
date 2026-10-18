@@ -219,7 +219,7 @@ struct ScratchpadNoteEditor: View {
 
     @ViewBuilder private var bottomBar: some View {
         Group {
-            if model.settings.scratchpad.bottomBar == .ai {
+            if model.settings.scratchpad.aiBarShown {
                 AIBar(assistant: assistant, model: model, noteID: note.id, input: currentInput)
             } else if model.scratchpadView == .markdown {
                 MarkdownToolbar { command in run(command) }
