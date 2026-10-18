@@ -49,32 +49,49 @@ struct FolderFilterMenu: View {
     }
 }
 
-/// Tags menu plus removable chips. Several chips mean all must match.
+/// Tags menu; several selected tags mean all must match.
 struct TagFilterBar: View {
-    @Environment(AppearanceStore.self) private var store
+    @Environment(\.tagColors) private var tagColors
     let catalog: [TagCount]
     @Binding var selected: [String]
     let onManage: () -> Void
 
     var body: some View {
-        HStack(spacing: LayoutTokens.spacing[0]) {
-            Menu {
-                if catalog.isEmpty { Text("No tags yet") }
-                ForEach(catalog) { tag in
-                    Button("#\(tag.name)  \(tag.count)") {
-                        if !selected.contains(tag.name) { selected.append(tag.name) }
+        Menu {
+            ForEach(catalog) { tag in
+                Toggle(isOn: Binding(
+                    get: { selected.contains(tag.name) },
+                    set: { on in
+                        if on {
+                            if !selected.contains(tag.name) { selected.append(tag.name) }
+                        } else {
+                            selected.removeAll { $0 == tag.name }
+                        }
+                    }
+                )) {
+                    HStack {
+                        if let color = tagColors[tag.name] { TagColors.dot(color) }
+                        Text("#\(tag.name)  \(tag.count)")
                     }
                 }
-                Divider()
-                Button("Manage tags…", action: onManage)
-            } label: {
-                Label("Tags", systemImage: "tag")
             }
-            .fixedSize()
-            ForEach(selected, id: \.self) { tag in
-                TagChip(name: tag) { selected.removeAll { $0 == tag } }
+            if catalog.isEmpty { Text("No tags yet") }
+            Divider()
+            Button("Clear tags") { selected = [] }.disabled(selected.isEmpty)
+            Button("Manage tags…", action: onManage)
+        } label: {
+            HStack(spacing: LayoutTokens.spacing[0]) {
+                Label("Tags", systemImage: "tag")
+                if !selected.isEmpty {
+                    Text("\(selected.count)").bvFont(.caption)
+                        .foregroundStyle(.bvOnAccent)
+                        .padding(.horizontal, LayoutTokens.spacing[1])
+                        .background(.bvAccent, in: Capsule())
+                }
             }
         }
+        .fixedSize()
+        .accessibilityLabel("Tags, \(selected.count) selected")
     }
 }
 

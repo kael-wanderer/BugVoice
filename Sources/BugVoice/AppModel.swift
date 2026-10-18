@@ -806,10 +806,11 @@ final class AppModel {
             let suggestions = edited(meeting.suggestedTags).filter { !tags.contains($0) }
             await setMeetingLabels(id: meeting.id, folderID: meeting.folderID, tags: tags, suggestedTags: suggestions)
             await reloadMeetings()
-            if let current = meetingManifests.first(where: { $0.id == meeting.id }),
-               current.tags.contains(old) || current.suggestedTags.contains(old) {
+            guard let current = meetingManifests.first(where: { $0.id == meeting.id }) else {
                 failures += 1
+                continue
             }
+            if current.tags.contains(old) || current.suggestedTags.contains(old) { failures += 1 }
         }
         guard failures == 0 else {
             saveError = "Could not update \(failures) items. Try again."

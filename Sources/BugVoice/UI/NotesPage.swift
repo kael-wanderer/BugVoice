@@ -30,6 +30,12 @@ struct NotesPage: View {
         )
     }
 
+    private var folderIDs: [NoteID: FolderID] {
+        controller.notes.reduce(into: [:]) { result, note in
+            if let id = note.frontMatter.folderID { result[note.id] = id }
+        }
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             library
@@ -88,7 +94,7 @@ struct NotesPage: View {
                     .help("Sort: \(model.settings.scratchpad.sort.title)")
                     .accessibilityLabel("Sort, \(model.settings.scratchpad.sort.title)")
                     Button { Task { await controller.reloadList() } } label: { Image(systemName: "arrow.clockwise") }
-                        .buttonStyle(.borderless).help("Reload from disk").accessibilityLabel("Reload from disk")
+                        .fixedSize().buttonStyle(.borderless).help("Reload from disk").accessibilityLabel("Reload from disk")
                 }
                 ForEach(controller.insertionRecoveries) { recovery in
                     VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
@@ -118,13 +124,14 @@ struct NotesPage: View {
                 EmptyState("No results", systemImage: "magnifyingglass")
             }
         } else {
+            let folders = folderIDs
             LazyVStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
-                ForEach(items) { item in card(item) }
+                ForEach(items) { item in card(item, folderName: model.folderName(folders[item.id])) }
             }
         }
     }
 
-    private func card(_ item: NotesListItem) -> some View {
+    private func card(_ item: NotesListItem, folderName: String?) -> some View {
         let selected = model.selectedNoteID == item.id
         return VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
             HStack(spacing: LayoutTokens.spacing[0]) {
@@ -133,6 +140,17 @@ struct NotesPage: View {
             }
             Text(item.modifiedAt.formatted(date: .abbreviated, time: .shortened))
                 .bvFont(.footnote).foregroundStyle(.bvSecondary).lineLimit(1)
+            if folderName != nil || !item.tags.isEmpty {
+                FlowLayout(spacing: LayoutTokens.spacing[0]) {
+                    if let folderName {
+                        Label(folderName, systemImage: "folder").bvFont(.footnote).foregroundStyle(.bvSecondary)
+                    }
+                    ForEach(Array(item.tags.prefix(3)), id: \.self) { TagChip(name: $0) }
+                    if item.tags.count > 3 {
+                        Text("+\(item.tags.count - 3)").bvFont(.footnote).foregroundStyle(.bvSecondary)
+                    }
+                }
+            }
             Text(preview(item.body)).bvFont(.footnote).foregroundStyle(.bvSecondary).lineLimit(1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
