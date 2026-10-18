@@ -35,6 +35,11 @@ struct RoundPills<Value: Hashable>: View {
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(selection == value ? .isSelected : [])
             }
+            // One line per possible row break; the layout hides the ones it does not use.
+            ForEach(1..<max(1, items.count), id: \.self) { _ in
+                Rectangle().fill(.bvSeparator).layoutValue(key: PillDivider.self, value: true)
+                    .accessibilityHidden(true)
+            }
         }
         .padding(LayoutTokens.spacing[0])
         .background(.bvHover, in: RoundedRectangle(cornerRadius: store.scaled(24)))
@@ -43,37 +48,75 @@ struct RoundPills<Value: Hashable>: View {
     }
 }
 
-/// A flow layout that measures the widest label, wraps complete pills, and
-/// proposes equal widths to every pill on a row (including the final row).
+private struct PillDivider: LayoutValueKey { static let defaultValue = false }
+
+/// Lays the pills out in one row when it can: equal widths when the widest
+/// label fits that way, else each pill at its own width plus an even share of
+/// the spare space. Only when one row is too narrow does it wrap, spreading
+/// the pills evenly over the rows (equal widths per row) with a line between rows.
 private struct EqualPillLayout: Layout {
     var spacing: CGFloat
-    private func rows(_ width: CGFloat, _ views: Subviews) -> [(Range<Int>, CGFloat, CGFloat)] {
-        guard !views.isEmpty else { return [] }
-        let widest = views.map { $0.sizeThatFits(.unspecified).width }.max() ?? 0
-        let fit = max(1, min(views.count, Int((width + spacing) / max(1, widest + spacing))))
+    private struct Row { var range: Range<Int>; var widths: [CGFloat]; var height: CGFloat }
+
+    private func rows(_ width: CGFloat, _ pills: [LayoutSubview]) -> [Row] {
+        guard !pills.isEmpty else { return [] }
+        let natural = pills.map { $0.sizeThatFits(.unspecified).width }
+        let widest = natural.max() ?? 0
+        let gaps = spacing * CGFloat(pills.count - 1)
+        func row(_ range: Range<Int>, _ widths: [CGFloat]) -> Row {
+            let height = zip(range, widths).map { pills[$0].sizeThatFits(.init(width: $1, height: nil)).height }.max() ?? 0
+            return Row(range: range, widths: widths, height: height)
+        }
+        if widest * CGFloat(pills.count) + gaps <= width {
+            return [row(0..<pills.count, Array(repeating: (width - gaps) / CGFloat(pills.count), count: pills.count))]
+        }
+        let total = natural.reduce(0, +)
+        if total + gaps <= width {
+            let share = (width - gaps - total) / CGFloat(pills.count)
+            return [row(0..<pills.count, natural.map { $0 + share })]
+        }
+        let fit = max(1, min(pills.count, Int((width + spacing) / max(1, widest + spacing))))
         // Spread the pills evenly over the rows they need, so no row holds one stray pill.
-        let rowCount = (views.count + fit - 1) / fit
-        let columns = (views.count + rowCount - 1) / rowCount
-        return stride(from: 0, to: views.count, by: columns).map { start in
-            let range = start..<min(start + columns, views.count)
+        let rowCount = (pills.count + fit - 1) / fit
+        let columns = (pills.count + rowCount - 1) / rowCount
+        return stride(from: 0, to: pills.count, by: columns).map { start in
+            let range = start..<min(start + columns, pills.count)
             let cell = max(0, (width - spacing * CGFloat(range.count - 1)) / CGFloat(range.count))
-            let height = range.map { views[$0].sizeThatFits(.init(width: cell, height: nil)).height }.max() ?? 0
-            return (range, cell, height)
+            return row(range, Array(repeating: cell, count: range.count))
         }
     }
+    private func split(_ subviews: Subviews) -> (pills: [LayoutSubview], dividers: [LayoutSubview]) {
+        (subviews.filter { !$0[PillDivider.self] }, subviews.filter { $0[PillDivider.self] })
+    }
+    /// Space between two rows: a gap, the 1 pt line, a gap.
+    private var rowGap: CGFloat { spacing * 2 + 1 }
+
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let natural = subviews.map { $0.sizeThatFits(.unspecified).width }.max() ?? 0
-        let width = proposal.width ?? natural * CGFloat(subviews.count) + spacing * CGFloat(max(0, subviews.count - 1))
-        let rows = rows(width, subviews)
-        return .init(width: width, height: rows.reduce(0) { $0 + $1.2 } + spacing * CGFloat(max(0, rows.count - 1)))
+        let pills = split(subviews).pills
+        let natural = pills.map { $0.sizeThatFits(.unspecified).width }.reduce(0, +)
+        let width = proposal.width ?? natural + spacing * CGFloat(max(0, pills.count - 1))
+        let rows = rows(width, pills)
+        return .init(width: width, height: rows.reduce(0) { $0 + $1.height } + rowGap * CGFloat(max(0, rows.count - 1)))
     }
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let (pills, dividers) = split(subviews)
+        let rows = rows(bounds.width, pills)
+        let inset = spacing * 4
         var y = bounds.minY
-        for (range, cell, height) in rows(bounds.width, subviews) {
-            for (column, index) in range.enumerated() {
-                subviews[index].place(at: .init(x: bounds.minX + CGFloat(column) * (cell + spacing), y: y), proposal: .init(width: cell, height: height))
+        for (rowIndex, row) in rows.enumerated() {
+            var x = bounds.minX
+            for (index, width) in zip(row.range, row.widths) {
+                pills[index].place(at: .init(x: x, y: y), proposal: .init(width: width, height: row.height))
+                x += width + spacing
             }
-            y += height + spacing
+            y += row.height
+            if rowIndex < rows.count - 1, dividers.indices.contains(rowIndex) {
+                dividers[rowIndex].place(at: .init(x: bounds.minX + inset, y: y + spacing), proposal: .init(width: bounds.width - inset * 2, height: 1))
+                y += rowGap
+            }
+        }
+        for divider in dividers.dropFirst(max(0, rows.count - 1)) {
+            divider.place(at: .init(x: bounds.minX, y: bounds.minY), proposal: .zero)
         }
     }
 }
