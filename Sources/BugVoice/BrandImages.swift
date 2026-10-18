@@ -1,11 +1,24 @@
 import AppKit
+import VoiceCore
 
 /// Images drawn from the BugVoice logo ("Antenna Mic", App/Icon/AppIcon.svg).
 enum BrandImages {
     /// The menu-bar glyph: a microphone with bug antennae, as a template image
     /// so macOS tints it for light and dark menu bars. `badge` adds a dot that
     /// marks a missing permission.
-    static func menuBar(badge: Bool) -> NSImage {
+    static func menuBar(logo: LogoID, badge: Bool) -> NSImage {
+        if let glyph = IconImages.menuGlyph(logo) {
+            guard badge else { return glyph }
+            let image = NSImage(size: glyph.size, flipped: true) { rect in
+                glyph.draw(in: rect)
+                NSColor.black.setFill()
+                NSBezierPath(ovalIn: NSRect(x: 12.9, y: 0.9, width: 4.2, height: 4.2)).fill()
+                return true
+            }
+            image.isTemplate = true
+            image.accessibilityDescription = "BugVoice, permission missing"
+            return image
+        }
         let image = NSImage(size: NSSize(width: 18, height: 18), flipped: true) { _ in
             // Drawn on the 24-unit grid of the SVG glyph, scaled to 18 pt.
             let transform = NSAffineTransform()

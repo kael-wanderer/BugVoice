@@ -205,6 +205,7 @@ final class AppModel {
         isLoadingSettings = true
         settings = loaded
         appearance.apply(loaded.appearance)
+        applyAppIcon()
         isLoadingSettings = false
         applyPendingKeyMoves()
         await restoreScratchpadTabs()
@@ -256,10 +257,17 @@ final class AppModel {
         presentPermissionsWindow?()
     }
 
+    private func applyAppIcon() {
+        if let image = IconImages.appIcon(settings.appearance.appIcon) {
+            NSApp.applicationIconImage = image
+        }
+    }
+
     // MARK: Settings
 
     private func settingsDidChange(from old: AppSettings) {
         appearance.apply(settings.appearance)
+        if settings.appearance.appIcon != old.appearance.appIcon { applyAppIcon() }
         if settings.shortcuts != old.shortcuts { registerGlobalShortcuts() }
         if settings.models.search != old.models.search || settings.models.connections != old.models.connections {
             searchIndexer.backfill()
