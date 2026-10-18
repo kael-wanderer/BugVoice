@@ -5,9 +5,8 @@ import SwiftUI
 import UniformTypeIdentifiers
 import VoiceCore
 
-/// The note in the Scratchpad window: title, labels, body (Markdown or Doc),
-/// the action row (view switch, Dictate, History, Trash, Copy) and the
-/// AI or Formatting bar.
+/// The note in the Scratchpad window: title, tool row, Formatting bar, body
+/// (Markdown or Doc), then the reply, listening status and AI bar on request.
 struct ScratchpadNoteEditor: View {
     @Environment(AppearanceStore.self) private var store
     @Bindable var model: AppModel
@@ -19,6 +18,7 @@ struct ScratchpadNoteEditor: View {
     @State private var confirmExternalReload = false
     @State private var caretToEndRequested = false
     @State private var dictateWhenCaretPlaced = false
+    @State private var formattingHeight: CGFloat = 0
 
     private var controller: NotesController { model.notesController }
 
@@ -41,17 +41,28 @@ struct ScratchpadNoteEditor: View {
             .padding(.top, LayoutTokens.spacing[2])
             .padding(.bottom, LayoutTokens.spacing[0])
 
-            LabelsBox(
-                model: model,
-                labels: note.frontMatter.labels,
-                catalog: model.allTagCatalog,
-                noun: "note",
-                onChange: { labels in
-                    Task { await model.setNoteLabels(id: note.id, folderID: labels.folderID, tags: labels.tags) }
+            ScratchpadToolRow(model: model, note: note) {
+                HStack(spacing: LayoutTokens.spacing[1]) {
+                    NotesMicButton(
+                        disabled: model.isListening || model.dictation?.isBusy == true || model.notesIsListening,
+                        action: dictate
+                    )
+                    .frame(width: 30, height: 30)
+                    .help("Dictate")
+                    historyMenu
+                    Button {
+                        confirmDelete = true
+                    } label: {
+                        Image(systemName: "trash").frame(width: 22, height: 22)
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Move note to Trash")
+                    .accessibilityLabel("Move note to Trash")
+                    copyMenu
                 }
-            )
-            .padding(.horizontal, LayoutTokens.spacing[3])
-            .padding(.bottom, LayoutTokens.spacing[0])
+            }
+
+            formattingBar
 
             statusRow
 
@@ -86,15 +97,19 @@ struct ScratchpadNoteEditor: View {
             .overlay(alignment: .bottom) { noticeView }
 
             VStack(spacing: LayoutTokens.spacing[1]) {
-                if let reply = assistant.reply, reply.noteID == note.id {
+                if model.settings.scratchpad.aiBarShown, let reply = assistant.reply, reply.noteID == note.id {
                     AIReplyView(
                         reply: reply,
                         onInsert: { assistant.insertReply(controller: controller) },
                         onDismiss: { assistant.dismissReply() })
                 }
-                actionRow
                 if model.notesIsListening { listeningBar }
-                bottomBar
+                if model.settings.scratchpad.aiBarShown {
+                    AIBar(assistant: assistant, model: model, noteID: note.id, input: currentInput)
+                        .padding(LayoutTokens.spacing[1])
+                        .background(store.theme.card, in: RoundedRectangle(cornerRadius: LayoutTokens.cardRadius))
+                        .overlay(RoundedRectangle(cornerRadius: LayoutTokens.cardRadius).stroke(store.theme.secondaryText.opacity(0.2)))
+                }
             }
             .padding(.horizontal, LayoutTokens.spacing[2])
             .padding(.bottom, LayoutTokens.spacing[1])
@@ -148,34 +163,6 @@ struct ScratchpadNoteEditor: View {
         }
     }
 
-    private var actionRow: some View {
-        HStack(spacing: LayoutTokens.spacing[1]) {
-            Picker("View", selection: Binding(get: { model.scratchpadView }, set: { model.scratchpadView = $0 })) {
-                ForEach(NoteViewMode.allCases, id: \.self) { Text($0.title).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .fixedSize()
-            Spacer()
-            NotesMicButton(
-                disabled: model.isListening || model.dictation?.isBusy == true || model.notesIsListening,
-                action: dictate
-            )
-            .frame(width: 30, height: 30)
-            .help("Dictate")
-            historyMenu
-            Button {
-                confirmDelete = true
-            } label: {
-                Image(systemName: "trash").frame(width: 22, height: 22)
-            }
-            .buttonStyle(.borderless)
-            .help("Move note to Trash")
-            .accessibilityLabel("Move note to Trash")
-            copyMenu
-        }
-    }
-
     private var historyMenu: some View {
         let entries = assistant.history.entries(for: note.id)
         return Menu {
@@ -217,22 +204,34 @@ struct ScratchpadNoteEditor: View {
         .help("Copy (⌘⇧C)")
     }
 
-    @ViewBuilder private var bottomBar: some View {
-        Group {
-            if model.settings.scratchpad.aiBarShown {
-                AIBar(assistant: assistant, model: model, noteID: note.id, input: currentInput)
-            } else if model.scratchpadView == .markdown {
-                MarkdownToolbar { command in run(command) }
-            } else {
+    private var askShowing: Bool {
+        assistant.askStep != nil || assistant.askResult != nil || assistant.askError != nil
+    }
+
+    private var formattingBar: some View {
+        ZStack {
+            // Retain the toolbar's measured size in Doc view, including when
+            // the window first opens in Doc view or the controls wrap.
+            MarkdownToolbar { command in run(command) }
+                .disabled(askShowing || model.scratchpadView != .markdown)
+                .opacity(model.scratchpadView == .markdown ? 1 : 0)
+                .accessibilityHidden(model.scratchpadView != .markdown)
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height in
+                    formattingHeight = max(formattingHeight, height)
+                }
+            if model.scratchpadView == .doc {
                 Text("Doc view is read only. Switch to Markdown to edit.")
                     .bvFont(.footnote)
                     .foregroundStyle(.bvSecondary)
                     .frame(maxWidth: .infinity)
             }
         }
+        .frame(minHeight: formattingHeight)
         .padding(LayoutTokens.spacing[1])
-        .background(store.theme.card, in: RoundedRectangle(cornerRadius: LayoutTokens.cardRadius))
-        .overlay(RoundedRectangle(cornerRadius: LayoutTokens.cardRadius).stroke(store.theme.secondaryText.opacity(0.2)))
+        .frame(maxWidth: .infinity)
+        .background(.bvCard)
+        .overlay(alignment: .top) { Rectangle().fill(.bvSeparator).frame(height: 1) }
+        .overlay(alignment: .bottom) { Rectangle().fill(.bvSeparator).frame(height: 1) }
     }
 
     @ViewBuilder private var noticeView: some View {
@@ -285,6 +284,7 @@ struct ScratchpadNoteEditor: View {
         ZStack {
             ForEach(NoteTransform.allCases, id: \.self) { transform in
                 Button("") {
+                    model.settings.scratchpad.aiBarShown = true
                     if let input = currentInput() { assistant.run(transform, input: input, model: model) }
                 }
                 .keyboardShortcut(KeyEquivalent(transform.shortcutKey), modifiers: .command)

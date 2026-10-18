@@ -64,7 +64,7 @@ struct MarkdownToolbar: View {
         symbol("link", help: "Link (⌘K)", width: width) { run(.link) }
             .keyboardShortcut("k", modifiers: .command)
         symbol("tablecells", help: "Table", width: width) { pickingTable = true }
-            .popover(isPresented: $pickingTable, arrowEdge: .top) {
+            .popover(isPresented: $pickingTable, arrowEdge: .bottom) {
                 TableSizePicker { columns, rows in
                     pickingTable = false
                     run(.table(columns: columns, rows: rows))

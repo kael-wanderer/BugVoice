@@ -3,7 +3,8 @@ import SwiftUI
 import VoiceCore
 
 /// Contents of the Scratchpad window: tabs on top, the notes list on the
-/// left (hidden when smaller or by Hide notes), the note editor.
+/// left (hidden when smaller or by Hide notes), then the editor with its
+/// tool row, always-visible Formatting bar and AI bar shown on request.
 struct ScratchpadWindowView: View {
     @Environment(AppearanceStore.self) private var store
     @Bindable var model: AppModel

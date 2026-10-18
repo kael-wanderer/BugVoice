@@ -45,6 +45,7 @@ struct AIBar: View {
         case .idle:
             VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {
                 HStack(spacing: LayoutTokens.spacing[0]) {
+                    scopeMenu
                     ForEach(NoteTransform.allCases, id: \.self) { transform in
                         Button(transform.title) { run(transform) }
                             .disabled(assistant.scope != .note(noteID))
@@ -65,7 +66,6 @@ struct AIBar: View {
                 }
                 Divider()
                 HStack(spacing: LayoutTokens.spacing[1]) {
-                    scopeMenu
                     TextField("Follow up or ask a question", text: $assistant.message)
                         .textFieldStyle(.plain)
                         .focused($questionFocused)
@@ -93,7 +93,7 @@ struct AIBar: View {
             Text(Self.shortTitle(model.askScopeTitle(assistant.scope))).lineLimit(1)
         }
         .menuStyle(.borderlessButton)
-        // A borderless menu fills the row; keep it to its title so the question field gets the space.
+        // Keep the borderless menu to its title so the chips get the remaining space.
         .fixedSize()
         .accessibilityLabel("Search in")
     }

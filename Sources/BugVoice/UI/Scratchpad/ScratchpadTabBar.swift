@@ -2,8 +2,8 @@ import BugVoiceMac
 import SwiftUI
 import VoiceCore
 
-/// Top of the Scratchpad window: one tab per open note and "+", then Keep on
-/// top, Smaller/Larger and Close.
+/// Top of the Scratchpad window: logo, one tab per open note and "+", then
+/// Markdown/Doc, Keep on top, Smaller/Larger and Close.
 struct ScratchpadTabBar: View {
     @Environment(AppearanceStore.self) private var store
     @Bindable var model: AppModel
@@ -11,7 +11,15 @@ struct ScratchpadTabBar: View {
 
     var body: some View {
         HStack(spacing: LayoutTokens.spacing[0]) {
-            Image(systemName: "waveform")
+            Group {
+                if let glyph = IconImages.menuGlyph(model.settings.appearance.menuBarIcon) {
+                    Image(nsImage: glyph)
+                        .resizable()
+                        .frame(width: store.scaled(16), height: store.scaled(16))
+                } else {
+                    Image(systemName: "waveform")
+                }
+            }
                 .foregroundStyle(store.theme.accent)
                 .padding(.leading, LayoutTokens.spacing[2])
                 .accessibilityHidden(true)
@@ -30,6 +38,13 @@ struct ScratchpadTabBar: View {
                 .padding(.horizontal, LayoutTokens.spacing[0])
             }
             Spacer(minLength: 8)
+            Picker("View", selection: Binding(get: { model.scratchpadView }, set: { model.scratchpadView = $0 })) {
+                ForEach(NoteViewMode.allCases, id: \.self) { Text($0.title).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            .controlSize(.small)
+            .fixedSize()
+            .labelsHidden()
             Toggle(isOn: $model.settings.scratchpad.keepOnTop) {
                 Image(systemName: model.settings.scratchpad.keepOnTop ? "pin.fill" : "pin")
             }
