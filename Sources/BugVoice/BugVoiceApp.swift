@@ -12,6 +12,7 @@ struct BugVoiceApp: App {
             MenuBarIcon(model: delegate.model)
         }
         .menuBarExtraStyle(.menu)
+        .commands { delegate.installViewMenu() }
     }
 }
 
@@ -28,8 +29,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var wakeObserver: NSObjectProtocol?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        model.presentMainWindow = { [weak self] in self?.mainWindow.show() }
-        model.presentPermissionsWindow = { [weak self] in self?.permissionsWindow.show() }
+        model.presentMainWindow = { [weak self] in
+            self?.mainWindow.show()
+        }
+        model.presentPermissionsWindow = { [weak self] in
+            self?.permissionsWindow.show()
+        }
         model.scratchpadWindow = scratchpadWindow
         installEditMenu()
         sleepObserver = NSWorkspace.shared.notificationCenter.addObserver(
@@ -83,6 +88,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         item.submenu = edit
         main.addItem(item)
         NSApp.mainMenu = main
+    }
+
+    func installViewMenu() -> some Commands {
+        CommandGroup(before: .toolbar) {
+            Button("Bigger Text") { self.model.settings.appearance.stepTextScale(by: 10) }
+                .keyboardShortcut("+", modifiers: .command)
+            Button("Bigger Text") { self.model.settings.appearance.stepTextScale(by: 10) }
+                .keyboardShortcut("=", modifiers: .command)
+                .hidden()
+            Button("Smaller Text") { self.model.settings.appearance.stepTextScale(by: -10) }
+                .keyboardShortcut("-", modifiers: .command)
+            Button("Actual Size") { self.model.settings.appearance.resetTextScale() }
+                .keyboardShortcut("0", modifiers: .command)
+        }
     }
 
     /// Clicking the Dock icon (shown while the main window is open, or when
