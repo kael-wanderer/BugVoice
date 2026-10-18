@@ -162,10 +162,32 @@ final class AppModel {
     var sidebarHidden = UserDefaults.standard.bool(forKey: "BugVoice.sidebarHidden") {
         didSet { UserDefaults.standard.set(sidebarHidden, forKey: "BugVoice.sidebarHidden") }
     }
+    /// Widths the owner dragged the sidebar and the Meetings/Scratchpad list
+    /// to; nil means the default for the text size.
+    var sidebarDraggedWidth = UserDefaults.standard.object(forKey: "BugVoice.sidebarWidth") as? Double {
+        didSet { UserDefaults.standard.set(sidebarDraggedWidth, forKey: "BugVoice.sidebarWidth") }
+    }
+    var listPaneDraggedWidth = UserDefaults.standard.object(forKey: "BugVoice.listPaneWidth") as? Double {
+        didSet { UserDefaults.standard.set(listPaneDraggedWidth, forKey: "BugVoice.listPaneWidth") }
+    }
+    var sidebarWidth: Double { ShellLayout.sidebarWidth(scale: settings.appearance.textScale, dragged: sidebarDraggedWidth) }
+    var listPaneWidth: Double { ShellLayout.listPaneWidth(scale: settings.appearance.textScale, dragged: listPaneDraggedWidth) }
     var searchFocusRequest: UInt64 = 0
     var mainWindowIsKey = false
     var mainContentHeight: CGFloat = ShellLayout.minimumWindowHeight
-    var searchQuery = ""
+    /// The title bar search text. On Meetings, Scratchpad, and Dictation it
+    /// also filters that page's list.
+    var searchQuery = "" {
+        didSet {
+            switch page {
+            case .meetings: meetingSearchQuery = searchQuery
+            case .notes: notesSearchQuery = searchQuery
+            case .dictation: dictationSearchQuery = searchQuery
+            default: break
+            }
+        }
+    }
+    var dictationSearchQuery = ""
     var searchIsPresented = false
     var searchFieldFrame: CGRect = .zero
     var searchResultsFrame: CGRect = .zero
@@ -213,7 +235,16 @@ final class AppModel {
         }
     }
     func toggleSidebar() { withAnimation(.easeInOut(duration: 0.2)) { sidebarHidden.toggle() } }
-    var page: Page = .dictation
+    var page: Page = .dictation {
+        didSet {
+            guard page != oldValue else { return }
+            // A search belongs to the page it was typed on.
+            searchQuery = ""
+            meetingSearchQuery = ""
+            notesSearchQuery = ""
+            dictationSearchQuery = ""
+        }
+    }
     var speechState: WhisperKitTranscriber.LoadState = .notLoaded
     /// Coding CLIs found on this Mac, looked up at launch and when Settings → Models opens.
     var cliInfo: [CLITool: CLIInfo] = [:]

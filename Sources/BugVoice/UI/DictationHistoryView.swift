@@ -9,7 +9,11 @@ struct DictationHistoryView: View {
     @State private var highlighted: UUID?
 
     var filtered: [HistoryEntry] {
-        model.history.filter { filter == nil || $0.style == filter }
+        let query = AskText.fold(model.dictationSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines))
+        return model.history.filter {
+            (filter == nil || $0.style == filter)
+                && (query.isEmpty || AskText.fold($0.text).contains(query) || AskText.fold($0.appName ?? "").contains(query))
+        }
 
     }
 
@@ -29,10 +33,7 @@ struct DictationHistoryView: View {
         ScrollViewReader { reader in
         ScrollView {
             VStack(alignment: .leading, spacing: LayoutTokens.spacing[2]) {
-                LazyVGrid(
-                    columns: [GridItem(.adaptive(minimum: store.scaled(130)), spacing: LayoutTokens.spacing[1], alignment: .leading)],
-                    alignment: .leading, spacing: LayoutTokens.spacing[1]
-                ) {
+                CardGrid(minCardWidth: store.scaled(150), spacing: LayoutTokens.spacing[1]) {
                     StatTile(value: stats.wordsToday.formatted(), label: "words today")
                     StatTile(value: "\(stats.wordsPerMinute)", label: "words per minute")
                     StatTile(value: "\(stats.dictationsToday)", label: "dictations today")
@@ -40,7 +41,11 @@ struct DictationHistoryView: View {
                 }
                 RoundPills("Filter by style", items: [(Style?.none, "All")] + Style.allCases.map { (Optional($0), $0.rawValue.capitalized) }, selection: $filter)
                 if filtered.isEmpty && !model.history.isEmpty {
-                    EmptyState("No dictations with this style", systemImage: "line.3.horizontal.decrease")
+                    if model.dictationSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        EmptyState("No dictations with this style", systemImage: "line.3.horizontal.decrease")
+                    } else {
+                        EmptyState("No matching dictations", systemImage: "magnifyingglass")
+                    }
                 }
                 if model.history.isEmpty {
                     EmptyState("No dictations yet", systemImage: "mic", message: "Hold \(model.settings.hotkey.spokenName) anywhere and speak.")
@@ -106,7 +111,7 @@ struct StatTile: View {
             Text(label).bvFont(.footnote).foregroundStyle(.bvSecondary)
         }
         .padding(.horizontal, LayoutTokens.spacing[2]).padding(.vertical, LayoutTokens.spacing[1])
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(.bvCard, in: RoundedRectangle(cornerRadius: LayoutTokens.cardRadius))
         .overlay(RoundedRectangle(cornerRadius: LayoutTokens.cardRadius).stroke(.bvSeparator))
     }

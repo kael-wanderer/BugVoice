@@ -9,8 +9,8 @@ struct MainWindow: View {
     var body: some View {
         HStack(spacing: 0) {
             if !model.sidebarHidden {
-                AppSidebar(model: model).frame(width: ShellLayout.sidebarWidth(scale: model.settings.appearance.textScale))
-                Rectangle().fill(.bvSeparator).frame(width: 1)
+                AppSidebar(model: model).frame(width: model.sidebarWidth)
+                ResizeHandle(width: model.sidebarWidth, range: ShellLayout.sidebarRange) { model.sidebarDraggedWidth = $0 }
             }
             VStack(spacing: 0) {
                 TitleBar(model: model, title: model.page.title) { PageActions(model: model) }.zIndex(1)
@@ -132,6 +132,8 @@ final class MainWindowController: NSObject, NSWindowDelegate {
     private func observeScale() {
         withObservationTracking {
             _ = model.settings.appearance.textScale
+            _ = model.sidebarWidth
+            _ = model.listPaneWidth
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in
                 guard let self else { return }
@@ -144,7 +146,7 @@ final class MainWindowController: NSObject, NSWindowDelegate {
     private func updateMinimum(_ window: NSWindow) {
         let visible = (window.screen ?? NSScreen.main)?.visibleFrame ?? window.frame
         let scale = model.settings.appearance.textScale
-        let width = ShellLayout.minimumWindowWidth(scale: scale, screenWidth: visible.width)
+        let width = ShellLayout.minimumWindowWidth(sidebar: model.sidebarWidth, listPane: model.listPaneWidth, screenWidth: visible.width)
         window.contentMinSize = NSSize(width: width, height: ShellLayout.minimumWindowHeight)
         minimumFrameSize = window.frameRect(forContentRect: NSRect(origin: .zero, size: window.contentMinSize)).size
         if ShellLayout.sidebarMustHide(scale: scale, screenWidth: visible.width) { model.sidebarHidden = true }

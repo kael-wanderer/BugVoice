@@ -5,23 +5,29 @@ public enum ShellLayout {
     public static let baseMinimumWindowWidth: Double = 820
     public static let minimumWindowHeight: Double = 560
 
-    public static func sidebarWidth(scale: Int) -> Double {
-        min(TypeScale.scaled(200, scale: scale), 260)
+    /// Widths the owner can drag the sidebar and the list pane to.
+    public static let sidebarRange: ClosedRange<Double> = 180...320
+    public static let listPaneRange: ClosedRange<Double> = 220...440
+
+    /// The dragged width, clamped, or the default for this text size.
+    public static func sidebarWidth(scale: Int, dragged: Double? = nil) -> Double {
+        dragged.map { clamp($0, sidebarRange) } ?? min(TypeScale.scaled(200, scale: scale), 260)
     }
 
-    public static func listPaneWidth(scale: Int) -> Double {
-        min(TypeScale.scaled(250, scale: scale), 320)
+    public static func listPaneWidth(scale: Int, dragged: Double? = nil) -> Double {
+        dragged.map { clamp($0, listPaneRange) } ?? min(TypeScale.scaled(290, scale: scale), 360)
     }
 
-    public static func sectionListWidth(scale: Int) -> Double {
-        min(TypeScale.scaled(180, scale: scale), 230)
+    private static func clamp(_ value: Double, _ range: ClosedRange<Double>) -> Double {
+        min(max(value, range.lowerBound), range.upperBound)
     }
 
     public static func minimumWindowWidth(scale: Int, screenWidth: Double) -> Double {
-        min(
-            max(baseMinimumWindowWidth, sidebarWidth(scale: scale) + listPaneWidth(scale: scale) + minimumContentWidth + 2 * 24),
-            screenWidth
-        )
+        minimumWindowWidth(sidebar: sidebarWidth(scale: scale), listPane: listPaneWidth(scale: scale), screenWidth: screenWidth)
+    }
+
+    public static func minimumWindowWidth(sidebar: Double, listPane: Double, screenWidth: Double) -> Double {
+        min(max(baseMinimumWindowWidth, sidebar + listPane + minimumContentWidth + 2 * 24), screenWidth)
     }
 
     public static func sidebarMustHide(scale: Int, screenWidth: Double) -> Bool {

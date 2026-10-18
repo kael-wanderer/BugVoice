@@ -169,3 +169,14 @@ struct NewFolderSheet: View {
         }
     }
 }
+
+/// The folder and tag filters at the top of a list pane: one row when they
+/// fit, wrapping whole controls onto the next row when they do not.
+struct FilterRow<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        FlowLayout(spacing: LayoutTokens.spacing[1]) { content }
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}

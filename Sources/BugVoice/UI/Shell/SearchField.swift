@@ -10,6 +10,26 @@ struct SearchField: View {
     @State private var selected = 0
     @FocusState private var focused: Bool
     private var compact: Bool { available < store.scaled(200) }
+    private var hasQuery: Bool { !model.searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    /// On these pages the field filters the page's own list, and the panel
+    /// lists only matches from other pages.
+    private var listKind: SearchKind? {
+        switch model.page {
+        case .meetings: .meeting
+        case .notes: .note
+        case .dictation: .dictation
+        default: nil
+        }
+    }
+    private var showsResults: Bool { hasQuery && (listKind == nil || !hits.isEmpty) }
+    private var placeholder: String {
+        switch model.page {
+        case .meetings: "Search meetings"
+        case .notes: "Search notes"
+        case .dictation: "Search dictations"
+        default: "Search notes, meetings, dictations"
+        }
+    }
 
     var body: some View {
         Group {
@@ -22,7 +42,7 @@ struct SearchField: View {
                         FocusedOnAppear { focus in
                             VStack(spacing: LayoutTokens.spacing[1]) {
                                 field(focus)
-                                if !model.searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { results }
+                                if showsResults { results }
                             }
                             .padding(LayoutTokens.spacing[2])
                             .frame(width: store.scaled(360))
@@ -33,7 +53,7 @@ struct SearchField: View {
             } else {
                 field($focused)
                     .overlay(alignment: .top) {
-                        if model.searchIsPresented && !model.searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        if model.searchIsPresented && showsResults {
                             results
                                 .frame(width: max(available, store.scaled(320)))
                                 .offset(y: store.scaled(40) + LayoutTokens.spacing[1])
@@ -66,9 +86,9 @@ struct SearchField: View {
     private func field(_ focus: FocusState<Bool>.Binding) -> some View {
         HStack(spacing: LayoutTokens.spacing[1]) {
             Image(systemName: "magnifyingglass").foregroundStyle(.bvSecondary)
-            TextField("Search notes, meetings, dictations", text: $model.searchQuery)
+            TextField(placeholder, text: $model.searchQuery)
                 .textFieldStyle(.plain).focused(focus)
-                .accessibilityLabel("Search notes, meetings, dictations")
+                .accessibilityLabel(placeholder)
                 .onSubmit(openSelected)
                 .onKeyPress(.upArrow) { move(-1); return .handled }
                 .onKeyPress(.downArrow) { move(1); return .handled }
@@ -85,7 +105,12 @@ struct SearchField: View {
         .overlay(RoundedRectangle(cornerRadius: LayoutTokens.controlRadius).stroke(.bvSeparator))
         .simultaneousGesture(TapGesture().onEnded { model.searchIsPresented = true })
     }
-    private var results: some View { SearchResults(hits: hits, selected: selected, model: model, open: open) }
+    private var results: some View {
+        SearchResults(
+            hits: hits, selected: selected, model: model, open: open,
+            header: listKind == nil ? nil : "Other pages",
+            footer: listKind == nil ? "Results from this page come first." : nil)
+    }
     private func move(_ offset: Int) {
         model.searchIsPresented = true
         selected = min(max(0, selected + offset), max(0, hits.count - 1))
@@ -110,8 +135,12 @@ struct SearchField: View {
         case .settings: .settings
         default: nil
         }
+        let excluded = listKind
         let found = await Task.detached(priority: .userInitiated) {
-            GlobalSearch.search(query, passages: inputs.passages, titles: inputs.titles, first: first)
+            // The page's own matches are in its list; ask for more so the cut
+            // to `GlobalSearch.limit` happens after they are dropped.
+            let all = GlobalSearch.search(query, passages: inputs.passages, titles: inputs.titles, first: first, limit: excluded == nil ? GlobalSearch.limit : 200)
+            return Array(all.filter { $0.kind != excluded }.prefix(GlobalSearch.limit))
         }.value
         guard !Task.isCancelled, query == model.searchQuery else { return }
         hits = found
