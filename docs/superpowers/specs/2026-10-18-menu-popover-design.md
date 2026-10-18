@@ -1,6 +1,6 @@
 # Menu bar popover — design
 
-Date: 2026-10-18. Status: draft for owner review.
+Date: 2026-10-18. Status: approved by owner 2026-10-18.
 Mockup: `docs/design/proposal-menu.html` (four states). The agreed layout is
 also in `docs/design/proposal-appearance.html` (Menu bar surface).
 Earlier decision: appearance foundation spec, "Menu bar" (option 2).
