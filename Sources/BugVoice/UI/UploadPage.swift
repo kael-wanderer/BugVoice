@@ -137,7 +137,7 @@ struct UploadPage: View {
                     ProgressView()
                 }
             }
-            .bvPageColumn(.reading)
+            .bvPageColumn(.wide)
         }
         .background(targeted ? store.theme.accent.opacity(0.06) : store.theme.background)
         .contentShape(Rectangle())

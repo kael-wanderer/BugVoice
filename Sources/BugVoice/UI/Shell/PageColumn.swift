@@ -1,7 +1,7 @@
 import SwiftUI
 import VoiceCore
 
-enum PageColumnWidth { case reading, wide, sectioned, sectionedWide }
+enum PageColumnWidth { case reading, wide }
 
 extension View {
     func bvPageColumn(_ width: PageColumnWidth) -> some View { modifier(PageColumnModifier(width: width)) }
@@ -11,12 +11,9 @@ private struct PageColumnModifier: ViewModifier {
     @Environment(AppearanceStore.self) private var store
     let width: PageColumnWidth
     private var maximum: CGFloat {
-        let section = ShellLayout.sectionListWidth(scale: store.settings.textScale) + LayoutTokens.spacing[4]
         switch width {
         case .reading: return store.readingWidth
         case .wide: return store.readingWidth + store.scaled(260)
-        case .sectioned: return section + store.readingWidth
-        case .sectionedWide: return section + store.readingWidth + store.scaled(260)
         }
     }
     func body(content: Content) -> some View {

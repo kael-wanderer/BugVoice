@@ -50,7 +50,10 @@ private struct EqualPillLayout: Layout {
     private func rows(_ width: CGFloat, _ views: Subviews) -> [(Range<Int>, CGFloat, CGFloat)] {
         guard !views.isEmpty else { return [] }
         let widest = views.map { $0.sizeThatFits(.unspecified).width }.max() ?? 0
-        let columns = max(1, min(views.count, Int((width + spacing) / max(1, widest + spacing))))
+        let fit = max(1, min(views.count, Int((width + spacing) / max(1, widest + spacing))))
+        // Spread the pills evenly over the rows they need, so no row holds one stray pill.
+        let rowCount = (views.count + fit - 1) / fit
+        let columns = (views.count + rowCount - 1) / rowCount
         return stride(from: 0, to: views.count, by: columns).map { start in
             let range = start..<min(start + columns, views.count)
             let cell = max(0, (width - spacing * CGFloat(range.count - 1)) / CGFloat(range.count))

@@ -18,7 +18,7 @@ struct ComingSoonPage: View {
                         .background(.bvAccentSoft, in: Capsule())
                 }
                 .padding(.top, max(0, proxy.size.height / 3 - LayoutTokens.spacing[5]))
-                .bvPageColumn(.reading)
+                .bvPageColumn(.wide)
             }
         }
         .environment(\.openURL, OpenURLAction { url in

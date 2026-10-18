@@ -37,14 +37,14 @@ struct StylePage: View {
 
     var body: some View {
         ScrollView {
-            HStack(alignment: .top, spacing: LayoutTokens.spacing[4]) {
-                SectionList("Style sections", groups: [.init(title: nil, items: Style.allCases.map { ($0, $0.title) })], selection: $selected)
+            VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) {
+                RoundPills("Style sections", items: Style.allCases.map { ($0, $0.title) }, selection: $selected)
                 VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) {
                     Text("Each app is matched to a style when you start dictating. The style sets how the text model cleans your words.")
                         .foregroundStyle(.bvSecondary)
                     StyleDetailView(model: model, style: selected)
                 }.frame(maxWidth: .infinity, alignment: .leading)
-            }.bvPageColumn(.sectionedWide)
+            }.bvPageColumn(.wide)
         }
     }
 }
