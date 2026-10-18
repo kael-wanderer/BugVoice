@@ -45,6 +45,12 @@ implementation, like Dictation, Meetings and Notes before it.
   `docs/superpowers/plans/2026-10-15-upload.md`; only extracted `audio.m4a` is
   retained after success. URL import remains deferred; speaker splitting is
   implemented as Meeting speakers Part 1.
+- Next round: the note editor (owner's option A, app shell spec). Owner
+  requests for the floating Scratchpad editor go into that round's design
+  (2026-10-18): a right-click menu on list notes with Pin, Move to folder and
+  Move to Trash; Folder and Tags on one row; the Markdown | Doc switch on the
+  title row (end) or the folder/tags row; the "This note" scope picker to the
+  left of Polish.
 
 ## Dropped
 
