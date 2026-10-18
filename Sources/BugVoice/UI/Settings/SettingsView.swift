@@ -1,4 +1,5 @@
 import SwiftUI
+import VoiceCore
 
 enum SettingsTab: Hashable { case general, shortcuts, editing, theme, speech, models, agents, meetings, storage }
 
@@ -6,8 +7,8 @@ struct SettingsView: View {
     @Bindable var model: AppModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Settings").font(.title2.weight(.semibold))
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) {
+            Text("Settings").bvFont(.title2)
             PillTabs(
                 items: [
                     .init(value: SettingsTab.general, title: "General"),
@@ -37,7 +38,7 @@ struct SettingsView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-        .padding(22)
+        .padding(LayoutTokens.spacing[4])
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .navigationTitle("Settings")
     }

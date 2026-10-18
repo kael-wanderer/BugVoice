@@ -5,6 +5,7 @@ import VoiceCore
 /// Settings › Agents: the MCP server switch, what agents may change, how to
 /// connect Claude Code and Codex, and the calls made since launch.
 struct AgentsSettings: View {
+    @Environment(AppearanceStore.self) private var store
     @Bindable var model: AppModel
     @State private var copied: String?
     @State private var copiedReset: Task<Void, Never>?
@@ -14,13 +15,13 @@ struct AgentsSettings: View {
     var body: some View {
         SettingsScroll {
             SettingsCard {
-                HStack(alignment: .top, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .top, spacing: LayoutTokens.spacing[2]) {
+                    VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
                         Text("MCP server").fontWeight(.semibold)
                         Text(
                             "Lets coding agents on this Mac, such as Claude Code and Codex, read and search your notes, meetings and dictations. Agents send what they read to their own model provider."
                         )
-                        .font(.caption).foregroundStyle(.secondary)
+                        .bvFont(.footnote).foregroundStyle(.bvSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                         statusLine
                     }
@@ -44,7 +45,7 @@ struct AgentsSettings: View {
                 }
                 SettingsCard(title: "Recent activity") {
                     if model.mcp.activity.entries.isEmpty {
-                        Text("No agent has connected yet.").foregroundStyle(.secondary)
+                        Text("No agent has connected yet.").foregroundStyle(.bvSecondary)
                     } else {
                         activityTable
                     }
@@ -59,14 +60,14 @@ struct AgentsSettings: View {
     private var statusLine: some View {
         let status = model.mcp.status
         let (text, color): (String, Color) =
-            if status.hasPrefix("Could not start") { (status, .orange) }
+            if status.hasPrefix("Could not start") { (status, store.theme.warning) }
             else if !enabled { ("Off", .secondary) }
-            else { (status, status == "Listening" ? .green : .secondary) }
-        return HStack(spacing: 6) {
+            else { (status, status == "Listening" ? store.theme.success : store.theme.secondaryText) }
+        return HStack(spacing: LayoutTokens.spacing[0]) {
             Circle().fill(color).frame(width: 7, height: 7)
-            Text(text).font(.caption).foregroundStyle(color == .secondary ? .secondary : .primary)
+            Text(text).bvFont(.footnote).foregroundStyle(color == .secondary ? .secondary : .primary)
         }
-        .padding(.top, 2)
+        .padding(.top, LayoutTokens.spacing[0])
     }
 
     // MARK: Setup
@@ -90,19 +91,19 @@ struct AgentsSettings: View {
     }
 
     private func setupRow(_ title: String, caption: String?, text: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
             HStack {
                 Text(title).fontWeight(.semibold)
                 Spacer()
                 Button(copied == title ? "Copied" : "Copy") { copy(text, as: title) }
             }
-            if let caption { Text(caption).font(.caption).foregroundStyle(.secondary) }
+            if let caption { Text(caption).bvFont(.footnote).foregroundStyle(.bvSecondary) }
             Text(text)
-                .font(.system(.callout, design: .monospaced))
+                .bvCode(.body)
                 .textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(8)
-                .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 6))
+                .padding(LayoutTokens.spacing[1])
+                .background(store.theme.background, in: RoundedRectangle(cornerRadius: LayoutTokens.controlRadius))
         }
     }
 
@@ -131,17 +132,17 @@ struct AgentsSettings: View {
         Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 6) {
             ForEach(Array(model.mcp.activity.entries.enumerated()), id: \.offset) { _, entry in
                 GridRow {
-                    Text(Self.timeFormat.string(from: entry.time)).monospacedDigit().foregroundStyle(.secondary)
-                    Text(entry.client).foregroundStyle(.secondary)
-                    Text(entry.tool).font(.system(.callout, design: .monospaced))
+                    Text(Self.timeFormat.string(from: entry.time)).monospacedDigit().foregroundStyle(.bvSecondary)
+                    Text(entry.client).foregroundStyle(.bvSecondary)
+                    Text(entry.tool).bvCode(.body)
                     if let error = entry.error {
-                        Text(error).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
+                        Text(error).foregroundStyle(.bvWarning).fixedSize(horizontal: false, vertical: true)
                     } else {
-                        Text("OK").foregroundStyle(.green)
+                        Text("OK").foregroundStyle(.bvSuccess)
                     }
                 }
             }
         }
-        .font(.callout)
+        .bvFont(.body)
     }
 }

@@ -46,6 +46,7 @@ extension View {
     }
     func bvTheme(_ store: AppearanceStore) -> some View {
         environment(store).environment(\.bvTheme, store.theme)
+            .font(store.type.font(.body))
             .tint(store.theme.accent)
             .preferredColorScheme(store.theme.isDark ? .dark : .light)
             .controlSize(LayoutTokens.usesLargeControls(scale: store.settings.textScale) ? .large : .regular)

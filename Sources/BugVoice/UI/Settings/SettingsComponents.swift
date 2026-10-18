@@ -70,8 +70,8 @@ struct SettingsCard<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            if let title { Text(title).font(.headline) }
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {
+            if let title { Text(title).bvFont(.bodyStrong) }
             content
         }
         .insightsCard()
@@ -84,7 +84,7 @@ struct SettingsRow<Control: View>: View {
     @ViewBuilder var control: Control
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: LayoutTokens.spacing[2]) {
             Text(title)
             Spacer(minLength: 16)
             control
@@ -110,8 +110,8 @@ struct SettingsScroll<Content: View>: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) { content }
-                .padding(.vertical, 4)
+            VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) { content }
+                .padding(.vertical, LayoutTokens.spacing[0])
         }
     }
 }

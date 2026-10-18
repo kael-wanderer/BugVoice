@@ -26,7 +26,7 @@ struct SpeechTab: View {
                 Divider()
                 if model.settings.speech.engine == .whisperKit {
                     SettingsRow(title: "Model") {
-                        Text(stateText).foregroundStyle(.secondary)
+                        Text(stateText).foregroundStyle(.bvSecondary)
                         Picker("Model", selection: $model.settings.speech.whisperModel) {
                             ForEach(Self.whisperModels, id: \.0) { Text($0.1).tag($0.0) }
                         }

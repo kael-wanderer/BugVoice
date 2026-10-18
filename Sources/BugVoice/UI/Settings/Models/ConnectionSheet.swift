@@ -2,6 +2,7 @@ import SwiftUI
 import VoiceCore
 
 struct ConnectionSheet: View {
+    @Environment(AppearanceStore.self) private var store
     let model: AppModel
     let isNew: Bool
     let original: ModelConnection
@@ -32,8 +33,8 @@ struct ConnectionSheet: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(isNew ? "Add connection" : "Edit connection").font(.headline)
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[2]) {
+            Text(isNew ? "Add connection" : "Edit connection").bvFont(.bodyStrong)
             Form {
                 TextField("Name", text: $connection.name)
                 LabeledContent("Kind", value: connection.kind.title)
@@ -42,9 +43,9 @@ struct ConnectionSheet: View {
                 } else {
                     TextField("Address", text: $connection.baseURL)
                     if let addressProblem {
-                        Text(addressProblem).font(.caption).foregroundStyle(.orange)
+                        Text(addressProblem).bvFont(.footnote).foregroundStyle(.bvWarning)
                     } else if addressChanged && hadKey {
-                        Text("Enter the key again for the new address.").font(.caption).foregroundStyle(.orange)
+                        Text("Enter the key again for the new address.").bvFont(.footnote).foregroundStyle(.bvWarning)
                     }
                 }
                 if showsKey {
@@ -61,7 +62,7 @@ struct ConnectionSheet: View {
                 HStack {
                     Button(testing ? "Testing…" : "Test connection") { Task { await test() } }
                         .disabled(testing || addressProblem != nil)
-                    if let testResult { Text(testResult).font(.caption).foregroundStyle(.secondary) }
+                    if let testResult { Text(testResult).bvFont(.footnote).foregroundStyle(.bvSecondary) }
                 }
             }
             .formStyle(.grouped)
@@ -75,8 +76,8 @@ struct ConnectionSheet: View {
                     .disabled(addressProblem != nil || connection.name.trimmingCharacters(in: .whitespaces).isEmpty)
             }
         }
-        .padding(20)
-        .frame(width: 520)
+        .padding(LayoutTokens.spacing[3])
+        .frame(width: store.scaled(520))
     }
 
     /// Lists models with the key typed here (or the saved one); generates nothing.

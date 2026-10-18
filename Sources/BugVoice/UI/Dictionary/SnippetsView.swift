@@ -2,12 +2,13 @@ import SwiftUI
 import VoiceCore
 
 struct SnippetsView: View {
+    @Environment(AppearanceStore.self) private var store
     @Bindable var model: AppModel
     @State private var search = ""
     @State private var draft: SnippetDraft?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) {
             HeroCard(
                 title: "Stuff you shouldn't have to say twice",
                 text: "Say a trigger phrase and BugVoice puts in what you saved: links, intros, sign-offs, prompts. The saved text is pasted exactly, never reworded.",
@@ -16,25 +17,25 @@ struct SnippetsView: View {
                 onAdd: { trigger in draft = SnippetDraft(snippetID: nil, trigger: trigger, text: "") }
             ) {
                 HeroIllustration(symbol: "text.badge.plus") {
-                    HeroChip { Text("\"Sign off\"").bold(); Text("↳ Best, Kael · kael@example.com").foregroundStyle(.secondary) }
-                    HeroChip { Text("\"My LinkedIn\"").bold(); Text("↳ linkedin.com/in/kael").foregroundStyle(.secondary) }
+                    HeroChip { Text("\"Sign off\"").bold(); Text("↳ Best, Kael · kael@example.com").foregroundStyle(.bvSecondary) }
+                    HeroChip { Text("\"My LinkedIn\"").bold(); Text("↳ linkedin.com/in/kael").foregroundStyle(.bvSecondary) }
                 }
             }
             VStack(alignment: .leading, spacing: 0) {
                 HStack {
-                    Text(model.dictionary.snippets.count == 1 ? "1 snippet" : "\(model.dictionary.snippets.count) snippets").font(.headline)
+                    Text(model.dictionary.snippets.count == 1 ? "1 snippet" : "\(model.dictionary.snippets.count) snippets").bvFont(.bodyStrong)
                     Spacer()
-                    TextField("Search", text: $search).textFieldStyle(.roundedBorder).frame(width: 220)
+                    TextField("Search", text: $search).textFieldStyle(.roundedBorder).frame(width: store.scaled(220))
                 }
-                .padding(.bottom, 8)
+                .padding(.bottom, LayoutTokens.spacing[1])
                 if model.dictionary.snippets.isEmpty {
-                    Text("No snippets yet.").foregroundStyle(.secondary).padding(.vertical, 8)
+                    Text("No snippets yet.").foregroundStyle(.bvSecondary).padding(.vertical, LayoutTokens.spacing[1])
                 } else if filtered.isEmpty {
-                    Text("No snippets match.").foregroundStyle(.secondary).padding(.vertical, 8)
+                    Text("No snippets match.").foregroundStyle(.bvSecondary).padding(.vertical, LayoutTokens.spacing[1])
                 }
                 ForEach(filtered) { snippet in
                     Divider()
-                    row(snippet).padding(.vertical, 8)
+                    row(snippet).padding(.vertical, LayoutTokens.spacing[1])
                 }
             }
             .insightsCard()
@@ -43,12 +44,12 @@ struct SnippetsView: View {
     }
 
     private func row(_ snippet: Snippet) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
+        HStack(alignment: .firstTextBaseline, spacing: LayoutTokens.spacing[2]) {
             Text("“\(snippet.trigger)”").bold().frame(minWidth: 140, alignment: .leading)
             Text("↳ " + snippet.text.replacingOccurrences(of: "\n", with: " ⏎ "))
-                .font(.system(.callout, design: .monospaced)).foregroundStyle(.secondary)
+                .bvCode(.body).foregroundStyle(.bvSecondary)
                 .lineLimit(1).truncationMode(.tail).frame(maxWidth: .infinity, alignment: .leading)
-            HStack(spacing: 8) {
+            HStack(spacing: LayoutTokens.spacing[1]) {
                 Button("Edit") { draft = SnippetDraft(snippetID: snippet.id, trigger: snippet.trigger, text: snippet.text) }
                 Button("Delete") { Task { await model.editDictionary { $0.deleteSnippet(snippet.id) } } }
             }

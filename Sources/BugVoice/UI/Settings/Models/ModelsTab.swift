@@ -2,17 +2,18 @@ import SwiftUI
 import VoiceCore
 
 struct ModelsTab: View {
+    @Environment(AppearanceStore.self) private var store
     @Bindable var model: AppModel
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) {
                 UseForCard(model: model)
                 ConnectionsCard(model: model)
                 SearchCard(model: model)
                 CLIsCard(model: model)
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, LayoutTokens.spacing[0])
         }
         .task {
             await model.refreshCLIs()
@@ -23,6 +24,7 @@ struct ModelsTab: View {
 
 /// Green when the last test reached the server, orange when it failed, grey before a test.
 struct StatusDot: View {
+    @Environment(AppearanceStore.self) private var store
     let status: ConnectionStatus?
 
     var body: some View {
@@ -34,9 +36,9 @@ struct StatusDot: View {
 
     private var color: Color {
         switch status {
-        case .reachable: .green
-        case .failed: .orange
-        case nil: Color.secondary.opacity(0.35)
+        case .reachable: store.theme.success
+        case .failed: store.theme.warning
+        case nil: store.theme.secondaryText.opacity(0.35)
         }
     }
 

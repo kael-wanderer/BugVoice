@@ -2,6 +2,7 @@ import SwiftUI
 import VoiceCore
 
 struct UseForCard: View {
+    @Environment(AppearanceStore.self) private var store
     @Bindable var model: AppModel
     @State private var testOutput: String?
     @State private var testing = false
@@ -9,11 +10,11 @@ struct UseForCard: View {
     static let sample = "ờ thì mình cần, à không, mình muốn deploy cái API lên staging vào thứ sáu"
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[2]) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Use for").font(.headline)
+                Text("Use for").bvFont(.bodyStrong)
                 Spacer()
-                Text("Which model each feature uses.").font(.caption).foregroundStyle(.secondary)
+                Text("Which model each feature uses.").bvFont(.footnote).foregroundStyle(.bvSecondary)
             }
             Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 10) {
                 row(.dictation, use: $model.settings.models.dictation)
@@ -22,10 +23,10 @@ struct UseForCard: View {
             }
             HStack {
                 Button(testing ? "Sending…" : "Send test sentence") { Task { await runTest() } }.disabled(testing)
-                if let testOutput { Text(testOutput).font(.callout).foregroundStyle(.secondary).lineLimit(2) }
+                if let testOutput { Text(testOutput).bvFont(.body).foregroundStyle(.bvSecondary).lineLimit(2) }
             }
             Text("Coding CLIs take several seconds per call, so they are offered for Meeting notes only. Text goes to a cloud service only when a feature uses a cloud connection.")
-                .font(.caption).foregroundStyle(.secondary)
+                .bvFont(.footnote).foregroundStyle(.bvSecondary)
         }
         .insightsCard()
     }
@@ -39,11 +40,11 @@ struct UseForCard: View {
     }
 
     private func label(_ feature: ModelFeature) -> some View {
-        VStack(alignment: .leading, spacing: 1) {
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
             Text(feature.title).fontWeight(.semibold)
-            Text(subtitle(feature)).font(.caption).foregroundStyle(.secondary)
+            Text(subtitle(feature)).bvFont(.footnote).foregroundStyle(.bvSecondary)
         }
-        .frame(width: 190, alignment: .leading)
+        .frame(width: store.scaled(190), alignment: .leading)
     }
 
     /// Every row has six cells so the Grid columns line up.
@@ -59,9 +60,9 @@ struct UseForCard: View {
                     Text("5 s").tag(5.0)
                     Text("8 s").tag(8.0)
                 }
-                .labelsHidden().frame(width: 70)
+                .labelsHidden().frame(width: store.scaled(70))
             } else {
-                Color.clear.frame(width: 70, height: 1)
+                Color.clear.frame(width: store.scaled(70), height: 1)
             }
             StatusDot(status: status(use.wrappedValue.engine))
         }
@@ -90,10 +91,10 @@ struct UseForCard: View {
                 ))
                 .textFieldStyle(.roundedBorder)
             } else {
-                Text("—").foregroundStyle(.secondary)
+                Text("—").foregroundStyle(.bvSecondary)
             }
             Color.clear.frame(width: 1, height: 1)
-            Color.clear.frame(width: 70, height: 1)
+            Color.clear.frame(width: store.scaled(70), height: 1)
             StatusDot(status: status((model.settings.models.notes ?? model.settings.models.dictation).engine))
         }
     }
@@ -126,13 +127,13 @@ struct UseForCard: View {
                 Text("Effort: default").tag("")
                 ForEach(CLIArguments.efforts(for: tool), id: \.self) { Text($0).tag($0) }
             }
-            .labelsHidden().frame(width: 130)
+            .labelsHidden().frame(width: store.scaled(130))
         } else {
             Picker("", selection: use.disableThinking) {
                 Text("Thinking off").tag(true)
                 Text("Thinking on").tag(false)
             }
-            .labelsHidden().frame(width: 130)
+            .labelsHidden().frame(width: store.scaled(130))
             .disabled(use.wrappedValue.engine == .none || use.wrappedValue.engine == .appleIntelligence)
         }
     }

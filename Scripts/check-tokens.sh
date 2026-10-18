@@ -7,13 +7,7 @@ cd "$ROOT"
 ALLOW=''
 PENDING='Sources/BugVoice/HUD/HUDView.swift
 Sources/BugVoice/MeetingDetectionController.swift
-Sources/BugVoice/UI/Components/PillTabs.swift
 Sources/BugVoice/UI/DictationHistoryView.swift
-Sources/BugVoice/UI/Dictionary/DictionaryPage.swift
-Sources/BugVoice/UI/Dictionary/DictionaryWordsView.swift
-Sources/BugVoice/UI/Dictionary/HeroCard.swift
-Sources/BugVoice/UI/Dictionary/SnippetEditorSheet.swift
-Sources/BugVoice/UI/Dictionary/SnippetsView.swift
 Sources/BugVoice/UI/Insights/ActivityHeatmap.swift
 Sources/BugVoice/UI/Insights/BreakdownBars.swift
 Sources/BugVoice/UI/Insights/InsightsPage.swift
@@ -40,21 +34,6 @@ Sources/BugVoice/UI/Scratchpad/MarkdownToolbar.swift
 Sources/BugVoice/UI/Scratchpad/ScratchpadNoteEditor.swift
 Sources/BugVoice/UI/Scratchpad/ScratchpadTabBar.swift
 Sources/BugVoice/UI/Scratchpad/ScratchpadWindowView.swift
-Sources/BugVoice/UI/Settings/AgentsSettings.swift
-Sources/BugVoice/UI/Settings/GeneralTab.swift
-Sources/BugVoice/UI/Settings/MeetingsTab.swift
-Sources/BugVoice/UI/Settings/Models/CLIsCard.swift
-Sources/BugVoice/UI/Settings/Models/ConnectionSheet.swift
-Sources/BugVoice/UI/Settings/Models/ConnectionsCard.swift
-Sources/BugVoice/UI/Settings/Models/ModelsTab.swift
-Sources/BugVoice/UI/Settings/Models/SearchCard.swift
-Sources/BugVoice/UI/Settings/Models/UseForCard.swift
-Sources/BugVoice/UI/Settings/SettingsComponents.swift
-Sources/BugVoice/UI/Settings/SettingsView.swift
-Sources/BugVoice/UI/Settings/SpeechTab.swift
-Sources/BugVoice/UI/Settings/StorageTab.swift
-Sources/BugVoice/UI/Style/StyleDetailView.swift
-Sources/BugVoice/UI/Style/StylePage.swift
 Sources/BugVoice/UI/UploadPage.swift'
 
 is_exempt() {

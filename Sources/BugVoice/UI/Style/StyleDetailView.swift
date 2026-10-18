@@ -3,18 +3,19 @@ import SwiftUI
 import VoiceCore
 
 struct StyleDetailView: View {
+    @Environment(AppearanceStore.self) private var store
     @Bindable var model: AppModel
     let style: Style
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Text(style.title).font(.title3.weight(.semibold))
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) {
+            Text(style.title).bvFont(.title3)
             section("Apps and websites") {
-                if style == .other { Text("Every app without a style uses Other.").foregroundStyle(.secondary) }
+                if style == .other { Text("Every app without a style uses Other.").foregroundStyle(.bvSecondary) }
                 let entries = StyleApps.entries(for: style, overrides: model.settings.styles.appOverrides)
-                if !entries.isEmpty { FlowLayout(spacing: 6) { ForEach(entries) { chip($0) } } }
+                if !entries.isEmpty { FlowLayout(spacing: LayoutTokens.spacing[0]) { ForEach(entries) { chip($0) } } }
                 if style == .terminal {
-                    Text("Also the terminal panel in VS Code and Cursor.").font(.caption).foregroundStyle(.secondary)
+                    Text("Also the terminal panel in VS Code and Cursor.").bvFont(.footnote).foregroundStyle(.bvSecondary)
                 }
                 if style != .other { Button { addApp() } label: { Label("Add app", systemImage: "plus") } }
             }
@@ -27,8 +28,8 @@ struct StyleDetailView: View {
                     get: { model.settings.styles.customRules[style.rawValue] ?? PromptBuilder.defaultRules(for: style) },
                     set: { model.settings.styles.customRules[style.rawValue] = $0 == PromptBuilder.defaultRules(for: style) ? nil : $0 }
                 ))
-                .font(.callout).frame(minHeight: 90)
-                .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color(nsColor: .separatorColor)))
+                .bvFont(.body).frame(minHeight: 90)
+                .overlay(RoundedRectangle(cornerRadius: LayoutTokens.controlRadius).strokeBorder(store.theme.separator))
                 Button("Reset to default") { model.settings.styles.customRules[style.rawValue] = nil }
                     .disabled(model.settings.styles.customRules[style.rawValue] == nil)
             }
@@ -36,11 +37,11 @@ struct StyleDetailView: View {
                 let example = StyleExamples.example(for: style, hotkeyName: model.settings.hotkey.spokenName)
                 Grid(alignment: .topLeading, horizontalSpacing: 12, verticalSpacing: 6) {
                     GridRow {
-                        Text("You say").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                        Text(example.said).foregroundStyle(.secondary)
+                        Text("You say").bvFont(.footnote).foregroundStyle(.bvSecondary)
+                        Text(example.said).foregroundStyle(.bvSecondary)
                     }
                     GridRow {
-                        Text("BugVoice writes").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                        Text("BugVoice writes").bvFont(.footnote).foregroundStyle(.bvSecondary)
                         Text(example.written)
                     }
                 }
@@ -50,7 +51,7 @@ struct StyleDetailView: View {
     }
 
     private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 8) { Text(title).font(.headline); content() }
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) { Text(title).bvFont(.bodyStrong); content() }
     }
 
     @ViewBuilder
@@ -66,8 +67,8 @@ struct StyleDetailView: View {
             } label: { Text(entry.name) }
                 .menuStyle(.button).buttonStyle(.bordered).fixedSize()
         } else {
-            Text(entry.name).font(.callout).padding(.horizontal, 8).padding(.vertical, 3)
-                .background(Capsule().fill(Color.primary.opacity(0.07)))
+            Text(entry.name).bvFont(.body).padding(.horizontal, LayoutTokens.spacing[1]).padding(.vertical, LayoutTokens.spacing[0])
+                .background(Capsule().fill(store.theme.text.opacity(0.07)))
         }
     }
 
