@@ -2,32 +2,33 @@ import SwiftUI
 import VoiceCore
 
 struct CLIsCard: View {
+    @Environment(AppearanceStore.self) private var store
     let model: AppModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Coding CLIs").font(.headline)
+                Text("Coding CLIs").bvFont(.bodyStrong)
                 Spacer()
-                Text("Run with their own login. BugVoice stores no key for them.").font(.caption).foregroundStyle(.secondary)
+                Text("Run with their own login. BugVoice stores no key for them.").bvFont(.footnote).foregroundStyle(.bvSecondary)
             }
-            .padding(.bottom, 8)
+            .padding(.bottom, LayoutTokens.spacing[1])
             ForEach(CLITool.allCases, id: \.self) { tool in
                 Divider()
-                HStack(spacing: 12) {
-                    Text(tool.rawValue).font(.system(.body, design: .monospaced)).fontWeight(.semibold).frame(width: 70, alignment: .leading)
+                HStack(spacing: LayoutTokens.spacing[2]) {
+                    Text(tool.rawValue).bvCode(.body).fontWeight(.semibold).frame(width: store.scaled(70), alignment: .leading)
                     if let info = model.cliInfo[tool] {
                         Text(info.version.isEmpty ? info.path : "\(info.path) · \(info.version)")
-                            .font(.system(.caption, design: .monospaced)).foregroundStyle(.secondary).lineLimit(1)
+                            .bvCode(.footnote).foregroundStyle(.bvSecondary).lineLimit(1)
                         Spacer()
                         StatusDot(status: .reachable(models: []))
-                        Text("Found · \(Self.isolation(tool))").font(.caption).foregroundStyle(.secondary)
+                        Text("Found · \(Self.isolation(tool))").bvFont(.footnote).foregroundStyle(.bvSecondary)
                     } else {
-                        Text("Not found").foregroundStyle(.secondary)
+                        Text("Not found").foregroundStyle(.bvSecondary)
                         Spacer()
                     }
                 }
-                .padding(.vertical, 8)
+                .padding(.vertical, LayoutTokens.spacing[1])
             }
         }
         .insightsCard()

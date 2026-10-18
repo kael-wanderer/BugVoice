@@ -3,6 +3,7 @@ import SwiftUI
 import VoiceCore
 
 struct AskAnswerView: View {
+    @Environment(AppearanceStore.self) private var store
     @Bindable var assistant: ScratchpadAssistant
     let model: AppModel
     @State private var selection: AskCitationSelection?
@@ -32,7 +33,7 @@ struct AskAnswerView: View {
 
     private var answer: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: LayoutTokens.spacing[2]) {
                 if let step = assistant.askStep { progress(step) }
                 else {
                     Button {
@@ -41,15 +42,15 @@ struct AskAnswerView: View {
                         Label("Back to note", systemImage: "chevron.left")
                     }
                     .buttonStyle(.link)
-                    if let error = assistant.askError { Text(error).foregroundStyle(.orange) }
+                    if let error = assistant.askError { Text(error).foregroundStyle(.bvWarning) }
                     if let saved = assistant.askResult {
-                        Text(saved.question).font(.callout).foregroundStyle(.secondary)
+                        Text(saved.question).bvFont(.body).foregroundStyle(.bvSecondary)
                         switch saved.outcome {
                         case .answered(let result, let reason):
                             if let reason { wordOnly(reason) }
                             Text(result.answer).textSelection(.enabled)
                             Text("Searched: \(model.askScopeTitle(saved.scope)) · \(matched(result))")
-                                .font(.caption).foregroundStyle(.secondary)
+                                .bvFont(.footnote).foregroundStyle(.bvSecondary)
                             ForEach(result.cards) { card in cardView(card) }
                             HStack {
                                 Button("Copy") {
@@ -62,27 +63,27 @@ struct AskAnswerView: View {
                             if let reason { wordOnly(reason) }
                             Text("Nothing about this in your notes or meetings.")
                             Text("Searched: \(model.askScopeTitle(saved.scope)) · \(saved.counts.meetings) meetings, \(saved.counts.notes) notes, \(saved.counts.dictations) dictations")
-                                .font(.caption).foregroundStyle(.secondary)
-                        case .failed(let failure): Text(failure.message).foregroundStyle(.orange)
+                                .bvFont(.footnote).foregroundStyle(.bvSecondary)
+                        case .failed(let failure): Text(failure.message).foregroundStyle(.bvWarning)
                         }
                     }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(16)
+            .padding(LayoutTokens.spacing[3])
         }
     }
 
     private func progress(_ step: AskStep) -> some View {
         let index: Int = switch step { case .understanding: 0; case .searching: 1; case .reading: 2 }
         let labels = [index == 0 ? "Understanding the question…" : "Understanding the question", searchText(step), readingText(step)]
-        return VStack(alignment: .leading, spacing: 14) {
+        return VStack(alignment: .leading, spacing: LayoutTokens.spacing[2]) {
             ForEach(0..<3) { row in
-                HStack(spacing: 10) {
-                    if row < index { Image(systemName: "checkmark").foregroundStyle(.green) }
+                HStack(spacing: LayoutTokens.spacing[1]) {
+                    if row < index { Image(systemName: "checkmark").foregroundStyle(.bvSuccess) }
                     else if row == index { ProgressView().controlSize(.small) }
-                    else { Image(systemName: "circle").foregroundStyle(.tertiary) }
-                    Text(labels[row]).foregroundStyle(row > index ? .secondary : .primary)
+                    else { Image(systemName: "circle").foregroundStyle(.bvSecondary) }
+                    Text(labels[row]).foregroundStyle(row > index ? store.theme.secondaryText : store.theme.text)
                 }
             }
         }
@@ -102,26 +103,26 @@ struct AskAnswerView: View {
     }
 
     private func wordOnly(_ reason: WordOnlyReason) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
             Text(reason == .noModel
                  ? "Word search only: no embedding model is set up. Results may miss other languages."
                  : "Word search only: the embedding model is not answering.")
             if reason == .noModel {
                 Button("Set up in Settings") { model.settingsTab = .models; model.openMainWindow(.settings) }
             }
-        }.font(.callout).padding(10).background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+        }.bvFont(.body).padding(LayoutTokens.spacing[1]).background(store.theme.warning.opacity(0.1), in: RoundedRectangle(cornerRadius: LayoutTokens.controlRadius))
     }
 
     private func cardView(_ card: AskCard) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {
             HStack {
                 Text(card.info.title).fontWeight(.semibold)
-                Text(badge(card.info.kind)).font(.caption2).padding(.horizontal, 6).padding(.vertical, 3)
-                    .background(Color.secondary.opacity(0.1), in: Capsule())
+                Text(badge(card.info.kind)).bvFont(.caption).padding(.horizontal, LayoutTokens.spacing[0]).padding(.vertical, LayoutTokens.spacing[0])
+                    .background(store.theme.secondaryText.opacity(0.1), in: Capsule())
             }
-            Text(metadata(card.info)).font(.caption).foregroundStyle(.secondary)
+            Text(metadata(card.info)).bvFont(.footnote).foregroundStyle(.bvSecondary)
             ForEach(card.citations) { citation in
-                VStack(alignment: .leading, spacing: 5) {
+                VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
                     if let start = citation.start, let end = citation.end {
                         Button("▶ \(Self.clock(start))–\(Self.clock(end))") {
                             selection = AskCitationSelection(card: card, citation: citation)
@@ -129,7 +130,7 @@ struct AskAnswerView: View {
                     } else if case .note(let id) = card.source {
                         Button("Open note") { Task { await model.openNoteInWindow(id) } }
                     } else if case .meeting = card.source {
-                        Text(partTitle(citation.part)).font(.caption).foregroundStyle(.secondary)
+                        Text(partTitle(citation.part)).bvFont(.footnote).foregroundStyle(.bvSecondary)
                     }
                     Text(citation.lines.first.map { line in (line.speaker.map { "\($0): " } ?? "") + "\"\(line.text)\"" } ?? "")
                         .lineLimit(2).textSelection(.enabled)
@@ -142,9 +143,9 @@ struct AskAnswerView: View {
                 }
             }
         }
-        .padding(12).frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(selection?.card.id == card.id ? Color.accentColor : Color.secondary.opacity(0.2), lineWidth: selection?.card.id == card.id ? 2 : 1))
+        .padding(LayoutTokens.spacing[2]).frame(maxWidth: .infinity, alignment: .leading)
+        .background(store.theme.card, in: RoundedRectangle(cornerRadius: LayoutTokens.cardRadius))
+        .overlay(RoundedRectangle(cornerRadius: LayoutTokens.cardRadius).stroke(selection?.card.id == card.id ? store.theme.accent : store.theme.secondaryText.opacity(0.2), lineWidth: selection?.card.id == card.id ? 2 : 1))
     }
 
     private func badge(_ kind: AskItemInfo.Kind) -> String {
@@ -171,14 +172,15 @@ struct AskAnswerView: View {
 }
 
 struct AskMeetingPicker: View {
+    @Environment(AppearanceStore.self) private var store
     let meetings: [MeetingManifest]
     let select: (MeetingID) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var query = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("A meeting…").font(.headline)
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[2]) {
+            Text("A meeting…").bvFont(.bodyStrong)
             TextField("Search meetings", text: $query).textFieldStyle(.roundedBorder)
             List {
                 ForEach(meetings.filter { meeting in
@@ -187,12 +189,12 @@ struct AskMeetingPicker: View {
                     Button { select(meeting.id) } label: {
                         VStack(alignment: .leading) {
                             Text(meeting.title)
-                            Text(meeting.startedAt.formatted(date: .abbreviated, time: .omitted)).font(.caption).foregroundStyle(.secondary)
+                            Text(meeting.startedAt.formatted(date: .abbreviated, time: .omitted)).bvFont(.footnote).foregroundStyle(.bvSecondary)
                         }
                     }.buttonStyle(.plain)
                 }
             }
             HStack { Spacer(); Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction) }
-        }.padding(20).frame(width: 380, height: 420)
+        }.padding(LayoutTokens.spacing[3]).frame(width: store.scaled(380), height: 420)
     }
 }

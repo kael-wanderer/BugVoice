@@ -1,8 +1,21 @@
 # BugVoice — Handoff
 
-Last updated: 2026-10-17
+Last updated: 2026-10-18
 
 ## Current state
+
+**Appearance foundation: implemented on `feat/appearance-foundation` (2026-10-18), not merged or pushed.**
+Tasks 6–9 and 11–16 extend the reviewed Tasks 0–5 and 10: shared appearance store,
+21 themes, text/font controls, app/menu icon pickers, shortcut letters, token migration,
+and independent HUD size. Atkinson Hyperlegible Next 2.001 failed the Vietnamese gate
+(98 missing code points in all six checked faces), so no font is bundled and saved
+Atkinson selections fall back to System. Token check passes with empty `PENDING`;
+1,016 tests pass. See `docs/progress/appearance-log.md` for commits, run evidence,
+160% clipping, deviations, HUD readability limits and **10 pending owner manual checks**.
+Existing horizontal Settings/Style tabs and some main-page content do not fit cleanly
+at 160%; layouts were preserved as required. Detection-popup and full shortcut/HUD
+matrices still need device checks. Continue from this branch; no merge/push was performed.
+
 
 **MCP server (roadmap item 6, second half): merged and pushed (2026-10-17, `378fc2d`).**
 `bugvoice-mcp` in `Contents/MacOS` speaks MCP over stdio and forwards tool calls

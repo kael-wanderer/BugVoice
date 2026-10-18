@@ -5,8 +5,25 @@ extension HotkeyKey {
     /// The one label for a hotkey, used in Settings and the menu.
     var displayName: String {
         switch self {
+        case .rightControl: "Right ⌃"
         case .rightOption: "Right ⌥"
         case .rightCommand: "Right ⌘"
+        case .fn: "Fn"
+        case .f13: "F13"
+        case .f14: "F14"
+        case .f15: "F15"
+        case .f16: "F16"
+        case .f17: "F17"
+        case .f18: "F18"
+        case .f19: "F19"
+        }
+    }
+
+    var spokenName: String {
+        switch self {
+        case .rightControl: "Right Control"
+        case .rightOption: "Right Option"
+        case .rightCommand: "Right Command"
         case .fn: "Fn"
         case .f13: "F13"
         case .f14: "F14"
@@ -53,8 +70,8 @@ struct SettingsCard<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            if let title { Text(title).font(.headline) }
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {
+            if let title { Text(title).bvFont(.bodyStrong) }
             content
         }
         .insightsCard()
@@ -67,7 +84,7 @@ struct SettingsRow<Control: View>: View {
     @ViewBuilder var control: Control
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: LayoutTokens.spacing[2]) {
             Text(title)
             Spacer(minLength: 16)
             control
@@ -93,8 +110,8 @@ struct SettingsScroll<Content: View>: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) { content }
-                .padding(.vertical, 4)
+            VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) { content }
+                .padding(.vertical, LayoutTokens.spacing[0])
         }
     }
 }

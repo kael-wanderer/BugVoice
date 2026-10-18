@@ -1,4 +1,5 @@
 import AppKit
+import Observation
 import BugVoiceMac
 import SwiftUI
 import UniformTypeIdentifiers
@@ -8,6 +9,7 @@ import VoiceCore
 /// the action row (view switch, Dictate, History, Trash, Copy) and the
 /// AI or Formatting bar.
 struct ScratchpadNoteEditor: View {
+    @Environment(AppearanceStore.self) private var store
     @Bindable var model: AppModel
     @Bindable var assistant: ScratchpadAssistant
     let note: NoteDocument
@@ -26,7 +28,7 @@ struct ScratchpadNoteEditor: View {
                 get: { controller.titleDraft(id: note.id) ?? note.title },
                 set: { controller.updateTitleDraft(id: note.id, title: $0) }
             ))
-            .font(.title2.weight(.semibold))
+            .bvFont(.title2)
             .textFieldStyle(.plain)
             .focused($titleFocused)
             .onSubmit { Task { await controller.commitTitle(id: note.id, reason: .returnKey) } }
@@ -35,9 +37,9 @@ struct ScratchpadNoteEditor: View {
                     Task { await controller.commitTitle(id: note.id, reason: .focusOut) }
                 }
             }
-            .padding(.horizontal, 18)
-            .padding(.top, 14)
-            .padding(.bottom, 6)
+            .padding(.horizontal, LayoutTokens.spacing[3])
+            .padding(.top, LayoutTokens.spacing[2])
+            .padding(.bottom, LayoutTokens.spacing[0])
 
             LabelsBox(
                 model: model,
@@ -48,8 +50,8 @@ struct ScratchpadNoteEditor: View {
                     Task { await model.setNoteLabels(id: note.id, folderID: labels.folderID, tags: labels.tags) }
                 }
             )
-            .padding(.horizontal, 18)
-            .padding(.bottom, 6)
+            .padding(.horizontal, LayoutTokens.spacing[3])
+            .padding(.bottom, LayoutTokens.spacing[0])
 
             statusRow
 
@@ -67,9 +69,9 @@ struct ScratchpadNoteEditor: View {
                     )
                     if note.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         Text("Hold \(model.settings.hotkey.displayName) to dictate, or start typing.")
-                            .foregroundStyle(.tertiary)
-                            .padding(.horizontal, 13)
-                            .padding(.vertical, 10)
+                            .foregroundStyle(.bvSecondary)
+                            .padding(.horizontal, LayoutTokens.spacing[2])
+                            .padding(.vertical, LayoutTokens.spacing[1])
                             .allowsHitTesting(false)
                     }
                 } else {
@@ -83,7 +85,7 @@ struct ScratchpadNoteEditor: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .overlay(alignment: .bottom) { noticeView }
 
-            VStack(spacing: 8) {
+            VStack(spacing: LayoutTokens.spacing[1]) {
                 if let reply = assistant.reply, reply.noteID == note.id {
                     AIReplyView(
                         reply: reply,
@@ -94,8 +96,8 @@ struct ScratchpadNoteEditor: View {
                 if model.notesIsListening { listeningBar }
                 bottomBar
             }
-            .padding(.horizontal, 12)
-            .padding(.bottom, 10)
+            .padding(.horizontal, LayoutTokens.spacing[2])
+            .padding(.bottom, LayoutTokens.spacing[1])
         }
         .background { shortcuts }
         .confirmationDialog(
@@ -129,25 +131,25 @@ struct ScratchpadNoteEditor: View {
     @ViewBuilder private var statusRow: some View {
         if controller.externalChangeMessage(for: note.id) != nil {
             HStack {
-                Text("Changed outside BugVoice").foregroundStyle(.orange)
+                Text("Changed outside BugVoice").foregroundStyle(.bvWarning)
                 Spacer()
                 Button("Resolve…") { confirmExternalReload = true }
             }
-            .padding(.horizontal, 18)
-            .padding(.bottom, 6)
+            .padding(.horizontal, LayoutTokens.spacing[3])
+            .padding(.bottom, LayoutTokens.spacing[0])
         } else if controller.saveMessage(for: note.id).hasPrefix("Could not") {
             HStack {
-                Text(controller.saveMessage(for: note.id)).foregroundStyle(.red)
+                Text(controller.saveMessage(for: note.id)).foregroundStyle(.bvRecording)
                 Spacer()
                 Button("Retry save") { Task { _ = await controller.flush(id: note.id) } }
             }
-            .padding(.horizontal, 18)
-            .padding(.bottom, 6)
+            .padding(.horizontal, LayoutTokens.spacing[3])
+            .padding(.bottom, LayoutTokens.spacing[0])
         }
     }
 
     private var actionRow: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: LayoutTokens.spacing[1]) {
             Picker("View", selection: Binding(get: { model.scratchpadView }, set: { model.scratchpadView = $0 })) {
                 ForEach(NoteViewMode.allCases, id: \.self) { Text($0.title).tag($0) }
             }
@@ -223,43 +225,43 @@ struct ScratchpadNoteEditor: View {
                 MarkdownToolbar { command in run(command) }
             } else {
                 Text("Doc view is read only. Switch to Markdown to edit.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .bvFont(.footnote)
+                    .foregroundStyle(.bvSecondary)
                     .frame(maxWidth: .infinity)
             }
         }
-        .padding(10)
-        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.secondary.opacity(0.2)))
+        .padding(LayoutTokens.spacing[1])
+        .background(store.theme.card, in: RoundedRectangle(cornerRadius: LayoutTokens.cardRadius))
+        .overlay(RoundedRectangle(cornerRadius: LayoutTokens.cardRadius).stroke(store.theme.secondaryText.opacity(0.2)))
     }
 
     @ViewBuilder private var noticeView: some View {
         if let notice = assistant.notice, notice.noteID == note.id {
-            HStack(spacing: 10) {
+            HStack(spacing: LayoutTokens.spacing[1]) {
                 Text(notice.text)
                 Button("Undo") { assistant.undo(controller: controller) }
                     .buttonStyle(.borderless)
             }
-            .font(.callout)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 7)
-            .background(.regularMaterial, in: Capsule())
-            .overlay(Capsule().stroke(Color.secondary.opacity(0.25)))
-            .padding(.bottom, 10)
+            .bvFont(.body)
+            .padding(.horizontal, LayoutTokens.spacing[2])
+            .padding(.vertical, LayoutTokens.spacing[1])
+            .background(.bvCard, in: Capsule())
+            .overlay(Capsule().stroke(store.theme.secondaryText.opacity(0.25)))
+            .padding(.bottom, LayoutTokens.spacing[1])
         } else if let notice = model.notice {
             Text(notice)
-                .font(.callout)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 7)
-                .background(.regularMaterial, in: Capsule())
-                .overlay(Capsule().stroke(Color.secondary.opacity(0.25)))
-                .padding(.bottom, 10)
+                .bvFont(.body)
+                .padding(.horizontal, LayoutTokens.spacing[2])
+                .padding(.vertical, LayoutTokens.spacing[1])
+                .background(.bvCard, in: Capsule())
+                .overlay(Capsule().stroke(store.theme.secondaryText.opacity(0.25)))
+                .padding(.bottom, LayoutTokens.spacing[1])
         }
     }
 
     private var listeningBar: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "waveform").foregroundStyle(.red)
+        HStack(spacing: LayoutTokens.spacing[2]) {
+            Image(systemName: "waveform").foregroundStyle(.bvRecording)
             Text("Listening").fontWeight(.semibold)
             if let started = model.notesRecordingStartedAt {
                 TimelineView(.periodic(from: started, by: 1)) { context in
@@ -267,15 +269,15 @@ struct ScratchpadNoteEditor: View {
                 }
             }
             ProgressView(value: Double(model.dictation?.recordingLevel ?? 0), total: 0.2)
-                .frame(width: 80)
-            Text("Text will be added to this note").foregroundStyle(.secondary).lineLimit(1)
+                .frame(width: store.scaled(80))
+            Text("Text will be added to this note").foregroundStyle(.bvSecondary).lineLimit(1)
             Spacer()
             Button("Stop") { model.dictation?.toggleNotesRecording() }
                 .keyboardShortcut(.escape)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
+        .padding(.horizontal, LayoutTokens.spacing[2])
+        .padding(.vertical, LayoutTokens.spacing[1])
+        .background(store.theme.card, in: RoundedRectangle(cornerRadius: LayoutTokens.cardRadius))
     }
 
     /// ⌘1…⌘3 chips, ⌘⇧C Copy, ⌘↩ Copy and close.
@@ -435,6 +437,7 @@ private final class NonFocusNSButton: NSButton {
 }
 
 struct NotesBodyEditor: NSViewRepresentable {
+    @Environment(AppearanceStore.self) private var appearance
     let controller: NotesController
     let noteID: NoteID
     let body: String
@@ -443,7 +446,7 @@ struct NotesBodyEditor: NSViewRepresentable {
     let onCaretPlaced: () -> Void
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(controller: controller, noteID: noteID)
+        Coordinator(controller: controller, noteID: noteID, appearance: appearance)
     }
 
     func makeNSView(context: Context) -> NSScrollView {
@@ -452,8 +455,7 @@ struct NotesBodyEditor: NSViewRepresentable {
         editor.isRichText = false
         editor.importsGraphics = false
         editor.allowsUndo = true
-        editor.font = MarkdownTextStyler.bodyFont
-        editor.typingAttributes = [.font: MarkdownTextStyler.bodyFont, .foregroundColor: NSColor.labelColor]
+        editor.font = appearance.type.nsFont(.reading)
         editor.drawsBackground = false
         editor.textContainerInset = NSSize(width: 8, height: 10)
         editor.string = body
@@ -473,6 +475,8 @@ struct NotesBodyEditor: NSViewRepresentable {
         scroll.documentView = editor
         controller.attachEditor(editor, to: noteID)
         context.coordinator.editor = editor
+        context.coordinator.observeAppearance()
+        context.coordinator.observeFrame()
         context.coordinator.restyle()
         return scroll
     }
@@ -483,6 +487,7 @@ struct NotesBodyEditor: NSViewRepresentable {
             controller.detachEditor(editor, from: context.coordinator.noteID)
             context.coordinator.noteID = noteID
         }
+        context.coordinator.restyle()
         controller.attachEditor(editor, to: noteID)
         context.coordinator.controller = controller
         if editor.string != body {
@@ -515,9 +520,12 @@ struct NotesBodyEditor: NSViewRepresentable {
     final class Coordinator: NSObject, NSTextViewDelegate {
         var controller: NotesController
         var noteID: NoteID
+        let appearance: AppearanceStore
         weak var editor: NotesTextView?
+        nonisolated(unsafe) private var frameObserver: NSObjectProtocol?
 
-        init(controller: NotesController, noteID: NoteID) {
+        init(controller: NotesController, noteID: NoteID, appearance: AppearanceStore) {
+            self.appearance = appearance
             self.controller = controller
             self.noteID = noteID
         }
@@ -528,10 +536,51 @@ struct NotesBodyEditor: NSViewRepresentable {
             restyle()
         }
 
+        func observeAppearance() {
+            withObservationTracking {
+                _ = appearance.settings
+                _ = appearance.systemIsDark
+            } onChange: { [weak self] in
+                Task { @MainActor [weak self] in
+                    self?.restyle()
+                    self?.observeAppearance()
+                }
+            }
+        }
+
         func restyle() {
             guard let editor, let storage = editor.textStorage else { return }
-            MarkdownTextStyler.apply(to: storage)
-            editor.typingAttributes = [.font: MarkdownTextStyler.bodyFont, .foregroundColor: NSColor.labelColor]
+            let style = MarkdownTextStyle(appearance: appearance)
+            editor.backgroundColor = appearance.theme.backgroundNS
+            editor.drawsBackground = true
+            editor.insertionPointColor = appearance.theme.textNS
+            editor.textColor = style.textColor
+            MarkdownTextStyler.apply(to: storage, style: style)
+            editor.typingAttributes = style.typingAttributes
+            updateInset()
+        }
+
+        /// Centers the text at the reading width; runs again when the editor resizes.
+        func updateInset() {
+            guard let editor else { return }
+            let inset = NSSize(
+                width: max(LayoutTokens.spacing[1], (editor.bounds.width - appearance.readingWidth) / 2),
+                height: LayoutTokens.spacing[2])
+            if editor.textContainerInset != inset { editor.textContainerInset = inset }
+        }
+
+        func observeFrame() {
+            guard let editor, frameObserver == nil else { return }
+            editor.postsFrameChangedNotifications = true
+            frameObserver = NotificationCenter.default.addObserver(
+                forName: NSView.frameDidChangeNotification, object: editor, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.updateInset() }
+            }
+        }
+
+        deinit {
+            if let frameObserver { NotificationCenter.default.removeObserver(frameObserver) }
         }
 
         func textViewDidChangeSelection(_ notification: Notification) {

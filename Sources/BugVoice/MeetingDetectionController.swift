@@ -13,7 +13,7 @@ final class MeetingDetectionController {
     private unowned let model: AppModel
     private var detector = MeetingDetector(ownPID: ProcessInfo.processInfo.processIdentifier)
     private var timer: Timer?
-    private let popup = MeetingDetectionPopup()
+    private lazy var popup = MeetingDetectionPopup(appearance: model.appearance)
 
     init(model: AppModel) {
         self.model = model
@@ -113,6 +113,7 @@ final class MeetingDetectionPopup {
     static let endedSeconds: TimeInterval = 30
     static let size = NSSize(width: 440, height: 64)
 
+    private var panelSize: NSSize { NSSize(width: appearance.scaled(Self.size.width), height: appearance.scaled(Self.size.height)) }
     private var panel: NSPanel?
     private var hideTask: Task<Void, Never>?
     private(set) var kind: Kind?
@@ -148,16 +149,20 @@ final class MeetingDetectionPopup {
         panel?.orderOut(nil)
     }
 
+    private let appearance: AppearanceStore
+
+    init(appearance: AppearanceStore) { self.appearance = appearance }
+
     private func show(kind: Kind, view: MeetingPopupView, seconds: TimeInterval) {
         let panel = self.panel ?? makePanel()
         self.panel = panel
         self.kind = kind
-        panel.contentView = NonKeyPopupHostingView(rootView: view)
+        panel.contentView = NonKeyPopupHostingView(rootView: AnyView(view.bvTheme(appearance)))
         if let screen = MeetingDetectionController.frontmostWindowScreen() {
             let visible = screen.visibleFrame
             panel.setFrame(
-                NSRect(x: visible.maxX - Self.size.width - 16, y: visible.maxY - Self.size.height - 12,
-                       width: Self.size.width, height: Self.size.height),
+                NSRect(x: visible.maxX - panelSize.width - 16, y: visible.maxY - panelSize.height - 12,
+                       width: panelSize.width, height: panelSize.height),
                 display: true
             )
         }
@@ -172,7 +177,7 @@ final class MeetingDetectionPopup {
 
     private func makePanel() -> NSPanel {
         let panel = NSPanel(
-            contentRect: NSRect(origin: .zero, size: Self.size),
+            contentRect: NSRect(origin: .zero, size: panelSize),
             styleMask: [.nonactivatingPanel, .borderless],
             backing: .buffered,
             defer: true
@@ -184,16 +189,18 @@ final class MeetingDetectionPopup {
         panel.isOpaque = false
         panel.hasShadow = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
+        appearance.attach(panel)
         panel.setAccessibilityLabel("Meeting offer")
         return panel
     }
 }
 
-private final class NonKeyPopupHostingView: NSHostingView<MeetingPopupView> {
+private final class NonKeyPopupHostingView: NSHostingView<AnyView> {
     override var acceptsFirstResponder: Bool { false }
 }
 
 private struct MeetingPopupView: View {
+    @Environment(AppearanceStore.self) private var store
     let title: String
     let subtitle: String
     let action: String
@@ -203,21 +210,21 @@ private struct MeetingPopupView: View {
     let onClose: () -> Void
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: LayoutTokens.spacing[1]) {
             Button(action: onClose) {
-                Image(systemName: "xmark").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                Image(systemName: "xmark").bvFont(.footnote).foregroundStyle(.bvSecondary)
             }
             .buttonStyle(.plain)
             .help("Close")
-            Image(systemName: "video.fill").foregroundStyle(.secondary)
-            VStack(alignment: .leading, spacing: 2) {
+            Image(systemName: "video.fill").foregroundStyle(.bvSecondary)
+            VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
                 Text(title).fontWeight(.semibold)
-                Text(subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                Text(subtitle).bvFont(.footnote).foregroundStyle(.bvSecondary).lineLimit(1)
             }
             Spacer(minLength: 8)
             Button(action: onAction) {
-                HStack(spacing: 6) {
-                    Circle().fill(.red).frame(width: 8, height: 8)
+                HStack(spacing: LayoutTokens.spacing[0]) {
+                    Circle().fill(.bvRecording).frame(width: 8, height: 8)
                     Text(action)
                 }
             }
@@ -233,10 +240,10 @@ private struct MeetingPopupView: View {
                 .fixedSize()
             }
         }
-        .padding(.horizontal, 14)
-        .frame(width: MeetingDetectionPopup.size.width, height: MeetingDetectionPopup.size.height)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(.white.opacity(0.15)))
+        .padding(.horizontal, LayoutTokens.spacing[2])
+        .frame(width: store.scaled(MeetingDetectionPopup.size.width), height: store.scaled(MeetingDetectionPopup.size.height))
+        .background(.bvCard, in: RoundedRectangle(cornerRadius: LayoutTokens.largeCardRadius))
+        .overlay(RoundedRectangle(cornerRadius: LayoutTokens.largeCardRadius).strokeBorder(.bvSeparator))
     }
 }
 

@@ -107,6 +107,6 @@ struct MenuBarIcon: View {
     var model: AppModel
 
     var body: some View {
-        Image(nsImage: BrandImages.menuBar(badge: !model.permissionsGranted))
+        Image(nsImage: BrandImages.menuBar(logo: model.settings.appearance.menuBarIcon, badge: !model.permissionsGranted))
     }
 }

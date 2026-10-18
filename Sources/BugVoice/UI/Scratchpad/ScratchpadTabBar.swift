@@ -5,17 +5,18 @@ import VoiceCore
 /// Top of the Scratchpad window: one tab per open note and "+", then Keep on
 /// top, Smaller/Larger and Close.
 struct ScratchpadTabBar: View {
+    @Environment(AppearanceStore.self) private var store
     @Bindable var model: AppModel
     let onNew: () -> Void
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: LayoutTokens.spacing[0]) {
             Image(systemName: "waveform")
-                .foregroundStyle(Color.accentColor)
-                .padding(.leading, 12)
+                .foregroundStyle(store.theme.accent)
+                .padding(.leading, LayoutTokens.spacing[2])
                 .accessibilityHidden(true)
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 2) {
+                HStack(spacing: LayoutTokens.spacing[0]) {
                     ForEach(model.scratchpadTabs.ids, id: \.self) { id in
                         tab(id)
                     }
@@ -26,7 +27,7 @@ struct ScratchpadTabBar: View {
                     .help("New note (⌘N)")
                     .accessibilityLabel("New note")
                 }
-                .padding(.horizontal, 6)
+                .padding(.horizontal, LayoutTokens.spacing[0])
             }
             Spacer(minLength: 8)
             Toggle(isOn: $model.settings.scratchpad.keepOnTop) {
@@ -54,7 +55,7 @@ struct ScratchpadTabBar: View {
             .buttonStyle(.borderless)
             .help("Close")
             .accessibilityLabel("Close")
-            .padding(.trailing, 10)
+            .padding(.trailing, LayoutTokens.spacing[1])
         }
         .frame(height: 40)
     }
@@ -62,21 +63,21 @@ struct ScratchpadTabBar: View {
     private func tab(_ id: NoteID) -> some View {
         let active = model.scratchpadTabs.active == id
         let title = model.notesController.notes.first { $0.id == id }?.title ?? "Untitled"
-        return HStack(spacing: 6) {
-            Text(title).lineLimit(1).frame(maxWidth: 160, alignment: .leading)
+        return HStack(spacing: LayoutTokens.spacing[0]) {
+            Text(title).lineLimit(1).frame(maxWidth: store.scaled(160), alignment: .leading)
                 .fontWeight(active ? .semibold : .regular)
             Button {
                 Task { await model.closeNoteTab(id) }
             } label: {
-                Image(systemName: "xmark").font(.caption2.weight(.semibold))
+                Image(systemName: "xmark").bvFont(.caption)
             }
             .buttonStyle(.borderless)
             .help("Close tab (⌘W)")
             .accessibilityLabel("Close \(title)")
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 5)
-        .background(active ? Color(nsColor: .textBackgroundColor) : .clear, in: RoundedRectangle(cornerRadius: 7))
+        .padding(.horizontal, LayoutTokens.spacing[1])
+        .padding(.vertical, LayoutTokens.spacing[0])
+        .background(active ? store.theme.background : .clear, in: RoundedRectangle(cornerRadius: LayoutTokens.controlRadius))
         .contentShape(Rectangle())
         .onTapGesture {
             Task {

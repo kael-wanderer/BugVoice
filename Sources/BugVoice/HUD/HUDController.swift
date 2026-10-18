@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import Observation
 
 /// Hosting view that reports intrinsic size changes to its owner.
 private final class SizingHostingView<Content: View>: NSHostingView<Content> {
@@ -17,12 +18,14 @@ private final class SizingHostingView<Content: View>: NSHostingView<Content> {
 final class HUDController {
     let model = HUDModel()
     var levelSource: (() -> Float)?
+    private let appearance: AppearanceStore
     private let panel: NSPanel
-    private let hosting: SizingHostingView<HUDView>
+    private let hosting: SizingHostingView<AnyView>
     private var hideTask: Task<Void, Never>?
     private var meterTimer: Timer?
 
-    init() {
+    init(appearance: AppearanceStore) {
+        self.appearance = appearance
         panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 420, height: 60),
             styleMask: [.nonactivatingPanel, .borderless],
@@ -33,14 +36,30 @@ final class HUDController {
         panel.level = .statusBar
         panel.backgroundColor = .clear
         panel.isOpaque = false
-        panel.hasShadow = true
+        panel.hasShadow = false
         panel.ignoresMouseEvents = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
-        hosting = SizingHostingView(rootView: HUDView(model: model))
+        hosting = SizingHostingView(rootView: AnyView(HUDView(model: model).bvTheme(appearance, fillsBackground: false)))
         hosting.sizingOptions = [.intrinsicContentSize]
+        appearance.attach(panel)
         panel.contentView = hosting
         hosting.onSizeChange = { [weak self] in
             MainActor.assumeIsolated { self?.layout() }
+        }
+        observeAppearance()
+    }
+
+    private func observeAppearance() {
+        withObservationTracking {
+            _ = appearance.settings
+            _ = appearance.systemIsDark
+        } onChange: { [weak self] in
+            Task { @MainActor [weak self] in
+                await Task.yield()
+                self?.hosting.layoutSubtreeIfNeeded()
+                self?.layout()
+                self?.observeAppearance()
+            }
         }
     }
 

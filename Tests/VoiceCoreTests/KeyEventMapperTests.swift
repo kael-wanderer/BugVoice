@@ -14,9 +14,12 @@ private enum Bits {
     static let rightCommand: UInt64 = 0x10
     static let leftOption: UInt64 = 0x20
     static let rightOption: UInt64 = 0x40
+    static let rightControl: UInt64 = 0x2000
 
     static let rightOptionDown = option | rightOption
     static let leftOptionDown = option | leftOption
+    static let rightControlDown = control | rightControl
+    static let leftControlDown = control | leftControl
     static let rightCommandDown = command | rightCommand
     static let leftCommandDown = command | leftCommand
     static let controlDown = control | leftControl
@@ -25,6 +28,7 @@ private enum Bits {
 
 private enum Code {
     static let rightOption: Int64 = 61
+    static let rightControl: Int64 = 62
     static let leftOption: Int64 = 58
     static let rightCommand: Int64 = 54
     static let leftCommand: Int64 = 55
@@ -47,6 +51,30 @@ private func map(
 }
 
 struct KeyEventMapperTests {
+    @Test func rightControlPressAndRelease() {
+        #expect(map(.flagsChanged, Code.rightControl, Bits.rightControlDown, hotkey: .rightControl, at: 2) == .hotkeyDown(2))
+        #expect(map(.flagsChanged, Code.rightControl, 0, hotkey: .rightControl, at: 3) == .hotkeyUp(3))
+    }
+
+    @Test func leftControlIsNeverTheRightControlHotkey() {
+        #expect(map(.flagsChanged, Code.leftControl, Bits.leftControlDown, hotkey: .rightControl) == .otherKeyDown(1))
+        #expect(map(.flagsChanged, Code.leftControl, 0, hotkey: .rightControl) == nil)
+    }
+
+    @Test func leftControlReleaseWhileRightControlHeldIsNotAPress() {
+        #expect(map(.flagsChanged, Code.leftControl, Bits.rightControlDown, hotkey: .rightControl) == nil)
+    }
+
+    @Test func rightControlReleaseWhileLeftControlStillHeldIsHotkeyUp() {
+        #expect(map(.flagsChanged, Code.rightControl, Bits.leftControlDown, hotkey: .rightControl) == .hotkeyUp(1))
+    }
+
+    @Test func rightControlThenOptionVIsAChord() {
+        #expect(map(.flagsChanged, Code.rightControl, Bits.rightControlDown, hotkey: .rightControl) == .hotkeyDown(1))
+        #expect(map(.flagsChanged, Code.leftOption, Bits.rightControlDown | Bits.leftOptionDown, hotkey: .rightControl) == .otherKeyDown(1))
+        #expect(map(.keyDown, Code.v, Bits.rightControlDown | Bits.leftOptionDown, hotkey: .rightControl) == .otherKeyDown(1))
+    }
+
     // MARK: Right Option / Right Command use device-specific bits
 
     @Test func rightOptionPressAndRelease() {

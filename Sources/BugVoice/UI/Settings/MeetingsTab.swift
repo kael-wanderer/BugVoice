@@ -14,19 +14,19 @@ struct MeetingsTab: View {
                         .controlSize(.small)
                 }
                 Text("Offers to record when Zoom, Teams, Slack, FaceTime, Webex, Discord or a Meet, Teams or Zoom tab in a browser starts using the microphone. It never records by itself.")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .bvFont(.footnote).foregroundStyle(.bvSecondary)
                 if model.meetingDetectionUnavailable {
-                    Text("Meeting detection is not available.").font(.caption).foregroundStyle(.orange)
+                    Text("Meeting detection is not available.").bvFont(.footnote).foregroundStyle(.bvWarning)
                 }
                 if model.permissionStatus[.accessibility] == false {
                     HStack {
-                        Text("Browser meetings need Accessibility access.").font(.caption).foregroundStyle(.orange)
+                        Text("Browser meetings need Accessibility access.").bvFont(.footnote).foregroundStyle(.bvWarning)
                         Button("Open Settings") { model.openPermissionsWindow() }.controlSize(.small)
                     }
                 }
                 if !model.settings.meetings.mutedMeetingApps.isEmpty {
                     Divider()
-                    Text("Muted apps").font(.caption.weight(.semibold))
+                    Text("Muted apps").bvFont(.footnote)
                     ForEach(model.settings.meetings.mutedMeetingApps, id: \.self) { bundleID in
                         SettingsRow(title: MeetingDetector.meetingApps[bundleID] ?? MeetingDetector.browsers[bundleID] ?? bundleID) {
                             Button("Remove") {
@@ -48,7 +48,7 @@ struct MeetingsTab: View {
                     }
                 }
                 Text("Speech in any other language is transcribed again in one of these. Pick only English for English calls. Applies to meetings and uploads; change it for one meeting in the meeting window.")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .bvFont(.footnote).foregroundStyle(.bvSecondary)
             }
             SettingsCard(title: "Automatic deletion") {
                 SettingsRow(title: "Delete ready meetings after") {
@@ -61,7 +61,7 @@ struct MeetingsTab: View {
                     .labelsHidden().fixedSize()
                 }
                 Text("Meetings that are recording, interrupted, or transcribing are kept.")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .bvFont(.footnote).foregroundStyle(.bvSecondary)
             }
             SettingsCard(title: "Live summary") {
                 SettingsRow(title: "Update every") {
@@ -73,7 +73,7 @@ struct MeetingsTab: View {
                     .labelsHidden().fixedSize()
                 }
                 Text("Meeting time between updates of the summary in the meeting window. Pauses do not count. Shorter times keep the Meetings model busier.")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .bvFont(.footnote).foregroundStyle(.bvSecondary)
             }
             SettingsCard(title: "Known voices") {
                 SettingsRow(title: "Suggest names from known voices") {
@@ -83,11 +83,11 @@ struct MeetingsTab: View {
                         .controlSize(.small)
                 }
                 ForEach(Array(model.knownVoices.enumerated()), id: \.element.id) { index, voice in
-                    HStack(spacing: 8) {
+                    HStack(spacing: LayoutTokens.spacing[1]) {
                         Circle().fill(SpeakerColors.color(index + 1)).frame(width: 8, height: 8)
                         Text(voice.name)
                         Text(voice.contributions.count == 1 ? "1 meeting" : "\(voice.contributions.count) meetings")
-                            .font(.caption).foregroundStyle(.secondary)
+                            .bvFont(.footnote).foregroundStyle(.bvSecondary)
                         Spacer()
                         Button("Delete") { Task { await model.deleteKnownVoice(name: voice.name) } }
                             .controlSize(.small)
@@ -95,7 +95,7 @@ struct MeetingsTab: View {
                     }
                 }
                 Text("A voice is saved when you name a speaker and confirm it. Saved voices stay on this Mac. Delete one to stop suggesting it.")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .bvFont(.footnote).foregroundStyle(.bvSecondary)
             }
             SettingsCard(title: "Summary and action item budget") {
                 SettingsRow(title: "Context size") {
@@ -115,7 +115,7 @@ struct MeetingsTab: View {
                     .labelsHidden()
                 }
                 Text("Long transcripts are summarized in parts and combined. These limits are separate from dictation cleanup.")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .bvFont(.footnote).foregroundStyle(.bvSecondary)
             }
         }
         .onChange(of: model.settings.meetings.generationContextTokens) { _, context in

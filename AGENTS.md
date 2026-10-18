@@ -51,6 +51,8 @@ version and build live in `App/Info.plist`. App icon source is `App/Icon/AppIcon
 - MCP server plan: `docs/superpowers/plans/2026-10-17-mcp-server.md`
 - MCP server execution log and manual checks: `docs/progress/mcp-log.md`
 - Appearance foundation spec: `docs/superpowers/specs/2026-10-18-appearance-foundation-design.md`
+- Appearance foundation plan: `docs/superpowers/plans/2026-10-18-appearance-foundation.md`
+- Appearance execution log and manual checks: `docs/progress/appearance-log.md`
 - Appearance and redesign mockup: `docs/design/proposal-appearance.html`
 - Roadmap (next sub-projects, dropped ideas): `docs/ROADMAP.md`
 

@@ -9,6 +9,7 @@ struct SnippetDraft: Identifiable {
 }
 
 struct SnippetEditorSheet: View {
+    @Environment(AppearanceStore.self) private var store
     let model: AppModel
     let draft: SnippetDraft
     @State private var trigger: String
@@ -24,13 +25,13 @@ struct SnippetEditorSheet: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(draft.snippetID == nil ? "New snippet" : "Edit snippet").font(.headline)
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[2]) {
+            Text(draft.snippetID == nil ? "New snippet" : "Edit snippet").bvFont(.bodyStrong)
             TextField("Trigger", text: $trigger).textFieldStyle(.roundedBorder)
-            Text("Text").font(.caption).foregroundStyle(.secondary)
-            TextEditor(text: $text).font(.body).frame(minHeight: 140)
-                .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color(nsColor: .separatorColor)))
-            if let error { Text(error).font(.callout).foregroundStyle(.red) }
+            Text("Text").bvFont(.footnote).foregroundStyle(.bvSecondary)
+            TextEditor(text: $text).bvFont(.body).frame(minHeight: 140)
+                .overlay(RoundedRectangle(cornerRadius: LayoutTokens.controlRadius).strokeBorder(store.theme.separator))
+            if let error { Text(error).bvFont(.body).foregroundStyle(.bvRecording) }
             HStack {
                 Spacer()
                 Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
@@ -38,8 +39,8 @@ struct SnippetEditorSheet: View {
                     .disabled(isBlank(text) || isBlank(trigger) || model.dictionaryReadOnly)
             }
         }
-        .padding(20)
-        .frame(width: 460)
+        .padding(LayoutTokens.spacing[3])
+        .frame(width: store.scaled(460))
     }
 
     private func isBlank(_ value: String) -> Bool {

@@ -11,7 +11,7 @@ struct SettingsTests {
 
     @Test func defaultsMatchSpec() {
         let s = AppSettings()
-        #expect(s.hotkey == .rightOption)
+        #expect(s.hotkey == .rightControl)
         #expect(s.handsFreeLimitMinutes == 10)
         #expect(s.cleanupEnabled)
         #expect(s.speech.whisperModel == "large-v3-v20240930_turbo")
@@ -56,6 +56,12 @@ struct SettingsTests {
     @Test func unknownEnumValueFallsBackToDefault() throws {
         let url = tempDir().appendingPathComponent("settings.json")
         try Data(#"{"hotkey":"capsLock"}"#.utf8).write(to: url)
+        #expect(SettingsStore(url: url).load().hotkey == .rightControl)
+    }
+
+    @Test func storedRightOptionIsKept() throws {
+        let url = tempDir().appendingPathComponent("settings.json")
+        try Data(#"{"hotkey":"rightOption"}"#.utf8).write(to: url)
         #expect(SettingsStore(url: url).load().hotkey == .rightOption)
     }
 

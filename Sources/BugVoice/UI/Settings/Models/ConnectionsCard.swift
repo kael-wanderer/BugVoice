@@ -8,27 +8,27 @@ struct ConnectionsCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Connections").font(.headline)
+                Text("Connections").bvFont(.bodyStrong)
                 Spacer()
-                Text("Each keeps its own API key on this Mac.").font(.caption).foregroundStyle(.secondary)
+                Text("Each keeps its own API key on this Mac.").bvFont(.footnote).foregroundStyle(.bvSecondary)
             }
-            .padding(.bottom, 8)
+            .padding(.bottom, LayoutTokens.spacing[1])
             if model.settings.models.connections.isEmpty {
-                Text("No connections yet.").foregroundStyle(.secondary).padding(.vertical, 8)
+                Text("No connections yet.").foregroundStyle(.bvSecondary).padding(.vertical, LayoutTokens.spacing[1])
             }
             ForEach(model.settings.models.connections) { connection in
                 Divider()
-                HStack(spacing: 12) {
-                    VStack(alignment: .leading, spacing: 1) {
+                HStack(spacing: LayoutTokens.spacing[2]) {
+                    VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
                         Text(connection.name).fontWeight(.semibold)
-                        Text(addressLine(connection)).font(.system(.caption, design: .monospaced)).foregroundStyle(.secondary).lineLimit(1)
+                        Text(addressLine(connection)).bvCode(.footnote).foregroundStyle(.bvSecondary).lineLimit(1)
                     }
                     Spacer()
-                    Text(keyState(connection)).font(.caption).foregroundStyle(.secondary)
+                    Text(keyState(connection)).bvFont(.footnote).foregroundStyle(.bvSecondary)
                     StatusDot(status: model.connectionStatus[connection.id])
                     Button("Edit") { editing = ConnectionDraft(connection: connection, isNew: false) }
                 }
-                .padding(.vertical, 8)
+                .padding(.vertical, LayoutTokens.spacing[1])
             }
             Divider()
             HStack {
@@ -38,9 +38,9 @@ struct ConnectionsCard: View {
                     Section("Custom") { presetButtons(.custom) }
                 }
                 .fixedSize()
-                Text("Apple Intelligence is always listed when this Mac supports it.").font(.caption).foregroundStyle(.secondary)
+                Text("Apple Intelligence is always listed when this Mac supports it.").bvFont(.footnote).foregroundStyle(.bvSecondary)
             }
-            .padding(.top, 8)
+            .padding(.top, LayoutTokens.spacing[1])
         }
         .insightsCard()
         .sheet(item: $editing) { ConnectionSheet(model: model, draft: $0) }

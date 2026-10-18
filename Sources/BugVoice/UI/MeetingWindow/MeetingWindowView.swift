@@ -10,6 +10,7 @@ enum MeetingWindowTab: String, CaseIterable {
 
 /// The meeting window: top bar, header, meters, tabs and the dock.
 struct MeetingWindowView: View {
+    @Environment(AppearanceStore.self) private var store
     @Bindable var model: AppModel
     @Bindable var controller: MeetingController
     let onToggleCollapse: () -> Void
@@ -30,7 +31,7 @@ struct MeetingWindowView: View {
             topBar
             if !collapsed {
                 Divider()
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {
                     header
                     if recording { meters }
                     Picker("Meeting tabs", selection: $tab) {
@@ -39,8 +40,8 @@ struct MeetingWindowView: View {
                     .pickerStyle(.segmented)
                     .labelsHidden()
                 }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
+                .padding(.horizontal, LayoutTokens.spacing[2])
+                .padding(.vertical, LayoutTokens.spacing[1])
                 Divider()
                 tabContent
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -50,7 +51,7 @@ struct MeetingWindowView: View {
             }
         }
         .frame(minWidth: MeetingWindowController.minWidth, maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(.regularMaterial)
+        .background(.bvCard)
         // The window has no visible title bar; the top bar takes its place.
         .ignoresSafeArea()
         .onAppear { titleDraft = controller.title }
@@ -66,10 +67,10 @@ struct MeetingWindowView: View {
     // MARK: Top bar
 
     private var stateColor: Color {
-        if controller.isTranscribing { return .blue }
-        if controller.isPaused { return .orange }
-        if controller.isRecording { return .red }
-        return .green
+        if controller.isTranscribing { return store.theme.accent }
+        if controller.isPaused { return store.theme.warning }
+        if controller.isRecording { return store.theme.recording }
+        return store.theme.success
     }
 
     private var stateLabel: String {
@@ -80,11 +81,11 @@ struct MeetingWindowView: View {
     }
 
     private var topBar: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: LayoutTokens.spacing[1]) {
             Circle().fill(stateColor).frame(width: 9, height: 9)
             Text(stateLabel).fontWeight(.semibold)
             if collapsed {
-                Text(controller.title).foregroundStyle(.secondary).lineLimit(1)
+                Text(controller.title).foregroundStyle(.bvSecondary).lineLimit(1)
             }
             Spacer()
             TimelineView(.periodic(from: .now, by: 1)) { _ in
@@ -103,24 +104,24 @@ struct MeetingWindowView: View {
                 .help("Close")
             }
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, LayoutTokens.spacing[2])
         .frame(height: MeetingWindowController.topBarHeight)
     }
 
     // MARK: Header
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {
             if editingTitle {
                 TextField("Meeting title", text: $titleDraft)
                     .textFieldStyle(.plain)
-                    .font(.title3.weight(.semibold))
+                    .bvFont(.title3)
                     .focused($titleFocused)
                     .onAppear { titleFocused = true }
                     .onSubmit { titleFocused = false }
             } else {
                 Text(controller.title.isEmpty ? "Meeting" : controller.title)
-                    .font(.title3.weight(.semibold))
+                    .bvFont(.title3)
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(Rectangle())
@@ -130,7 +131,7 @@ struct MeetingWindowView: View {
                     }
                     .help("Click to rename")
             }
-            HStack(spacing: 8) {
+            HStack(spacing: LayoutTokens.spacing[1]) {
                 if let started = controller.meetingStartedAt {
                     chip(Label(started.formatted(date: .omitted, time: .shortened), systemImage: "clock"))
                 }
@@ -146,11 +147,11 @@ struct MeetingWindowView: View {
 
     private func chip(_ content: some View) -> some View {
         content
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(Color.secondary.opacity(0.12), in: Capsule())
+            .bvFont(.footnote)
+            .foregroundStyle(.bvSecondary)
+            .padding(.horizontal, LayoutTokens.spacing[1])
+            .padding(.vertical, LayoutTokens.spacing[0])
+            .background(store.theme.secondaryText.opacity(0.12), in: Capsule())
     }
 
     private var languageMenu: some View {
@@ -164,7 +165,7 @@ struct MeetingWindowView: View {
             }
         } label: {
             Text(controller.languages.map { $0.rawValue.uppercased() }.joined(separator: " · "))
-                .font(.caption.weight(.medium))
+                .bvFont(.footnote)
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
@@ -174,12 +175,12 @@ struct MeetingWindowView: View {
     // MARK: Meters
 
     private var meters: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: LayoutTokens.spacing[2]) {
             meter("You", level: controller.youLevel)
             meter("Others", level: controller.othersLevel)
             Spacer(minLength: 0)
             if let feedback = controller.markFeedback {
-                Text(feedback).font(.caption.weight(.semibold)).foregroundStyle(.orange)
+                Text(feedback).bvFont(.footnote).foregroundStyle(.bvWarning)
             }
             Button("Mark") { Task { await controller.mark() } }
                 .controlSize(.small)
@@ -192,9 +193,9 @@ struct MeetingWindowView: View {
     }
 
     private func meter(_ title: String, level: Float) -> some View {
-        HStack(spacing: 6) {
-            Text(title).font(.caption).foregroundStyle(.secondary)
-            LevelBars(level: level).foregroundStyle(level > 0.02 ? .green : .secondary)
+        HStack(spacing: LayoutTokens.spacing[0]) {
+            Text(title).bvFont(.footnote).foregroundStyle(.bvSecondary)
+            LevelBars(level: level).foregroundStyle(level > 0.02 ? store.theme.success : store.theme.secondaryText)
         }
     }
 
@@ -207,15 +208,15 @@ struct MeetingWindowView: View {
                 MeetingNotesEditor(text: $controller.notes)
                 if controller.notes.isEmpty {
                     Text("Write your notes. The summary follows your headings.")
-                        .foregroundStyle(.tertiary)
-                        .padding(.horizontal, 15)
-                        .padding(.vertical, 12)
+                        .foregroundStyle(.bvSecondary)
+                        .padding(.horizontal, LayoutTokens.spacing[3])
+                        .padding(.vertical, LayoutTokens.spacing[2])
                         .allowsHitTesting(false)
                 }
             }
             .overlay(alignment: .bottomLeading) {
                 if controller.notesSaveFailed {
-                    Text("Could not save notes").font(.caption).foregroundStyle(.orange).padding(10)
+                    Text("Could not save notes").bvFont(.footnote).foregroundStyle(.bvWarning).padding(LayoutTokens.spacing[1])
                 }
             }
         case .transcript:
@@ -255,24 +256,24 @@ struct MeetingWindowView: View {
                 MarkdownDocView(text: live, onToggleTask: { _ in })
             }
         } else if controller.summaryState == .failed {
-            Text("Not updated: model unavailable").foregroundStyle(.orange)
+            Text("Not updated: model unavailable").foregroundStyle(.bvWarning)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if controller.summaryState == .refreshing {
             ProgressView("Writing the summary")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             Text("The first summary comes after \(LiveSummaryPlanner.intervalLabel(model.settings.meetings.liveSummaryInterval)) of talk.")
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.bvSecondary)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 
     private func summaryCaption(_ text: String) -> some View {
         Text(text)
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 24)
-            .padding(.top, 12)
+            .bvFont(.footnote)
+            .foregroundStyle(.bvSecondary)
+            .padding(.horizontal, LayoutTokens.spacing[4])
+            .padding(.top, LayoutTokens.spacing[2])
     }
 
     private func liveCaption(now: Date) -> String {
@@ -292,8 +293,8 @@ struct MeetingWindowView: View {
     }
 
     private var needsModel: some View {
-        VStack(spacing: 8) {
-            Text("Summary needs a Meeting notes model.").foregroundStyle(.secondary)
+        VStack(spacing: LayoutTokens.spacing[1]) {
+            Text("Summary needs a Meeting notes model.").foregroundStyle(.bvSecondary)
             Button("Open Settings") {
                 model.settingsTab = .models
                 model.openMainWindow(.settings)
@@ -304,15 +305,15 @@ struct MeetingWindowView: View {
     // MARK: Answer
 
     private func answerCard(_ answer: MeetingAnswer) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(answer.question).font(.caption).foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {
+            Text(answer.question).bvFont(.footnote).foregroundStyle(.bvSecondary)
             switch answer.state {
             case .loading:
                 ProgressView().controlSize(.small)
             case .noModel:
                 needsModel
             case .failed(let message):
-                Text(message).foregroundStyle(.orange)
+                Text(message).foregroundStyle(.bvWarning)
             case .done:
                 // Short answers take their own height; long ones scroll.
                 ScrollView {
@@ -337,18 +338,18 @@ struct MeetingWindowView: View {
             }
             .controlSize(.small)
         }
-        .padding(12)
-        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
-        .padding(.horizontal, 12)
-        .padding(.bottom, 8)
+        .padding(LayoutTokens.spacing[2])
+        .background(store.theme.secondaryText.opacity(0.08), in: RoundedRectangle(cornerRadius: LayoutTokens.cardRadius))
+        .padding(.horizontal, LayoutTokens.spacing[2])
+        .padding(.bottom, LayoutTokens.spacing[1])
     }
 
     // MARK: Dock
 
     private var dock: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {
             if let status = controller.statusMessage {
-                Text(status).font(.caption).foregroundStyle(.orange)
+                Text(status).bvFont(.footnote).foregroundStyle(.bvWarning)
             }
             if controller.isFinished {
                 HStack {
@@ -362,18 +363,18 @@ struct MeetingWindowView: View {
                 }
             } else {
                 Text("Recording stays on this Mac. Tell people you are recording.")
-                    .font(.caption).foregroundStyle(.secondary)
-                HStack(spacing: 8) {
+                    .bvFont(.footnote).foregroundStyle(.bvSecondary)
+                HStack(spacing: LayoutTokens.spacing[1]) {
                     Button {
                         Task { await controller.stop() }
                     } label: {
-                        HStack(spacing: 6) {
-                            RoundedRectangle(cornerRadius: 2).fill(.red).frame(width: 9, height: 9)
+                        HStack(spacing: LayoutTokens.spacing[0]) {
+                            RoundedRectangle(cornerRadius: 2).fill(.bvRecording).frame(width: 9, height: 9)
                             Text("Stop")
                         }
                     }
                     .disabled(!recording)
-                    HStack(spacing: 6) {
+                    HStack(spacing: LayoutTokens.spacing[0]) {
                         TextField("Ask anything about this meeting", text: $question)
                             .textFieldStyle(.plain)
                             .onSubmit {
@@ -382,14 +383,14 @@ struct MeetingWindowView: View {
                             }
                         Button("What did I miss?") { controller.ask(nil) }
                             .buttonStyle(.borderless)
-                            .font(.caption)
+                            .bvFont(.footnote)
                     }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Color.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+                    .padding(.horizontal, LayoutTokens.spacing[1])
+                    .padding(.vertical, LayoutTokens.spacing[0])
+                    .background(store.theme.secondaryText.opacity(0.1), in: RoundedRectangle(cornerRadius: LayoutTokens.controlRadius))
                 }
             }
         }
-        .padding(14)
+        .padding(LayoutTokens.spacing[2])
     }
 }

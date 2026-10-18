@@ -37,17 +37,17 @@ struct StylePage: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Style").font(.title2.weight(.semibold))
+            VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) {
+                Text("Style").bvFont(.title2)
                 Text("Each app is matched to a style when you start dictating. The style sets how the text model cleans your words.")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.bvSecondary)
                 PillTabs(
                     items: Style.allCases.map { .init(value: $0, title: $0.title) },
                     selection: $selected
                 )
                 StyleDetailView(model: model, style: selected)
             }
-            .padding(22)
+            .padding(LayoutTokens.spacing[4])
             .frame(maxWidth: .infinity, alignment: .leading)
         }
     }

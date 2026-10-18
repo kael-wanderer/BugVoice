@@ -6,6 +6,7 @@ import VoiceCore
 /// The Scratchpad page: every note as a card. Notes are edited in the
 /// Scratchpad window; Edit or a click opens one there.
 struct NotesPage: View {
+    @Environment(AppearanceStore.self) private var store
     @Bindable var model: AppModel
     @State private var searchText = ""
     @State private var managingFolders = false
@@ -33,9 +34,9 @@ struct NotesPage: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                Text("Scratchpad").font(.title2.weight(.semibold))
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[2]) {
+            HStack(spacing: LayoutTokens.spacing[1]) {
+                Text("Scratchpad").bvFont(.title2)
                 Spacer()
                 Button {
                     Task { await model.openScratchpadWindow(newNote: false) }
@@ -50,7 +51,7 @@ struct NotesPage: View {
                 .buttonStyle(.borderedProminent)
             }
 
-            HStack(spacing: 8) {
+            HStack(spacing: LayoutTokens.spacing[1]) {
                 FolderFilterMenu(
                     model: model,
                     filter: Binding(get: { model.notesFolderFilter }, set: { model.notesFolderFilter = $0 }),
@@ -62,7 +63,7 @@ struct NotesPage: View {
                 Spacer(minLength: 8)
                 TextField("Search notes", text: $searchText)
                     .textFieldStyle(.roundedBorder)
-                    .frame(maxWidth: 200)
+                    .frame(maxWidth: store.scaled(200))
                     .accessibilityLabel("Search notes")
                 Picker("Sort", selection: $model.settings.scratchpad.sort) {
                     ForEach(NotesSort.allCases, id: \.self) { Text($0.title).tag($0) }
@@ -82,7 +83,7 @@ struct NotesPage: View {
 
             ForEach(controller.insertionRecoveries) { recovery in
                 HStack {
-                    Text(recovery.message).foregroundStyle(.red)
+                    Text(recovery.message).foregroundStyle(.bvRecording)
                     Spacer()
                     Button("Copy") {
                         ScratchpadClipboard.copyText(recovery.text)
@@ -95,8 +96,8 @@ struct NotesPage: View {
 
             content
         }
-        .padding(.horizontal, 24)
-        .padding(.top, 18)
+        .padding(.horizontal, LayoutTokens.spacing[4])
+        .padding(.top, LayoutTokens.spacing[3])
         .task {
             await controller.reloadList()
             model.syncScratchpadTabs()
@@ -142,12 +143,12 @@ struct NotesPage: View {
             GeometryReader { proxy in
                 ScrollView {
                     LazyVGrid(
-                        columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: proxy.size.width < 640 ? 1 : 2),
-                        spacing: 12
+                        columns: Array(repeating: GridItem(.flexible(), spacing: LayoutTokens.spacing[2]), count: proxy.size.width < 640 ? 1 : 2),
+                        spacing: LayoutTokens.spacing[2]
                     ) {
                         ForEach(items) { item in card(item) }
                     }
-                    .padding(.bottom, 20)
+                    .padding(.bottom, LayoutTokens.spacing[3])
                 }
             }
         }
@@ -157,19 +158,19 @@ struct NotesPage: View {
         let isHovered = hovered == item.id
         let folderID = controller.notes.first { $0.id == item.id }?.frontMatter.folderID
         let folder = folderID.flatMap { id in model.library.folders.first { $0.id == id } }
-        return VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
+        return VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
+            HStack(spacing: LayoutTokens.spacing[0]) {
                 if item.pinned {
-                    Image(systemName: "pin.fill").font(.caption).foregroundStyle(Color.accentColor)
+                    Image(systemName: "pin.fill").bvFont(.footnote).foregroundStyle(store.theme.accent)
                         .accessibilityLabel("Pinned")
                 }
-                Text(item.title).font(.headline).lineLimit(1)
+                Text(item.title).bvFont(.bodyStrong).lineLimit(1)
             }
             Text(preview(item.body))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.bvSecondary)
                 .lineLimit(2)
                 .frame(maxWidth: .infinity, minHeight: 34, alignment: .topLeading)
-            HStack(spacing: 6) {
+            HStack(spacing: LayoutTokens.spacing[0]) {
                 Text(item.modifiedAt.formatted(date: .abbreviated, time: .shortened))
                 if let folder {
                     Text("·")
@@ -178,12 +179,12 @@ struct NotesPage: View {
                 ForEach(item.tags.prefix(3), id: \.self) { TagChip(name: $0) }
                 Spacer(minLength: 0)
             }
-            .font(.caption)
-            .foregroundStyle(.secondary)
+            .bvFont(.footnote)
+            .foregroundStyle(.bvSecondary)
         }
-        .padding(12)
-        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(isHovered ? Color.accentColor : Color.secondary.opacity(0.2)))
+        .padding(LayoutTokens.spacing[2])
+        .background(store.theme.card, in: RoundedRectangle(cornerRadius: LayoutTokens.cardRadius))
+        .overlay(RoundedRectangle(cornerRadius: LayoutTokens.cardRadius).stroke(isHovered ? store.theme.accent : store.theme.secondaryText.opacity(0.2)))
         .overlay(alignment: .topTrailing) {
             if isHovered { cardActions(item) }
         }
@@ -212,22 +213,22 @@ struct NotesPage: View {
     }
 
     private func cardActions(_ item: NotesListItem) -> some View {
-        HStack(spacing: 2) {
+        HStack(spacing: LayoutTokens.spacing[0]) {
             iconButton("pencil", help: "Edit") { Task { await model.openNoteInWindow(item.id) } }
             iconButton(item.pinned ? "pin.slash" : "pin", help: item.pinned ? "Unpin" : "Pin") {
                 Task { await model.setNotePinned(item.id, pinned: !item.pinned) }
             }
-            iconButton("trash", help: "Move to Trash", tint: .red) { pendingDelete = item }
+            iconButton("trash", help: "Move to Trash", tint: store.theme.recording) { pendingDelete = item }
         }
-        .padding(3)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.2)))
-        .padding(8)
+        .padding(LayoutTokens.spacing[0])
+        .background(.bvCard, in: RoundedRectangle(cornerRadius: LayoutTokens.controlRadius))
+        .overlay(RoundedRectangle(cornerRadius: LayoutTokens.controlRadius).stroke(store.theme.secondaryText.opacity(0.2)))
+        .padding(LayoutTokens.spacing[1])
     }
 
-    private func iconButton(_ symbol: String, help: String, tint: Color = .secondary, action: @escaping () -> Void) -> some View {
+    private func iconButton(_ symbol: String, help: String, tint: Color? = nil, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: symbol).foregroundStyle(tint).frame(width: 24, height: 22)
+            Image(systemName: symbol).foregroundStyle(tint ?? store.theme.secondaryText).frame(width: 24, height: 22)
         }
         .buttonStyle(.borderless)
         .help(help)

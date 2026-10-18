@@ -141,7 +141,7 @@ extension MeetingController {
     }
 }
 
-/// Right Option dictation into the meeting window's notes, at the cursor.
+/// Dictation into the meeting window's notes, at the cursor, when the hotkey is held.
 @MainActor
 final class MeetingNotesInsertion: InsertionTarget, @unchecked Sendable {
     private weak var editor: MeetingNotesTextView?

@@ -5,6 +5,7 @@ import VoiceCore
 /// Contents of the Scratchpad window: tabs on top, the notes list on the
 /// left (hidden when smaller or by Hide notes), the note editor.
 struct ScratchpadWindowView: View {
+    @Environment(AppearanceStore.self) private var store
     @Bindable var model: AppModel
     @State private var assistant = ScratchpadAssistant()
     @State private var assistants: [NoteID: ScratchpadAssistant] = [:]
@@ -23,16 +24,16 @@ struct ScratchpadWindowView: View {
             ScratchpadTabBar(model: model, onNew: newNote)
             HStack(spacing: 0) {
                 if showsSideList {
-                    sideList.frame(width: 190)
+                    sideList.frame(width: store.scaled(190))
                 }
                 editorArea
-                    .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
-                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.secondary.opacity(0.18)))
-                    .padding([.trailing, .bottom], 8)
-                    .padding(.leading, showsSideList ? 0 : 8)
+                    .background(store.theme.background, in: RoundedRectangle(cornerRadius: LayoutTokens.cardRadius))
+                    .overlay(RoundedRectangle(cornerRadius: LayoutTokens.cardRadius).stroke(store.theme.secondaryText.opacity(0.18)))
+                    .padding([.trailing, .bottom], LayoutTokens.spacing[1])
+                    .padding(.leading, showsSideList ? 0 : LayoutTokens.spacing[1])
             }
         }
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(store.theme.background)
         .ignoresSafeArea(.container, edges: .top)
         .frame(minWidth: 420, minHeight: 360)
         .background { shortcuts }
@@ -86,50 +87,50 @@ struct ScratchpadWindowView: View {
         VStack(alignment: .leading, spacing: 0) {
             sideButton("Hide notes", symbol: "sidebar.left") { model.settings.scratchpad.sideListHidden = true }
             sideButton("New note", symbol: "square.and.pencil", detail: "⌘N", action: newNote)
-            HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+            HStack(spacing: LayoutTokens.spacing[1]) {
+                Image(systemName: "magnifyingglass").foregroundStyle(.bvSecondary)
                 TextField("Search notes", text: $searchText)
                     .textFieldStyle(.plain)
                     .focused($searchFocused)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 7)
-            Divider().padding(.horizontal, 10).padding(.vertical, 4)
+            .padding(.horizontal, LayoutTokens.spacing[2])
+            .padding(.vertical, LayoutTokens.spacing[1])
+            Divider().padding(.horizontal, LayoutTokens.spacing[1]).padding(.vertical, LayoutTokens.spacing[0])
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 2) {
+                LazyVStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
                     ForEach(listItems) { item in
                         Button {
                             open(item.id)
                         } label: {
-                            VStack(alignment: .leading, spacing: 2) {
-                                HStack(spacing: 4) {
+                            VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
+                                HStack(spacing: LayoutTokens.spacing[0]) {
                                     if item.pinned {
-                                        Image(systemName: "pin.fill").font(.caption2).foregroundStyle(Color.accentColor)
+                                        Image(systemName: "pin.fill").bvFont(.caption).foregroundStyle(store.theme.accent)
                                     }
                                     Text(item.title).lineLimit(1)
                                 }
-                                Text(subtitle(item)).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                                Text(subtitle(item)).bvFont(.footnote).foregroundStyle(.bvSecondary).lineLimit(1)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 6)
+                            .padding(.horizontal, LayoutTokens.spacing[1])
+                            .padding(.vertical, LayoutTokens.spacing[0])
                             .background(
-                                controller.selectedNoteID == item.id ? Color.secondary.opacity(0.15) : .clear,
-                                in: RoundedRectangle(cornerRadius: 7))
+                                controller.selectedNoteID == item.id ? store.theme.secondaryText.opacity(0.15) : .clear,
+                                in: RoundedRectangle(cornerRadius: LayoutTokens.controlRadius))
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                     }
                 }
-                .padding(.horizontal, 8)
+                .padding(.horizontal, LayoutTokens.spacing[1])
             }
             Spacer(minLength: 0)
-            Divider().padding(.horizontal, 10)
+            Divider().padding(.horizontal, LayoutTokens.spacing[1])
             barButton(.ai, title: "AI", symbol: "sparkles")
             barButton(.formatting, title: "Formatting", symbol: "textformat")
-                .padding(.bottom, 8)
+                .padding(.bottom, LayoutTokens.spacing[1])
         }
-        .padding(.top, 4)
+        .padding(.top, LayoutTokens.spacing[0])
     }
 
     private var listItems: [NotesListItem] {
@@ -153,14 +154,14 @@ struct ScratchpadWindowView: View {
 
     private func sideButton(_ title: String, symbol: String, detail: String? = nil, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack(spacing: 10) {
+            HStack(spacing: LayoutTokens.spacing[1]) {
                 Image(systemName: symbol).frame(width: 16)
                 Text(title)
                 Spacer()
-                if let detail { Text(detail).font(.caption).foregroundStyle(.tertiary) }
+                if let detail { Text(detail).bvFont(.footnote).foregroundStyle(.bvSecondary) }
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 7)
+            .padding(.horizontal, LayoutTokens.spacing[2])
+            .padding(.vertical, LayoutTokens.spacing[1])
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -171,14 +172,14 @@ struct ScratchpadWindowView: View {
         return Button {
             model.settings.scratchpad.bottomBar = bar
         } label: {
-            HStack(spacing: 10) {
+            HStack(spacing: LayoutTokens.spacing[1]) {
                 Image(systemName: symbol).frame(width: 16)
                 Text(title)
                 Spacer()
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 7)
-            .background(on ? Color.secondary.opacity(0.15) : .clear)
+            .padding(.horizontal, LayoutTokens.spacing[2])
+            .padding(.vertical, LayoutTokens.spacing[1])
+            .background(on ? store.theme.secondaryText.opacity(0.15) : .clear)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -203,7 +204,7 @@ struct ScratchpadWindowView: View {
                         .buttonStyle(.borderless)
                         .help("Show notes")
                         .accessibilityLabel("Show notes")
-                        .padding(8)
+                        .padding(LayoutTokens.spacing[1])
                     }
                 }
         } else {

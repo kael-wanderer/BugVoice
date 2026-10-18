@@ -1,7 +1,8 @@
 import SwiftUI
+import VoiceCore
 
 struct FlowLayout: Layout {
-    var spacing: CGFloat = 6
+    var spacing: CGFloat = LayoutTokens.spacing[1]
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         let maxWidth = proposal.width ?? .infinity

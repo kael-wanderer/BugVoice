@@ -45,7 +45,12 @@ cp "$BIN/$APP_NAME" "$CONTENTS/MacOS/$APP_NAME"
 cp "$BIN/bugvoice-mcp" "$CONTENTS/MacOS/bugvoice-mcp"
 cp "$ROOT/App/Info.plist" "$CONTENTS/Info.plist"
 cp "$ROOT/App/AppIcon.icns" "$CONTENTS/Resources/AppIcon.icns"
-printf 'APPL????' > "$CONTENTS/PkgInfo"
+for resource in Icons MenuBarIcons Fonts; do
+    if [[ -d "$ROOT/App/$resource" ]]; then
+        cp -R "$ROOT/App/$resource" "$CONTENTS/Resources/"
+    fi
+done
+printf 'APPL????'  > "$CONTENTS/PkgInfo"
 for bundle in "$BIN"/*.bundle; do
     if [[ -d "$bundle" ]]; then cp -R "$bundle" "$CONTENTS/Resources/"; fi
 done

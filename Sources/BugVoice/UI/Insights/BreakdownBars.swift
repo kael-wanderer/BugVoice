@@ -2,6 +2,7 @@ import SwiftUI
 import VoiceCore
 
 struct BreakdownBars: View {
+    @Environment(AppearanceStore.self) private var store
     let title: String
     var trailing: String? = nil
     let rows: [BreakdownRow]
@@ -9,32 +10,32 @@ struct BreakdownBars: View {
     let value: (BreakdownRow) -> String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {
             HStack {
-                Text(title).font(.headline)
+                Text(title).bvFont(.bodyStrong)
                 Spacer()
-                if let trailing { Text(trailing).font(.caption).foregroundStyle(.secondary) }
+                if let trailing { Text(trailing).bvFont(.footnote).foregroundStyle(.bvSecondary) }
             }
             if rows.isEmpty {
-                Text("No dictation in this period.").font(.callout).foregroundStyle(.secondary)
+                Text("No dictation in this period.").bvFont(.body).foregroundStyle(.bvSecondary)
             } else {
                 let top = rows.map(\.share).max() ?? 1
                 ForEach(rows) { row in
-                    HStack(spacing: 10) {
-                        Text(row.name).lineLimit(1).frame(width: 90, alignment: .leading)
+                    HStack(spacing: LayoutTokens.spacing[1]) {
+                        Text(row.name).lineLimit(1).frame(width: store.scaled(90), alignment: .leading)
                         GeometryReader { proxy in
                             ZStack(alignment: .leading) {
-                                Capsule().fill(Color.primary.opacity(0.07))
-                                Capsule().fill(Color.accentColor)
+                                Capsule().fill(store.theme.text.opacity(0.07))
+                                Capsule().fill(store.theme.accent)
                                     .frame(width: top > 0 ? proxy.size.width * row.share / top : 0)
                             }
                         }
                         .frame(height: 8)
                         Text(value(row))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .bvFont(.footnote)
+                            .foregroundStyle(.bvSecondary)
                             .monospacedDigit()
-                            .frame(width: 60, alignment: .trailing)
+                            .frame(width: store.scaled(60), alignment: .trailing)
                     }
                 }
             }

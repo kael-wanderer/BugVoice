@@ -3,6 +3,7 @@ import SwiftUI
 import VoiceCore
 
 struct StorageTab: View {
+    @Environment(AppearanceStore.self) private var store
     @Bindable var model: AppModel
     @State private var sizes: [String: Int64] = [:]
     @State private var confirmClear = false
@@ -13,12 +14,12 @@ struct StorageTab: View {
         SettingsScroll {
             SettingsCard {
                 SettingsRow(title: "Data folder") {
-                    Text(model.paths.root.path).font(.system(.callout, design: .monospaced)).textSelection(.enabled).lineLimit(1)
+                    Text(model.paths.root.path).bvCode(.body).textSelection(.enabled).lineLimit(1)
                     Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([model.paths.root]) }
                 }
                 Divider()
                 SettingsRow(title: "Disk used") {
-                    Text(format(sizes.values.reduce(0, +))).foregroundStyle(.secondary)
+                    Text(format(sizes.values.reduce(0, +))).foregroundStyle(.bvSecondary)
                 }
             }
             SettingsCard {
@@ -98,8 +99,8 @@ struct StorageTab: View {
         HStack {
             Text(title)
             Spacer()
-            Text(detail).foregroundStyle(.secondary)
-            Text(format(sizes[path.path] ?? 0)).monospacedDigit().frame(width: 90, alignment: .trailing)
+            Text(detail).foregroundStyle(.bvSecondary)
+            Text(format(sizes[path.path] ?? 0)).monospacedDigit().frame(width: store.scaled(90), alignment: .trailing)
             action()
         }
     }

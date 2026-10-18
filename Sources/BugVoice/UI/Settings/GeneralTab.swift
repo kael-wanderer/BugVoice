@@ -13,7 +13,7 @@ struct GeneralTab: View {
                     }
                     .labelsHidden().fixedSize()
                 }
-                Text("Hold to talk. Pressing another key cancels.").font(.caption).foregroundStyle(.secondary)
+                Text("Hold to talk. Pressing another key cancels.").bvFont(.footnote).foregroundStyle(.bvSecondary)
                 Divider()
                 SettingsToggle(title: "Hands-free: double-tap the hotkey to start, tap once to stop", isOn: $model.settings.handsFreeEnabled)
                 Divider()

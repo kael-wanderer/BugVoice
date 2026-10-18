@@ -1,5 +1,6 @@
 import AVFoundation
 import SwiftUI
+import VoiceCore
 
 @MainActor @Observable
 final class CitationPlayerModel {
@@ -82,7 +83,7 @@ struct CitationPlayer: View {
     }
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: LayoutTokens.spacing[1]) {
             if let playback {
                 Button {
                     if playback.isPlaying { playback.pause() }
@@ -92,12 +93,12 @@ struct CitationPlayer: View {
                 Slider(value: Binding(get: { playback.time }, set: { playback.seek($0) }), in: playback.start...playback.end)
                     .accessibilityLabel("Citation audio")
                 Text("\(AskAnswerView.clock(playback.time)) / \(AskAnswerView.clock(playback.end))")
-                    .font(.caption.monospacedDigit())
+                    .bvCode(.footnote).monospacedDigit()
             } else {
-                Image(systemName: "play.fill").foregroundStyle(.tertiary)
+                Image(systemName: "play.fill").foregroundStyle(.bvSecondary)
                 Slider(value: .constant(max(0, start)), in: max(0, start)...max(start + 0.01, end)).disabled(true)
                 Text("\(AskAnswerView.clock(max(0, start))) / \(AskAnswerView.clock(max(start + 0.01, end)))")
-                    .font(.caption.monospacedDigit())
+                    .bvCode(.footnote).monospacedDigit()
             }
         }
         .task {

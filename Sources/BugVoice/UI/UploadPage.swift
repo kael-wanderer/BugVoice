@@ -5,15 +5,16 @@ import UniformTypeIdentifiers
 import VoiceCore
 
 struct UploadRing: View {
+    @Environment(AppearanceStore.self) private var store
     let progress: Double?
 
     var body: some View {
         Group {
             if let progress {
                 ZStack {
-                    Circle().stroke(.secondary.opacity(0.2), lineWidth: 2)
+                    Circle().stroke(store.theme.secondaryText.opacity(0.2), lineWidth: 2)
                     Circle().trim(from: 0, to: min(1, max(0, progress)))
-                        .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                        .stroke(store.theme.accent, style: StrokeStyle(lineWidth: 2, lineCap: .round))
                         .rotationEffect(.degrees(-90))
                 }
             } else {
@@ -26,6 +27,7 @@ struct UploadRing: View {
 }
 
 struct UploadPage: View {
+    @Environment(AppearanceStore.self) private var store
     @Bindable var model: AppModel
     @State private var targeted = false
     @State private var page = 0
@@ -34,12 +36,12 @@ struct UploadPage: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                Text("Upload").font(.title2.weight(.semibold))
+            VStack(alignment: .leading, spacing: LayoutTokens.spacing[4]) {
+                Text("Upload").bvFont(.title2)
                 if let controller = model.uploads {
-                    VStack(spacing: 18) {
+                    VStack(spacing: LayoutTokens.spacing[3]) {
                         if controller.active == nil {
-                            Text("Upload a recording").font(.title2.weight(.semibold))
+                            Text("Upload a recording").bvFont(.title2)
                             Button(speechLabel) { model.openSpeechSettings() }
                                 .buttonStyle(.link)
                         }
@@ -52,31 +54,31 @@ struct UploadPage: View {
                         }
                         if !controller.drafts.isEmpty {
                             ForEach(controller.drafts) { draft in
-                                VStack(spacing: 10) {
+                                VStack(spacing: LayoutTokens.spacing[1]) {
                                     metadataCard(
                                         name: draft.metadata.fileName, kind: draft.metadata.kind,
                                         duration: draft.metadata.duration, bytes: draft.metadata.byteSize)
                                     Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 12, verticalSpacing: 8) {
                                         GridRow {
-                                            Text("Save to").font(.caption).foregroundStyle(.secondary)
-                                            HStack(spacing: 8) {
+                                            Text("Save to").bvFont(.footnote).foregroundStyle(.bvSecondary)
+                                            HStack(spacing: LayoutTokens.spacing[1]) {
                                                 FolderPicker(model: model, folderID: draft.labels.folderID) { id in
                                                     controller.setDraftLabels(draft.id, ItemLabels(folderID: id, tags: draft.labels.tags))
                                                 }
                                                 if draft.labels.folderID != nil, draft.labels.folderID == model.library.lastUploadFolderID {
-                                                    Text("Last used").font(.caption).foregroundStyle(.secondary)
+                                                    Text("Last used").bvFont(.footnote).foregroundStyle(.bvSecondary)
                                                 }
                                             }
                                         }
                                         GridRow {
-                                            Text("Tags").font(.caption).foregroundStyle(.secondary)
+                                            Text("Tags").bvFont(.footnote).foregroundStyle(.bvSecondary)
                                             TagField(tags: draft.labels.tags, catalog: model.allTagCatalog, noun: "meeting") { tags in
                                                 controller.setDraftLabels(draft.id, ItemLabels(folderID: draft.labels.folderID, tags: tags))
                                             }
                                         }
                                     }
                                     .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(.horizontal, 16)
+                                    .padding(.horizontal, LayoutTokens.spacing[3])
                                     if controller.drafts.count > 1, draft.id == controller.drafts.first?.id {
                                         Button("Apply to all") { controller.applyFirstLabelsToAll() }
                                     }
@@ -90,7 +92,7 @@ struct UploadPage: View {
                             Text(
                                 "Only the audio is kept, as a small audio.m4a in the meeting folder. The video stays where it is."
                             )
-                            .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                            .bvFont(.footnote).foregroundStyle(.bvSecondary).multilineTextAlignment(.center)
                         }
                         if let active = controller.active {
                             progressCard(active, controller: controller)
@@ -100,7 +102,7 @@ struct UploadPage: View {
                             Text(
                                 "You can drop several files; they are transcribed one at a time. Uploads appear in Meetings when they are ready."
                             )
-                            .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                            .bvFont(.footnote).foregroundStyle(.bvSecondary).multilineTextAlignment(.center)
                         }
                         if !controller.queue.jobs.isEmpty {
                             // Newest first, so older files sit on later pages.
@@ -116,7 +118,7 @@ struct UploadPage: View {
                                 }
                                 .help("Removes finished files from this list. Their meetings stay in Meetings.")
                             }
-                            .font(.caption).foregroundStyle(.secondary)
+                            .bvFont(.footnote).foregroundStyle(.bvSecondary)
                             ForEach(jobs[paging.range(page: current)]) { job in
                                 queueRow(job, controller: controller)
                             }
@@ -125,23 +127,23 @@ struct UploadPage: View {
                                     Button("Newer") { page = current - 1 }
                                         .disabled(current == 0)
                                     Text("Page \(current + 1) of \(paging.pageCount)")
-                                        .font(.caption).foregroundStyle(.secondary)
+                                        .bvFont(.footnote).foregroundStyle(.bvSecondary)
                                     Button("Older") { page = current + 1 }
                                         .disabled(current == paging.pageCount - 1)
                                 }
                             }
                         }
                     }
-                    .frame(maxWidth: 560)
+                    .frame(maxWidth: store.scaled(560))
                     .frame(maxWidth: .infinity)
                 } else {
                     ProgressView()
                 }
             }
-            .padding(26)
+            .padding(LayoutTokens.spacing[4])
             .frame(maxWidth: .infinity, minHeight: 500, alignment: .topLeading)
         }
-        .background(targeted ? Color.accentColor.opacity(0.06) : Color(nsColor: .windowBackgroundColor))
+        .background(targeted ? store.theme.accent.opacity(0.06) : store.theme.background)
         .contentShape(Rectangle())
         .onDrop(of: [UTType.fileURL.identifier], isTargeted: $targeted) { providers in
             Task {
@@ -195,8 +197,8 @@ struct UploadPage: View {
 
     private func dropZone(compact: Bool) -> some View {
         Button(action: browse) {
-            VStack(spacing: 12) {
-                if !compact { Image(systemName: "square.and.arrow.up").font(.system(size: 28)) }
+            VStack(spacing: LayoutTokens.spacing[2]) {
+                if !compact { Image(systemName: "square.and.arrow.up").bvFont(.stat) }
                 Text(
                     compact
                         ? "Drop more files, or click to browse"
@@ -204,14 +206,14 @@ struct UploadPage: View {
                 )
                 .fontWeight(.medium)
                 Text("MP3, WAV, M4A, AIFF, CAF, MP4, MOV, M4V")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .bvFont(.footnote).foregroundStyle(.bvSecondary)
             }
-            .padding(compact ? 20 : 38)
+            .padding(compact ? LayoutTokens.spacing[3] : LayoutTokens.spacing[5])
             .frame(maxWidth: .infinity)
-            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14))
+            .background(store.theme.card, in: RoundedRectangle(cornerRadius: LayoutTokens.largeCardRadius))
             .overlay(
-                RoundedRectangle(cornerRadius: 14).strokeBorder(
-                    .secondary.opacity(0.3), style: StrokeStyle(lineWidth: 1, dash: [5])))
+                RoundedRectangle(cornerRadius: LayoutTokens.largeCardRadius).strokeBorder(
+                    store.theme.secondaryText.opacity(0.3), style: StrokeStyle(lineWidth: 1, dash: [5])))
         }
         .buttonStyle(.plain)
         .disabled(model.uploads?.accepting != true)
@@ -220,26 +222,26 @@ struct UploadPage: View {
     private func metadataCard(name: String, kind: UploadMediaKind, duration: Double, bytes: Int64, addedBy: String? = nil)
         -> some View
     {
-        HStack(spacing: 14) {
+        HStack(spacing: LayoutTokens.spacing[2]) {
             Image(systemName: kind == .video ? "film" : "waveform")
-                .font(.title2).foregroundStyle(.tint)
-            VStack(alignment: .leading, spacing: 4) {
+                .bvFont(.title2).foregroundStyle(.bvAccent)
+            VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
                 Text(name).fontWeight(.medium).lineLimit(2)
-                if let addedBy { Text("Added by \(addedBy)").font(.caption).foregroundStyle(.secondary) }
+                if let addedBy { Text("Added by \(addedBy)").bvFont(.footnote).foregroundStyle(.bvSecondary) }
                 Text(
                     "\(kind.rawValue) · \(clock(duration)) · \(ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file))"
                 )
-                .font(.caption).foregroundStyle(.secondary)
+                .bvFont(.footnote).foregroundStyle(.bvSecondary)
             }
             Spacer(minLength: 0)
         }
-        .padding(16)
+        .padding(LayoutTokens.spacing[3])
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14))
+        .background(store.theme.card, in: RoundedRectangle(cornerRadius: LayoutTokens.largeCardRadius))
     }
 
     private func progressCard(_ job: UploadJob, controller: UploadController) -> some View {
-        VStack(spacing: 12) {
+        VStack(spacing: LayoutTokens.spacing[2]) {
             if let value = job.progress {
                 ProgressView(value: value)
             } else {
@@ -251,30 +253,30 @@ struct UploadPage: View {
                     : (model.settings.speech.engine == .whisperKit
                         ? "Transcribing locally…" : "Transcribing…")
             )
-            .font(.headline)
+            .bvFont(.bodyStrong)
             Text(job.fileName + (job.progress.map { " · \(Int($0 * 100))%" } ?? ""))
-                .font(.caption).foregroundStyle(.secondary)
+                .bvFont(.footnote).foregroundStyle(.bvSecondary)
             if let addedBy = job.addedBy {
-                Text("Added by \(addedBy)").font(.caption).foregroundStyle(.secondary)
+                Text("Added by \(addedBy)").bvFont(.footnote).foregroundStyle(.bvSecondary)
             }
-            HStack(spacing: 16) {
-                Text("1 Reading file").foregroundStyle(job.state == .reading ? .primary : .secondary)
+            HStack(spacing: LayoutTokens.spacing[3]) {
+                Text("1 Reading file").foregroundStyle(job.state == .reading ? store.theme.text : store.theme.secondaryText)
                 Text("2 Transcribing locally").foregroundStyle(
-                    job.state == .transcribing ? .primary : .secondary)
+                    job.state == .transcribing ? store.theme.text : store.theme.secondaryText)
             }
-            .font(.caption)
+            .bvFont(.footnote)
             if controller.waitingForMeeting {
-                Text("Waiting for meeting to finish").font(.caption)
+                Text("Waiting for meeting to finish").bvFont(.footnote)
             }
             Button("Cancel") { Task { await controller.cancel(job.id) } }
             Text(
                 "You can leave this page; the Upload item in the sidebar shows progress. If a meeting starts, the upload pauses and continues when the meeting stops. If BugVoice quits while transcribing, it continues on next launch."
             )
-            .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            .bvFont(.footnote).foregroundStyle(.bvSecondary).multilineTextAlignment(.center)
         }
-        .padding(26)
+        .padding(LayoutTokens.spacing[4])
         .frame(maxWidth: .infinity)
-        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14))
+        .background(store.theme.card, in: RoundedRectangle(cornerRadius: LayoutTokens.largeCardRadius))
     }
 
     @ViewBuilder
@@ -284,7 +286,7 @@ struct UploadPage: View {
                 job.errorMessage ?? UploadFailure.unreadable.localizedDescription, name: job.fileName,
                 meetingID: job.meetingID, controller: controller)
         } else {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {
                 metadataCard(
                     name: job.fileName, kind: job.kind, duration: job.duration, bytes: job.byteSize,
                     addedBy: job.addedBy)
@@ -315,7 +317,7 @@ struct UploadPage: View {
                         EmptyView()
                     }
                 }
-                .font(.caption)
+                .bvFont(.footnote)
             }
         }
     }
@@ -323,9 +325,9 @@ struct UploadPage: View {
     private func errorCard(
         _ error: String, name: String, meetingID: MeetingID?, controller: UploadController
     ) -> some View {
-        VStack(spacing: 12) {
-            Text(error).font(.headline).multilineTextAlignment(.center)
-            Text(name).font(.caption).foregroundStyle(.secondary)
+        VStack(spacing: LayoutTokens.spacing[2]) {
+            Text(error).bvFont(.bodyStrong).multilineTextAlignment(.center)
+            Text(name).bvFont(.footnote).foregroundStyle(.bvSecondary)
             HStack {
                 Button("Choose another file", action: browse)
                 if let meetingID {
@@ -333,9 +335,9 @@ struct UploadPage: View {
                 }
             }
         }
-        .padding(26)
+        .padding(LayoutTokens.spacing[4])
         .frame(maxWidth: .infinity)
-        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14))
+        .background(store.theme.card, in: RoundedRectangle(cornerRadius: LayoutTokens.largeCardRadius))
     }
 
     private func clock(_ seconds: Double) -> String {

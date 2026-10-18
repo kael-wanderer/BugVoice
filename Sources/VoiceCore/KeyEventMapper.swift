@@ -9,11 +9,11 @@ public enum KeyEventKind: Sendable, Equatable {
 /// to a `KeyInput` for `HoldGestureDetector`. Pure, so the "hotkey held
 /// alone" rules are tested without an event tap.
 ///
-/// Right Option and Right Command are matched on their device-specific
-/// right-side bits, so the left keys never act as the hotkey. The hotkey
-/// pressed while another modifier is already held is ignored, so a chord
-/// such as ⌃⌥V never starts a recording. Fn is not counted as another
-/// modifier: function keys carry the Fn flag on many keyboards.
+/// Right-side modifiers are matched on their device-specific bits, so the
+/// left keys never act as the hotkey. The hotkey pressed while another
+/// modifier is already held is ignored, so a chord never starts a recording.
+/// Fn is not counted as another modifier: function keys carry the Fn flag on
+/// many keyboards.
 public enum KeyEventMapper {
     // Generic modifier masks (NX_*MASK).
     static let shift: UInt64 = 0x0002_0000
@@ -57,6 +57,7 @@ public enum KeyEventMapper {
 
     static func spec(for key: HotkeyKey) -> Spec {
         switch key {
+        case .rightControl: Spec(keyCode: 62, downBit: rightControl, ownBits: control | rightControl)
         case .rightOption: Spec(keyCode: 61, downBit: rightOption, ownBits: option | rightOption)
         case .rightCommand: Spec(keyCode: 54, downBit: rightCommand, ownBits: command | rightCommand)
         case .fn: Spec(keyCode: 63, downBit: secondaryFn, ownBits: 0)

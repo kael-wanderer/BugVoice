@@ -1,17 +1,19 @@
 import AppKit
+import Observation
 import SwiftUI
 import VoiceCore
 
-/// The meeting window's notes editor. Right Option dictation finds it as the
+/// The meeting window's notes editor. Dictation finds it as the
 /// first responder of the key meeting window.
 final class MeetingNotesTextView: NSTextView {}
 
 /// Markdown notes editor with its own undo, Markdown styling, and Tab /
 /// Shift-Tab indent on list lines, like the Scratchpad editor.
 struct MeetingNotesEditor: NSViewRepresentable {
+    @Environment(AppearanceStore.self) private var appearance
     @Binding var text: String
 
-    func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
+    func makeCoordinator() -> Coordinator { Coordinator(text: $text, appearance: appearance) }
 
     func makeNSView(context: Context) -> NSScrollView {
         let editor = MeetingNotesTextView(frame: .zero)
@@ -19,10 +21,9 @@ struct MeetingNotesEditor: NSViewRepresentable {
         editor.isRichText = false
         editor.importsGraphics = false
         editor.allowsUndo = true
-        editor.font = MarkdownTextStyler.bodyFont
-        editor.typingAttributes = [.font: MarkdownTextStyler.bodyFont, .foregroundColor: NSColor.labelColor]
+        editor.font = appearance.type.nsFont(.reading)
         editor.drawsBackground = false
-        editor.textContainerInset = NSSize(width: 10, height: 12)
+        editor.textContainerInset = NSSize(width: LayoutTokens.spacing[1], height: LayoutTokens.spacing[2])
         editor.string = text
         editor.setAccessibilityLabel("My notes")
 
@@ -40,11 +41,14 @@ struct MeetingNotesEditor: NSViewRepresentable {
         editor.textContainer?.widthTracksTextView = true
         scroll.documentView = editor
         context.coordinator.editor = editor
+        context.coordinator.observeAppearance()
+        context.coordinator.observeFrame()
         context.coordinator.restyle()
         return scroll
     }
 
     func updateNSView(_ scroll: NSScrollView, context: Context) {
+        context.coordinator.restyle()
         context.coordinator.text = $text
         guard let editor = scroll.documentView as? MeetingNotesTextView, editor.string != text else { return }
         let selection = editor.selectedRange()
@@ -56,9 +60,11 @@ struct MeetingNotesEditor: NSViewRepresentable {
     @MainActor
     final class Coordinator: NSObject, NSTextViewDelegate {
         var text: Binding<String>
+        let appearance: AppearanceStore
         weak var editor: MeetingNotesTextView?
+        nonisolated(unsafe) private var frameObserver: NSObjectProtocol?
 
-        init(text: Binding<String>) { self.text = text }
+        init(text: Binding<String>, appearance: AppearanceStore) { self.text = text; self.appearance = appearance }
 
         func textDidChange(_ notification: Notification) {
             guard let editor else { return }
@@ -66,10 +72,51 @@ struct MeetingNotesEditor: NSViewRepresentable {
             restyle()
         }
 
+        func observeAppearance() {
+            withObservationTracking {
+                _ = appearance.settings
+                _ = appearance.systemIsDark
+            } onChange: { [weak self] in
+                Task { @MainActor [weak self] in
+                    self?.restyle()
+                    self?.observeAppearance()
+                }
+            }
+        }
+
         func restyle() {
             guard let editor, let storage = editor.textStorage else { return }
-            MarkdownTextStyler.apply(to: storage)
-            editor.typingAttributes = [.font: MarkdownTextStyler.bodyFont, .foregroundColor: NSColor.labelColor]
+            let style = MarkdownTextStyle(appearance: appearance)
+            editor.backgroundColor = appearance.theme.backgroundNS
+            editor.drawsBackground = true
+            editor.insertionPointColor = appearance.theme.textNS
+            editor.textColor = style.textColor
+            MarkdownTextStyler.apply(to: storage, style: style)
+            editor.typingAttributes = style.typingAttributes
+            updateInset()
+        }
+
+        /// Centers the text at the reading width; runs again when the editor resizes.
+        func updateInset() {
+            guard let editor else { return }
+            let inset = NSSize(
+                width: max(LayoutTokens.spacing[1], (editor.bounds.width - appearance.readingWidth) / 2),
+                height: LayoutTokens.spacing[2])
+            if editor.textContainerInset != inset { editor.textContainerInset = inset }
+        }
+
+        func observeFrame() {
+            guard let editor, frameObserver == nil else { return }
+            editor.postsFrameChangedNotifications = true
+            frameObserver = NotificationCenter.default.addObserver(
+                forName: NSView.frameDidChangeNotification, object: editor, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.updateInset() }
+            }
+        }
+
+        deinit {
+            if let frameObserver { NotificationCenter.default.removeObserver(frameObserver) }
         }
 
         /// Tab and Shift-Tab indent list lines; elsewhere Tab types a tab.

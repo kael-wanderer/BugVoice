@@ -1,8 +1,10 @@
 import AppKit
 import BugVoiceMac
 import SwiftUI
+import VoiceCore
 
 struct PermissionsView: View {
+    @Environment(AppearanceStore.self) private var store
     @Bindable var model: AppModel
 
     var body: some View {
@@ -15,44 +17,44 @@ struct PermissionsView: View {
             Divider()
             systemAudioRow
             Text("Nothing you say leaves this Mac unless you set a remote server in Settings → Text model.")
-                .font(.caption).foregroundStyle(.secondary).padding(.top, 12)
+                .bvFont(.footnote).foregroundStyle(.bvSecondary).padding(.top, LayoutTokens.spacing[2])
         }
-        .padding(22)
-        .frame(width: 540)
+        .padding(LayoutTokens.spacing[4])
+        .frame(width: store.scaled(540))
     }
 
     private var systemAudioRow: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: LayoutTokens.spacing[2]) {
             Image(systemName: "speaker.wave.2")
                 .frame(width: 34, height: 34)
-                .background(.quaternary, in: RoundedRectangle(cornerRadius: 9))
+                .background(.bvHover, in: RoundedRectangle(cornerRadius: LayoutTokens.cardRadius))
             VStack(alignment: .leading) {
                 Text("System Audio Recording").fontWeight(.semibold)
                 Text(model.systemAudioPermissionFailed
                     ? "Allow BugVoice under Privacy & Security → Screen & System Audio Recording."
                     : "Requested when the first meeting starts")
-                    .font(.callout).foregroundStyle(.secondary)
+                    .bvFont(.body).foregroundStyle(.bvSecondary)
             }
             Spacer()
             if model.systemAudioPermissionFailed {
                 Button("Open System Settings") { Permissions.openSettings(.systemAudioRecording) }
                     .buttonStyle(.borderedProminent)
             } else if model.permissionStatus[.systemAudioRecording] == true {
-                Text("Granted").foregroundStyle(.green)
+                Text("Granted").foregroundStyle(.bvSuccess)
             }
         }
-        .padding(.vertical, 12)
+        .padding(.vertical, LayoutTokens.spacing[2])
     }
 
     @ViewBuilder
     func row(_ kind: PermissionKind, _ title: String, _ detail: String, _ symbol: String) -> some View {
-        HStack(spacing: 14) {
+        HStack(spacing: LayoutTokens.spacing[2]) {
             Image(systemName: symbol)
                 .frame(width: 34, height: 34)
-                .background(.quaternary, in: RoundedRectangle(cornerRadius: 9))
+                .background(.bvHover, in: RoundedRectangle(cornerRadius: LayoutTokens.cardRadius))
             VStack(alignment: .leading) {
                 Text(title).fontWeight(.semibold)
-                Text(detail).font(.callout).foregroundStyle(.secondary)
+                Text(detail).bvFont(.body).foregroundStyle(.bvSecondary)
             }
             Spacer()
             if model.permissionStatus[kind] == true {
@@ -61,7 +63,7 @@ struct PermissionsView: View {
                     // after the grant.
                     Button("Restart BugVoice") { relaunch() }
                 } else {
-                    Text("Granted").foregroundStyle(.green)
+                    Text("Granted").foregroundStyle(.bvSuccess)
                 }
             } else {
                 Button("Open System Settings") {
@@ -71,7 +73,7 @@ struct PermissionsView: View {
                 .buttonStyle(.borderedProminent)
             }
         }
-        .padding(.vertical, 12)
+        .padding(.vertical, LayoutTokens.spacing[2])
     }
 
     func relaunch() {
@@ -125,7 +127,8 @@ final class PermissionsWindowController: NSObject, NSWindowDelegate {
         )
         window.title = "Permissions"
         window.identifier = AppWindow.permissions
-        window.contentViewController = NSHostingController(rootView: PermissionsView(model: model))
+        window.contentViewController = NSHostingController(rootView: PermissionsView(model: model).bvTheme(model.appearance))
+        model.appearance.attach(window)
         window.isReleasedWhenClosed = false
         window.delegate = self
         window.center()
