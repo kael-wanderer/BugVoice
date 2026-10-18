@@ -1,34 +1,47 @@
 import SwiftUI
 import VoiceCore
 
-enum SettingsTab: String, Hashable { case general, shortcuts, editing, theme, speech, models, agents, meetings, storage }
+enum SettingsTab: String, Hashable, CaseIterable {
+    case general, shortcuts, editing, theme, speech, models, agents, meetings, storage
+
+    var title: String {
+        switch self {
+        case .general: "General"
+        case .shortcuts: "Shortcuts"
+        case .editing: "Editing"
+        case .theme: "Theme & icons"
+        case .speech: "Speech"
+        case .models: "Models"
+        case .agents: "Agents"
+        case .meetings: "Meetings"
+        case .storage: "Storage"
+        }
+    }
+}
 
 struct SettingsView: View {
     @Bindable var model: AppModel
 
     var body: some View {
         ScrollView {
-            HStack(alignment: .top, spacing: LayoutTokens.spacing[4]) {
-                SectionList("Settings sections", groups: [
-                    .init(title: nil, items: [(.general, "General"), (.shortcuts, "Shortcuts"), (.editing, "Editing"), (.theme, "Theme & icons")]),
-                    .init(title: "Engine", items: [(.speech, "Speech"), (.models, "Models"), (.agents, "Agents"), (.meetings, "Meetings"), (.storage, "Storage")])
-                ], selection: $model.settingsTab)
-            Group {
-                switch model.settingsTab {
-                case .general: GeneralTab(model: model)
-                case .shortcuts: ShortcutsSettingsView(model: model)
-                case .editing: EditingSettingsView(model: model)
-                case .theme: ThemeSettingsView(model: model)
-                case .speech: SpeechTab(model: model)
-                case .models: ModelsTab(model: model)
-                case .agents: AgentsSettings(model: model)
-                case .meetings: MeetingsTab(model: model)
-                case .storage: StorageTab(model: model)
+            VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) {
+                RoundPills("Settings sections", items: SettingsTab.allCases.map { ($0, $0.title) }, selection: $model.settingsTab)
+                Group {
+                    switch model.settingsTab {
+                    case .general: GeneralTab(model: model)
+                    case .shortcuts: ShortcutsSettingsView(model: model)
+                    case .editing: EditingSettingsView(model: model)
+                    case .theme: ThemeSettingsView(model: model)
+                    case .speech: SpeechTab(model: model)
+                    case .models: ModelsTab(model: model)
+                    case .agents: AgentsSettings(model: model)
+                    case .meetings: MeetingsTab(model: model)
+                    case .storage: StorageTab(model: model)
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .topLeading)
             }
-            .frame(maxWidth: .infinity, alignment: .topLeading)
-        }
-            .bvPageColumn(.sectioned)
+            .bvPageColumn(.wide)
         }
     }
 }

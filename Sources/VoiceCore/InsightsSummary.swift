@@ -89,6 +89,9 @@ public struct InsightsSummary: Equatable, Sendable {
     public var meetings = 0
     public var meetingHours: Double = 0
     public var cleanupFixes = 0
+    /// Minutes typing the same words would have taken at `typingWordsPerMinute`,
+    /// minus the minutes spent speaking. Never below zero.
+    public var minutesSaved = 0
     public var appCount = 0
     public var apps: [BreakdownRow] = []
     public var styles: [BreakdownRow] = []
@@ -96,6 +99,7 @@ public struct InsightsSummary: Equatable, Sendable {
 
     public static let weekCount = 52
     public static let topAppCount = 5
+    public static let typingWordsPerMinute = 40.0
 
     public static func compute(file: InsightsFile, period: InsightsPeriod, today: Date, calendar: Calendar = .current) -> InsightsSummary {
         let start = calendar.startOfDay(for: today)
@@ -127,6 +131,8 @@ public struct InsightsSummary: Equatable, Sendable {
         summary.wordsToday = file.days[key(start)]?.words ?? 0
         summary.wordsPerMinute = seconds > 0 ? Int((Double(summary.words + summary.noteWords) / seconds * 60).rounded()) : 0
         summary.meetingHours = (meetingSeconds / 3600 * 10).rounded() / 10
+        let typingMinutes = Double(summary.words + summary.noteWords) / typingWordsPerMinute
+        summary.minutesSaved = max(0, Int((typingMinutes - seconds / 60).rounded()))
 
         // Streaks are all-time: the period never changes them.
         func active(_ date: Date) -> Bool { file.days[key(date)]?.hasActivity ?? false }

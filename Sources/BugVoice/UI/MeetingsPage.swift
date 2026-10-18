@@ -41,9 +41,9 @@ struct MeetingsPage: View {
     var body: some View {
         HStack(spacing: 0) {
             library
-                .frame(width: ShellLayout.listPaneWidth(scale: model.settings.appearance.textScale))
+                .frame(width: model.listPaneWidth)
                 .background(.bvSidebar)
-            Rectangle().fill(.bvSeparator).frame(width: 1)
+            ResizeHandle(width: model.listPaneWidth, range: ShellLayout.listPaneRange) { model.listPaneDraggedWidth = $0 }
             if let meeting = model.selectedMeeting {
                 MeetingDetails(model: model, meeting: meeting, player: player, citedLineIDs: $citedLineIDs, citationScrollRequest: citationScrollRequest)
                     .environment(model)
@@ -94,7 +94,7 @@ struct MeetingsPage: View {
     private var library: some View {
         ScrollView {
         VStack(spacing: LayoutTokens.spacing[1]) {
-            VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {
+            FilterRow {
                 FolderFilterMenu(
                     model: model,
                     filter: Binding(get: { model.meetingsFolderFilter }, set: { model.meetingsFolderFilter = $0 }),
@@ -104,9 +104,6 @@ struct MeetingsPage: View {
                 )
                 TagFilterBar(catalog: model.meetingTagCatalog, selected: $model.meetingTagFilter)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            TextField("Search meetings", text: $model.meetingSearchQuery)
-                .textFieldStyle(.roundedBorder)
             if model.meetingManifests.isEmpty {
                 EmptyState("No meetings yet", systemImage: "waveform.path", message: "Record a meeting to see its transcript here.")
             } else if groups.isEmpty {

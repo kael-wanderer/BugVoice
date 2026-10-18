@@ -7,10 +7,16 @@ struct SearchResults: View {
     let selected: Int
     let model: AppModel
     let open: (SearchHit) -> Void
+    var header: String? = nil
+    var footer: String? = nil
     @State private var rowsHeight: CGFloat = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
+            if let header {
+                Text(header.uppercased()).bvFont(.caption).foregroundStyle(.bvSecondary)
+                    .padding(.horizontal, LayoutTokens.spacing[2]).padding(.top, LayoutTokens.spacing[1])
+            }
             if hits.isEmpty {
                 Text("No matches").bvFont(.body).foregroundStyle(.bvSecondary).padding(LayoutTokens.spacing[2])
             } else {
@@ -41,9 +47,11 @@ struct SearchResults: View {
                     }
                 }
             }
-            Rectangle().fill(.bvSeparator).frame(height: 1)
-            Text("Results from this page come first.").bvFont(.footnote).foregroundStyle(.bvSecondary)
-                .padding(LayoutTokens.spacing[2]).fixedSize(horizontal: false, vertical: true)
+            if let footer {
+                Rectangle().fill(.bvSeparator).frame(height: 1)
+                Text(footer).bvFont(.footnote).foregroundStyle(.bvSecondary)
+                    .padding(LayoutTokens.spacing[2]).fixedSize(horizontal: false, vertical: true)
+            }
         }
         .padding(LayoutTokens.spacing[0])
         .background(.bvCard, in: RoundedRectangle(cornerRadius: LayoutTokens.cardRadius))

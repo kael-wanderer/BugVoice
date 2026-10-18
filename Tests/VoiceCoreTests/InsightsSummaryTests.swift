@@ -56,6 +56,19 @@ struct InsightsSummaryTests {
         #expect(compute(f).wordsPerMinute == 120)
     }
 
+    @Test func timeSavedAgainstTypingAtForty() {
+        // 400 words typed at 40 wpm = 10 min; spoken in 2 min.
+        let f = file(["2026-10-15": day(words: 300, seconds: 120, noteWords: 100)])
+        #expect(compute(f).minutesSaved == 8)
+        #expect(InsightsSummary.typingWordsPerMinute == 40)
+    }
+
+    @Test func timeSavedNeverNegative() {
+        let f = file(["2026-10-15": day(words: 10, seconds: 600)])
+        #expect(compute(f).minutesSaved == 0)
+        #expect(compute(InsightsFile()).minutesSaved == 0)
+    }
+
     @Test func notesMeetingsFixes() {
         let f = file(["2026-10-15": day(noteWords: 140, notes: 2, meetings: 1, meetingSeconds: 2700, fixes: 9)])
         let s = compute(f)

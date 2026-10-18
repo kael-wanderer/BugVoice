@@ -33,9 +33,9 @@ struct NotesPage: View {
     var body: some View {
         HStack(spacing: 0) {
             library
-                .frame(width: ShellLayout.listPaneWidth(scale: model.settings.appearance.textScale))
+                .frame(width: model.listPaneWidth)
                 .background(.bvSidebar)
-            Rectangle().fill(.bvSeparator).frame(width: 1)
+            ResizeHandle(width: model.listPaneWidth, range: ShellLayout.listPaneRange) { model.listPaneDraggedWidth = $0 }
             if let note = controller.notes.first(where: { $0.id == model.selectedNoteID }) {
                 NotePreview(note: note, model: model)
             } else {
@@ -69,18 +69,24 @@ struct NotesPage: View {
     private var library: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {
-                FolderFilterMenu(
-                    model: model,
-                    filter: Binding(get: { model.notesFolderFilter }, set: { model.notesFolderFilter = $0 }),
-                    counts: LibraryProjection.counts(controller.notes, known: model.library.knownIDs),
-                    allTitle: "All notes", onManage: { managingFolders = true }
-                )
-                TagFilterBar(catalog: model.noteTagCatalog, selected: $model.notesTagFilter)
-                TextField("Search notes", text: $model.notesSearchQuery).textFieldStyle(.roundedBorder).accessibilityLabel("Search notes")
-                HStack(spacing: LayoutTokens.spacing[1]) {
-                    Picker("Sort", selection: $model.settings.scratchpad.sort) {
-                        ForEach(NotesSort.allCases, id: \.self) { Text($0.title).tag($0) }
-                    }.labelsHidden().help("Sort")
+                FilterRow {
+                    FolderFilterMenu(
+                        model: model,
+                        filter: Binding(get: { model.notesFolderFilter }, set: { model.notesFolderFilter = $0 }),
+                        counts: LibraryProjection.counts(controller.notes, known: model.library.knownIDs),
+                        allTitle: "All notes", onManage: { managingFolders = true }
+                    )
+                    TagFilterBar(catalog: model.noteTagCatalog, selected: $model.notesTagFilter)
+                    Menu {
+                        Picker("Sort", selection: $model.settings.scratchpad.sort) {
+                            ForEach(NotesSort.allCases, id: \.self) { Text($0.title).tag($0) }
+                        }.pickerStyle(.inline).labelsHidden()
+                    } label: {
+                        Label("Sort", systemImage: "arrow.up.arrow.down").labelStyle(.iconOnly)
+                    }
+                    .fixedSize()
+                    .help("Sort: \(model.settings.scratchpad.sort.title)")
+                    .accessibilityLabel("Sort, \(model.settings.scratchpad.sort.title)")
                     Button { Task { await controller.reloadList() } } label: { Image(systemName: "arrow.clockwise") }
                         .buttonStyle(.borderless).help("Reload from disk").accessibilityLabel("Reload from disk")
                 }

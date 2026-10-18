@@ -18,7 +18,7 @@ struct DictionaryPage: View {
                 case .snippets: SnippetsView(model: model)
                 }
             }
-            .bvPageColumn(.reading)
+            .bvPageColumn(.wide)
 
         }
     }

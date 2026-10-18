@@ -173,6 +173,30 @@ Still open:
 - Not exercised: VoiceOver, ⌃⌘S persistence across relaunch, the preview refreshing
   after a floating-window save, Ask AI menu item, Dictionary Add menu.
 
+## Shell polish (branch feat/shell-polish, 2026-10-18)
+
+Owner's six-item list after the shell merge:
+- Dictation's four stat tiles and Insights' cards share `CardGrid`: equal widths across
+  the row (4, then 2, then 1 column), equal heights per row.
+- Insights gains Time saved (words spoken and noted, typed at 40 words per minute,
+  minus speaking time), giving two rows of four.
+- Sidebar (180–320) and list pane (220–440, default 290) resize by dragging their
+  border; double-click resets. Widths kept in UserDefaults; the window minimum follows.
+- Meetings and Scratchpad panes: folder and tag filters share one row; the pane search
+  box is gone. The title bar search filters the current list and shows matches from
+  other pages below under "Other pages". On Dictation it filters the history.
+- Every page uses Dictation's wide column; reading width stays for transcript text and
+  the note preview.
+- Settings and Style: section list replaced by round pills at the top. Pills spread
+  evenly over rows (Settings: 5 + 4). `SectionList` and `sectionListWidth` removed.
+
+Seen working at 100%: all of the above, drags of both borders, "check" filtering
+Meetings with dictation hits under Other pages. Not checked: 160% text size.
+
+- [ ] Drag both borders; double-click resets; widths kept after relaunch.
+- [ ] Title bar search on Meetings, Scratchpad, Dictation filters the page; other pages listed below.
+- [ ] Insights and Dictation cards equal at 100% and 160%.
+
 ## Manual checks (owner)
 
 - [ ] Sidebar groups and order match the mockup; Settings and Help at the bottom.
