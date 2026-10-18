@@ -42,7 +42,9 @@ struct MenuPopover: View {
         ScrollView(.vertical) {
             VStack(alignment: .leading, spacing: 0) {
                 if let submenu {
-                    submenuBody(submenu)
+                    MenuSubmenuView(model: model, submenu: submenu, highlight: highlight,
+                                    back: { self.submenu = nil; nav.hover(.submenu(submenu)) },
+                                    close: close)
                 } else {
                     mainList
                 }
@@ -80,10 +82,10 @@ struct MenuPopover: View {
             MenuSeparator()
         }
         MenuSubmenuRow(icon: "books.vertical", title: "Library", highlighted: highlight.isOn(.submenu(.library)),
-                       onHover: highlight.hover(.submenu(.library))) { submenu = .library }
+                       onHover: highlight.hover(.submenu(.library))) { submenu = .library; nav.clear() }
         MenuSubmenuRow(icon: "mic", title: "Dictation options",
                        highlighted: highlight.isOn(.submenu(.dictationOptions)),
-                       onHover: highlight.hover(.submenu(.dictationOptions))) { submenu = .dictationOptions }
+                       onHover: highlight.hover(.submenu(.dictationOptions))) { submenu = .dictationOptions; nav.clear() }
         MenuSeparator()
         MenuRow(icon: "macwindow", title: "Open BugVoice",
                 hint: "⌃⌥\(model.settings.shortcuts.letter(for: .openApp))",
@@ -97,38 +99,10 @@ struct MenuPopover: View {
             model.openMainWindow(.settings)
         }
         MenuSubmenuRow(title: "Tools", highlighted: highlight.isOn(.submenu(.tools)),
-                       onHover: highlight.hover(.submenu(.tools))) { submenu = .tools }
+                       onHover: highlight.hover(.submenu(.tools))) { submenu = .tools; nav.clear() }
         MenuRow(title: "Quit BugVoice", hint: "⌘Q",
                 highlighted: highlight.isOn(.quit), onHover: highlight.hover(.quit)) {
             NSApp.terminate(nil)
-        }
-    }
-
-    // MARK: Submenus (content comes in Task 4)
-
-    private func submenuBody(_ submenu: MenuSubmenu) -> some View {
-        HStack(spacing: LayoutTokens.spacing[1]) {
-            Button { self.submenu = nil } label: {
-                Text("‹ Back").bvFont(.body).foregroundStyle(.bvAccent).fixedSize()
-                    .padding(.horizontal, LayoutTokens.spacing[1]).padding(.vertical, LayoutTokens.spacing[0] / 2)
-                    .background(highlight.isOn(.back) ? AnyShapeStyle(.bvHover) : AnyShapeStyle(.clear),
-                                in: RoundedRectangle(cornerRadius: LayoutTokens.controlRadius))
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .onHover(perform: highlight.hover(.back))
-            Text(title(submenu)).bvFont(.bodyStrong)
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, LayoutTokens.spacing[0])
-        .padding(.vertical, LayoutTokens.spacing[0])
-    }
-
-    private func title(_ submenu: MenuSubmenu) -> String {
-        switch submenu {
-        case .library: "Library"
-        case .dictationOptions: "Dictation options"
-        case .tools: "Tools"
         }
     }
 

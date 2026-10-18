@@ -59,17 +59,30 @@ struct MenuSubmenuRow: View {
     }
 }
 
-/// Row with a switch on the right.
+/// Row with a small capsule switch on the right.
 struct MenuSwitchRow: View {
+    @Environment(AppearanceStore.self) private var store
     let title: String
     @Binding var isOn: Bool
     let highlighted: Bool
     let onHover: (Bool) -> Void
 
     var body: some View {
-        Toggle(isOn: $isOn) { Text(title).bvFont(.body) }
-            .toggleStyle(.switch)
+        Button { isOn.toggle() } label: {
+            HStack(spacing: LayoutTokens.spacing[1]) {
+                Text(title).bvFont(.body)
+                Spacer(minLength: LayoutTokens.spacing[1])
+                Capsule()
+                    .fill(isOn ? AnyShapeStyle(.bvAccent) : AnyShapeStyle(.bvSeparator))
+                    .frame(width: store.scaled(30), height: store.scaled(18))
+                    .overlay(alignment: isOn ? .trailing : .leading) {
+                        Circle().fill(.bvBackground).padding(store.scaled(2))
+                    }
+            }
             .modifier(MenuRowChrome(highlighted: highlighted, onHover: onHover))
+        }
+        .buttonStyle(.plain)
+        .accessibilityValue(isOn ? "On" : "Off")
     }
 }
 
