@@ -18,15 +18,16 @@ struct ConnectionsCard: View {
             }
             ForEach(model.settings.models.connections) { connection in
                 Divider()
-                HStack(spacing: LayoutTokens.spacing[2]) {
+                VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {
                     VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
                         Text(connection.name).fontWeight(.semibold)
-                        Text(addressLine(connection)).bvCode(.footnote).foregroundStyle(.bvSecondary).lineLimit(1)
+                        Text(addressLine(connection)).bvCode(.footnote).foregroundStyle(.bvSecondary).lineLimit(1).truncationMode(.middle).help(addressLine(connection))
                     }
-                    Spacer()
-                    Text(keyState(connection)).bvFont(.footnote).foregroundStyle(.bvSecondary)
-                    StatusDot(status: model.connectionStatus[connection.id])
-                    Button("Edit") { editing = ConnectionDraft(connection: connection, isNew: false) }
+                    FlowLayout(spacing: LayoutTokens.spacing[1]) {
+                        Text(keyState(connection)).bvFont(.footnote).foregroundStyle(.bvSecondary)
+                        StatusDot(status: model.connectionStatus[connection.id])
+                        Button("Edit") { editing = ConnectionDraft(connection: connection, isNew: false) }
+                    }
                 }
                 .padding(.vertical, LayoutTokens.spacing[1])
             }

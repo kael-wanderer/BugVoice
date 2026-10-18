@@ -5,7 +5,7 @@ struct ThemeSettingsView: View {
     @Bindable var model: AppModel
     @Environment(AppearanceStore.self) private var store
     var body: some View {
-        ScrollView {
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) {
             VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) {
                 AppearanceCard(title: "Theme") {
                     RoundPills("Light and dark", items: [(.light,"Light"),(.dark,"Dark"),(.system,"Match macOS")], selection: $model.settings.appearance.mode)

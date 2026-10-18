@@ -48,7 +48,7 @@ struct DictationHistoryView: View {
                     ForEach(entries) { entry in row(entry) }
                 }
             }
-            .padding(LayoutTokens.spacing[4])
+            .bvPageColumn(.wide)
         }
 
         .task { await model.reloadHistory() }
@@ -88,7 +88,7 @@ struct StatTile: View {
     var body: some View {
         VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
             Text(value).bvFont(.title2).monospacedDigit()
-            Text(label).bvFont(.footnote).foregroundStyle(.bvSecondary).lineLimit(1)
+            Text(label).bvFont(.footnote).foregroundStyle(.bvSecondary)
         }
         .padding(.horizontal, LayoutTokens.spacing[2]).padding(.vertical, LayoutTokens.spacing[1])
         .frame(maxWidth: .infinity, alignment: .leading)

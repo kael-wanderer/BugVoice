@@ -19,8 +19,8 @@ struct InsightsPage: View {
                     )
                 }
             }
-            .padding(LayoutTokens.spacing[4])
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .bvPageColumn(.wide)
+
         }
     }
 

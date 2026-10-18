@@ -7,21 +7,12 @@ struct SettingsView: View {
     @Bindable var model: AppModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) {
-            RoundPills("Settings section",
-                items: [
-                    (SettingsTab.general, "General"),
-                    (SettingsTab.shortcuts, "Shortcuts"),
-                    (SettingsTab.editing, "Editing"),
-                    (SettingsTab.theme, "Theme & icons"),
-                    (SettingsTab.speech, "Speech"),
-                    (SettingsTab.models, "Models"),
-                    (SettingsTab.agents, "Agents"),
-                    (SettingsTab.meetings, "Meetings"),
-                    (SettingsTab.storage, "Storage"),
-                ],
-                selection: $model.settingsTab
-            )
+        ScrollView {
+            HStack(alignment: .top, spacing: LayoutTokens.spacing[4]) {
+                SectionList("Settings sections", groups: [
+                    .init(title: nil, items: [(.general, "General"), (.shortcuts, "Shortcuts"), (.editing, "Editing"), (.theme, "Theme & icons")]),
+                    .init(title: "Engine", items: [(.speech, "Speech"), (.models, "Models"), (.agents, "Agents"), (.meetings, "Meetings"), (.storage, "Storage")])
+                ], selection: $model.settingsTab)
             Group {
                 switch model.settingsTab {
                 case .general: GeneralTab(model: model)
@@ -35,10 +26,9 @@ struct SettingsView: View {
                 case .storage: StorageTab(model: model)
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .padding(LayoutTokens.spacing[4])
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-
+            .bvPageColumn(.sectioned)
+        }
     }
 }

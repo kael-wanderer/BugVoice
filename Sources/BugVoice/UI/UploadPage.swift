@@ -133,14 +133,11 @@ struct UploadPage: View {
                             }
                         }
                     }
-                    .frame(maxWidth: store.scaled(560))
-                    .frame(maxWidth: .infinity)
                 } else {
                     ProgressView()
                 }
             }
-            .padding(LayoutTokens.spacing[4])
-            .frame(maxWidth: .infinity, minHeight: 500, alignment: .topLeading)
+            .bvPageColumn(.reading)
         }
         .background(targeted ? store.theme.accent.opacity(0.06) : store.theme.background)
         .contentShape(Rectangle())

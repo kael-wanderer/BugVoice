@@ -18,8 +18,8 @@ struct DictionaryPage: View {
                 case .snippets: SnippetsView(model: model)
                 }
             }
-            .padding(LayoutTokens.spacing[4])
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .bvPageColumn(.reading)
+
         }
     }
 }

@@ -84,10 +84,16 @@ struct SettingsRow<Control: View>: View {
     @ViewBuilder var control: Control
 
     var body: some View {
-        HStack(spacing: LayoutTokens.spacing[2]) {
-            Text(title)
-            Spacer(minLength: 16)
-            control
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: LayoutTokens.spacing[2]) {
+                Text(title).fixedSize()
+                Spacer(minLength: LayoutTokens.spacing[3])
+                control.fixedSize()
+            }
+            VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {
+                Text(title)
+                control
+            }
         }
     }
 }
@@ -109,10 +115,8 @@ struct SettingsScroll<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) { content }
-                .padding(.vertical, LayoutTokens.spacing[0])
-        }
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) { content }
+            .padding(.vertical, LayoutTokens.spacing[0])
     }
 }
 

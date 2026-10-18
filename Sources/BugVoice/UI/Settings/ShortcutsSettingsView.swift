@@ -6,7 +6,7 @@ struct ShortcutsSettingsView: View {
     @State private var conflicts: [ShortcutAction: String] = [:]
     @Environment(AppearanceStore.self) private var store
     var body: some View {
-        ScrollView {
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) {
             VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) {
                 AppearanceCard(title: "Dictation") {
                     Picker("Hold to talk", selection: $model.settings.hotkey) {

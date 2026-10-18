@@ -30,3 +30,14 @@ Branch: `feat/app-shell`. Phase B is implemented directly, as authorized by the 
 - RoundPills now lives in Components; AppearanceCard stays in SettingsComponents. PillTabs is deleted. Dictation style filter preserves day grouping; empty filtered results have their own empty state.
 - Editing line spacing/reading width use the specified square segmented controls. Speech, floating Scratchpad, and meeting-window controls remain their existing tools.
 - Validation: swift build, swift test (1,034 tests), token check, signed debug app build and dev launch passed. Required 160% screenshots for Insights, Dictation, Dictionary and meeting pills remain blocked by UI access; no wrapping visual pass is claimed.
+
+## Task 7 — Centered columns and section lists
+
+- Task 6 commit: `e78b130` — feat(app): one round pill control for views and filters.
+- Builder's call: `bvPageColumn` uses a single-child SwiftUI Layout. It consumes the full scroll-view width, applies ShellLayout.blockWidth, and places the block on the centerline without GeometryReader height feedback.
+- Settings and Style use vertical in-page section lists. Settings tabs share the page's one scroll view; nested settings scroll views were removed so the scrollbar stays at the right-panel edge.
+- Builder's call: Models feature controls stack label, engine, model, thinking/effort, timeout, and status vertically. Their prior six-column Grid could not fit the minimum content column at large text. All controls remain available. Connections/CLI rows also stack; CLI paths have middle truncation, help, and Reveal.
+- Storage preserves every clear/reset/retention action. Paths have middle truncation, full-path help and Reveal; metadata uses ViewThatFits with stacked fallback.
+- Phase A review fix: Integrations is one AttributedString Text with the inline Settings › Agents link handled locally by OpenURLAction, so the sentence wraps.
+- Validation: swift build, swift test (1,034 tests), token check, signed debug build and dev launch pass.
+- **Not verified:** the requested Models, Storage, Style, Upload, Dictation matrix (100%/160%, minimum/1600 pt), Integrations link wrapping screenshot, and left/right gap measurements. UI access was denied and no visible main window was available. No screenshot paths or measured gaps are fabricated; calculated centering is not visual evidence.

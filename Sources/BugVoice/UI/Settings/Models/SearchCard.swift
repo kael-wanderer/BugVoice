@@ -30,9 +30,8 @@ struct SearchCard: View {
                         }
                 }
                 Stepper(value: $model.settings.models.search.askContextTokens, in: 4_096...262_144, step: 4_096) {
-                    HStack {
+                    VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
                         Text("Ask context size")
-                        Spacer()
                         Text("\(model.settings.models.search.askContextTokens.formatted()) tokens").monospacedDigit()
                     }
                 }

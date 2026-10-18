@@ -16,7 +16,7 @@ struct EditingSettingsView: View {
         return items
     }
     var body: some View {
-        ScrollView {
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) {
             VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) {
                 AppearanceCard(title: "Preview") {
                     Text("Product review").bvFont(.title2)

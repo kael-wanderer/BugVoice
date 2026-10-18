@@ -2,53 +2,41 @@ import SwiftUI
 import VoiceCore
 
 struct ComingSoonPage: View {
-    @Environment(AppearanceStore.self) private var store
     let page: Page
     @Bindable var model: AppModel
 
     var body: some View {
         GeometryReader { proxy in
-            VStack(spacing: 0) {
-                Spacer().frame(height: proxy.size.height / 3)
+            ScrollView {
                 VStack(spacing: LayoutTokens.spacing[2]) {
                     Text(page.title).bvFont(.title2)
-                    description
-                        .bvFont(.body)
-                        .foregroundStyle(.bvSecondary)
+                    Text(description).bvFont(.body).foregroundStyle(.bvSecondary)
                         .multilineTextAlignment(.center)
-                    Text("Coming soon")
-                        .bvFont(.footnote)
-                        .padding(.horizontal, LayoutTokens.spacing[2])
-                        .padding(.vertical, LayoutTokens.spacing[0])
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text("Coming soon").bvFont(.footnote)
+                        .padding(.horizontal, LayoutTokens.spacing[2]).padding(.vertical, LayoutTokens.spacing[0])
                         .background(.bvAccentSoft, in: Capsule())
                 }
-                .frame(maxWidth: store.readingWidth)
-                .frame(maxWidth: .infinity)
-                Spacer(minLength: 0)
+                .padding(.top, max(0, proxy.size.height / 3 - LayoutTokens.spacing[5]))
+                .bvPageColumn(.reading)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
+        .environment(\.openURL, OpenURLAction { url in
+            guard url.absoluteString == "bugvoice://settings/agents" else { return .discarded }
+            model.settingsTab = .agents
+            model.page = .settings
+            return .handled
+        })
     }
-
-    @ViewBuilder private var description: some View {
-        switch page {
-        case .integrations:
-            VStack(spacing: 0) {
-                Text("Calendar, export to Apple Notes and Notion, and the MCP server will live here.")
-                HStack(spacing: 0) {
-                    Text("The MCP server is in ")
-                    Button("Settings › Agents") {
-                        model.settingsTab = .agents
-                        model.page = .settings
-                    }
-                    .buttonStyle(.link)
-                    Text(" for now.")
-                }
-            }
-        case .help:
-            Text("Guides for getting started, shortcuts, styles, meetings, and coding agents, readable offline.")
-        default:
-            EmptyView()
+    private var description: AttributedString {
+        if page == .integrations {
+            var text = AttributedString("Calendar, export to Apple Notes and Notion, and the MCP server will live here. The MCP server is in ")
+            var link = AttributedString("Settings › Agents")
+            link.link = URL(string: "bugvoice://settings/agents")
+            text += link
+            text += AttributedString(" for now.")
+            return text
         }
+        return AttributedString("Guides for getting started, shortcuts, styles, meetings, and coding agents, readable offline.")
     }
 }

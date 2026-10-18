@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import VoiceCore
 
@@ -15,17 +16,18 @@ struct CLIsCard: View {
             .padding(.bottom, LayoutTokens.spacing[1])
             ForEach(CLITool.allCases, id: \.self) { tool in
                 Divider()
-                HStack(spacing: LayoutTokens.spacing[2]) {
+                VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {
                     Text(tool.rawValue).bvCode(.body).fontWeight(.semibold).frame(width: store.scaled(70), alignment: .leading)
                     if let info = model.cliInfo[tool] {
                         Text(info.version.isEmpty ? info.path : "\(info.path) · \(info.version)")
-                            .bvCode(.footnote).foregroundStyle(.bvSecondary).lineLimit(1)
-                        Spacer()
-                        StatusDot(status: .reachable(models: []))
+                            .bvCode(.footnote).foregroundStyle(.bvSecondary).lineLimit(1).truncationMode(.middle).help(info.path)
                         Text("Found · \(Self.isolation(tool))").bvFont(.footnote).foregroundStyle(.bvSecondary)
+                        HStack(spacing: LayoutTokens.spacing[1]) {
+                            StatusDot(status: .reachable(models: []))
+                            Button("Reveal") { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: info.path)]) }
+                        }
                     } else {
                         Text("Not found").foregroundStyle(.bvSecondary)
-                        Spacer()
                     }
                 }
                 .padding(.vertical, LayoutTokens.spacing[1])
