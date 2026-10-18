@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BugVoice Folders and Tags</title>
+<meta name="description" content="Managing folders and tags: one sheet with Folders and Tags tabs, flat folders, tag colours, one-line Scratchpad filter row with card badges.">
+<style>
+:root{
+  --bg:#f7f0d2;--panel:#fbf5df;--hover:#efe6c6;--line:#d9cfa8;--text:#2b2a26;--muted:#77705d;--accent:#9a7a2a;--soft:#e9dcae;--on:#fff;--rec:#d8443f;
+  --desk:linear-gradient(160deg,#c9b98a,#8f7f56);
+  --c1:#d8443f;--c2:#e08a2c;--c3:#c9a227;--c4:#3f9a5e;--c5:#2f8f9d;--c6:#3d6fd1;--c7:#8a5cc7;--c8:#8a8f98;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#2b2f37;--panel:#323741;--hover:#3a404b;--line:#454b57;--text:#eceff4;--muted:#a3abb8;--accent:#88c0d0;--soft:#3d4a5a;--on:#0b0d12;--rec:#e06c66;
+  --desk:linear-gradient(160deg,#5a6b8c,#2b3346)}}
+:root[data-theme="dark"]{
+  --bg:#2b2f37;--panel:#323741;--hover:#3a404b;--line:#454b57;--text:#eceff4;--muted:#a3abb8;--accent:#88c0d0;--soft:#3d4a5a;--on:#0b0d12;--rec:#e06c66;
+  --desk:linear-gradient(160deg,#5a6b8c,#2b3346)}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font:13px/1.45 -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+.review{max-width:1400px;margin:0 auto;padding:20px 16px 48px}
+header.top{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:flex-end;margin-bottom:12px}
+header.top h1{font-size:22px;margin:0}
+header.top p{margin:4px 0 0;color:var(--muted);max-width:860px}
+.toggle{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:6px 14px}
+h2.sec{font-size:15px;margin:28px 0 6px}
+p.why{margin:0 0 12px;color:var(--muted);max-width:900px}
+.stage{background:var(--desk);border-radius:12px;padding:16px}
+.pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:16px;align-items:start}
+.label{color:#fff;font-weight:600;margin:0 0 8px;text-shadow:0 1px 2px #0006}
+.notes{color:#fff;font-size:12px;margin:8px 0 0;text-shadow:0 1px 2px #0008}
+.sheet{background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 50px #0006;overflow:hidden}
+.shead{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.shead b{font-size:15px;flex:1}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg span{padding:3px 12px}.seg span.on{background:var(--accent);color:var(--on);font-weight:600}
+.btn{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:3px 9px;white-space:nowrap}
+.btn.prim{background:var(--accent);color:var(--on);border-color:var(--accent);font-weight:600}
+.btn.danger{color:var(--rec)}
+.rows{padding:6px}
+.r{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px}
+.r:hover,.r.hl{background:var(--hover)}
+.r .n{flex:1;min-width:0}
+.r .c{color:var(--muted);font-size:12px;white-space:nowrap}
+.r .acts{display:flex;gap:4px;opacity:.9}
+.r input{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--accent);border-radius:5px;padding:2px 6px;width:100%}
+.dis{color:var(--muted);width:12px;text-align:center}
+.ind1{padding-left:28px}.ind2{padding-left:48px}
+.foot{display:flex;gap:8px;align-items:center;padding:10px 14px;border-top:1px solid var(--line);color:var(--muted);font-size:12px}
+.foot .grow{flex:1}
+.dot{width:10px;height:10px;border-radius:50%;flex:none}
+.tag{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:1px 9px;font-size:12px;background:var(--soft)}
+.sw{display:flex;gap:6px;padding:6px 8px 10px 34px}
+.sw i{width:16px;height:16px;border-radius:50%;display:inline-block;border:2px solid transparent}
+.sw i.sel{border-color:var(--text)}
+.callout{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin:6px 8px;color:var(--muted);font-size:12px}
+.mini{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.mini .row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:3px 8px}
+.menu{background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 30px #0005;padding:4px;width:220px}
+.menu div{padding:4px 10px;border-radius:5px}.menu div.h{background:var(--accent);color:var(--on)}
+.menu hr{border:0;border-top:1px solid var(--line);margin:4px 2px}
+code{font-size:12px;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:0 4px}
+.page{background:var(--bg);border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 50px #0006;overflow:hidden;min-width:720px}
+.pbar{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line)}
+.pbar b{font-size:17px}.pbar .find{flex:1;max-width:380px;margin:0 auto;border:1px solid var(--line);border-radius:8px;padding:4px 10px;color:var(--muted);background:var(--panel)}
+.split{display:inline-flex;border-radius:6px;overflow:hidden;background:var(--accent);color:var(--on);font-weight:600}
+.split span{padding:4px 10px}.split span+span{border-left:1px solid #0003;padding:4px 7px}
+.pcols{display:flex;min-height:300px}
+.plist{width:300px;flex:none;border-right:1px solid var(--line);padding:10px}
+.frow{display:flex;gap:6px;align-items:center;flex-wrap:nowrap;margin-bottom:8px}
+.cnt{background:var(--accent);color:var(--on);border-radius:999px;font-size:11px;padding:0 6px;font-weight:700}
+.card{padding:7px 9px;border-radius:6px;margin-bottom:2px}
+.card.on{background:var(--soft);outline:1px solid var(--accent)}
+.card small{display:block;color:var(--muted);font-size:12px}
+.badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;font-size:12px}
+.fb{display:inline-flex;align-items:center;gap:4px;color:var(--muted)}
+.tb{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:0 7px;background:var(--hover)}
+.pprev{flex:1;padding:16px 40px;display:flex;flex-direction:column;gap:8px}
+.pprev .meta{color:var(--muted);font-size:12px}.pprev .t{display:flex;align-items:center;gap:12px}.pprev .t b{font-size:22px;flex:1}
+</style>
+</head>
+<body>
+<div class="review">
+<header class="top">
+  <div><h1>Folders and tags</h1>
+  <p>One "Manage library" sheet with two tabs, opened from "Manage folders…" and a new "Manage tags…" at the bottom of the Folder and Tags filter menus (Meetings and Scratchpad pages). Folders scope what you see; tags cut across folders for quick search and metadata. Changes apply to every note and meeting. Agreed 2026-10-18: flat folders; spec <code>docs/superpowers/specs/2026-10-18-library-management-design.md</code>.</p></div>
+  <button class="toggle" id="theme">Light / dark</button>
+</header>
+
+<h2 class="sec">Tags tab</h2>
+<p class="why">Every tag in use, with its count. New tag, Rename (applies everywhere; renaming onto an existing tag merges them), Colour, Delete (removes it from every item after a confirm).</p>
+<div class="stage"><div class="pair">
+<div>
+<p class="label">Tags · editing one</p>
+<div class="sheet">
+  <div class="shead"><b>Manage library</b><span class="seg"><span>Folders</span><span class="on">Tags</span></span></div>
+  <div class="rows">
+    <div class="r"><span class="dot" style="background:var(--c6)"></span><span class="n">#client</span><span class="c">12 notes · 4 meetings</span><span class="acts"><span class="btn">Rename</span><span class="btn danger">Delete</span></span></div>
+    <div class="r hl"><span class="dot" style="background:var(--c4)"></span><span class="n"><input value="#follow-up"></span><span class="c">7 notes</span><span class="acts"><span class="btn prim">Save</span><span class="btn">Cancel</span></span></div>
+    <div class="sw"><i style="background:var(--c1)"></i><i style="background:var(--c2)"></i><i style="background:var(--c3)"></i><i class="sel" style="background:var(--c4)"></i><i style="background:var(--c5)"></i><i style="background:var(--c6)"></i><i style="background:var(--c7)"></i><i style="background:var(--c8)"></i></div>
+    <div class="r"><span class="dot" style="background:var(--c2)"></span><span class="n">#idea</span><span class="c">5 notes</span><span class="acts"><span class="btn">Rename</span><span class="btn danger">Delete</span></span></div>
+    <div class="r"><span class="dot" style="background:var(--c8)"></span><span class="n">#vietnamese</span><span class="c">3 meetings</span><span class="acts"><span class="btn">Rename</span><span class="btn danger">Delete</span></span></div>
+    <div class="r"><span class="dot" style="background:var(--c8)"></span><span class="n">#draft</span><span class="c">not used</span><span class="acts"><span class="btn">Rename</span><span class="btn danger">Delete</span></span></div>
+  </div>
+  <div class="foot"><span class="btn">＋ New tag</span><span class="grow"></span>Sorted A–Z</div>
+</div>
+<p class="notes">"#draft" made with New tag shows as "not used" until you add it to something. Rename "#followup" to "#follow-up" when that tag already exists: one confirm, then the two merge.</p>
+</div>
+<div>
+<p class="label">Where the colour shows</p>
+<div class="mini">
+  <div class="row"><span class="chip">✦ AI</span><span class="chip">🗀 Client A ⌄</span><span class="tag"><span class="dot" style="background:var(--c6)"></span>#client ✕</span><span class="tag"><span class="dot" style="background:var(--c4)"></span>#follow-up ✕</span><span style="color:var(--muted)">＋ Add tag</span></div>
+  <div class="row"><span class="chip">⌂ Tags ⌄</span><span class="tag"><span class="dot" style="background:var(--c6)"></span>#client</span><span class="tag"><span class="dot" style="background:var(--c2)"></span>#idea</span></div>
+</div>
+<div class="callout"><b>Does Markdown support tag colours?</b> No. Markdown has no colours, and a note keeps its tags as plain names in its front matter (<code>tags: [client, follow-up]</code>). The colour lives in BugVoice's <code>library.json</code>, keyed by tag name, so note files stay clean and other apps (Obsidian, VS Code) still read the tags. The colour shows only inside BugVoice: as a dot on tag chips in the editor, the filter menu and list cards. Tag text stays the normal colour so it is readable in every theme.</div>
+</div>
+</div></div>
+
+<h2 class="sec">Folders tab (flat, agreed)</h2>
+<p class="why">New folder, Rename, Delete (its notes and meetings become Unfiled, after a confirm) and counts. One level, as today. Nested folders were considered and left out.</p>
+<div class="stage"><div class="pair">
+<div>
+<p class="label">Flat, one level</p>
+<div class="sheet">
+  <div class="shead"><b>Manage library</b><span class="seg"><span class="on">Folders</span><span>Tags</span></span></div>
+  <div class="rows">
+    <div class="r"><span class="n">🗀 Client A</span><span class="c">9 notes · 3 meetings</span><span class="acts"><span class="btn">Rename</span><span class="btn danger">Delete</span></span></div>
+    <div class="r hl"><span class="n"><input value="Client B – onboarding"></span><span class="c">4 notes</span><span class="acts"><span class="btn prim">Save</span><span class="btn">Cancel</span></span></div>
+    <div class="r"><span class="n">🗀 Personal</span><span class="c">6 notes</span><span class="acts"><span class="btn">Rename</span><span class="btn danger">Delete</span></span></div>
+    <div class="r"><span class="n">🗀 Team sync</span><span class="c">11 meetings</span><span class="acts"><span class="btn">Rename</span><span class="btn danger">Delete</span></span></div>
+  </div>
+  <div class="foot"><span class="btn">＋ New folder</span><span class="grow"></span>Unfiled: 13 notes · 2 meetings</div>
+</div>
+<p class="notes">One click in the folder filter shows exactly that folder. Moving a note is one menu: Move to folder › name.</p>
+</div>
+</div></div>
+
+<h2 class="sec">Scratchpad page: one filter row, labels on the cards</h2>
+<p class="why">The filter row stays on one line: picked tags show as a count on the Tags button instead of chips in the row (the menu lists them with checks and a Clear). Each card shows its folder (folder icon) and its tags (coloured dot) under the date. The New note ⌄ menu gets "Manage folders and tags…".</p>
+<div class="stage"><div class="pair">
+<div>
+<p class="label">Two tags picked · one row</p>
+<div class="page">
+  <div class="pbar"><b>Scratchpad</b><span class="find">⌕ Search notes&nbsp;&nbsp;⌘K</span><span class="split"><span>＋ New note</span><span>⌄</span></span></div>
+  <div class="pcols">
+    <div class="plist">
+      <div class="frow"><span class="chip">🗀 All notes ⌄</span><span class="chip">⌂ Tags <span class="cnt">2</span> ⌄</span><span class="chip">⇅ ⌄</span><span style="color:var(--muted)">↻</span></div>
+      <div class="card on">Untitled<small>16 Oct 2026 at 7:16 AM</small>
+        <div class="badges"><span class="fb">🗀 Client A</span><span class="tb"><span class="dot" style="background:var(--c6)"></span>#wp_client</span><span class="tb"><span class="dot" style="background:var(--c4)"></span>#as_feature</span></div></div>
+      <div class="card">Weekly notes<small>15 Oct 2026 at 4:02 PM</small>
+        <div class="badges"><span class="tb"><span class="dot" style="background:var(--c6)"></span>#wp_client</span></div></div>
+      <div class="card">Ideas<small>14 Oct 2026 at 9:30 AM</small></div>
+    </div>
+    <div class="pprev"><div class="meta">Edited 16 Oct 2026 at 7:16 AM · Client A</div><div class="t"><b>Untitled</b><span class="split"><span>Open Scratchpad editor</span></span></div>
+      <div class="badges"><span class="tb"><span class="dot" style="background:var(--c6)"></span>#wp_client</span><span class="tb"><span class="dot" style="background:var(--c4)"></span>#as_feature</span></div></div>
+  </div>
+</div>
+<p class="notes">A card with no folder shows no folder badge (Unfiled is not printed); a card with no tags shows only title and date. Badges wrap to a second line on narrow lists.</p>
+</div>
+<div>
+<p class="label">Menus</p>
+<div style="display:flex;gap:16px;flex-wrap:wrap">
+<div class="menu"><div>✓ #helpdesk</div><div>✓ #it</div><div>#wp_client</div><div>#as_feature</div><hr><div>Clear tags</div><div class="h">Manage tags…</div></div>
+<div class="menu"><div>Note ⌘N</div><div>Floating scratchpad ⌃⌥N</div><hr><div>Ask AI about my notes</div><hr><div class="h">Manage folders and tags…</div></div>
+</div>
+<p class="notes">Left: the Tags filter menu. Right: the New note ⌄ menu (its current items plus the new last entry).</p>
+</div>
+</div></div>
+
+<h2 class="sec">How to open it</h2>
+<p class="why">The same sheet, opened on the right tab, from wherever you pick a folder or a tag. It slides down from the top of the window you are in (a macOS sheet), centred, about 460 pt wide; Done or Escape closes it.</p>
+<div class="stage"><div class="pair">
+<div>
+<p class="label">Meetings and Scratchpad pages · filter menus</p>
+<div class="row" style="display:flex;gap:16px;flex-wrap:wrap">
+<div class="menu"><div>All notes</div><div>Unfiled</div><hr><div>🗀 Client A</div><div>🗀 Personal</div><hr><div class="h">Manage folders…</div></div>
+<div class="menu"><div>☐ #client</div><div>☐ #follow-up</div><div>☐ #idea</div><hr><div class="h">Manage tags…</div></div>
+</div>
+<p class="notes">"Manage folders…" exists today; it opens the Folders tab. "Manage tags…" is new and opens the Tags tab.</p>
+</div>
+<div>
+<p class="label">Floating Scratchpad editor · tool row</p>
+<div class="row" style="display:flex;gap:16px;flex-wrap:wrap">
+<div class="menu"><div>Unfiled</div><hr><div>✓ Client A</div><div>Personal</div><hr><div>New folder…</div><div class="h">Manage folders…</div></div>
+<div class="menu"><div style="color:var(--muted)">#cl</div><div>#client</div><div>Create tag "#cl"</div><hr><div class="h">Manage tags…</div></div>
+</div>
+<p class="notes">The folder menu and the tag suggestions end with the same entries, so you never leave the note to tidy up. In the floating window the sheet opens over the editor.</p>
+</div>
+<div>
+<p class="label">Settings › General · Library</p>
+<div class="mini"><div class="row"><b style="flex:1">Folders and tags</b><span class="btn">Manage…</span></div><div class="row" style="color:var(--muted);font-size:12px">4 folders · 9 tags</div></div>
+<p class="notes">A fixed place to find it, for when you are not in a list.</p>
+</div>
+</div></div>
+
+</div>
+<script>
+document.getElementById('theme').onclick=()=>{const r=document.documentElement;const dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme: dark)').matches;r.dataset.theme=dark?'light':'dark'};
+</script>
+</body>
+</html>
