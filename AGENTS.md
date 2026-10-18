@@ -57,6 +57,8 @@ version and build live in `App/Info.plist`. App icon source is `App/Icon/AppIcon
 - App shell plan: `docs/superpowers/plans/2026-10-18-app-shell.md`
 - App shell execution log and manual checks: `docs/progress/app-shell-log.md`
 - App shell spec: `docs/superpowers/specs/2026-10-18-app-shell-design.md` (mockup: `docs/design/proposal-appearance.html#shell`)
+- Menu bar popover spec: `docs/superpowers/specs/2026-10-18-menu-popover-design.md` (mockup: `docs/design/proposal-menu.html`)
+- Menu popover execution log and manual checks: `docs/progress/menu-popover-log.md`
 - Roadmap (next sub-projects, dropped ideas): `docs/ROADMAP.md`
 
 ## Rules
@@ -79,6 +81,8 @@ version and build live in `App/Info.plist`. App icon source is `App/Icon/AppIcon
   `BUGVOICE_DEV_SCREEN=primary Scripts/run-dev-app.sh` keeps them on the
   primary display. Find the window's position before a screenshot or click,
   and capture the BugVoice window itself, not a screen region.
+- Test the menu bar popover on that same non-primary display: click the
+  BugVoice icon in the second display's menu bar, never the primary one.
 - Never paste into a secure text field. Never send audio or text off this Mac
   unless the user configured a remote server.
 - UI copy: plain English, no hedging words, no emoji.

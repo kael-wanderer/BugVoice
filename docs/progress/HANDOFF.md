@@ -4,6 +4,8 @@ Last updated: 2026-10-18
 
 ## Current state
 
+**Menu bar popover: implemented on `feat/menu-popover` (2026-10-18), not merged or pushed; owner checks pending.** See `docs/progress/menu-popover-log.md`.
+
 **App shell: Tasks 1–10 implemented on `feat/app-shell` (2026-10-18), not merged or pushed.**
 Phase B adds the grouped sidebar, right-panel title bar and actions, round pills,
 centered columns, vertical Settings/Style sections, Meetings/Scratchpad list panes,
