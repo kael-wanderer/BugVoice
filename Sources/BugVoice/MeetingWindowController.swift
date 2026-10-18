@@ -139,8 +139,9 @@ final class MeetingWindowController: NSObject, NSWindowDelegate {
                     self.hide()
                     Task { await self.controller.closeWindow() }
                 }
-            )
+            ).bvTheme(model.appearance)
         )
+        model.appearance.attach(window)
         // The window's frame comes from the user and autosave, not the content.
         hosting.sizingOptions = []
         window.contentViewController = hosting

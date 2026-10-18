@@ -96,7 +96,8 @@ final class MainWindowController: NSObject, NSWindowDelegate {
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.identifier = AppWindow.main
-        window.contentViewController = NSHostingController(rootView: MainWindow(model: model))
+        window.contentViewController = NSHostingController(rootView: MainWindow(model: model).bvTheme(model.appearance))
+        model.appearance.attach(window)
         window.isReleasedWhenClosed = false
         window.delegate = self
         if !window.setFrameUsingName("BugVoiceMain") {

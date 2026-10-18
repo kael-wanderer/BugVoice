@@ -12,7 +12,7 @@ import VoiceCore
 final class DictationController {
     private unowned let model: AppModel
     private let recorder = AudioRecorder()
-    private let hud = HUDController()
+    private lazy var hud = HUDController(appearance: model.appearance)
     private let inserter = PasteboardInserter()
     private var detector = HoldGestureDetector()
     private var hotkey: HotkeyMonitor!

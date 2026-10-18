@@ -52,6 +52,7 @@ enum Page: String, CaseIterable, Identifiable {
 @MainActor
 @Observable
 final class AppModel {
+    let appearance = AppearanceStore()
     let paths = AppPaths.standard()
     /// API keys. See `CredentialStore`.
     let credentials = CredentialStore(url: AppPaths.standard().credentials)
@@ -203,6 +204,7 @@ final class AppModel {
         // Loading is not a change: no save, no model reload, no login-item call.
         isLoadingSettings = true
         settings = loaded
+        appearance.apply(loaded.appearance)
         isLoadingSettings = false
         applyPendingKeyMoves()
         await restoreScratchpadTabs()
@@ -257,6 +259,7 @@ final class AppModel {
     // MARK: Settings
 
     private func settingsDidChange(from old: AppSettings) {
+        appearance.apply(settings.appearance)
         if settings.shortcuts != old.shortcuts { registerGlobalShortcuts() }
         if settings.models.search != old.models.search || settings.models.connections != old.models.connections {
             searchIndexer.backfill()

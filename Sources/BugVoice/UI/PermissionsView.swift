@@ -125,7 +125,8 @@ final class PermissionsWindowController: NSObject, NSWindowDelegate {
         )
         window.title = "Permissions"
         window.identifier = AppWindow.permissions
-        window.contentViewController = NSHostingController(rootView: PermissionsView(model: model))
+        window.contentViewController = NSHostingController(rootView: PermissionsView(model: model).bvTheme(model.appearance))
+        model.appearance.attach(window)
         window.isReleasedWhenClosed = false
         window.delegate = self
         window.center()

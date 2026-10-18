@@ -13,7 +13,7 @@ final class MeetingDetectionController {
     private unowned let model: AppModel
     private var detector = MeetingDetector(ownPID: ProcessInfo.processInfo.processIdentifier)
     private var timer: Timer?
-    private let popup = MeetingDetectionPopup()
+    private lazy var popup = MeetingDetectionPopup(appearance: model.appearance)
 
     init(model: AppModel) {
         self.model = model
@@ -148,11 +148,15 @@ final class MeetingDetectionPopup {
         panel?.orderOut(nil)
     }
 
+    private let appearance: AppearanceStore
+
+    init(appearance: AppearanceStore) { self.appearance = appearance }
+
     private func show(kind: Kind, view: MeetingPopupView, seconds: TimeInterval) {
         let panel = self.panel ?? makePanel()
         self.panel = panel
         self.kind = kind
-        panel.contentView = NonKeyPopupHostingView(rootView: view)
+        panel.contentView = NonKeyPopupHostingView(rootView: AnyView(view.bvTheme(appearance)))
         if let screen = MeetingDetectionController.frontmostWindowScreen() {
             let visible = screen.visibleFrame
             panel.setFrame(
@@ -184,12 +188,13 @@ final class MeetingDetectionPopup {
         panel.isOpaque = false
         panel.hasShadow = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
+        appearance.attach(panel)
         panel.setAccessibilityLabel("Meeting offer")
         return panel
     }
 }
 
-private final class NonKeyPopupHostingView: NSHostingView<MeetingPopupView> {
+private final class NonKeyPopupHostingView: NSHostingView<AnyView> {
     override var acceptsFirstResponder: Bool { false }
 }
 

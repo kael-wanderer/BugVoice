@@ -18,11 +18,11 @@ final class HUDController {
     let model = HUDModel()
     var levelSource: (() -> Float)?
     private let panel: NSPanel
-    private let hosting: SizingHostingView<HUDView>
+    private let hosting: SizingHostingView<AnyView>
     private var hideTask: Task<Void, Never>?
     private var meterTimer: Timer?
 
-    init() {
+    init(appearance: AppearanceStore) {
         panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 420, height: 60),
             styleMask: [.nonactivatingPanel, .borderless],
@@ -36,8 +36,9 @@ final class HUDController {
         panel.hasShadow = true
         panel.ignoresMouseEvents = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
-        hosting = SizingHostingView(rootView: HUDView(model: model))
+        hosting = SizingHostingView(rootView: AnyView(HUDView(model: model).bvTheme(appearance)))
         hosting.sizingOptions = [.intrinsicContentSize]
+        appearance.attach(panel)
         panel.contentView = hosting
         hosting.onSizeChange = { [weak self] in
             MainActor.assumeIsolated { self?.layout() }
