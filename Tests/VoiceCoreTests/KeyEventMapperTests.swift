@@ -19,7 +19,7 @@ private enum Bits {
     static let rightOptionDown = option | rightOption
     static let leftOptionDown = option | leftOption
     static let rightControlDown = control | rightControl
-    static let leftControlDown = control
+    static let leftControlDown = control | leftControl
     static let rightCommandDown = command | rightCommand
     static let leftCommandDown = command | leftCommand
     static let controlDown = control | leftControl
@@ -59,6 +59,10 @@ struct KeyEventMapperTests {
     @Test func leftControlIsNeverTheRightControlHotkey() {
         #expect(map(.flagsChanged, Code.leftControl, Bits.leftControlDown, hotkey: .rightControl) == .otherKeyDown(1))
         #expect(map(.flagsChanged, Code.leftControl, 0, hotkey: .rightControl) == nil)
+    }
+
+    @Test func leftControlReleaseWhileRightControlHeldIsNotAPress() {
+        #expect(map(.flagsChanged, Code.leftControl, Bits.rightControlDown, hotkey: .rightControl) == nil)
     }
 
     @Test func rightControlReleaseWhileLeftControlStillHeldIsHotkeyUp() {

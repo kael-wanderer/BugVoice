@@ -16,7 +16,8 @@ struct GlobalShortcutsTests {
             unregisterHotKey: { _ in
                 unregistered += 1
                 return noErr
-            }
+            },
+            installEventHandler: { true }
         )
         #expect(shortcuts.register(keyCode: 9, modifiers: GlobalShortcuts.controlOption) { fired.append("old-1") })
         #expect(shortcuts.register(keyCode: 45, modifiers: GlobalShortcuts.controlOption) { fired.append("old-2") })

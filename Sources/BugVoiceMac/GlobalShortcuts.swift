@@ -12,10 +12,12 @@ public final class GlobalShortcuts {
     private var installed = false
     private let registerHotKey: @MainActor (UInt32, UInt32, EventHotKeyID) -> (OSStatus, EventHotKeyRef?)
     private let unregisterHotKey: @MainActor (EventHotKeyRef) -> OSStatus
+    private let installEventHandler: @MainActor () -> Bool
 
     public init() {
         registerHotKey = Self.systemRegister
         unregisterHotKey = Self.systemUnregister
+        installEventHandler = Self.systemInstallHandler
     }
 
     init(
@@ -23,14 +25,17 @@ public final class GlobalShortcuts {
     ) {
         self.registerHotKey = registerHotKey
         unregisterHotKey = Self.systemUnregister
+        installEventHandler = Self.systemInstallHandler
     }
 
     init(
         registerHotKey: @escaping @MainActor (UInt32, UInt32, EventHotKeyID) -> (OSStatus, EventHotKeyRef?),
-        unregisterHotKey: @escaping @MainActor (EventHotKeyRef) -> OSStatus
+        unregisterHotKey: @escaping @MainActor (EventHotKeyRef) -> OSStatus,
+        installEventHandler: @escaping @MainActor () -> Bool
     ) {
         self.registerHotKey = registerHotKey
         self.unregisterHotKey = unregisterHotKey
+        self.installEventHandler = installEventHandler
     }
 
     @discardableResult
@@ -58,6 +63,12 @@ public final class GlobalShortcuts {
 
     private func installHandler() -> Bool {
         guard !installed else { return true }
+        guard installEventHandler() else { return false }
+        installed = true
+        return true
+    }
+
+    private static func systemInstallHandler() -> Bool {
         var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
         let status = InstallEventHandler(GetApplicationEventTarget(), { _, event, _ in
             var hotKeyID = EventHotKeyID()
@@ -69,9 +80,7 @@ public final class GlobalShortcuts {
             MainActor.assumeIsolated { GlobalShortcuts.shared.fire(id) }
             return noErr
         }, 1, &spec, nil, nil)
-        guard status == noErr else { return false }
-        installed = true
-        return true
+        return status == noErr
     }
 
     private static func systemRegister(

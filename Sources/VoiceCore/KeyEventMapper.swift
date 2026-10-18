@@ -36,7 +36,7 @@ public enum KeyEventMapper {
     static let modifierBits: [Int64: UInt64] = [
         54: rightCommand, 55: leftCommand,
         56: leftShift, 60: rightShift,
-        59: control, 62: rightControl,
+        59: leftControl, 62: rightControl,
         58: leftOption, 61: rightOption,
         63: secondaryFn,
     ]
