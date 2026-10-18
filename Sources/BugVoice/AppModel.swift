@@ -764,7 +764,7 @@ final class AppModel {
         if allTagCatalog.contains(where: { $0.name == new }) || library.tags.contains(where: { $0.name == new }) {
             return .needsMerge(target: new,
                               notes: notesController.notes.filter { $0.frontMatter.tags.contains(old) }.count,
-                              meetings: meetingManifests.filter { $0.tags.contains(old) || $0.suggestedTags.contains(old) }.count)
+                              meetings: meetingManifests.filter { $0.tags.contains(old) }.count)
         }
         return await applyTagEdit(old, to: new)
     }
