@@ -33,7 +33,7 @@ struct StyleDetailView: View {
                     .disabled(model.settings.styles.customRules[style.rawValue] == nil)
             }
             section("Example") {
-                let example = StyleExamples.example(for: style)
+                let example = StyleExamples.example(for: style, hotkeyName: model.settings.hotkey.spokenName)
                 Grid(alignment: .topLeading, horizontalSpacing: 12, verticalSpacing: 6) {
                     GridRow {
                         Text("You say").font(.caption.weight(.semibold)).foregroundStyle(.secondary)

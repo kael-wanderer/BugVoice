@@ -434,7 +434,7 @@ final class AppModel {
         }
     }
 
-    /// The meeting window's notes editor when it has the keyboard, for Right Option dictation.
+    /// The meeting window's notes editor when it has the keyboard, for the hotkey.
     func meetingNotesEditorWithKeyboard() -> MeetingNotesTextView? {
         guard let window = NSApp.keyWindow, window.identifier == AppWindow.meeting else { return nil }
         return window.firstResponder as? MeetingNotesTextView

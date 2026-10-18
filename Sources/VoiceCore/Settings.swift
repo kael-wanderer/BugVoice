@@ -29,7 +29,7 @@ extension Style {
 }
 
 public enum HotkeyKey: String, Codable, Sendable, CaseIterable {
-    case rightOption, rightCommand, fn, f13, f14, f15, f16, f17, f18, f19
+    case rightControl, rightOption, rightCommand, fn, f13, f14, f15, f16, f17, f18, f19
 }
 
 public enum SpeechEngine: String, Codable, Sendable, CaseIterable {
@@ -270,7 +270,7 @@ extension AgentSettings {
 }
 
 public struct AppSettings: Codable, Equatable, Sendable {
-    public var hotkey: HotkeyKey = .rightOption
+    public var hotkey: HotkeyKey = .rightControl
     public var handsFreeEnabled = true
     public var handsFreeLimitMinutes = 10
     public var soundsEnabled = true

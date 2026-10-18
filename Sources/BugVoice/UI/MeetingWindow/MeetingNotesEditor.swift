@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import VoiceCore
 
-/// The meeting window's notes editor. Right Option dictation finds it as the
+/// The meeting window's notes editor. Dictation finds it as the
 /// first responder of the key meeting window.
 final class MeetingNotesTextView: NSTextView {}
 

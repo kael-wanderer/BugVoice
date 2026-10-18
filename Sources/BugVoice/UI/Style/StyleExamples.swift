@@ -1,7 +1,7 @@
 import VoiceCore
 
 enum StyleExamples {
-    static func example(for style: Style) -> (said: String, written: String) {
+    static func example(for style: Style, hotkeyName: String) -> (said: String, written: String) {
         switch style {
         case .personal:
             ("um hey are you free tonight like around 7 for dinner", "Hey, are you free tonight around 7 for dinner?")
@@ -10,7 +10,7 @@ enum StyleExamples {
         case .email:
             ("hi anna thanks for the update um I'll review it tomorrow best kael", "Hi Anna,\n\nThanks for the update. I'll review it tomorrow.\n\nBest,\nKael")
         case .document:
-            ("first install the app second grant the mic third hold right option", "1. Install the app.\n2. Grant the microphone.\n3. Hold Right Option.")
+            ("first install the app second grant the mic third hold \(hotkeyName.lowercased())", "1. Install the app.\n2. Grant the microphone.\n3. Hold \(hotkeyName).")
         case .terminal:
             ("um git status", "git status")
         case .other:

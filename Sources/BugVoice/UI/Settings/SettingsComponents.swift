@@ -5,8 +5,25 @@ extension HotkeyKey {
     /// The one label for a hotkey, used in Settings and the menu.
     var displayName: String {
         switch self {
+        case .rightControl: "Right ⌃"
         case .rightOption: "Right ⌥"
         case .rightCommand: "Right ⌘"
+        case .fn: "Fn"
+        case .f13: "F13"
+        case .f14: "F14"
+        case .f15: "F15"
+        case .f16: "F16"
+        case .f17: "F17"
+        case .f18: "F18"
+        case .f19: "F19"
+        }
+    }
+
+    var spokenName: String {
+        switch self {
+        case .rightControl: "Right Control"
+        case .rightOption: "Right Option"
+        case .rightCommand: "Right Command"
         case .fn: "Fn"
         case .f13: "F13"
         case .f14: "F14"
