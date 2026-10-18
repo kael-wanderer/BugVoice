@@ -34,6 +34,9 @@ struct StatCard: View {
                 .foregroundStyle(.bvSecondary)
                 .lineLimit(2)
         }
-        .insightsCard()
+        .padding(LayoutTokens.spacing[3])
+        // Fills the row height `CardGrid` gives it, so cards in a row match.
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .bvCard()
     }
 }
