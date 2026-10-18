@@ -288,6 +288,9 @@ struct ScratchpadNoteEditor: View {
             Button("") { copyAndClose() }
                 .keyboardShortcut(.return, modifiers: .command)
         }
+        // Hidden shortcut buttons keep the action from their first render, which can
+        // hold the window's placeholder assistant; rebuild them when it is replaced.
+        .id(ObjectIdentifier(assistant))
         .opacity(0)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
