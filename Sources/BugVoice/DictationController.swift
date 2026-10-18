@@ -1,6 +1,5 @@
 import AppKit
 import BugVoiceMac
-import Carbon
 import Foundation
 import VoiceCore
 
@@ -43,12 +42,6 @@ final class DictationController {
     func start() {
         applySettings()
         model.hotkeyActive = hotkey.start()
-        model.registerShortcut(kVK_ANSI_V, letter: "V", name: "Paste last") { [weak self] in
-            self?.pasteLast()
-        }
-        model.registerShortcut(kVK_ANSI_B, letter: "B", name: "Open BugVoice") { [weak self] in
-            self?.model.openMainWindow(.dictation)
-        }
     }
 
     func applySettings() {

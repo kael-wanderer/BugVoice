@@ -11,13 +11,26 @@ public final class GlobalShortcuts {
     private var refs: [EventHotKeyRef] = []
     private var installed = false
     private let registerHotKey: @MainActor (UInt32, UInt32, EventHotKeyID) -> (OSStatus, EventHotKeyRef?)
+    private let unregisterHotKey: @MainActor (EventHotKeyRef) -> OSStatus
 
     public init() {
         registerHotKey = Self.systemRegister
+        unregisterHotKey = Self.systemUnregister
     }
 
-    init(registerHotKey: @escaping @MainActor (UInt32, UInt32, EventHotKeyID) -> (OSStatus, EventHotKeyRef?)) {
+    init(
+        registerHotKey: @escaping @MainActor (UInt32, UInt32, EventHotKeyID) -> (OSStatus, EventHotKeyRef?)
+    ) {
         self.registerHotKey = registerHotKey
+        unregisterHotKey = Self.systemUnregister
+    }
+
+    init(
+        registerHotKey: @escaping @MainActor (UInt32, UInt32, EventHotKeyID) -> (OSStatus, EventHotKeyRef?),
+        unregisterHotKey: @escaping @MainActor (EventHotKeyRef) -> OSStatus
+    ) {
+        self.registerHotKey = registerHotKey
+        self.unregisterHotKey = unregisterHotKey
     }
 
     @discardableResult
@@ -35,6 +48,12 @@ public final class GlobalShortcuts {
 
     func fire(_ id: UInt32) {
         actions[id]?()
+    }
+
+    public func unregisterAll() {
+        for ref in refs { _ = unregisterHotKey(ref) }
+        refs.removeAll()
+        actions.removeAll()
     }
 
     private func installHandler() -> Bool {
@@ -63,5 +82,9 @@ public final class GlobalShortcuts {
         var ref: EventHotKeyRef?
         let status = RegisterEventHotKey(keyCode, modifiers, id, GetApplicationEventTarget(), 0, &ref)
         return (status, ref)
+    }
+
+    private static func systemUnregister(_ ref: EventHotKeyRef) -> OSStatus {
+        UnregisterEventHotKey(ref)
     }
 }

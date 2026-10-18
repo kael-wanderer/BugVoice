@@ -123,6 +123,7 @@ final class AppModel {
     var hotkeyActive = false
     /// Global shortcuts another app already holds, e.g. "⌃⌥V Paste last".
     var unavailableShortcuts: [String] = []
+    var unavailableShortcutActions: Set<ShortcutAction> = []
     /// True while the microphone is recording a dictation.
     var isListening = false
     var notesIsListening = false
@@ -210,12 +211,7 @@ final class AppModel {
         await loadInsights()
         await loadLibrary()
         startDictation()
-        registerShortcut(kVK_ANSI_N, letter: "N", name: "New note") { [weak self] in
-            Task { @MainActor in await self?.openScratchpadWindow(newNote: true) }
-        }
-        registerShortcut(kVK_ANSI_M, letter: "M", name: "Record meeting") { [weak self] in
-            Task { @MainActor in self?.meetings?.toggleRecording() }
-        }
+        registerGlobalShortcuts()
         meetings = MeetingController(model: self)
         let detection = MeetingDetectionController(model: self)
         meetingDetection = detection
@@ -261,6 +257,7 @@ final class AppModel {
     // MARK: Settings
 
     private func settingsDidChange(from old: AppSettings) {
+        if settings.shortcuts != old.shortcuts { registerGlobalShortcuts() }
         if settings.models.search != old.models.search || settings.models.connections != old.models.connections {
             searchIndexer.backfill()
         }
@@ -458,16 +455,32 @@ final class AppModel {
         )
     }
 
-    /// Registers a ⌃⌥ shortcut and records it when another app holds it.
-    func registerShortcut(
-        _ keyCode: Int, letter: String, name: String, action: @escaping @MainActor () -> Void
-    ) {
-        let registered = GlobalShortcuts.shared.register(
-            keyCode: UInt32(keyCode),
-            modifiers: GlobalShortcuts.controlOption,
-            action: action
-        )
-        if !registered { unavailableShortcuts.append("⌃⌥\(letter) \(name)") }
+    func registerGlobalShortcuts() {
+        let shortcuts = GlobalShortcuts.shared
+        shortcuts.unregisterAll()
+        unavailableShortcuts.removeAll()
+        unavailableShortcutActions.removeAll()
+
+        for action in ShortcutAction.allCases {
+            let letter = settings.shortcuts.letter(for: action)
+            guard let keyCode = ShortcutKeys.keyCode(forLetter: letter) else { continue }
+            let registered = shortcuts.register(
+                keyCode: UInt32(keyCode),
+                modifiers: GlobalShortcuts.controlOption
+            ) { [weak self] in
+                guard let self else { return }
+                switch action {
+                case .pasteLast: dictation?.pasteLast()
+                case .toggleMeeting: meetings?.toggleRecording()
+                case .openApp: openMainWindow(.dictation)
+                case .newNote: Task { @MainActor in await openScratchpadWindow(newNote: true) }
+                }
+            }
+            if !registered {
+                unavailableShortcuts.append("⌃⌥\(letter) \(action.title)")
+                unavailableShortcutActions.insert(action)
+            }
+        }
     }
 
     func captureSelectedNoteForMic() -> NotesDictationCapture? {
