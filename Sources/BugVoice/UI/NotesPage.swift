@@ -140,8 +140,12 @@ struct NotesPage: View {
         .background(selected ? AnyShapeStyle(.bvAccentSoft) : AnyShapeStyle(.clear), in: RoundedRectangle(cornerRadius: LayoutTokens.controlRadius))
         .overlay(RoundedRectangle(cornerRadius: LayoutTokens.controlRadius).stroke(selected ? store.theme.accent.opacity(0.55) : .clear))
         .contentShape(Rectangle())
-        .onTapGesture(count: 2) { model.selectedNoteID = item.id; Task { await model.openNoteInWindow(item.id) } }
-        .onTapGesture { model.selectedNoteID = item.id }
+        // One tap gesture: a separate double-tap gesture would hold every
+        // single click back until the double-click interval passes.
+        .onTapGesture {
+            model.selectedNoteID = item.id
+            if NSApp.currentEvent?.clickCount == 2 { Task { await model.openNoteInWindow(item.id) } }
+        }
         .accessibilityAddTraits(selected ? .isSelected : [])
         .accessibilityAction { model.selectedNoteID = item.id }
         .contextMenu {
