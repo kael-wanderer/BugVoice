@@ -132,6 +132,7 @@ final class MainWindowController: NSObject, NSWindowDelegate {
     private func observeScale() {
         withObservationTracking {
             _ = model.settings.appearance.textScale
+            _ = model.settings.appearance.font
             _ = model.sidebarWidth
             _ = model.listPaneWidth
         } onChange: { [weak self] in
@@ -143,10 +144,21 @@ final class MainWindowController: NSObject, NSWindowDelegate {
         }
     }
 
+    /// The widest pill row on any page, kept on one line at the window's minimum.
+    private var widestPillRow: CGFloat {
+        let font = model.appearance.type.nsFont(.bodyStrong)
+        return [
+            SettingsTab.allCases.map(\.title),
+            Style.allCases.map(\.title),
+            ["All"] + Style.allCases.map { $0.rawValue.capitalized },
+        ].map { RoundPills<Int>.singleRowWidth($0, font: font) }.max() ?? 0
+    }
+
     private func updateMinimum(_ window: NSWindow) {
         let visible = (window.screen ?? NSScreen.main)?.visibleFrame ?? window.frame
         let scale = model.settings.appearance.textScale
-        let width = ShellLayout.minimumWindowWidth(sidebar: model.sidebarWidth, listPane: model.listPaneWidth, screenWidth: visible.width)
+        let width = ShellLayout.minimumWindowWidth(
+            sidebar: model.sidebarWidth, listPane: model.listPaneWidth, content: widestPillRow, screenWidth: visible.width)
         window.contentMinSize = NSSize(width: width, height: ShellLayout.minimumWindowHeight)
         minimumFrameSize = window.frameRect(forContentRect: NSRect(origin: .zero, size: window.contentMinSize)).size
         if ShellLayout.sidebarMustHide(scale: scale, screenWidth: visible.width) { model.sidebarHidden = true }

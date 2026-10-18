@@ -26,8 +26,10 @@ public enum ShellLayout {
         minimumWindowWidth(sidebar: sidebarWidth(scale: scale), listPane: listPaneWidth(scale: scale), screenWidth: screenWidth)
     }
 
-    public static func minimumWindowWidth(sidebar: Double, listPane: Double, screenWidth: Double) -> Double {
-        min(max(baseMinimumWindowWidth, sidebar + listPane + minimumContentWidth + 2 * 24), screenWidth)
+    /// `content` is the widest block a page must keep on one line, such as
+    /// the Settings section pills, so shrinking the window never wraps it.
+    public static func minimumWindowWidth(sidebar: Double, listPane: Double, content: Double = 0, screenWidth: Double) -> Double {
+        min(max(baseMinimumWindowWidth, sidebar + max(listPane + minimumContentWidth, content) + 2 * 24), screenWidth)
     }
 
     public static func sidebarMustHide(scale: Int, screenWidth: Double) -> Bool {

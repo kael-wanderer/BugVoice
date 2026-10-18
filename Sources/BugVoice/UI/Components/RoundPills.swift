@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import VoiceCore
 
@@ -20,6 +21,7 @@ struct RoundPills<Value: Hashable>: View {
                     Text(title)
                         .bvFont(size == .small ? .footnote : selection == value ? .bodyStrong : .body)
                         .fontWeight(selection == value ? .semibold : .regular)
+                        .lineLimit(1)
                         .foregroundStyle(selection == value ? store.theme.text : store.theme.secondaryText)
                         .frame(maxWidth: .infinity)
                         .padding(.horizontal, size == .small ? LayoutTokens.spacing[1] : LayoutTokens.spacing[2])
@@ -45,6 +47,16 @@ struct RoundPills<Value: Hashable>: View {
         .background(.bvHover, in: RoundedRectangle(cornerRadius: store.scaled(24)))
         .overlay(RoundedRectangle(cornerRadius: store.scaled(24)).stroke(.bvSeparator))
         .accessibilityElement(children: .contain).accessibilityLabel(label)
+    }
+}
+
+extension RoundPills {
+    /// Width of a regular-size pill row on one line, every label measured in
+    /// the selected (semibold) font so any selection fits.
+    static func singleRowWidth(_ titles: [String], font: NSFont) -> CGFloat {
+        let spacing = LayoutTokens.spacing
+        let labels = titles.map { ceil(($0 as NSString).size(withAttributes: [.font: font]).width) + 2 * spacing[2] }
+        return labels.reduce(0, +) + spacing[0] * CGFloat(max(0, titles.count - 1)) + 2 * spacing[0] + 2
     }
 }
 

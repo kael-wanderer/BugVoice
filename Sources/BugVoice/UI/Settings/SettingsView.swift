@@ -1,7 +1,23 @@
 import SwiftUI
 import VoiceCore
 
-enum SettingsTab: String, Hashable { case general, shortcuts, editing, theme, speech, models, agents, meetings, storage }
+enum SettingsTab: String, Hashable, CaseIterable {
+    case general, shortcuts, editing, theme, speech, models, agents, meetings, storage
+
+    var title: String {
+        switch self {
+        case .general: "General"
+        case .shortcuts: "Shortcuts"
+        case .editing: "Editing"
+        case .theme: "Theme & icons"
+        case .speech: "Speech"
+        case .models: "Models"
+        case .agents: "Agents"
+        case .meetings: "Meetings"
+        case .storage: "Storage"
+        }
+    }
+}
 
 struct SettingsView: View {
     @Bindable var model: AppModel
@@ -9,10 +25,7 @@ struct SettingsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) {
-                RoundPills("Settings sections", items: [
-                    (SettingsTab.general, "General"), (.shortcuts, "Shortcuts"), (.editing, "Editing"), (.theme, "Theme & icons"),
-                    (.speech, "Speech"), (.models, "Models"), (.agents, "Agents"), (.meetings, "Meetings"), (.storage, "Storage")
-                ], selection: $model.settingsTab)
+                RoundPills("Settings sections", items: SettingsTab.allCases.map { ($0, $0.title) }, selection: $model.settingsTab)
                 Group {
                     switch model.settingsTab {
                     case .general: GeneralTab(model: model)

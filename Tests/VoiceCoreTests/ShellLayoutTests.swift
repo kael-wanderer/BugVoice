@@ -41,4 +41,11 @@ import Testing
         #expect(ShellLayout.minimumWindowWidth(sidebar: 180, listPane: 220, screenWidth: 3000) == 868)
         #expect(ShellLayout.minimumWindowWidth(sidebar: 320, listPane: 440, screenWidth: 1000) == 1000)
     }
+    @Test func minimumWindowWidthFitsWidestPageContent() {
+        // A 900 pt pill row needs the sidebar, the row and two 24 pt gutters.
+        #expect(ShellLayout.minimumWindowWidth(sidebar: 200, listPane: 290, content: 900, screenWidth: 3000) == 1148)
+        // Narrower content leaves the list-pane minimum in charge.
+        #expect(ShellLayout.minimumWindowWidth(sidebar: 200, listPane: 290, content: 500, screenWidth: 3000) == 958)
+        #expect(ShellLayout.minimumWindowWidth(sidebar: 200, listPane: 290, content: 2000, screenWidth: 1500) == 1500)
+    }
 }
