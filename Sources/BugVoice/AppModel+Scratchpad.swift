@@ -52,7 +52,15 @@ extension AppModel {
 
     /// After the note list changes: drops tabs of deleted notes and saves
     /// new slugs after a rename.
+    func pruneSelectedNote() {
+        guard notesController.listError == nil else { return }
+        if let selectedNoteID, !notesController.notes.contains(where: { $0.id == selectedNoteID }) {
+            self.selectedNoteID = nil
+        }
+    }
+
     func syncScratchpadTabs() {
+        pruneSelectedNote()
         guard notesController.listError == nil else { return }
         let before = scratchpadTabs.active
         scratchpadTabs.prune(existing: Set(notesController.notes.map(\.id)))
@@ -165,6 +173,7 @@ extension AppModel {
 
     func deleteNote(_ id: NoteID) async throws {
         try await notesController.delete(id: id, confirmed: true)
+        pruneSelectedNote()
         scratchpadTabs.close(id)
         persistScratchpadTabs()
         await showActiveTab()

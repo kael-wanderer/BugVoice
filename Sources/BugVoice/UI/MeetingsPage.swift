@@ -41,8 +41,9 @@ struct MeetingsPage: View {
     var body: some View {
         HStack(spacing: 0) {
             library
-                .frame(minWidth: store.scaled(250), idealWidth: store.scaled(285), maxWidth: store.scaled(340))
-            Divider()
+                .frame(width: ShellLayout.listPaneWidth(scale: model.settings.appearance.textScale))
+                .background(.bvSidebar)
+            Rectangle().fill(.bvSeparator).frame(width: 1)
             if let meeting = model.selectedMeeting {
                 MeetingDetails(model: model, meeting: meeting, player: player, citedLineIDs: $citedLineIDs, citationScrollRequest: citationScrollRequest)
                     .environment(model)
@@ -89,8 +90,9 @@ struct MeetingsPage: View {
     }
 
     private var library: some View {
+        ScrollView {
         VStack(spacing: LayoutTokens.spacing[1]) {
-            HStack(spacing: LayoutTokens.spacing[0]) {
+            VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {
                 FolderFilterMenu(
                     model: model,
                     filter: Binding(get: { model.meetingsFolderFilter }, set: { model.meetingsFolderFilter = $0 }),
@@ -108,7 +110,6 @@ struct MeetingsPage: View {
             } else if groups.isEmpty {
                 EmptyState("No matching meetings", systemImage: "magnifyingglass", message: "Try a different title or transcript search.")
             } else {
-                ScrollView {
                     LazyVStack(alignment: .leading, spacing: LayoutTokens.spacing[2]) {
                         ForEach(groups) { group in
                             VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
@@ -150,10 +151,10 @@ struct MeetingsPage: View {
                         }
                     }
                     .padding(.vertical, LayoutTokens.spacing[0])
-                }
             }
         }
         .padding(LayoutTokens.spacing[2])
+        }
         .confirmationDialog(
             "Delete this meeting?",
             isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }),
@@ -221,7 +222,7 @@ private struct MeetingListRow: View {
                 Text(meeting.startedAt.formatted(date: .omitted, time: .shortened) + " · " + clock(meeting.duration))
                     .bvFont(.footnote).foregroundStyle(.bvSecondary)
                 if folderName != nil || !meeting.tags.isEmpty {
-                    HStack(spacing: LayoutTokens.spacing[0]) {
+                    FlowLayout(spacing: LayoutTokens.spacing[0]) {
                         if let folderName {
                             Label(folderName, systemImage: "folder").bvFont(.footnote).foregroundStyle(.bvSecondary)
                         }
@@ -283,6 +284,8 @@ private struct MeetingDetails: View {
     }
 
     var body: some View {
+        ScrollViewReader { reader in
+        ScrollView {
         VStack(alignment: .leading, spacing: LayoutTokens.spacing[2]) {
             header
             Text(
@@ -331,9 +334,16 @@ private struct MeetingDetails: View {
                 case .notes: MeetingDetailNotes(model: model, meeting: meeting).id(meeting.id)
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .padding(LayoutTokens.spacing[3])
+        .bvPageColumn(.reading)
+        }
+        .task(id: citationScrollRequest) {
+            if let first = meeting.segments.sorted(by: { $0.start < $1.start }).first(where: { citedLineIDs.contains($0.id) }) {
+                reader.scrollTo(first.id, anchor: .center)
+            }
+        }
+        }
         .confirmationDialog("Delete this meeting?", isPresented: $showDelete, titleVisibility: .visible) {
             Button("Delete meeting", role: .destructive) { Task { await model.deleteMeeting(id: meeting.id) } }
             Button("Cancel", role: .cancel) {}
@@ -408,8 +418,7 @@ private struct MeetingDetails: View {
 
     private var transcript: some View {
         let activeSegmentID = MeetingTimeline.activeSegment(at: player.currentTime, segments: meeting.segments, isPlaying: player.isPlaying)?.id
-        return ScrollViewReader { reader in
-        ScrollView {
+        return Group {
             // The speaker row sits outside the lazy stack, so its open edits survive scrolling.
             VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
                 if let error = meeting.transcriptionError {
@@ -468,12 +477,6 @@ private struct MeetingDetails: View {
                 }
             }
         }
-        .task(id: citationScrollRequest) {
-            if let first = meeting.segments.sorted(by: { $0.start < $1.start }).first(where: { citedLineIDs.contains($0.id) }) {
-                reader.scrollTo(first.id, anchor: .center)
-            }
-        }
-        }
     }
 
     /// Marks at or after `start` and before `end`, in time order.
@@ -499,7 +502,7 @@ private struct MeetingDetails: View {
     private func generatedText(_ value: String?, kind: MeetingTextKind, emptyMessage: String) -> some View {
         VStack(alignment: .leading, spacing: LayoutTokens.spacing[2]) {
             if let value, !value.isEmpty {
-                ScrollView { Text(value).bvFont(.reading).frame(maxWidth: store.readingWidth, alignment: .leading).frame(maxWidth: .infinity).textSelection(.enabled) }
+                Text(value).bvFont(.reading).frame(maxWidth: .infinity, alignment: .leading).textSelection(.enabled)
             } else {
                 EmptyState(kind == .summary ? "No summary" : "No action items", systemImage: kind == .summary ? "text.alignleft" : "checklist", message: emptyMessage)
             }
@@ -597,7 +600,7 @@ private struct MeetingDetailNotes: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            MeetingNotesEditor(text: $draft)
+            MeetingNotesEditor(text: $draft).frame(minHeight: store.scaled(220))
             if draft.isEmpty {
                 Text("No notes for this meeting.")
                     .foregroundStyle(.bvSecondary)

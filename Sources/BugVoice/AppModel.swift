@@ -143,6 +143,7 @@ final class AppModel {
         openMainWindow(.meetings)
     }
 
+    var selectedNoteID: NoteID?
     var selectedMeetingID: MeetingID?
     var meetingSearchQuery = ""
     /// Folders from `library.json`. Notes and meetings carry their own labels.
@@ -236,7 +237,10 @@ final class AppModel {
             saveError = "Could not create \(paths.root.path): \(error.localizedDescription)"
         }
         notesController.onSaved = { [weak self] id in self?.searchIndexer.schedule(.note(id), after: .seconds(30)) }
-        notesController.onListLoaded = { [weak self] in self?.searchIndexer.listLoaded(.note) }
+        notesController.onListLoaded = { [weak self] in
+            self?.searchIndexer.listLoaded(.note)
+            self?.pruneSelectedNote()
+        }
         await notesController.reloadList()
         let loaded = store.load()
         importKeychainKeys(connections: loaded.models.connections)

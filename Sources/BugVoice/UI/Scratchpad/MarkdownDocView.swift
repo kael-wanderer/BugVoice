@@ -6,9 +6,21 @@ struct MarkdownDocView: View {
     @Environment(AppearanceStore.self) private var store
     let text: String
     let onToggleTask: (Int) -> Void
+    var scrolls = true
+    var pagePadding = true
 
     var body: some View {
-        ScrollView {
+        Group {
+            if scrolls { ScrollView { document } }
+            else { document }
+        }
+        .environment(\.openURL, OpenURLAction { url in
+            guard let scheme = url.scheme?.lowercased(), ["http", "https", "mailto"].contains(scheme) else { return .discarded }
+            return .systemAction(url)
+        })
+    }
+
+    private var document: some View {
             VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {
                 ForEach(Array(MarkdownBlocks.parse(text).enumerated()), id: \.offset) { _, block in
                     view(for: block)
@@ -18,13 +30,8 @@ struct MarkdownDocView: View {
             .frame(maxWidth: store.readingWidth, alignment: .leading)
             .frame(maxWidth: .infinity)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, LayoutTokens.spacing[4])
-            .padding(.vertical, LayoutTokens.spacing[3])
-        }
-        .environment(\.openURL, OpenURLAction { url in
-            guard let scheme = url.scheme?.lowercased(), ["http", "https", "mailto"].contains(scheme) else { return .discarded }
-            return .systemAction(url)
-        })
+            .padding(.horizontal, pagePadding ? LayoutTokens.spacing[4] : 0)
+            .padding(.vertical, pagePadding ? LayoutTokens.spacing[3] : 0)
     }
 
     @ViewBuilder private func view(for block: MarkdownBlock) -> some View {

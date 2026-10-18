@@ -41,3 +41,13 @@ Branch: `feat/app-shell`. Phase B is implemented directly, as authorized by the 
 - Phase A review fix: Integrations is one AttributedString Text with the inline Settings › Agents link handled locally by OpenURLAction, so the sentence wraps.
 - Validation: swift build, swift test (1,034 tests), token check, signed debug build and dev launch pass.
 - **Not verified:** the requested Models, Storage, Style, Upload, Dictation matrix (100%/160%, minimum/1600 pt), Integrations link wrapping screenshot, and left/right gap measurements. UI access was denied and no visible main window was available. No screenshot paths or measured gaps are fabricated; calculated centering is not visual evidence.
+
+## Task 8 — List panes and note preview
+
+- Task 7 commit: `42bd90d` — feat(app): centered page columns and in-page section lists.
+- Builder's call: list panes use `.bvSidebar` directly (the spec permits it), sharing the app's sidebar palette without an additional color blend.
+- Meetings uses the capped list width and a full-width detail scroll view around the centered reading column. Filter controls stack; transcript line scrolling and all recovery, export, generation and More-menu actions are retained.
+- Scratchpad keeps folder/tag filters, search, sort, reload, insertion-recovery Copy, and Edit/Pin/Move to folder/Trash context menus. Former hover actions are available in those menus. Folder/tags are shown in the preview.
+- Selection is separate from the floating editor. The preview reads the published notes list; deletion/list reload prunes a missing selection. Double-click and Edit open the floating editor.
+- MarkdownDocView has optional non-scrolling/unpadded rendering for the preview; its existing floating-window behavior defaults stay intact. Preview task checkboxes use a no-op callback.
+- Validation: swift build, swift test (1,034 tests), token check, signed debug app build/dev launch pass. Select/double-click/edit/save visual checks remain unverified because UI access is denied.
