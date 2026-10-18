@@ -44,25 +44,17 @@ struct AIBar: View {
             .padding(.vertical, LayoutTokens.spacing[0])
         case .idle:
             VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {
-                HStack(spacing: LayoutTokens.spacing[0]) {
-                    scopeMenu
-                    ForEach(NoteTransform.allCases, id: \.self) { transform in
-                        Button(transform.title) { run(transform) }
-                            .disabled(assistant.scope != .note(noteID))
-                            .buttonStyle(.bordered)
-                            .buttonBorderShape(.capsule)
-                            .help("\(transform.title) (⌘\(String(transform.shortcutKey)))")
+                // A narrow window puts the scope menu on its own line so the chips keep their titles.
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: LayoutTokens.spacing[0]) {
+                        scopeMenu
+                        chips
+                        Spacer(minLength: 0)
                     }
-                    Button {
-                        assistant.runAgain(model: model)
-                    } label: {
-                        Image(systemName: "arrow.triangle.2.circlepath")
+                    VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
+                        scopeMenu
+                        FlowLayout(spacing: LayoutTokens.spacing[0]) { chips }
                     }
-                    .buttonStyle(.borderless)
-                    .disabled(!assistant.canRunAgain(noteID: noteID, controller: model.notesController))
-                    .help("Run again")
-                    .accessibilityLabel("Run again")
-                    Spacer(minLength: 0)
                 }
                 Divider()
                 HStack(spacing: LayoutTokens.spacing[1]) {
@@ -80,6 +72,25 @@ struct AIBar: View {
                 if assistant.scope.questionIsTooLong(assistant.message) { Text("Shorter question, please.").bvFont(.footnote).foregroundStyle(.bvSecondary) }
             }
         }
+    }
+
+    @ViewBuilder private var chips: some View {
+        ForEach(NoteTransform.allCases, id: \.self) { transform in
+            Button(transform.title) { run(transform) }
+                .disabled(assistant.scope != .note(noteID))
+                .buttonStyle(.bordered)
+                .buttonBorderShape(.capsule)
+                .help("\(transform.title) (⌘\(String(transform.shortcutKey)))")
+        }
+        Button {
+            assistant.runAgain(model: model)
+        } label: {
+            Image(systemName: "arrow.triangle.2.circlepath")
+        }
+        .buttonStyle(.borderless)
+        .disabled(!assistant.canRunAgain(noteID: noteID, controller: model.notesController))
+        .help("Run again")
+        .accessibilityLabel("Run again")
     }
 
     private var scopeMenu: some View {
