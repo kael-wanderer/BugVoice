@@ -1,6 +1,6 @@
 # Scratchpad note editor redesign
 
-Date: 2026-10-18. Status: draft for owner review.
+Date: 2026-10-18. Status: approved by owner 2026-10-18.
 Mockup: `docs/design/proposal-editor.html`, the "Floating window (option A,
 agreed)" and "Main window" sections.
 Roadmap: `docs/ROADMAP.md`, "Next round: the note editor".
@@ -65,7 +65,7 @@ request.
 
 | Today | New place |
 |---|---|
-| Tab bar waveform glyph | BugVoice logo (`BrandImages.menuBar(logo:badge:false)` or the app icon glyph) |
+| Tab bar waveform glyph | BugVoice logo: the menu bar glyph |
 | Folder/Tags box (`LabelsBox`) above the text | Tool row: folder menu, then tags (`TagField`, "+ Add tag") |
 | View switch (Markdown / Doc) in the action row | Tab bar, left of Keep on top |
 | Mic, History, Trash, Copy in the action row | Tool row, right end, same order |
@@ -129,8 +129,11 @@ menu as `NotesPage.card`, minus Edit, because a click already opens the note.
 **Compact mode** (Smaller) keeps the same rows. It already hides the side
 list. The tool row and the Formatting bar wrap at the 420 pt window minimum.
 
-**Logo.** The image is 16 pt and template-free, so it keeps its colours. It is
-hidden from VoiceOver, as today.
+**Logo.** The menu bar glyph for the chosen logo
+(`IconImages.menuGlyph(model.settings.appearance.menuBarIcon)`), shown at
+16 pt. It is a template image, so it is drawn in the accent colour, as the
+waveform is today. It is hidden from VoiceOver, as today. If the glyph is
+missing, the waveform symbol stays.
 
 ## Constraints
 
@@ -159,7 +162,6 @@ hidden from VoiceOver, as today.
 ## Left to the builder
 
 - File split inside `UI/Scratchpad/`, for example a `ScratchpadToolRow` view.
-- Whether the logo comes from `BrandImages` or `IconImages`.
 
 ## Manual checks
 
