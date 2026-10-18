@@ -132,6 +132,7 @@ final class AppModel {
         var id: MeetingID
         var start: Double
         var lineIDs: Set<String>
+        var play = true
     }
     var pendingMeetingJump: MeetingJump?
 
@@ -143,6 +144,9 @@ final class AppModel {
         openMainWindow(.meetings)
     }
 
+    var meetingDetailTab: MeetingDetailTab = .transcript
+    var meetingSelectionRequest: UInt64 = 0
+    var notesSearchQuery = ""
     var selectedNoteID: NoteID?
     var selectedMeetingID: MeetingID?
     var meetingSearchQuery = ""
@@ -159,7 +163,55 @@ final class AppModel {
         didSet { UserDefaults.standard.set(sidebarHidden, forKey: "BugVoice.sidebarHidden") }
     }
     var searchFocusRequest: UInt64 = 0
-    var mainWindowIsKey: Bool { NSApp.keyWindow?.identifier == AppWindow.main && NSApp.keyWindow?.attachedSheet == nil }
+    var mainWindowIsKey = false
+    var mainContentHeight: CGFloat = ShellLayout.minimumWindowHeight
+    var searchQuery = ""
+    var searchIsPresented = false
+    var searchFieldFrame: CGRect = .zero
+    var searchResultsFrame: CGRect = .zero
+    var dictationHighlight: UUID?
+
+    func open(_ hit: SearchHit) {
+        searchIsPresented = false
+        searchQuery = ""
+        switch hit.target {
+        case .meeting(let id, let part, let lineID):
+            guard let meeting = meetingManifests.first(where: { $0.id == id }) else { return }
+            meetingsFolderFilter = .all
+            meetingTagFilter = []
+            meetingSearchQuery = ""
+            switch part {
+            case .summary: meetingDetailTab = .summary
+            case .actionItems: meetingDetailTab = .actionItems
+            case .myNotes: meetingDetailTab = .notes
+            case .transcript: meetingDetailTab = .transcript
+            default: break
+            }
+            if part == nil {
+                pendingMeetingJump = nil
+                meetingSelectionRequest &+= 1
+                selectedMeetingID = id
+                openMainWindow(.meetings)
+            } else {
+                let start = meeting.segments.first(where: { $0.id == lineID })?.start ?? 0
+                openMeeting(MeetingJump(id: id, start: start, lineIDs: lineID.map { [$0] } ?? [], play: false))
+            }
+        case .note(let id):
+            guard notesController.notes.contains(where: { $0.id == id }) else { return }
+            notesFolderFilter = .all
+            notesTagFilter = []
+            notesSearchQuery = ""
+            selectedNoteID = id
+            openMainWindow(.notes)
+        case .dictation(let id):
+            dictationHighlight = id
+            openMainWindow(.dictation)
+        case .settings(let section):
+            guard let tab = SettingsTab(rawValue: section) else { return }
+            settingsTab = tab
+            openMainWindow(.settings)
+        }
+    }
     func toggleSidebar() { withAnimation(.easeInOut(duration: 0.2)) { sidebarHidden.toggle() } }
     var page: Page = .dictation
     var speechState: WhisperKitTranscriber.LoadState = .notLoaded

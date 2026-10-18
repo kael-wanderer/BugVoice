@@ -160,6 +160,14 @@ final class SearchIndexer {
         if !queue.isEmpty { start() } // Retries an item left queued by a failed run.
     }
 
+    func searchInputs() -> (passages: [AskPassage], titles: [SearchTitle]) {
+        guard let model else { return ([], []) }
+        let passages = sourcesNewestFirst().flatMap { self.passages($0) }
+        let titles = model.meetingManifests.map { SearchTitle(source: .meeting($0.id), title: $0.title, date: $0.startedAt) }
+            + model.notesController.notes.map { SearchTitle(source: .note($0.id), title: $0.title, date: $0.modifiedAt) }
+        return (passages, titles)
+    }
+
     private func sourcesNewestFirst() -> [AskSource] {
         guard let model else { return [] }
         var dated = model.meetingManifests.filter { $0.state == .ready }.map { (AskSource.meeting($0.id), $0.startedAt) }

@@ -13,13 +13,20 @@ struct MainWindow: View {
                 Rectangle().fill(.bvSeparator).frame(width: 1)
             }
             VStack(spacing: 0) {
-                TitleBar(model: model, title: model.page.title) { PageActions(model: model) }
+                TitleBar(model: model, title: model.page.title) { PageActions(model: model) }.zIndex(1)
                 Rectangle().fill(.bvSeparator).frame(height: 1)
                 pageContent.frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .background(.bvBackground)
         }
         .ignoresSafeArea(.container, edges: .top)
+        .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { model.mainContentHeight = $0 }
+        .simultaneousGesture(SpatialTapGesture(coordinateSpace: .global).onEnded { value in
+            if !model.searchFieldFrame.contains(value.location) && !model.searchResultsFrame.contains(value.location) {
+                model.searchIsPresented = false
+            }
+        })
+        .onChange(of: model.page) { _, _ in model.searchIsPresented = false }
         .overlay(alignment: .bottom) {
             if let notice = model.notice {
                 Text(notice)
@@ -139,6 +146,10 @@ final class MainWindowController: NSObject, NSWindowDelegate {
         window.setFrame(frame, display: true)
     }
 
+    func windowDidBecomeKey(_ notification: Notification) { model.mainWindowIsKey = true }
+    func windowDidResignKey(_ notification: Notification) {
+        model.mainWindowIsKey = false
+    }
     func windowWillClose(_ notification: Notification) {
         AppWindow.didClose(notification.object as? NSWindow)
     }

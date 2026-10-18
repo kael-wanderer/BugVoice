@@ -8,7 +8,7 @@ struct TitleBar<Action: View>: View {
     @ViewBuilder var action: Action
 
     var body: some View {
-        ShellTitleLayout(gap: LayoutTokens.spacing[2], searchWidth: store.scaled(460)) {
+        ShellTitleLayout(gap: LayoutTokens.spacing[2], searchWidth: store.scaled(460), iconWidth: store.scaled(28)) {
             HStack(spacing: LayoutTokens.spacing[1]) {
                 if model.sidebarHidden { WindowButtonsSpace() }
                 Button { model.toggleSidebar() } label: { Image(systemName: "sidebar.left") }
@@ -16,7 +16,7 @@ struct TitleBar<Action: View>: View {
                     .help(model.sidebarHidden ? "Show sidebar ⌃⌘S" : "Hide sidebar ⌃⌘S")
                 Text(title).bvFont(.title2).lineLimit(1).truncationMode(.tail)
             }
-            Color.clear.frame(height: store.scaled(28))
+            SearchField(model: model)
             action
         }
         .padding(.horizontal, LayoutTokens.spacing[3])
@@ -32,12 +32,13 @@ struct TitleBar<Action: View>: View {
 struct ShellTitleLayout: Layout {
     var gap: CGFloat
     var searchWidth: CGFloat
+    var iconWidth: CGFloat
     private func widths(_ width: CGFloat, _ views: Subviews) -> (CGFloat, CGFloat) {
-        let side = min(max(views[0].sizeThatFits(.unspecified).width, views[2].sizeThatFits(.unspecified).width), max(0, (width - 2 * gap) / 2 - 20))
+        let side = min(max(views[0].sizeThatFits(.unspecified).width, views[2].sizeThatFits(.unspecified).width), max(0, (width - 2 * gap - iconWidth) / 2))
         return (side, min(searchWidth, max(0, width - side * 2 - gap * 2)))
     }
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let width = proposal.width ?? 1000
+        let width = proposal.width ?? searchWidth * 2
         let (side, center) = widths(width, subviews)
         let height = max(subviews[0].sizeThatFits(.init(width: side, height: nil)).height,
                          subviews[1].sizeThatFits(.init(width: center, height: nil)).height,

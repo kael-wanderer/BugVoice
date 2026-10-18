@@ -7,7 +7,6 @@ import VoiceCore
 struct NotesPage: View {
     @Environment(AppearanceStore.self) private var store
     @Bindable var model: AppModel
-    @State private var searchText = ""
     @State private var managingFolders = false
     @State private var pendingDelete: NotesListItem?
 
@@ -26,7 +25,7 @@ struct NotesPage: View {
                     id: $0.id, title: $0.title, body: $0.body, modifiedAt: $0.modifiedAt,
                     tags: $0.frontMatter.tags, pinned: $0.frontMatter.pinned)
             },
-            query: searchText,
+            query: model.notesSearchQuery,
             sort: model.settings.scratchpad.sort
         )
     }
@@ -77,7 +76,7 @@ struct NotesPage: View {
                     allTitle: "All notes", onManage: { managingFolders = true }
                 )
                 TagFilterBar(catalog: model.noteTagCatalog, selected: $model.notesTagFilter)
-                TextField("Search notes", text: $searchText).textFieldStyle(.roundedBorder).accessibilityLabel("Search notes")
+                TextField("Search notes", text: $model.notesSearchQuery).textFieldStyle(.roundedBorder).accessibilityLabel("Search notes")
                 HStack(spacing: LayoutTokens.spacing[1]) {
                     Picker("Sort", selection: $model.settings.scratchpad.sort) {
                         ForEach(NotesSort.allCases, id: \.self) { Text($0.title).tag($0) }
@@ -135,7 +134,7 @@ struct NotesPage: View {
         .background(selected ? AnyShapeStyle(.bvAccentSoft) : AnyShapeStyle(.clear), in: RoundedRectangle(cornerRadius: LayoutTokens.controlRadius))
         .overlay(RoundedRectangle(cornerRadius: LayoutTokens.controlRadius).stroke(selected ? store.theme.accent.opacity(0.55) : .clear))
         .contentShape(Rectangle())
-        .onTapGesture(count: 2) { Task { await model.openNoteInWindow(item.id) } }
+        .onTapGesture(count: 2) { model.selectedNoteID = item.id; Task { await model.openNoteInWindow(item.id) } }
         .onTapGesture { model.selectedNoteID = item.id }
         .accessibilityAddTraits(selected ? .isSelected : [])
         .accessibilityAction { model.selectedNoteID = item.id }

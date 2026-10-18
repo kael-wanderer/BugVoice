@@ -51,3 +51,14 @@ Branch: `feat/app-shell`. Phase B is implemented directly, as authorized by the 
 - Selection is separate from the floating editor. The preview reads the published notes list; deletion/list reload prunes a missing selection. Double-click and Edit open the floating editor.
 - MarkdownDocView has optional non-scrolling/unpadded rendering for the preview; its existing floating-window behavior defaults stay intact. Preview task checkboxes use a no-op callback.
 - Validation: swift build, swift test (1,034 tests), token check, signed debug app build/dev launch pass. Select/double-click/edit/save visual checks remain unverified because UI access is denied.
+
+## Task 9 — Global search UI
+
+- Task 8 commit: `e0c6e74` — feat(app): list panes for meetings and notes, note preview.
+- Uses the existing VoiceCore GlobalSearch ranking and SearchIndexer's local passage builders, plus all meeting/note titles (including unfinished meetings). No model or embedding requests are made by shell search.
+- Builder's call: field results are a SwiftUI overlay; compact search uses a popover. Result rows scroll within a height derived from the window, so eight large-text rows do not require a panel taller than the minimum window. Keyboard selection scrolls with them.
+- 150 ms debounce, detached ranking, cancellation/stale-query guards, current-page priority, arrow/Return/Escape handling, outside-click close and local settings navigation are implemented. Main-window key state gates the View commands; floating editor/sheets retain their shortcuts.
+- MeetingJump.play defaults to true for existing Ask citations. Search explicitly passes false and skips consumeMeetingJump audio loading, seeking and playback, while selecting tabs/lines. Title-only results just select and clear old citation highlights. Transcript tab selection precedes the scroll request for Ask and search.
+- Notes/meetings search opening clears list filters/search that would hide the target; their filtering controls remain. Dictation opening resets its style filter, scrolls and fades accentSoft over 1.5 seconds.
+- Validation: swift build, swift test (910 VoiceCore/100 suites + 30 MCPKit/2 suites + 94 BugVoiceMac/16 suites), token check, signed debug app build and dev launch pass. No existing tests were edited.
+- Runtime matrix remains unverified: meeting line/title/unfinished title, note, dictation, text size, Vietnamese search, search-no-play versus Ask-play, keyboard/sheet scope and VoiceOver. UI tool access remains denied. CGWindowListCopyWindowInfo again reported no visible BugVoice window after the dev launch.

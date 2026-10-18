@@ -6,6 +6,7 @@ struct DictationHistoryView: View {
     @Environment(AppearanceStore.self) private var store
     @Bindable var model: AppModel
     @State private var filter: Style?
+    @State private var highlighted: UUID?
 
     var filtered: [HistoryEntry] {
         model.history.filter { filter == nil || $0.style == filter }
@@ -25,6 +26,7 @@ struct DictationHistoryView: View {
 
     var body: some View {
         let stats = HistoryStats.compute(model.history, now: Date())
+        ScrollViewReader { reader in
         ScrollView {
             VStack(alignment: .leading, spacing: LayoutTokens.spacing[2]) {
                 LazyVGrid(
@@ -45,13 +47,26 @@ struct DictationHistoryView: View {
                 }
                 ForEach(groups, id: \.0) { title, entries in
                     Text(title.uppercased()).bvFont(.footnote).foregroundStyle(.bvSecondary)
-                    ForEach(entries) { entry in row(entry) }
+                    ForEach(entries) { entry in row(entry).id(entry.id) }
                 }
             }
             .bvPageColumn(.wide)
         }
 
         .task { await model.reloadHistory() }
+        .task(id: model.dictationHighlight) {
+            guard let id = model.dictationHighlight else { return }
+            filter = nil
+            // Let the All filter lay out the requested row before scrolling.
+            await Task.yield()
+            reader.scrollTo(id, anchor: .center)
+            highlighted = id
+            do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
+            withAnimation(.easeOut(duration: 1.5)) { highlighted = nil }
+            do { try await Task.sleep(for: .milliseconds(1500)) } catch { return }
+            if model.dictationHighlight == id { model.dictationHighlight = nil }
+        }
+        }
     }
 
     func row(_ e: HistoryEntry) -> some View {
@@ -75,7 +90,7 @@ struct DictationHistoryView: View {
             .buttonStyle(.borderless)
         }
         .padding(LayoutTokens.spacing[2])
-        .background(.bvCard, in: RoundedRectangle(cornerRadius: LayoutTokens.cardRadius))
+        .background(highlighted == e.id ? AnyShapeStyle(.bvAccentSoft) : AnyShapeStyle(.bvCard), in: RoundedRectangle(cornerRadius: LayoutTokens.cardRadius))
         .overlay(RoundedRectangle(cornerRadius: LayoutTokens.cardRadius).stroke(.bvSeparator))
     }
 }

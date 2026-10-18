@@ -3,7 +3,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 import VoiceCore
 
-private enum MeetingDetailTab: String, CaseIterable {
+enum MeetingDetailTab: String, CaseIterable {
     case transcript = "Transcript"
     case summary = "Summary"
     case actionItems = "Action items"
@@ -52,6 +52,7 @@ struct MeetingsPage: View {
             }
         }
         .simultaneousGesture(TapGesture().onEnded { citedLineIDs = [] })
+        .onChange(of: model.meetingSelectionRequest) { _, _ in citedLineIDs = [] }
         .task(id: model.pendingMeetingJump) { await consumeMeetingJump() }
         .task {
             await model.reloadMeetings()
@@ -73,16 +74,17 @@ struct MeetingsPage: View {
             return
         }
         citedLineIDs = jump.lineIDs
+        if !jump.lineIDs.isEmpty { model.meetingDetailTab = .transcript }
         citationScrollRequest &+= 1
         let audio = directory.appendingPathComponent("audio.m4a")
         let hasAudio = FileManager.default.fileExists(atPath: audio.path)
-        if hasAudio { await player.load(audio) }
+        if hasAudio && jump.play { await player.load(audio) }
         guard !Task.isCancelled, model.pendingMeetingJump == jump else { return }
         guard model.selectedMeetingID == jump.id, FileManager.default.fileExists(atPath: manifest.path) else {
             model.pendingMeetingJump = nil
             return
         }
-        if hasAudio {
+        if hasAudio && jump.play {
             player.seek(to: jump.start)
             if !player.isPlaying { player.togglePlayback() }
         }
@@ -269,7 +271,6 @@ private struct MeetingDetails: View {
     @Bindable var player: MeetingPlayerModel
     @Binding var citedLineIDs: Set<String>
     let citationScrollRequest: UInt64
-    @State private var tab: MeetingDetailTab = .transcript
     @State private var showDelete = false
     @State private var showRename = false
     @State private var renameTitle = ""
@@ -325,9 +326,9 @@ private struct MeetingDetails: View {
                 Label(meeting.state == .recording || meeting.state == .paused ? "Audio is recording" : "Audio is unavailable", systemImage: "waveform")
                     .foregroundStyle(.bvSecondary)
             }
-            RoundPills("Meeting view", items: MeetingDetailTab.allCases.map { ($0, $0.rawValue) }, selection: $tab)
+            RoundPills("Meeting view", items: MeetingDetailTab.allCases.map { ($0, $0.rawValue) }, selection: $model.meetingDetailTab)
             Group {
-                switch tab {
+                switch model.meetingDetailTab {
                 case .transcript: transcript
                 case .summary: generatedText(meeting.summary, kind: .summary, emptyMessage: "Generate a summary from this transcript.")
                 case .actionItems: generatedText(meeting.actionItems, kind: .actionItems, emptyMessage: "Find the action items discussed in this meeting.")
@@ -352,9 +353,6 @@ private struct MeetingDetails: View {
         }
         .sheet(isPresented: $showRename) {
             MeetingRenameSheet(model: model, id: meeting.id, title: $renameTitle) { showRename = false }
-        }
-        .task(id: citationScrollRequest) {
-            if !citedLineIDs.isEmpty { tab = .transcript }
         }
         .onChange(of: meeting.id) { _, _ in
             generationTask?.cancel()
