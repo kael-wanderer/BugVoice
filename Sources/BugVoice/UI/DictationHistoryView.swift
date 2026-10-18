@@ -39,7 +39,7 @@ struct DictationHistoryView: View {
                     StatTile(value: stats.medianReleaseToText.map { String(format: "%.1f s", $0) } ?? "–", label: "median release → text")
                 }
                 if model.history.isEmpty {
-                    ContentUnavailableView("No dictations yet", systemImage: "mic", description: Text("Hold \(model.settings.hotkey.spokenName) anywhere and speak."))
+                    EmptyState("No dictations yet", systemImage: "mic", message: "Hold \(model.settings.hotkey.spokenName) anywhere and speak.")
                 }
                 ForEach(groups, id: \.0) { title, entries in
                     Text(title.uppercased()).bvFont(.footnote).foregroundStyle(.bvSecondary)

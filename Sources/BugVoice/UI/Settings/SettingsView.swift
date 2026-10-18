@@ -1,7 +1,7 @@
 import SwiftUI
 import VoiceCore
 
-enum SettingsTab: Hashable { case general, shortcuts, editing, theme, speech, models, agents, meetings, storage }
+enum SettingsTab: String, Hashable { case general, shortcuts, editing, theme, speech, models, agents, meetings, storage }
 
 struct SettingsView: View {
     @Bindable var model: AppModel

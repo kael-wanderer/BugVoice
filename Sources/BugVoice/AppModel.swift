@@ -19,32 +19,60 @@ enum ConnectionStatus: Equatable {
     case failed(String)
 }
 
-/// Main-window pages, in sidebar order.
+/// Main-window pages.
 enum Page: String, CaseIterable, Identifiable {
-    case dictation, insights, dictionary, style, meetings, upload, notes, settings
+    case dictation, insights, meetings, notes, upload, style, dictionary, integrations, settings, help
     var id: String { rawValue }
     var title: String {
         switch self {
         case .dictation: "Dictation"
         case .insights: "Insights"
-        case .dictionary: "Dictionary"
-        case .style: "Style"
         case .meetings: "Meetings"
-        case .upload: "Upload"
         case .notes: "Scratchpad"
+        case .upload: "Upload"
+        case .style: "Style"
+        case .dictionary: "Dictionary"
+        case .integrations: "Integrations"
         case .settings: "Settings"
+        case .help: "Help"
         }
     }
     var symbol: String {
         switch self {
         case .dictation: "mic"
         case .insights: "chart.bar"
-        case .dictionary: "character.book.closed"
-        case .style: "paintbrush.pointed"
         case .meetings: "waveform.path"
-        case .upload: "square.and.arrow.up"
         case .notes: "note.text"
+        case .upload: "square.and.arrow.up"
+        case .style: "paintbrush.pointed"
+        case .dictionary: "character.book.closed"
+        case .integrations: "puzzlepiece.extension"
         case .settings: "gearshape"
+        case .help: "questionmark.circle"
+        }
+    }
+}
+
+enum SidebarGroup: CaseIterable {
+    case capture, library, personalize, connect, bottom
+
+    var title: String? {
+        switch self {
+        case .capture: "Capture"
+        case .library: "Library"
+        case .personalize: "Personalize"
+        case .connect: "Connect"
+        case .bottom: nil
+        }
+    }
+
+    var pages: [Page] {
+        switch self {
+        case .capture: [.dictation, .insights]
+        case .library: [.meetings, .notes, .upload]
+        case .personalize: [.style, .dictionary]
+        case .connect: [.integrations]
+        case .bottom: [.settings, .help]
         }
     }
 }

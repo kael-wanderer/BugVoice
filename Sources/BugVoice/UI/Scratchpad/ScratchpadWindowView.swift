@@ -208,14 +208,9 @@ struct ScratchpadWindowView: View {
                     }
                 }
         } else {
-            ContentUnavailableView {
-                Label("No note open", systemImage: "note.text")
-            } description: {
-                Text("Create a note or pick one from the list.")
-            } actions: {
+            EmptyState("No note open", systemImage: "note.text", message: "Create a note or pick one from the list.") {
                 Button("New note", action: newNote)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 

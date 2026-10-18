@@ -47,8 +47,7 @@ struct MeetingsPage: View {
                 MeetingDetails(model: model, meeting: meeting, player: player, citedLineIDs: $citedLineIDs, citationScrollRequest: citationScrollRequest)
                     .environment(model)
             } else {
-                ContentUnavailableView("No meeting selected", systemImage: "waveform.path", description: Text("Choose a meeting or start a recording."))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                EmptyState("No meeting selected", systemImage: "waveform.path", message: "Choose a meeting or start a recording.")
             }
         }
         .simultaneousGesture(TapGesture().onEnded { citedLineIDs = [] })
@@ -118,9 +117,9 @@ struct MeetingsPage: View {
             TextField("Search meetings", text: $model.meetingSearchQuery)
                 .textFieldStyle(.roundedBorder)
             if model.meetingManifests.isEmpty {
-                ContentUnavailableView("No meetings yet", systemImage: "waveform.path", description: Text("Record a meeting to see its transcript here."))
+                EmptyState("No meetings yet", systemImage: "waveform.path", message: "Record a meeting to see its transcript here.")
             } else if groups.isEmpty {
-                ContentUnavailableView("No matching meetings", systemImage: "magnifyingglass", description: Text("Try a different title or transcript search."))
+                EmptyState("No matching meetings", systemImage: "magnifyingglass", message: "Try a different title or transcript search.")
             } else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: LayoutTokens.spacing[2]) {
@@ -480,7 +479,7 @@ private struct MeetingDetails: View {
                     markRow(mark)
                 }
                 if meeting.segments.isEmpty {
-                    ContentUnavailableView("No transcript yet", systemImage: "text.bubble", description: Text("Transcript lines appear as speech is processed."))
+                    EmptyState("No transcript yet", systemImage: "text.bubble", message: "Transcript lines appear as speech is processed.")
                 }
                 }
             }
@@ -518,7 +517,7 @@ private struct MeetingDetails: View {
             if let value, !value.isEmpty {
                 ScrollView { Text(value).bvFont(.reading).frame(maxWidth: store.readingWidth, alignment: .leading).frame(maxWidth: .infinity).textSelection(.enabled) }
             } else {
-                ContentUnavailableView(kind == .summary ? "No summary" : "No action items", systemImage: kind == .summary ? "text.alignleft" : "checklist", description: Text(emptyMessage))
+                EmptyState(kind == .summary ? "No summary" : "No action items", systemImage: kind == .summary ? "text.alignleft" : "checklist", message: emptyMessage)
             }
             if let generationProgress {
                 ProgressView(value: generationProgress.fraction) {

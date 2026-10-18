@@ -122,22 +122,16 @@ struct NotesPage: View {
 
     @ViewBuilder private var content: some View {
         if let listError = controller.listError {
-            ContentUnavailableView {
-                Label("Notes unavailable", systemImage: "exclamationmark.triangle")
-            } description: {
-                Text(listError)
-            } actions: {
+            EmptyState("Notes unavailable", systemImage: "exclamationmark.triangle", message: listError) {
                 Button("Retry") { Task { await controller.reloadList() } }
             }
         } else if items.isEmpty {
             if controller.notes.isEmpty {
-                ContentUnavailableView {
-                    Label("No notes", systemImage: "note.text")
-                } actions: {
+                EmptyState("No notes", systemImage: "note.text") {
                     Button("New note") { Task { await model.openScratchpadWindow(newNote: true) } }
                 }
             } else {
-                ContentUnavailableView("No results", systemImage: "magnifyingglass")
+                EmptyState("No results", systemImage: "magnifyingglass")
             }
         } else {
             GeometryReader { proxy in

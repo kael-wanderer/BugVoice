@@ -8,21 +8,32 @@ struct MainWindow: View {
 
     var body: some View {
         NavigationSplitView {
-            List(Page.allCases, selection: $model.page) { page in
-                HStack {
-                    // Not a Label: its icon column keeps a fixed width and the
-                    // icon runs into the title at large text sizes.
-                    HStack(spacing: LayoutTokens.spacing[1]) {
-                        Image(systemName: page.symbol).frame(width: store.scaled(20))
-                        Text(page.title).lineLimit(1)
+            List(selection: $model.page) {
+                ForEach(SidebarGroup.allCases, id: \.self) { group in
+                    Section {
+                        ForEach(group.pages) { page in
+                            HStack {
+                                // Not a Label: its icon column keeps a fixed width and the
+                                // icon runs into the title at large text sizes.
+                                HStack(spacing: LayoutTokens.spacing[1]) {
+                                    Image(systemName: page.symbol).frame(width: store.scaled(20))
+                                    Text(page.title).lineLimit(1)
+                                }
+                                .bvFont(.body)
+                                Spacer()
+                                if page == .upload, let job = model.uploads?.active {
+                                    UploadRing(progress: job.progress)
+                                }
+                            }
+                            .tag(page)
+                        }
                     }
-                    .bvFont(.body)
-                    Spacer()
-                    if page == .upload, let job = model.uploads?.active {
-                        UploadRing(progress: job.progress)
+                    header: {
+                        if let title = group.title {
+                            Text(title.uppercased())
+                        }
                     }
                 }
-                .tag(page)
             }
             .scrollContentBackground(.hidden)
             .background(.bvSidebar)
@@ -36,7 +47,9 @@ struct MainWindow: View {
             case .meetings: MeetingsPage(model: model)
             case .upload: UploadPage(model: model)
             case .notes: NotesPage(model: model)
+            case .integrations: ComingSoonPage(page: .integrations, model: model)
             case .settings: SettingsView(model: model)
+            case .help: ComingSoonPage(page: .help, model: model)
             }
         }
         .frame(minWidth: 820, minHeight: 560)
