@@ -25,7 +25,7 @@ Fix `e1e202e`: the popover opens on the main list every time.
 `7f3cc25` — feat(app): popover keyboard navigation and VoiceOver.
 
 ### Task 6 — Log and manual checks
-This commit, `docs: menu popover log and manual checks`.
+`74e8179` (log), plus the wording fix commit `docs: menu popover log wording`.
 
 ## Verification
 
@@ -37,16 +37,16 @@ Settings were backed up before each run and restored byte for byte (`cmp` silent
 
 Agent column: what the agent ran in the dev app. Boxes are for the owner.
 
-- [ ] 1. Light and dark match the mockup; 160% text and Serif look the same as 100%.
-  Agent: passed. Dark nord at 100%, and light (bv-light) at 160% with Serif, give the same 330 x 300 pt panel in the system font.
+- [ ] 1. Light and dark match the mockup (`docs/design/proposal-menu.html` state 1; the comparison with the mockup is left to the owner); 160% text and Serif look the same as 100%.
+  Agent: compared a 330 x 300 pt panel in the system font at dark (nord) 100% and at light (bv-light) 160% Serif; size and font are the same. Not compared against the mockup.
 - [ ] 2. Every row of the table works from the popover.
   Agent: passed for New note, Upload, Open BugVoice, Settings…, Library > Meetings, Tools > Permissions…, Tools > Open data folder, both switches, Language and Text model choices, Paste last (seeded dictation), Back. Not verified: Library > Scratchpad, Floating scratchpad (avoided on purpose), Record meeting, Quit by click, Retry, Copy, Fix…, Upload with a file. Quit was only checked through ⌘Q.
 - [ ] 3. Paste last pastes into the previously focused app.
   Agent: passed in TextEdit with a seeded dictation (Task 3). Owner: check once with a real dictation.
 - [ ] 4. Keyboard only: Down, Up, Return, Right into a submenu, Escape out, Escape closes.
-  Agent: passed (Task 5): Down, Up wrap, Tab and Shift-Tab, Return toggles a switch, Right opens a submenu, Left and Escape go Back, Escape closes (re-checked here), disabled Paste last is skipped, ⌘, and ⌘Q work.
+  Agent: passed (Task 5): Down, Up wrap, Tab and Shift-Tab, Return toggles a switch, Right opens a submenu, Left and Escape go Back, Escape closes (re-checked here), Return on a › row opens the submenu with no row highlighted and Right highlights its first row (both follow the spec, which only says Return runs the control), disabled Paste last is skipped, ⌘, and ⌘Q work.
 - [ ] 5. VoiceOver reads the status line, buttons, switches and submenus.
-  Agent: the accessibility tree matches (container "BugVoice menu", status as one element, switches with on/off, checked rows selected, › rows "submenu"). VoiceOver speech itself was not heard. Owner: turn VoiceOver on (⌘F5) and listen. Group headers may read in capitals.
+  Agent: the accessibility tree matches (container "BugVoice menu", status as one element, switches with on/off, checked rows selected, › rows "submenu"). VoiceOver speech itself was not heard. Owner: turn VoiceOver on (⌘F5) and listen. Group headers show in capitals; VoiceOver reading not checked.
 - [ ] 6. Start a meeting: strip with time, Pause/Resume, Mark moment, Stop.
   Not verified. Recording starts real audio capture, so the agent did not run it. Owner check.
 - [ ] 7. Permissions off: orange status with Fix…; Paste last disabled with no dictation.
@@ -60,10 +60,10 @@ Agent column: what the agent ran in the dev app. Boxes are for the owner.
 - Back-row highlight after leaving a submenu with the mouse (synthetic clicks could not test it).
 - Return on a › row opens the submenu with no highlight; Right highlights its first row.
 - An empty "Untitled" note was created in the owner's Scratchpad by the Task 3 New note check. It was left in place; delete it if unwanted.
-- The status item can be reached from the primary display's menu bar too (not tested here by rule).
+- The status item can be reached from the primary display's menu bar too (not clicked: Record meeting would start a recording and New note would create a note).
 
 ## Data and environment
 
-- Original settings copied before each run; restored with `cmp` identical. This run changed mode, theme, text size and font on the live file for the 160% light check, then restored.
+- Original settings copied before each run; restored with `cmp` identical. To check light, change the app's `theme` key together with `mode`: `theme` overrides `lightTheme`/`darkTheme`. This run changed mode, theme, text size and font on the live file for the 160% light check, then restored.
 - ⌘Tab in an earlier check left Chrome frontmost.
 - `.vscode/` was pre-existing and left untracked. Nothing pushed.
