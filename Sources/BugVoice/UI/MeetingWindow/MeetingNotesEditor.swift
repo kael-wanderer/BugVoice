@@ -42,6 +42,7 @@ struct MeetingNotesEditor: NSViewRepresentable {
         scroll.documentView = editor
         context.coordinator.editor = editor
         context.coordinator.observeAppearance()
+        context.coordinator.observeFrame()
         context.coordinator.restyle()
         return scroll
     }
@@ -61,6 +62,7 @@ struct MeetingNotesEditor: NSViewRepresentable {
         var text: Binding<String>
         let appearance: AppearanceStore
         weak var editor: MeetingNotesTextView?
+        nonisolated(unsafe) private var frameObserver: NSObjectProtocol?
 
         init(text: Binding<String>, appearance: AppearanceStore) { self.text = text; self.appearance = appearance }
 
@@ -91,7 +93,30 @@ struct MeetingNotesEditor: NSViewRepresentable {
             editor.textColor = style.textColor
             MarkdownTextStyler.apply(to: storage, style: style)
             editor.typingAttributes = style.typingAttributes
-            editor.textContainerInset = NSSize(width: max(LayoutTokens.spacing[1], (editor.bounds.width - appearance.readingWidth) / 2), height: LayoutTokens.spacing[2])
+            updateInset()
+        }
+
+        /// Centers the text at the reading width; runs again when the editor resizes.
+        func updateInset() {
+            guard let editor else { return }
+            let inset = NSSize(
+                width: max(LayoutTokens.spacing[1], (editor.bounds.width - appearance.readingWidth) / 2),
+                height: LayoutTokens.spacing[2])
+            if editor.textContainerInset != inset { editor.textContainerInset = inset }
+        }
+
+        func observeFrame() {
+            guard let editor, frameObserver == nil else { return }
+            editor.postsFrameChangedNotifications = true
+            frameObserver = NotificationCenter.default.addObserver(
+                forName: NSView.frameDidChangeNotification, object: editor, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.updateInset() }
+            }
+        }
+
+        deinit {
+            if let frameObserver { NotificationCenter.default.removeObserver(frameObserver) }
         }
 
         /// Tab and Shift-Tab indent list lines; elsewhere Tab types a tab.

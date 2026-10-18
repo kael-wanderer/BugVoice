@@ -476,6 +476,7 @@ struct NotesBodyEditor: NSViewRepresentable {
         controller.attachEditor(editor, to: noteID)
         context.coordinator.editor = editor
         context.coordinator.observeAppearance()
+        context.coordinator.observeFrame()
         context.coordinator.restyle()
         return scroll
     }
@@ -521,6 +522,7 @@ struct NotesBodyEditor: NSViewRepresentable {
         var noteID: NoteID
         let appearance: AppearanceStore
         weak var editor: NotesTextView?
+        nonisolated(unsafe) private var frameObserver: NSObjectProtocol?
 
         init(controller: NotesController, noteID: NoteID, appearance: AppearanceStore) {
             self.appearance = appearance
@@ -555,7 +557,30 @@ struct NotesBodyEditor: NSViewRepresentable {
             editor.textColor = style.textColor
             MarkdownTextStyler.apply(to: storage, style: style)
             editor.typingAttributes = style.typingAttributes
-            editor.textContainerInset = NSSize(width: max(LayoutTokens.spacing[1], (editor.bounds.width - appearance.readingWidth) / 2), height: LayoutTokens.spacing[2])
+            updateInset()
+        }
+
+        /// Centers the text at the reading width; runs again when the editor resizes.
+        func updateInset() {
+            guard let editor else { return }
+            let inset = NSSize(
+                width: max(LayoutTokens.spacing[1], (editor.bounds.width - appearance.readingWidth) / 2),
+                height: LayoutTokens.spacing[2])
+            if editor.textContainerInset != inset { editor.textContainerInset = inset }
+        }
+
+        func observeFrame() {
+            guard let editor, frameObserver == nil else { return }
+            editor.postsFrameChangedNotifications = true
+            frameObserver = NotificationCenter.default.addObserver(
+                forName: NSView.frameDidChangeNotification, object: editor, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.updateInset() }
+            }
+        }
+
+        deinit {
+            if let frameObserver { NotificationCenter.default.removeObserver(frameObserver) }
         }
 
         func textViewDidChangeSelection(_ notification: Notification) {

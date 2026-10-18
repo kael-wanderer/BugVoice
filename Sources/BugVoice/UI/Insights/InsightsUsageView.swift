@@ -2,13 +2,19 @@ import SwiftUI
 import VoiceCore
 
 struct InsightsUsageView: View {
+    @Environment(AppearanceStore.self) private var store
     let summary: InsightsSummary
     let period: InsightsPeriod
 
+    /// Cards wrap onto more rows as text grows instead of squeezing their titles.
+    private var cardColumns: [GridItem] {
+        [GridItem(.adaptive(minimum: store.scaled(170)), spacing: LayoutTokens.spacing[2], alignment: .top)]
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: LayoutTokens.spacing[2]) {
-            Grid(horizontalSpacing: 12, verticalSpacing: 12) {
-                GridRow {
+            LazyVGrid(columns: cardColumns, spacing: LayoutTokens.spacing[2]) {
+                Group {
                     StatCard(title: "Words spoken", symbol: "mic", value: summary.words.formatted(),
                              subtitle: "\(period.label) · \(summary.wordsToday.formatted()) today")
                     StatCard(title: "Words per minute", symbol: "gauge.with.needle", value: "\(summary.wordsPerMinute)",
@@ -19,8 +25,8 @@ struct InsightsUsageView: View {
                              subtitle: "Longest: \(Self.days(summary.longestStreak))")
                 }
             }
-            Grid(horizontalSpacing: 12, verticalSpacing: 12) {
-                GridRow {
+            LazyVGrid(columns: cardColumns, spacing: LayoutTokens.spacing[2]) {
+                Group {
                     StatCard(title: "Notes", symbol: "note.text", value: summary.notes.formatted(),
                              subtitle: "\(summary.noteWords.formatted()) words spoken into notes")
                     StatCard(title: "Meetings", symbol: "person.2", value: summary.meetings.formatted(),

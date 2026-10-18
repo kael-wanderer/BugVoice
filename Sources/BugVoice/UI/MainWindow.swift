@@ -10,7 +10,13 @@ struct MainWindow: View {
         NavigationSplitView {
             List(Page.allCases, selection: $model.page) { page in
                 HStack {
-                    Label(page.title, systemImage: page.symbol).bvFont(.body)
+                    // Not a Label: its icon column keeps a fixed width and the
+                    // icon runs into the title at large text sizes.
+                    HStack(spacing: LayoutTokens.spacing[1]) {
+                        Image(systemName: page.symbol).frame(width: store.scaled(20))
+                        Text(page.title).lineLimit(1)
+                    }
+                    .bvFont(.body)
                     Spacer()
                     if page == .upload, let job = model.uploads?.active {
                         UploadRing(progress: job.progress)

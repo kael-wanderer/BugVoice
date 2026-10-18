@@ -22,6 +22,7 @@ struct StatCard: View {
         VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
             Label(title, systemImage: symbol)
                 .bvFont(.body)
+                .lineLimit(1)
                 .foregroundStyle(.bvSecondary)
             Text(value)
                 .bvFont(.stat)

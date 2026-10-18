@@ -20,6 +20,21 @@ struct PillTabs<Value: Hashable>: View {
     var size: Size = .regular
 
     var body: some View {
+        // When the pills do not fit on one line, whole pills move to the next
+        // row, so labels never break and every tab stays visible.
+        ViewThatFits(in: .horizontal) {
+            track
+            FlowLayout(spacing: LayoutTokens.spacing[0]) {
+                ForEach(items.indices, id: \.self) { index in
+                    pill(items[index])
+                }
+            }
+            .padding(LayoutTokens.spacing[0])
+            .background(RoundedRectangle(cornerRadius: LayoutTokens.largeCardRadius).fill(store.theme.text.opacity(0.07)))
+        }
+    }
+
+    private var track: some View {
         HStack(spacing: LayoutTokens.spacing[0]) {
             ForEach(items.indices, id: \.self) { index in
                 pill(items[index])
@@ -35,7 +50,7 @@ struct PillTabs<Value: Hashable>: View {
             selection = item.value
         } label: {
             HStack(spacing: LayoutTokens.spacing[0]) {
-                Text(item.title)
+                Text(item.title).lineLimit(1).fixedSize()
                 if let badge = item.badge {
                     Text(badge)
                         .bvFont(.caption)

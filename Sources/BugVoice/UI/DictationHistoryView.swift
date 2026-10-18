@@ -29,7 +29,10 @@ struct DictationHistoryView: View {
         let stats = HistoryStats.compute(model.history, now: Date())
         ScrollView {
             VStack(alignment: .leading, spacing: LayoutTokens.spacing[2]) {
-                HStack(spacing: LayoutTokens.spacing[1]) {
+                LazyVGrid(
+                    columns: [GridItem(.adaptive(minimum: store.scaled(130)), spacing: LayoutTokens.spacing[1], alignment: .leading)],
+                    alignment: .leading, spacing: LayoutTokens.spacing[1]
+                ) {
                     StatTile(value: stats.wordsToday.formatted(), label: "words today")
                     StatTile(value: "\(stats.wordsPerMinute)", label: "words per minute")
                     StatTile(value: "\(stats.dictationsToday)", label: "dictations today")
@@ -84,10 +87,10 @@ struct StatTile: View {
     var body: some View {
         VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
             Text(value).bvFont(.title2).monospacedDigit()
-            Text(label).bvFont(.footnote).foregroundStyle(.bvSecondary)
+            Text(label).bvFont(.footnote).foregroundStyle(.bvSecondary).lineLimit(1)
         }
         .padding(.horizontal, LayoutTokens.spacing[2]).padding(.vertical, LayoutTokens.spacing[1])
-        .frame(minWidth: store.scaled(130), alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(.bvCard, in: RoundedRectangle(cornerRadius: LayoutTokens.cardRadius))
         .overlay(RoundedRectangle(cornerRadius: LayoutTokens.cardRadius).stroke(.bvSeparator))
     }

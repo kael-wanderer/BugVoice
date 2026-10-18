@@ -111,13 +111,19 @@ owner checks. No claim of a complete spoken-dictation matrix is made.
 
 ## 160% fit observations — layouts preserved
 
-- **Settings:** the horizontal tab row wraps into short syllables/single characters at
-  1000 × 680. Some labels also break words at 100%. Models controls collapse or truncate; Storage paths/model names truncate.
-  Some Models picker truncation also exists at 100%. Content remains vertically scrollable.
-- **Style:** the existing horizontal tabs break words/wrap; content scrolls vertically.
-- **Dictation:** the statistics/actions row extends past the trailing window edge.
-- **Sidebar:** some wide-content pages clip the leading edge of sidebar labels at 160%.
-- **Insights:** short labels break words; subtitles ellipsize; Details / All time wrap.
+- **Fixed after review (rechecked at 100% and 160% in 1000 × 680):**
+  - Settings and Style tabs: labels never break; when the row does not fit, whole pills
+    move to a second row (`PillTabs` falls back to `FlowLayout`). Settings shows all nine
+    tabs at both sizes; at 100% Storage sits on the second row.
+  - Dictation: the four stat tiles form an adaptive grid (two per row at 160%); nothing
+    runs past the window edge.
+  - Sidebar: icons no longer overlap titles (fixed-width scaled icon column instead of
+    `Label`); no clipped labels on Dictation, Insights, Meetings, Settings, Style.
+  - Insights: stat cards wrap in an adaptive grid; the period pills and Local move under
+    the Usage / Details pills when they do not fit.
+  - Note editors: reading-width centering is recalculated when the editor resizes.
+- **Still open:** Models controls and Storage paths truncate (also at 100%); the Meetings
+  empty-detail message uses system fonts (`ContentUnavailableView`).
 - **Dictionary:** the add-field placeholder truncates at both sizes. Its existing responsive
   rule hides the illustration at narrow widths. Snippet text deliberately uses one-line
   truncation; the empty Snippets subtab was also captured in the final pass.

@@ -29,15 +29,31 @@ struct InsightsPage: View {
     }
 
     private var header: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: LayoutTokens.spacing[2]) {
+                tabs
+                Spacer()
+                periods
+            }
+            VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {
+                tabs
+                periods
+            }
+        }
+    }
+
+    private var tabs: some View {
+        PillTabs(
+            items: [
+                .init(value: InsightsTab.usage, title: "Usage"),
+                .init(value: InsightsTab.details, title: "Details", badge: "Later", isEnabled: false),
+            ],
+            selection: $tab
+        )
+    }
+
+    private var periods: some View {
         HStack(spacing: LayoutTokens.spacing[2]) {
-            PillTabs(
-                items: [
-                    .init(value: InsightsTab.usage, title: "Usage"),
-                    .init(value: InsightsTab.details, title: "Details", badge: "Later", isEnabled: false),
-                ],
-                selection: $tab
-            )
-            Spacer()
             PillTabs(
                 items: InsightsPeriod.allCases.map { .init(value: $0, title: $0.title) },
                 selection: $period,
@@ -46,6 +62,8 @@ struct InsightsPage: View {
             Label("Local", systemImage: "desktopcomputer")
                 .bvFont(.body)
                 .foregroundStyle(.bvSecondary)
+                .lineLimit(1)
+                .fixedSize()
         }
     }
 }

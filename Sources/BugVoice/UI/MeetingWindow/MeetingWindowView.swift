@@ -369,7 +369,7 @@ struct MeetingWindowView: View {
                         Task { await controller.stop() }
                     } label: {
                         HStack(spacing: LayoutTokens.spacing[0]) {
-                            RoundedRectangle(cornerRadius: LayoutTokens.controlRadius).fill(.bvRecording).frame(width: 9, height: 9)
+                            RoundedRectangle(cornerRadius: 2).fill(.bvRecording).frame(width: 9, height: 9)
                             Text("Stop")
                         }
                     }

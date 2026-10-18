@@ -85,7 +85,7 @@ struct ActivityHeatmap: View {
         HStack(spacing: LayoutTokens.spacing[0]) {
             Text("Less")
             ForEach(1...4, id: \.self) { level in
-                RoundedRectangle(cornerRadius: LayoutTokens.controlRadius).fill(color(level: level)).frame(width: 10, height: 10)
+                RoundedRectangle(cornerRadius: 2).fill(color(level: level)).frame(width: 10, height: 10)
             }
             Text("More")
         }

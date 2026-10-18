@@ -62,7 +62,7 @@ struct HUDView: View {
             Text(title).fontWeight(.semibold)
             Text(detail).foregroundStyle(.bvSecondary)
         case .failure(let title, let detail):
-            RoundedRectangle(cornerRadius: LayoutTokens.controlRadius).fill(.bvRecording).frame(width: 8 * factor, height: 8 * factor)
+            RoundedRectangle(cornerRadius: 2 * factor).fill(.bvRecording).frame(width: 8 * factor, height: 8 * factor)
             Text(title).fontWeight(.semibold)
             Text(detail).foregroundStyle(.bvSecondary)
         case .nothingHeard:
