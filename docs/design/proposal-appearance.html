@@ -1,0 +1,1005 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BugVoice Appearance</title>
+<meta name="description" content="Combined mockup: appearance foundation (text size, fonts, themes, icons), standard title bar, two section-list layouts, menu bar popover, Style with first-run setup, Shortcuts, Integrations, and Help.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* Tokens. JS writes the theme colors and --s (text scale) on :root. Every size below is a token. */
+:root{
+  --s:1;--lead:1.5;--measure:760px;
+  --font:-apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,monospace;
+  --bg:#202225;--side:#1b1d20;--card:#272a2e;--hover:#2e3136;--line:#393d43;--text:#eeeff1;--muted:#a4aab3;--accent:#88aaff;--on-accent:#0b0d12;--soft:#293a57;
+  --rec:#e5484d;--good:#3fa46a;--warn:#d9822b;--desk:#111315;
+  --t-cap:calc(11px*var(--s));--t-foot:calc(12px*var(--s));--t-body:calc(13px*var(--s));--t-read:calc(15px*var(--s));
+  --t-3:calc(15px*var(--s));--t-2:calc(18px*var(--s));--t-1:calc(22px*var(--s));--t-large:calc(28px*var(--s));
+  --sp1:4px;--sp2:8px;--sp3:12px;--sp4:16px;--sp5:24px;--sp6:32px;
+  --r1:6px;--r2:10px;--r3:14px;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--desk);color:var(--text);font-family:var(--font);font-size:var(--t-body);line-height:var(--lead);-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+code,.mono{font-family:var(--mono)}
+.foot{font-size:var(--t-foot);color:var(--muted)}
+.muted{color:var(--muted)}
+h1,h2,h3,h4{margin:0;line-height:1.25;font-weight:600}
+.t-1{font-size:var(--t-1)}.t-2{font-size:var(--t-2)}.t-3{font-size:var(--t-3)}
+.read{font-size:var(--t-read);line-height:calc(var(--lead) + .05)}
+p{margin:0}
+kbd{font-family:var(--font);font-size:var(--t-cap);border:1px solid var(--line);background:var(--hover);border-radius:4px;padding:.05em .45em;color:var(--muted);white-space:nowrap}
+
+/* Review chrome: fixed size so reviewers can always find it. */
+.review{max-width:1360px;margin:0 auto;padding:20px 16px 48px}
+.intro{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between;margin-bottom:14px;font-size:13px;line-height:1.45}
+.intro .eyebrow{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.intro h1{font-size:24px;margin:4px 0}
+.intro p{color:var(--muted);max-width:640px}
+.quick{display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-size:12px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.quick label{display:flex;gap:6px;align-items:center;color:var(--muted)}
+.quick select,.quick input{font-size:12px}
+.chrome{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin:0 0 14px}
+.pills{display:flex;flex-wrap:wrap;gap:6px;font-size:13px}
+.pills button{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 14px;font-size:13px}
+.pills button[aria-pressed=true]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.pills .lbl{font-size:12px;color:var(--muted);align-self:center;margin-right:2px}
+.note{margin-top:16px;font-size:13px;line-height:1.5;color:var(--muted);border-left:3px solid var(--accent);padding:4px 12px;max-width:940px}
+.note b{color:var(--text)}
+
+/* Controls (scale with text) */
+.btn{display:inline-flex;align-items:center;gap:.45em;border:1px solid var(--line);background:var(--card);border-radius:var(--r1);padding:.45em .9em;font-size:var(--t-body);line-height:1.3;white-space:nowrap}
+.btn:hover{background:var(--hover)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600}
+.btn.ghost{background:transparent;border-color:transparent}
+.btn.icon{padding:.45em .5em}
+.btn svg,.nav svg,.mi svg,.search svg,.ico{width:1.15em;height:1.15em;flex:none;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.split{display:inline-flex;position:relative}
+.split>.btn:first-child{border-radius:var(--r1) 0 0 var(--r1)}
+.split>.btn.caret{border-radius:0 var(--r1) var(--r1) 0;border-left:1px solid color-mix(in srgb,var(--on-accent) 25%,transparent);padding:.45em .55em}
+.dropdown{position:absolute;right:0;top:calc(100% + 6px);min-width:calc(220px*var(--s));background:var(--card);border:1px solid var(--line);border-radius:var(--r2);box-shadow:0 14px 40px #0006;padding:6px;z-index:10}
+.dropdown .grp{font-size:var(--t-cap);color:var(--muted);padding:.5em .6em .2em;text-transform:uppercase;letter-spacing:.05em}
+.dropdown hr{border:0;border-top:1px solid var(--line);margin:4px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:var(--r1);overflow:hidden;background:var(--card)}
+.seg button{border:0;background:transparent;padding:.4em .85em;font-size:var(--t-body);border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed=true]{background:var(--soft);color:var(--text);font-weight:600}
+input[type=search],input[type=text],select,textarea{background:var(--bg);border:1px solid var(--line);border-radius:var(--r1);padding:.42em .7em;font-size:var(--t-body)}
+textarea{width:100%;min-height:6em;resize:vertical;line-height:var(--lead)}
+.switch{width:2.6em;height:1.5em;border-radius:999px;border:0;background:var(--line);position:relative;flex:none}
+.switch::after{content:"";position:absolute;top:.18em;left:.18em;width:1.14em;height:1.14em;border-radius:50%;background:#fff;transition:left .15s}
+.switch[aria-checked=true]{background:var(--accent)}
+.switch[aria-checked=true]::after{left:1.28em}
+.chip{display:inline-flex;align-items:center;gap:.4em;font-size:var(--t-foot);padding:.2em .7em;border-radius:999px;background:var(--soft);color:var(--text);white-space:nowrap}
+.badge{font-size:var(--t-cap);border:1px solid var(--line);border-radius:999px;padding:0 .55em;color:var(--muted);margin-left:auto}
+.codebox{display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--line);border-radius:var(--r1);padding:.55em .8em;font-family:var(--mono);font-size:var(--t-foot);margin:.4em 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.codebox span{flex:1}
+
+/* App window */
+.window{display:grid;grid-template-columns:calc(200px*var(--s)) minmax(0,1fr);background:var(--bg);border:1px solid var(--line);border-radius:12px;overflow:hidden;min-height:max(760px,calc(700px*var(--s)));box-shadow:0 24px 60px #0006;position:relative}
+.titlebar{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,calc(460px*var(--s))) minmax(0,1fr);align-items:center;gap:var(--sp4);padding:var(--sp3) var(--sp4);border-bottom:1px solid var(--line);min-height:calc(52px*var(--s))}
+.tb-left{display:flex;align-items:center;gap:var(--sp3);min-width:0}
+.tb-left h1{font-size:var(--t-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tb-right{display:flex;justify-content:flex-end;align-items:center;gap:var(--sp2)}
+.lights{display:flex;gap:7px;margin-right:6px}.lights i{width:12px;height:12px;border-radius:50%;background:#ff5f57}.lights i:nth-child(2){background:#febc2e}.lights i:nth-child(3){background:#28c840}
+.search{position:relative}
+.search .box{display:flex;align-items:center;gap:.5em;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:.4em .6em .4em .9em;color:var(--muted)}
+.search .box input{flex:1;min-width:0;border:0;background:transparent;padding:0;outline:none;color:var(--text)}
+.search .results{left:0;right:0;min-width:0}
+.result{display:block;width:100%;text-align:left;border:0;background:transparent;border-radius:var(--r1);padding:.45em .6em}
+.result:hover{background:var(--hover)}
+.result small{display:block;color:var(--muted);font-size:var(--t-foot);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.window.nosidebar,.window.single{grid-template-columns:minmax(0,1fr)}
+.window.nosidebar .sidebar{display:none}
+.main{display:flex;flex-direction:column;min-width:0;min-height:0}
+.main>.page{flex:1}
+.sidebar{background:var(--side);border-right:1px solid var(--line);padding:var(--sp4) var(--sp2) var(--sp3);display:flex;flex-direction:column;gap:2px}
+.sidebar .lights{padding:0 .5em var(--sp4)}
+.brand{display:flex;align-items:center;gap:.6em;padding:0 .5em .6em;font-weight:600;font-size:var(--t-3)}
+.brand svg{width:1.7em;height:1.7em;border-radius:22%}
+.navgroup{font-size:var(--t-cap);color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:.9em .6em .3em}
+.nav{display:flex;align-items:center;gap:.6em;border:1px solid transparent;background:transparent;text-align:left;padding:.42em .6em;border-radius:var(--r1);font-size:var(--t-body);width:100%}
+.nav:hover{background:var(--hover)}
+.nav[aria-current=page],.nav[aria-current=true]{background:var(--soft);border-color:color-mix(in srgb,var(--accent) 55%,transparent);font-weight:600}
+.sidebar .spacer{flex:1}
+.page{display:flex;min-width:0;min-height:0}
+.page>.body{flex:1}
+.body{padding:var(--sp5);overflow:auto;min-width:0}
+.column{max-width:var(--measure);margin:0 auto}
+.dash{max-width:calc(var(--measure) + 260px);margin:0 auto}
+/* Section list as its own pane (option 1, and file pages in both options) */
+.pane{width:calc(250px*var(--s));flex:none;border-right:1px solid var(--line);background:color-mix(in srgb,var(--side) 50%,var(--bg));padding:var(--sp3) var(--sp2);overflow:auto;display:flex;flex-direction:column;gap:2px}
+.pane .grp{font-size:var(--t-cap);color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:.9em .6em .3em}
+.pane .grp:first-child{padding-top:.2em}
+.pane .spacer{flex:1}
+/* Section list inside the page (option 2, static pages) */
+.inline{display:grid;grid-template-columns:calc(180px*var(--s)) minmax(0,1fr);gap:var(--sp5);align-items:start;max-width:calc(180px*var(--s) + var(--sp5) + var(--measure));margin:0 auto}
+.inline.wide{max-width:calc(180px*var(--s) + var(--sp5) + var(--measure) + 260px)}
+.inline .column,.inline .dash{margin:0}
+.inline .subnav{display:flex;flex-direction:column;gap:2px;position:sticky;top:0}
+.inline .subnav .grp{font-size:var(--t-cap);color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:.7em .6em .2em}
+.sechead{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--sp4);margin-bottom:var(--sp4)}
+.sechead p{color:var(--muted);margin-top:.25em}
+.item{display:block;width:100%;text-align:left;border:1px solid transparent;background:transparent;border-radius:var(--r1);padding:.6em .75em;margin-bottom:2px}
+.item:hover{background:var(--hover)}
+.item[aria-current=true]{background:var(--soft);border-color:color-mix(in srgb,var(--accent) 55%,transparent)}
+.item b{display:block;font-weight:600}
+.item span{display:block;font-size:var(--t-foot);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.toolbar{display:flex;flex-wrap:wrap;gap:var(--sp2);align-items:center;margin-bottom:var(--sp4)}
+.toolbar .spacer{flex:1}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r2);padding:var(--sp4);margin-bottom:var(--sp4)}
+.panel>h3{font-size:var(--t-3);margin-bottom:var(--sp3)}
+.panel>.desc{color:var(--muted);margin:-6px 0 var(--sp3)}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(calc(140px*var(--s)),1fr));gap:var(--sp3);margin-bottom:var(--sp4)}
+.metric{background:var(--card);border:1px solid var(--line);border-radius:var(--r2);padding:var(--sp3) var(--sp4)}
+.metric strong{display:block;font-size:var(--t-1)}
+.metric span{color:var(--muted);font-size:var(--t-foot)}
+.entry{display:grid;grid-template-columns:calc(78px*var(--s)) minmax(0,1fr) auto;gap:var(--sp3);padding:var(--sp3) 0;border-bottom:1px solid var(--line);align-items:start}
+.entry:last-child{border-bottom:0}
+.entry .when{font-size:var(--t-foot);color:var(--muted)}
+.row{display:flex;align-items:center;gap:var(--sp3);padding:var(--sp3) 0;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:0}
+.row .grow{flex:1;min-width:0}
+.row small{display:block;color:var(--muted);font-size:var(--t-foot)}
+.appico{width:2.4em;height:2.4em;border-radius:var(--r2);display:grid;place-items:center;flex:none;background:var(--hover);border:1px solid var(--line)}
+.table{width:100%;border-collapse:collapse}
+.table th{text-align:left;font-size:var(--t-foot);color:var(--muted);font-weight:500;padding:.5em .6em;border-bottom:1px solid var(--line)}
+.table td{padding:.6em;border-bottom:1px solid var(--line);vertical-align:middle}
+.bars .b{display:grid;grid-template-columns:calc(110px*var(--s)) 1fr auto;gap:var(--sp3);align-items:center;margin:.45em 0}
+.bars .track{height:.6em;border-radius:99px;background:var(--hover);overflow:hidden}.bars .track i{display:block;height:100%;background:var(--accent);border-radius:99px}
+.heat{display:grid;grid-template-columns:repeat(42,1fr);gap:3px}
+.heat i{aspect-ratio:1;border-radius:2px;background:var(--hover)}
+.heat i.l1{background:color-mix(in srgb,var(--accent) 35%,var(--hover))}.heat i.l2{background:color-mix(in srgb,var(--accent) 65%,var(--hover))}.heat i.l3{background:var(--accent)}
+.detail{padding:var(--sp5);overflow:auto;flex:1;min-width:0}
+.detail .inner{max-width:var(--measure);margin:0 auto}
+.tline{display:grid;grid-template-columns:calc(54px*var(--s)) minmax(0,1fr);gap:var(--sp3);margin:.6em 0}
+.tline .ts{font-family:var(--mono);font-size:var(--t-foot);color:var(--muted);padding-top:.2em}
+.drop{border:2px dashed var(--line);border-radius:var(--r3);padding:var(--sp6);text-align:center;margin-bottom:var(--sp4)}
+.drop svg{width:2.4em;height:2.4em;stroke:var(--muted);fill:none;stroke-width:1.5}
+.tabs{display:flex;flex-wrap:wrap;gap:var(--sp4);border-bottom:1px solid var(--line);margin-bottom:var(--sp4)}
+.tabs button{border:0;background:transparent;padding:.55em 0;font-size:var(--t-body);color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs button[aria-selected=true]{color:var(--text);border-bottom-color:var(--text);font-weight:600}
+
+/* Round pill group: every pill the same width */
+.pillseg{display:inline-grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:2px;background:var(--hover);border:1px solid var(--line);border-radius:999px;padding:3px}
+.pillseg button{border:0;background:transparent;border-radius:999px;padding:.38em 1.1em;font-size:var(--t-body);color:var(--muted);white-space:nowrap}
+.pillseg button:hover{color:var(--text)}
+.pillseg.sm{padding:2px}.pillseg.sm button{padding:.22em .8em;font-size:var(--t-foot)}
+.pillseg button[aria-pressed=true]{background:var(--bg);color:var(--text);font-weight:600;box-shadow:0 1px 3px #0003}
+/* Settings rows */
+.setrow{display:flex;justify-content:space-between;align-items:center;gap:var(--sp4);padding:var(--sp3) 0;border-bottom:1px solid var(--line)}
+.setrow:last-child{border-bottom:0}
+.setrow>div:first-child{min-width:0}
+.setrow small{display:block;color:var(--muted);font-size:var(--t-foot)}
+.setrow.stack{flex-direction:column;align-items:stretch}
+.range{display:flex;align-items:center;gap:var(--sp2)}
+.range input{width:calc(200px*var(--s))}
+.range output{min-width:3.5em;text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+.fonts{display:grid;grid-template-columns:repeat(auto-fill,minmax(calc(165px*var(--s)),1fr));gap:var(--sp2)}
+.fontcard{border:1px solid var(--line);background:var(--bg);border-radius:var(--r2);padding:var(--sp3);text-align:left}
+.fontcard[aria-pressed=true],.themetile[aria-pressed=true],.stylecard[aria-pressed=true]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.fontcard .aa{font-size:calc(26px*var(--s));line-height:1.1}
+.fontcard .nm{font-size:var(--t-foot);color:var(--muted);font-family:var(--font)}
+.fontcard .vi{font-size:var(--t-body);margin-top:.3em}
+.preview{border:1px solid var(--line);border-radius:var(--r2);background:var(--bg);padding:var(--sp4);display:grid;gap:var(--sp2)}
+.preview code{font-size:var(--t-foot);background:var(--hover);border-radius:4px;padding:.15em .4em}
+.themegroup{margin:var(--sp3) 0 var(--sp2);font-size:var(--t-foot);color:var(--muted);font-weight:600}
+.themes{display:grid;grid-template-columns:repeat(auto-fill,minmax(calc(150px*var(--s)),1fr));gap:var(--sp2)}
+.themetile{border:1px solid var(--line);border-radius:var(--r2);padding:6px;background:transparent;text-align:left}
+.mini{display:grid;grid-template-columns:30% 1fr;height:62px;border-radius:6px;overflow:hidden;border:1px solid #0002}
+.mini .ms{padding:6px 5px;display:grid;gap:4px;align-content:start}
+.mini .mc{padding:7px;display:grid;gap:5px;align-content:start}
+.mini i{display:block;height:5px;border-radius:3px}
+.themetile .tn{display:flex;justify-content:space-between;gap:4px;align-items:center;margin-top:5px;font-size:var(--t-foot)}
+.ratio{font-size:var(--t-cap);border-radius:4px;padding:0 .35em;border:1px solid var(--line);color:var(--muted);font-variant-numeric:tabular-nums}
+.ratio.aaa{color:var(--good);border-color:var(--good)}
+/* HUD follows the theme; border and shadow keep it visible over any app */
+.hud{display:inline-flex;align-items:center;gap:.6em;background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:999px;padding:.55em 1em .55em .8em;box-shadow:0 8px 24px #0004}
+.hud .dot{width:.6em;height:.6em;border-radius:50%;background:var(--rec)}
+.hud .lv{display:flex;gap:2px;align-items:center}.hud .lv i{width:3px;border-radius:2px;background:var(--text)}
+.hudstage{display:flex;gap:var(--sp3);flex-wrap:wrap;padding:var(--sp3) 0 var(--sp1)}
+.hudstage>div{flex:1;min-width:200px;border-radius:var(--r2);padding:var(--sp4);display:flex;justify-content:center;border:1px solid var(--line)}
+.carousel{display:flex;align-items:center;gap:var(--sp3)}
+.carousel svg.big{width:112px;height:112px}
+.dots{display:flex;gap:5px;justify-content:center;margin-top:6px}.dots i{width:6px;height:6px;border-radius:50%;background:var(--line)}.dots i.on{background:var(--accent)}
+.glyphs{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:6px}
+.glyph{border:1px solid var(--line);border-radius:var(--r1);background:transparent;padding:4px;display:grid;gap:3px}
+.glyph[aria-pressed=true]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.glyph .mb{display:flex;justify-content:center;padding:4px 0;border-radius:4px}
+.glyph .mb svg{width:18px;height:18px;fill:none;stroke:currentColor}
+.glyph .mb.l{background:#eceef2;color:#111}.glyph .mb.d{background:#26282c;color:#fff}
+.mbpreview{display:grid;gap:6px;width:112px}
+.mbpreview .mb{display:flex;justify-content:center;align-items:center;height:53px;border-radius:var(--r2);border:1px solid var(--line)}
+.mbpreview .mb svg{width:28px;height:28px;fill:none;stroke:currentColor}
+.mbpreview .mb.l{background:#eceef2;color:#111}.mbpreview .mb.d{background:#26282c;color:#fff}
+.keycap{display:inline-flex;gap:3px}
+.keycap kbd{font-size:var(--t-foot);color:var(--text);padding:.15em .55em}
+.warnline{color:var(--warn);font-size:var(--t-foot)}
+
+/* Style */
+.banner{border-radius:var(--r3);padding:var(--sp5);display:flex;flex-wrap:wrap;gap:var(--sp4);align-items:center;justify-content:space-between;margin-bottom:var(--sp4);background:linear-gradient(120deg,color-mix(in srgb,var(--accent) 22%,var(--card)),var(--card) 70%);border:1px solid var(--line)}
+.banner h2{font-size:var(--t-1)}
+.banner p{color:var(--muted);margin-top:.3em}
+.apps{display:flex;align-items:center;position:relative}
+.app{width:2.4em;height:2.4em;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:var(--t-foot);border:2px solid var(--card);margin-left:-.45em;color:#fff}
+.app:first-child{margin-left:0}
+.app.add{background:var(--hover);color:var(--text);border-style:dashed;border-color:var(--line);cursor:pointer}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(calc(190px*var(--s)),1fr));gap:var(--sp3)}
+.stylecard{text-align:left;border:1px solid var(--line);background:var(--card);border-radius:var(--r3);padding:var(--sp4);display:flex;flex-direction:column;gap:var(--sp3);min-height:calc(250px*var(--s))}
+.stylecard .nm{font-size:var(--t-3);font-weight:600}
+.stylecard .rule{color:var(--muted)}
+.stylecard .ex{margin-top:auto;background:var(--soft);border-radius:var(--r2);padding:var(--sp3);white-space:pre-line}
+.stylecard .ex.mono{font-family:var(--mono);font-size:var(--t-foot)}
+details.custom{margin-top:var(--sp4)}
+details.custom summary{cursor:pointer;color:var(--muted)}
+
+/* Interview */
+.sheet{position:absolute;inset:0;background:var(--bg);display:flex;flex-direction:column;padding:var(--sp5) var(--sp6);z-index:5;overflow:auto}
+.progress{display:flex;gap:8px;justify-content:center;margin-bottom:var(--sp5)}
+.progress i{width:56px;height:4px;border-radius:2px;background:var(--line)}.progress i.on{background:var(--text)}
+.ask{display:flex;flex-wrap:wrap;gap:var(--sp3);align-items:center;justify-content:center;margin-bottom:var(--sp2);text-align:center}
+.ask h1{font-size:var(--t-large)}
+.ask h1 em{font-style:normal;color:var(--accent)}
+.sheetfoot{display:flex;justify-content:space-between;align-items:center;margin-top:auto;padding-top:var(--sp5)}
+
+/* Menu bar */
+.menustage{position:relative;background:linear-gradient(160deg,#5a6b8c,#2b3346);border-radius:12px;min-height:max(720px,calc(660px*var(--s)));overflow:hidden;border:1px solid var(--line)}
+.macbar{display:flex;align-items:center;gap:16px;height:28px;padding:0 14px;background:#ffffff2e;color:#fff;font-size:13px}
+.macbar .spacer{flex:1}
+.macbar svg{width:18px;height:18px;fill:none;stroke:#fff}
+.pop{position:absolute;right:120px;top:34px;width:calc(330px*var(--s));background:var(--card);border:1px solid var(--line);border-radius:var(--r3);box-shadow:0 18px 50px #0007;padding:var(--sp2)}
+.pop .status{display:flex;gap:var(--sp2);align-items:center;padding:.5em .6em .7em}
+.pop .status b{display:block}
+.pop .status small{display:block;color:var(--muted);font-size:var(--t-foot)}
+.pop .status .led{width:.7em;height:.7em;border-radius:50%;background:var(--good);flex:none}
+.pop .grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:0 .2em .4em}
+.pop .grid .btn{justify-content:flex-start;padding:.65em .8em}
+.pop hr{border:0;border-top:1px solid var(--line);margin:.4em .2em}
+.pop .last{padding:.4em .6em}
+.pop .last p{margin:.25em 0 .45em;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.mi{display:flex;align-items:center;gap:.6em;width:100%;border:0;background:transparent;border-radius:var(--r1);padding:.42em .6em;text-align:left}
+.mi:hover{background:var(--accent);color:var(--on-accent)}
+.mi .k{margin-left:auto;color:var(--muted);font-size:var(--t-foot)}
+.mi:hover .k{color:inherit}
+.menuexplain{position:absolute;left:24px;top:60px;width:min(400px,calc(100% - 48px));color:#fff;font-size:13px;line-height:1.5}
+.menuexplain h2{font-size:20px;margin-bottom:8px}
+.menuexplain ol{padding-left:18px}
+
+.ramp td:first-child{font-family:var(--mono);font-size:var(--t-foot);color:var(--muted);white-space:nowrap}
+.sw{display:inline-block;width:1.4em;height:1.4em;border-radius:4px;border:1px solid var(--line);vertical-align:middle;margin-right:.5em}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#111;color:#fff;padding:8px 14px;border-radius:8px;font-size:13px;z-index:20}
+
+@media (max-width:900px){
+  .window{grid-template-columns:1fr}.sidebar{display:none}
+  .titlebar{grid-template-columns:1fr auto}.titlebar .search{grid-column:1/-1;grid-row:2}
+  .page{flex-direction:column}.pane{width:auto;border-right:0;border-bottom:1px solid var(--line);max-height:240px}
+  .inline{grid-template-columns:1fr}.inline .subnav{flex-direction:row;flex-wrap:wrap;position:static}
+  .pop{right:16px;left:16px;width:auto}.menuexplain{display:none}
+  .sheet{padding:var(--sp4)}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5a90ff"/><stop offset="1" stop-color="#1f4fd6"/></linearGradient>
+    <linearGradient id="g2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff7a73"/><stop offset="1" stop-color="#d42f4a"/></linearGradient>
+    <linearGradient id="g3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#34343a"/><stop offset="1" stop-color="#141416"/></linearGradient>
+    <linearGradient id="g4" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#faf7f1"/><stop offset="1" stop-color="#e2dbcd"/></linearGradient>
+    <linearGradient id="g5" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8a6cff"/><stop offset="1" stop-color="#2f6df6"/></linearGradient>
+    <linearGradient id="g6" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b2a5c"/><stop offset="1" stop-color="#070c1f"/></linearGradient>
+    <radialGradient id="glow6" cx=".5" cy=".55" r=".55"><stop offset="0" stop-color="#fff6b0"/><stop offset=".6" stop-color="#ffd84d"/><stop offset="1" stop-color="#f5a524"/></radialGradient>
+    <linearGradient id="g7" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff6ea"/><stop offset="1" stop-color="#f0d9bb"/></linearGradient>
+    <linearGradient id="g8" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd84a"/><stop offset="1" stop-color="#f59f00"/></linearGradient>
+    <linearGradient id="g9" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4be3a4"/><stop offset="1" stop-color="#0c8a5a"/></linearGradient>
+    <linearGradient id="g10" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6f5f2"/><stop offset="1" stop-color="#d6d3cc"/></linearGradient>
+    <linearGradient id="g11" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffa94d"/><stop offset="1" stop-color="#e8590c"/></linearGradient>
+    <linearGradient id="g12" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3bc9db"/><stop offset="1" stop-color="#0b7285"/></linearGradient>
+    <linearGradient id="g13" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#eef0f3"/><stop offset="1" stop-color="#c9ced6"/></linearGradient>
+    <linearGradient id="g14" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f3150"/><stop offset="1" stop-color="#15162a"/></linearGradient>
+    <linearGradient id="g15" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5cb8ff"/><stop offset="1" stop-color="#1864ab"/></linearGradient>
+  </defs>
+
+  <!-- 1 Wave Bug -->
+  <symbol id="app1" viewBox="0 0 1024 1024">
+    <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#g1)"/>
+    <g stroke="#fff" stroke-width="26" stroke-linecap="round" fill="none">
+      <path d="M470 286 Q440 222 392 206"/><path d="M554 286 Q584 222 632 206"/>
+      <path d="M312 470 L248 440"/><path d="M302 570 L232 570"/><path d="M312 670 L248 702"/>
+      <path d="M712 470 L776 440"/><path d="M722 570 L792 570"/><path d="M712 670 L776 702"/>
+    </g>
+    <circle cx="392" cy="206" r="20" fill="#fff"/><circle cx="632" cy="206" r="20" fill="#fff"/>
+    <circle cx="512" cy="318" r="62" fill="#fff"/>
+    <ellipse cx="512" cy="566" rx="208" ry="232" fill="#fff"/>
+    <g fill="#2f6df6">
+      <rect x="397" y="521" width="30" height="90" rx="15"/>
+      <rect x="447" y="481" width="30" height="170" rx="15"/>
+      <rect x="497" y="441" width="30" height="250" rx="15"/>
+      <rect x="547" y="481" width="30" height="170" rx="15"/>
+      <rect x="597" y="521" width="30" height="90" rx="15"/>
+    </g>
+  </symbol>
+  <symbol id="menu1" viewBox="0 0 24 24">
+    <g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+      <ellipse cx="12" cy="14.5" rx="5.6" ry="6.5"/><circle cx="12" cy="6" r="1.9"/>
+      <path d="M11 4.4 9.4 2.4M13 4.4l1.6-2"/><path d="M10 13.2v2.6M12 11.6v5.8M14 13.2v2.6"/>
+    </g>
+  </symbol>
+
+  <!-- 2 Antenna Mic -->
+  <symbol id="app2" viewBox="0 0 1024 1024">
+    <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#g2)"/>
+    <g stroke="#fff" stroke-width="26" stroke-linecap="round" fill="none">
+      <path d="M466 270 Q436 200 394 180"/><path d="M558 270 Q588 200 630 180"/>
+    </g>
+    <circle cx="394" cy="180" r="21" fill="#fff"/><circle cx="630" cy="180" r="21" fill="#fff"/>
+    <rect x="402" y="256" width="220" height="370" rx="110" fill="#fff"/>
+    <g fill="#d42f4a">
+      <rect x="452" y="402" width="30" height="80" rx="15"/>
+      <rect x="497" y="367" width="30" height="150" rx="15"/>
+      <rect x="542" y="402" width="30" height="80" rx="15"/>
+    </g>
+    <g stroke="#fff" stroke-width="30" stroke-linecap="round" fill="none">
+      <path d="M326 520 Q326 724 512 724 Q698 724 698 520"/><path d="M512 724 V806"/><path d="M420 806 H604"/>
+    </g>
+  </symbol>
+  <symbol id="menu2" viewBox="0 0 24 24">
+    <g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+      <rect x="9" y="5.2" width="6" height="10" rx="3"/><path d="M10.2 5.4 8.6 2.8M13.8 5.4l1.6-2.6"/>
+      <path d="M6.3 11.2a5.7 5.7 0 0 0 11.4 0"/><path d="M12 17v3M9.4 20.2h5.2"/>
+    </g>
+  </symbol>
+
+  <!-- 3 Caret Bubble -->
+  <symbol id="app3" viewBox="0 0 1024 1024">
+    <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#g3)"/>
+    <rect x="196" y="300" width="520" height="380" rx="130" fill="#2f6df6"/>
+    <path d="M292 650 L254 786 L414 676 Z" fill="#2f6df6"/>
+    <g fill="#fff">
+      <rect x="291" y="450" width="34" height="80" rx="17"/>
+      <rect x="353" y="410" width="34" height="160" rx="17"/>
+      <rect x="415" y="375" width="34" height="230" rx="17"/>
+      <rect x="477" y="420" width="34" height="140" rx="17"/>
+      <rect x="539" y="455" width="34" height="70" rx="17"/>
+      <rect x="601" y="475" width="34" height="30" rx="15"/>
+    </g>
+    <g stroke="#fff" stroke-width="34" stroke-linecap="round" fill="none">
+      <path d="M800 300 V680"/><path d="M752 300 H848"/><path d="M752 680 H848"/>
+    </g>
+  </symbol>
+  <symbol id="menu3" viewBox="0 0 24 24">
+    <g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M5.5 5h7a3.5 3.5 0 0 1 3.5 3.5v3a3.5 3.5 0 0 1-3.5 3.5H8l-3.2 3 .4-3.2A3.5 3.5 0 0 1 2 11.5v-3A3.5 3.5 0 0 1 5.5 5z"/>
+      <path d="M6.5 9v2M9 8v4M11.5 9v2"/><path d="M20 4.5v11M18.4 4.5h3.2M18.4 15.5h3.2"/>
+    </g>
+  </symbol>
+
+  <!-- 4 Wave b -->
+  <symbol id="app4" viewBox="0 0 1024 1024">
+    <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#g4)"/>
+    <rect x="292" y="226" width="72" height="572" rx="36" fill="#1d1c1a"/>
+    <g fill="#1d1c1a">
+      <rect x="410" y="560" width="50" height="150" rx="25"/>
+      <rect x="490" y="480" width="50" height="310" rx="25"/>
+      <rect x="650" y="480" width="50" height="310" rx="25"/>
+      <rect x="730" y="560" width="50" height="150" rx="25"/>
+    </g>
+    <rect x="570" y="430" width="50" height="410" rx="25" fill="#e5484d"/>
+  </symbol>
+  <symbol id="menu4" viewBox="0 0 24 24">
+    <g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+      <path d="M5.5 3v18"/><path d="M9.5 13.5v4M12.5 11.5v8M15.5 10v11M18.5 11.5v8"/>
+    </g>
+  </symbol>
+
+  <!-- 5 Option Wave -->
+  <symbol id="app5" viewBox="0 0 1024 1024">
+    <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#g5)"/>
+    <g stroke="#fff" stroke-width="58" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <path d="M226 352 H402 L540 640"/>
+      <path d="M540 640 q36 -96 72 0 t72 0 t72 0"/>
+      <path d="M560 352 H798"/>
+    </g>
+    <circle cx="804" cy="640" r="36" fill="#ff5d63"/>
+  </symbol>
+  <symbol id="menu5" viewBox="0 0 24 24">
+    <g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M2 6.5h4.4l4.2 9"/><path d="M10.6 15.5q1.3-3.4 2.6 0t2.6 0t2.6 0"/><path d="M12 6.5h9.5"/>
+      <circle cx="21.3" cy="15.5" r="1.3" fill="currentColor" stroke="none"/>
+    </g>
+  </symbol>
+
+  <!-- 6 Firefly -->
+  <symbol id="app6" viewBox="0 0 1024 1024">
+    <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#g6)"/>
+    <g fill="none" stroke="#ffd84d" stroke-width="24" stroke-linecap="round">
+      <path d="M352 720 A200 200 0 0 0 672 720" opacity=".7"/>
+      <path d="M282 770 A290 290 0 0 0 742 770" opacity=".35"/>
+    </g>
+    <g fill="#ffffff" opacity=".22">
+      <ellipse cx="418" cy="450" rx="64" ry="150" transform="rotate(28 418 450)"/>
+      <ellipse cx="606" cy="450" rx="64" ry="150" transform="rotate(-28 606 450)"/>
+    </g>
+    <g stroke="#dfe5ff" stroke-width="22" stroke-linecap="round" fill="none">
+      <path d="M486 262 Q466 214 430 196"/><path d="M538 262 Q558 214 594 196"/>
+    </g>
+    <circle cx="512" cy="296" r="50" fill="#dfe5ff"/>
+    <ellipse cx="512" cy="400" rx="72" ry="62" fill="#b9c3ea"/>
+    <ellipse cx="512" cy="566" rx="106" ry="140" fill="url(#glow6)"/>
+  </symbol>
+  <symbol id="menu6" viewBox="0 0 24 24">
+    <g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+      <circle cx="12" cy="5" r="1.7"/><path d="M11 3.6 9.6 1.8M13 3.6l1.4-1.8"/>
+      <path d="M8.6 18.6a4.6 4.6 0 0 0 6.8 0M6.6 20.8a7.4 7.4 0 0 0 10.8 0"/>
+    </g>
+    <ellipse cx="12" cy="12.2" rx="2.7" ry="3.6" fill="currentColor"/>
+  </symbol>
+
+  <!-- 7 Ladybug Level -->
+  <symbol id="app7" viewBox="0 0 1024 1024">
+    <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#g7)"/>
+    <g stroke="#1d1c1a" stroke-width="22" stroke-linecap="round" fill="none">
+      <path d="M470 270 Q444 214 402 200"/><path d="M554 270 Q580 214 622 200"/>
+    </g>
+    <circle cx="512" cy="330" r="92" fill="#1d1c1a"/>
+    <circle cx="480" cy="300" r="13" fill="#fff"/><circle cx="544" cy="300" r="13" fill="#fff"/>
+    <circle cx="512" cy="580" r="236" fill="#e5484d"/>
+    <path d="M512 400 V812" stroke="#1d1c1a" stroke-width="16"/>
+    <g fill="#1d1c1a">
+      <rect x="352" y="535" width="44" height="90" rx="22"/>
+      <rect x="420" y="490" width="44" height="180" rx="22"/>
+      <rect x="560" y="490" width="44" height="180" rx="22"/>
+      <rect x="628" y="535" width="44" height="90" rx="22"/>
+    </g>
+  </symbol>
+  <symbol id="menu7" viewBox="0 0 24 24">
+    <g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+      <circle cx="12" cy="14" r="7"/><path d="M12 7v14"/><path d="M9.4 6.6a2.8 2.8 0 0 1 5.2 0"/>
+      <path d="M8.6 12.6v2.8M10 11.6v4.8M14 11.6v4.8M15.4 12.6v2.8" stroke-width="1.4"/>
+    </g>
+  </symbol>
+
+  <!-- 8 Bee Bars -->
+  <symbol id="app8" viewBox="0 0 1024 1024">
+    <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#g8)"/>
+    <g fill="#ffffff" opacity=".9">
+      <ellipse cx="396" cy="420" rx="96" ry="58" transform="rotate(-32 396 420)"/>
+      <ellipse cx="628" cy="420" rx="96" ry="58" transform="rotate(32 628 420)"/>
+    </g>
+    <g stroke="#1d1c1a" stroke-width="22" stroke-linecap="round" fill="none">
+      <path d="M482 250 Q460 200 424 186"/><path d="M542 250 Q564 200 600 186"/>
+    </g>
+    <circle cx="512" cy="292" r="64" fill="#1d1c1a"/>
+    <ellipse cx="512" cy="580" rx="160" ry="236" fill="#1d1c1a"/>
+    <path d="M490 806 L512 856 L534 806 Z" fill="#1d1c1a"/>
+    <g fill="#ffd43b">
+      <rect x="432" y="450" width="160" height="34" rx="17"/>
+      <rect x="370" y="518" width="284" height="34" rx="17"/>
+      <rect x="402" y="586" width="220" height="34" rx="17"/>
+      <rect x="380" y="654" width="264" height="34" rx="17"/>
+      <rect x="446" y="722" width="132" height="34" rx="17"/>
+    </g>
+  </symbol>
+  <symbol id="menu8" viewBox="0 0 24 24">
+    <g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+      <ellipse cx="12" cy="13.8" rx="4" ry="6.2"/><circle cx="12" cy="5.2" r="1.7"/>
+      <path d="M8.4 10.4 5 8.6M15.6 10.4 19 8.6"/><path d="M10.4 12h3.2M9.6 14.4h4.8M10.6 16.8h2.8" stroke-width="1.4"/>
+    </g>
+  </symbol>
+
+  <!-- 9 Sound Rings -->
+  <symbol id="app9" viewBox="0 0 1024 1024">
+    <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#g9)"/>
+    <g fill="none" stroke="#fff" stroke-width="42" stroke-linecap="round">
+      <path d="M464 436 A170 170 0 0 1 584 644"/>
+      <path d="M487 349 A260 260 0 0 1 671 667" opacity=".75"/>
+      <path d="M511 262 A350 350 0 0 1 758 691" opacity=".5"/>
+    </g>
+    <g stroke="#fff" stroke-width="22" stroke-linecap="round" fill="none">
+      <path d="M372 560 Q340 500 296 488"/><path d="M402 540 Q398 470 366 434"/>
+    </g>
+    <circle cx="412" cy="608" r="78" fill="#fff"/>
+  </symbol>
+  <symbol id="menu9" viewBox="0 0 24 24">
+    <g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+      <path d="M9.4 11.4a4 4 0 0 1 3.2 4.8M10 7.8a7.4 7.4 0 0 1 6 8.8M10.6 4.2a10.8 10.8 0 0 1 9 12.6"/>
+      <path d="M6.6 14.2 5 11.6M8.2 13.4l-.4-3"/>
+    </g>
+    <circle cx="8" cy="17" r="2.6" fill="currentColor"/>
+  </symbol>
+
+  <!-- 10 HUD Pill -->
+  <symbol id="app10" viewBox="0 0 1024 1024">
+    <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#g10)"/>
+    <rect x="186" y="404" width="652" height="216" rx="108" fill="#1c1c1e"/>
+    <circle cx="300" cy="512" r="34" fill="#e5484d"/>
+    <g fill="#f5f5f7">
+      <rect x="380" y="482" width="26" height="60" rx="13"/>
+      <rect x="432" y="452" width="26" height="120" rx="13"/>
+      <rect x="484" y="422" width="26" height="180" rx="13"/>
+      <rect x="536" y="462" width="26" height="100" rx="13"/>
+      <rect x="588" y="437" width="26" height="150" rx="13"/>
+      <rect x="640" y="477" width="26" height="70" rx="13"/>
+      <rect x="692" y="492" width="26" height="40" rx="13"/>
+    </g>
+  </symbol>
+  <symbol id="menu10" viewBox="0 0 24 24">
+    <rect x="1.8" y="7.5" width="20.4" height="9" rx="4.5" fill="none" stroke="currentColor" stroke-width="1.6"/>
+    <circle cx="6.3" cy="12" r="1.5" fill="currentColor"/>
+    <g stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M10 11v2M12.4 10v4M14.8 10.6v2.8M17.2 11.2v1.6"/></g>
+  </symbol>
+
+  <!-- 11 Quote Wave -->
+  <symbol id="app11" viewBox="0 0 1024 1024">
+    <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#g11)"/>
+    <g fill="#fff"><circle cx="420" cy="410" r="74"/><circle cx="624" cy="410" r="74"/></g>
+    <g stroke="#fff" stroke-width="42" stroke-linecap="round" fill="none">
+      <path d="M368 450 Q360 540 420 590"/><path d="M572 450 Q564 540 624 590"/>
+      <path d="M260 720 q42 -70 84 0 t84 0 t84 0 t84 0 t84 0 t84 0"/>
+    </g>
+  </symbol>
+  <symbol id="menu11" viewBox="0 0 24 24">
+    <g fill="currentColor"><circle cx="9" cy="6.6" r="2.2"/><circle cx="15" cy="6.6" r="2.2"/></g>
+    <g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+      <path d="M7.2 7.8q-.2 2.6 1.8 3.8M13.2 7.8q-.2 2.6 1.8 3.8"/>
+      <path d="M3 17q1.5-2.6 3 0t3 0t3 0t3 0t3 0t3 0"/>
+    </g>
+  </symbol>
+
+  <!-- 12 Non La -->
+  <symbol id="app12" viewBox="0 0 1024 1024">
+    <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#g12)"/>
+    <path d="M512 214 L812 528 Q512 590 212 528 Z" fill="#fbf3dc"/>
+    <g stroke="#e3d3a6" stroke-width="9" stroke-linecap="round">
+      <path d="M512 214 L392 556"/><path d="M512 214 L512 566"/><path d="M512 214 L632 556"/>
+    </g>
+    <path d="M340 560 Q512 690 684 560" stroke="#fbf3dc" stroke-width="12" fill="none" opacity=".7"/>
+    <g fill="#fff">
+      <rect x="395" y="680" width="34" height="60" rx="17"/>
+      <rect x="445" y="650" width="34" height="120" rx="17"/>
+      <rect x="495" y="625" width="34" height="170" rx="17"/>
+      <rect x="545" y="650" width="34" height="120" rx="17"/>
+      <rect x="595" y="680" width="34" height="60" rx="17"/>
+    </g>
+  </symbol>
+  <symbol id="menu12" viewBox="0 0 24 24">
+    <g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 2.6 20.5 11.4Q12 13.2 3.5 11.4Z"/><path d="M9.2 16v2M12 15v4M14.8 16v2" stroke-width="1.5"/>
+    </g>
+  </symbol>
+
+  <!-- 13 Keycap Mic -->
+  <symbol id="app13" viewBox="0 0 1024 1024">
+    <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#g13)"/>
+    <rect x="246" y="276" width="532" height="532" rx="96" fill="#9aa3ae"/>
+    <rect x="246" y="236" width="532" height="532" rx="96" fill="#ffffff"/>
+    <g stroke="#9aa3ae" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <path d="M300 300 h36 l38 58 h36"/><path d="M358 300 h52"/>
+    </g>
+    <rect x="462" y="356" width="100" height="176" rx="50" fill="#2f6df6"/>
+    <g stroke="#2f6df6" stroke-width="26" stroke-linecap="round" fill="none">
+      <path d="M408 476 Q408 600 512 600 Q616 600 616 476"/><path d="M512 600 V660"/><path d="M462 664 H562"/>
+    </g>
+  </symbol>
+  <symbol id="menu13" viewBox="0 0 24 24">
+    <g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+      <rect x="3" y="3" width="18" height="18" rx="4"/><rect x="10.3" y="6.6" width="3.4" height="6.4" rx="1.7"/>
+      <path d="M8.4 11a3.6 3.6 0 0 0 7.2 0M12 14.6v2.4"/>
+    </g>
+  </symbol>
+
+  <!-- 14 Code Bug -->
+  <symbol id="app14" viewBox="0 0 1024 1024">
+    <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#g14)"/>
+    <g stroke="#a5b4fc" stroke-width="36" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <path d="M372 300 Q314 300 314 360 V456 Q314 512 262 512 Q314 512 314 568 V664 Q314 724 372 724"/>
+      <path d="M652 300 Q710 300 710 360 V456 Q710 512 762 512 Q710 512 710 568 V664 Q710 724 652 724"/>
+    </g>
+    <g fill="#fbbf24">
+      <rect x="397" y="472" width="30" height="80" rx="15"/>
+      <rect x="447" y="432" width="30" height="160" rx="15"/>
+      <rect x="547" y="432" width="30" height="160" rx="15"/>
+      <rect x="597" y="472" width="30" height="80" rx="15"/>
+    </g>
+    <rect x="497" y="392" width="30" height="240" rx="15" fill="#e5484d"/>
+  </symbol>
+  <symbol id="menu14" viewBox="0 0 24 24">
+    <g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M7 4.5Q5 4.5 5 6.5v3.4Q5 12 3 12q2 0 2 2.1v3.4q0 2 2 2"/><path d="M17 4.5q2 0 2 2v3.4q0 2.1 2 2.1-2 0-2 2.1v3.4q0 2-2 2"/>
+      <path d="M9.5 11v2M12 9v6M14.5 11v2" stroke-width="1.5"/>
+    </g>
+  </symbol>
+
+  <!-- 15 Voice V -->
+  <symbol id="app15" viewBox="0 0 1024 1024">
+    <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#g15)"/>
+    <path d="M306 286 L512 716 L718 286" stroke="#fff" stroke-width="54" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <circle cx="306" cy="286" r="44" fill="#fff"/><circle cx="718" cy="286" r="44" fill="#fff"/>
+    <g fill="#fff">
+      <rect x="452" y="386" width="30" height="80" rx="15"/>
+      <rect x="497" y="351" width="30" height="150" rx="15"/>
+      <rect x="542" y="386" width="30" height="80" rx="15"/>
+    </g>
+    <circle cx="512" cy="804" r="30" fill="#ff5d63"/>
+  </symbol>
+  <symbol id="menu15" viewBox="0 0 24 24">
+    <path d="M5.5 5 12 18.5 18.5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="5.5" cy="4.6" r="1.6" fill="currentColor"/><circle cx="18.5" cy="4.6" r="1.6" fill="currentColor"/>
+    <path d="M10.6 8.6v1.6M12 7.6v3.6M13.4 8.6v1.6" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+  </symbol>
+</svg>
+<main class="review">
+  <header class="intro">
+    <div>
+      <div class="eyebrow">BugVoice / Appearance and redesign / 18 October 2026 / Round 3</div>
+      <h1>One set of tokens, every screen.</h1>
+      <p>Text size, font, and theme change the app window, the menu bar popover, the Style setup, and the HUD together. Change them here or in Settings › Editing and Settings › Theme &amp; icons.</p>
+    </div>
+    <div class="quick" id="quick"></div>
+  </header>
+  <div class="chrome">
+    <nav class="pills" id="surfaces" aria-label="Surface"></nav>
+    <nav class="pills" id="options" aria-label="Section list layout"></nav>
+  </div>
+  <section id="stage" aria-live="polite"></section>
+  <div class="note" id="note"></div>
+</main>
+<div id="toast" class="toast" role="status" hidden></div>
+<script>
+const ICONS={mic:'<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/>',insights:'<path d="M4 20V12h4v8M10 20V7h4v13M16 20V3h4v17"/>',dictionary:'<path d="M5 3h14v18H5zM8 3v18M11 15l2.5-8 2.5 8M12 12h3"/>',style:'<path d="m5 15 11-11 4 4L9 19l-5 1zM14 6l4 4"/>',meetings:'<path d="M2 12h3l2-7 3 14 3-17 3 18 2-8h4"/>',upload:'<path d="M12 16V3m-4 4 4-4 4 4M4 15v5h16v-5"/>',notes:'<path d="M6 3h9l4 4v14H6zM14 3v5h5M9 12h7M9 16h5"/>',settings:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/>',integrations:'<path d="M9 7V3M15 7V3M7 7h10v4a5 5 0 0 1-10 0zM12 16v5"/>',help:'<path d="M4 4h6a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H4zM20 4h-6a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h6z"/>',copy:'<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>',more:'<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',plus:'<path d="M12 5v14M5 12h14"/>',paste:'<path d="M9 4h6v3H9zM7 5H5v16h14V5h-2"/>',retry:'<path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5"/>',search:'<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',sparkle:'<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/>',open:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/>',sidebar:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',down:'<path d="m6 9 6 6 6-6"/>',calendar:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',export:'<path d="M12 3v12m-4-8 4-4 4 4M5 13v7h14v-7"/>',agent:'<rect x="4" y="7" width="16" height="12" rx="3"/><path d="M12 3v4M9 12h.01M15 12h.01M9 16h6"/>',terminal:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3M13 15h4"/>',cpu:'<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>',link:'<path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6"/>',globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',app:'<rect x="4" y="4" width="16" height="16" rx="4"/>'};
+const ico=n=>`<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[n]||ICONS.more}</svg>`;
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* Themes: [id, label, group, mode, bg, side, card, line, text, muted, accent] */
+const THEMES=[
+ ['hc-dark','High contrast dark','comfort','dark','#000000','#0b0b0b','#121212','#8a8a8a','#ffffff','#d6d6d6','#6cb6ff'],
+ ['hc-light','High contrast light','comfort','light','#ffffff','#f2f2f2','#ffffff','#5c5c5c','#000000','#2e2e2e','#0040b0'],
+ ['sepia','Sepia paper','comfort','light','#f3ead8','#eadfc8','#f8f1e2','#cdbb98','#33281c','#5f4f3d','#8a4b12'],
+ ['warm-dark','Warm night','comfort','dark','#1e1a16','#18150f','#272219','#463d31','#ece1d0','#bcae98','#e8a85a'],
+ ['bv-dark','BugVoice Dark','dark','dark','#202225','#1b1d20','#272a2e','#393d43','#eeeff1','#a4aab3','#88aaff'],
+ ['catppuccin-mocha','Catppuccin Mocha','dark','dark','#1e1e2e','#181825','#262637','#45475a','#cdd6f4','#a6adc8','#cba6f7'],
+ ['nord','Nord','dark','dark','#2e3440','#292e39','#3b4252','#4c566a','#eceff4','#aeb8c5','#88c0d0'],
+ ['tokyo-night','Tokyo Night','dark','dark','#1a1b26','#16161e','#222433','#3b4261','#c0caf5','#9aa5ce','#7aa2f7'],
+ ['dracula','Dracula','dark','dark','#282a36','#21222c','#343746','#4d5066','#f8f8f2','#a4a6b8','#bd93f9'],
+ ['one-dark','One Dark','dark','dark','#282c34','#21252b','#2f343e','#3e4451','#abb2bf','#7f848e','#61afef'],
+ ['gruvbox-dark','Gruvbox Dark','dark','dark','#282828','#1d2021','#32302f','#504945','#ebdbb2','#a89984','#d79921'],
+ ['everforest','Everforest Dark','dark','dark','#2d353b','#272e33','#343f44','#4a555b','#d3c6aa','#9da9a0','#a7c080'],
+ ['solarized-dark','Solarized Dark','dark','dark','#002b36','#00252e','#073642','#1f4f5a','#93a1a1','#839496','#268bd2'],
+ ['bv-light','BugVoice Light','light','light','#fafbfc','#f0f1f4','#ffffff','#dce0e7','#222833','#646d7b','#315fc8'],
+ ['github-light','GitHub Light','light','light','#ffffff','#f6f8fa','#ffffff','#d1d9e0','#1f2328','#59636e','#0969da'],
+ ['one-light','One Light','light','light','#fafafa','#f0f0f1','#ffffff','#d3d3d5','#383a42','#696c77','#4078f2'],
+ ['catppuccin-latte','Catppuccin Latte','light','light','#eff1f5','#e6e9ef','#f7f8fa','#bcc0cc','#4c4f69','#6c6f85','#8839ef'],
+ ['rose-pine-dawn','Rosé Pine Dawn','light','light','#faf4ed','#f2e9e1','#fffaf3','#dfdad9','#575279','#797593','#907aa9'],
+ ['gruvbox-light','Gruvbox Light','light','light','#fbf1c7','#f2e5bc','#fdf6d8','#d5c4a1','#3c3836','#7c6f64','#b57614'],
+ ['solarized-light','Solarized Light','light','light','#fdf6e3','#eee8d5','#fffbf0','#d8d0b6','#586e75','#7b8a8b','#268bd2'],
+ ['everforest-light','Everforest Light','light','light','#fdf6e3','#f4f0d9','#fffbef','#e0dcc7','#5c6a72','#829181','#8da101'],
+];
+const T=Object.fromEntries(THEMES.map(t=>[t[0],{id:t[0],label:t[1],group:t[2],mode:t[3],bg:t[4],side:t[5],card:t[6],line:t[7],text:t[8],muted:t[9],accent:t[10]}]));
+const FONTS=[
+ ['system','System (SF Pro)','-apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif'],
+ ['rounded','SF Rounded','ui-rounded,"SF Pro Rounded",-apple-system,sans-serif'],
+ ['serif','New York','ui-serif,"New York",Georgia,serif'],
+ ['atkinson','Atkinson Hyperlegible Next','"Atkinson Hyperlegible Next","Atkinson Hyperlegible",-apple-system,sans-serif'],
+ ['avenir','Avenir Next (installed)','"Avenir Next",Avenir,-apple-system,sans-serif'],
+ ['mono','SF Mono everywhere','ui-monospace,"SF Mono",Menlo,monospace'],
+];
+const MONOS=[['sfmono','SF Mono','ui-monospace,"SF Mono",Menlo,monospace'],['menlo','Menlo','Menlo,monospace'],['jetbrains','JetBrains Mono (installed)','"JetBrains Mono",ui-monospace,monospace']];
+const LOGOS=['Wave Bug','Antenna Mic','Caret Bubble','Wave b','Option Wave','Firefly','Ladybug Level','Bee Bars','Sound Rings','HUD Pill','Quote Wave','Nón Lá','Keycap Mic','Code Bug','Voice V'];
+const HOTKEYS=[['rightControl','Right Control','⌃'],['rightOption','Right Option','⌥'],['rightCommand','Right Command','⌘'],['fn','Fn','fn'],['f13','F13','F13']];
+
+const DEFAULTS={surface:'app',option:2,mtab:'summary',range:'7',dict:'words',sidebar:true,page:'settings',sec:{dictation:'all',style:'personal',dictionary:'words',settings:'editing',integrations:'calendar',help:'start'},mode:'dark',theme:'bv-dark',lightTheme:'bv-light',darkTheme:'bv-dark',scale:100,font:'system',mono:'sfmono',lead:'normal',measure:'medium',hud:'medium',appIcon:2,menuIcon:2,hotkey:'rightControl',tones:{personal:1,work:0,email:1,coding:0,other:1},cleanup:1,lang:'en',step:0,interview:false,meeting:0,note:0,open:null,query:'',switches:{}};
+let S=load();
+function load(){let s={};try{s=JSON.parse(localStorage.getItem('bv-appearance-mock-2')||'{}')}catch(e){}const h=new URLSearchParams(location.hash.slice(1));const o={...structuredClone(DEFAULTS),...s,sec:{...DEFAULTS.sec,...(s.sec||{})}};if(h.get('surface'))o.surface=h.get('surface');if(h.get('page'))o.page=h.get('page');if(h.get('option'))o.option=+h.get('option');if(h.get('sec'))o.sec[o.page]=h.get('sec');o.open=null;o.option=2;return o}
+function save(){try{localStorage.setItem('bv-appearance-mock-2',JSON.stringify(S))}catch(e){}history.replaceState(null,'','#surface='+S.surface+'&page='+S.page+'&option='+S.option)}
+
+/* Appearance resolution: the same function the Swift AppearanceStore will mirror. */
+const prefersDark=()=>matchMedia('(prefers-color-scheme: dark)').matches;
+function activeTheme(){if(S.mode==='system')return T[prefersDark()?S.darkTheme:S.lightTheme];return T[S.theme]}
+function hexRGB(h){h=h.replace('#','');return[0,2,4].map(i=>parseInt(h.slice(i,i+2),16))}
+function lum(h){return hexRGB(h).map(v=>{v/=255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4)}).reduce((a,v,i)=>a+v*[.2126,.7152,.0722][i],0)}
+function contrast(a,b){const x=lum(a),y=lum(b);return(Math.max(x,y)+.05)/(Math.min(x,y)+.05)}
+function applyAppearance(){
+  const t=activeTheme(),r=document.documentElement.style,dark=t.mode==='dark';
+  const set=(k,v)=>r.setProperty('--'+k,v);
+  set('bg',t.bg);set('side',t.side);set('card',t.card);set('line',t.line);set('text',t.text);set('muted',t.muted);set('accent',t.accent);
+  set('hover',`color-mix(in srgb,${t.card},${t.text} ${dark?8:6}%)`);
+  set('soft',`color-mix(in srgb,${t.bg},${t.accent} ${dark?24:14}%)`);
+  set('on-accent',contrast(t.accent,'#000000')>contrast(t.accent,'#ffffff')?'#000000':'#ffffff');
+  set('desk',dark?`color-mix(in srgb,${t.bg},#000 45%)`:`color-mix(in srgb,${t.bg},#000 10%)`);
+  set('s',S.scale/100);
+  set('font',FONTS.find(f=>f[0]===S.font)[2]);
+  set('mono',MONOS.find(f=>f[0]===S.mono)[2]);
+  set('lead',{normal:1.5,relaxed:1.65,loose:1.8}[S.lead]);
+  set('measure',{narrow:'620px',medium:'760px',wide:'980px'}[S.measure]);
+  document.documentElement.style.colorScheme=t.mode;
+}
+
+/* Builders */
+const btn=(label,act,cls='')=>`<button class="btn ${cls}" data-act="${act}">${label}</button>`;
+const pill=(key,items,label,cls='')=>`<div class="pillseg ${cls}" role="group" aria-label="${label}">${items.map(([v,l])=>`<button aria-pressed="${S[key]===v}" data-set="${key}" data-val="${v}">${l}</button>`).join('')}</div>`;
+const seg=(key,items,label)=>`<div class="seg" role="group" aria-label="${label}">${items.map(([v,l])=>`<button aria-pressed="${S[key]===v}" data-set="${key}" data-val="${v}">${l}</button>`).join('')}</div>`;
+const sw=(name,on=true)=>{const v=S.switches[name]??on;return `<button class="switch" role="switch" aria-label="${name}" aria-checked="${v}" data-toggle="${name}"></button>`};
+const setrow=(name,desc,ctrl)=>`<div class="setrow"><div>${name}${desc?`<small>${desc}</small>`:''}</div><div>${ctrl}</div></div>`;
+const panel=(title,body,desc='')=>`<section class="panel">${title?`<h3>${title}</h3>`:''}${desc?`<p class="desc">${desc}</p>`:''}${body}</section>`;
+const logo=(n,size)=>`<svg viewBox="0 0 1024 1024" width="${size}" height="${size}" role="img" aria-label="${LOGOS[n-1]} icon"><use href="#app${n}"/></svg>`;
+const glyph=n=>`<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#menu${n}"/></svg>`;
+const mi=(icon,l,k,act)=>`<button class="mi" data-act="${act||'toast:'+l}">${icon?ico(icon):'<span style="width:1.15em"></span>'}${l}${k?`<span class="k">${k}</span>`:''}</button>`;
+const hk=()=>HOTKEYS.find(h=>h[0]===S.hotkey);
+const sechead=(title,desc,right='')=>`<div class="sechead"><div><h2 class="t-2">${title}</h2>${desc?`<p>${desc}</p>`:''}</div>${right}</div>`;
+const docs=`<button class="btn ghost" data-act="page:help">Read the help ${ico('link')}</button>`;
+
+/* Sample data */
+const HISTORY=[['10:40 AM','Orca','Tôi muốn làm một application for text to speech. Is it doable?','Other'],['10:29 AM','Terminal','Run the tests in VoiceCore, then fix the failing one.','Coding'],['10:26 AM','Slack','Can we move the review to Thursday afternoon?','Work'],['10:12 AM','Zalo','Tối nay em rảnh không? Mình đi ăn lúc 7 giờ nhé.','Personal'],['9:58 AM','Mail','Hi Lan, thanks for the notes. I will send the draft by Friday.','Email']];
+const MEETINGS=[['Product review','Today · 9:30 AM','24:18'],['Support handover','16 Oct · 10:29 AM','12:51'],['BugMind introduction','11 Oct · 9:33 AM','3:42'],['Weekly planning','9 Oct · 2:00 PM','31:05']];
+const NOTES=[['App ideas','Improve the menu bar and make every page feel like the same app.','Today'],['Support checklist','Ask about other symptoms. Check recent changes.','16 Oct'],['Vietnamese wording','Giữ cách nói tự nhiên. Chỉ sửa dấu câu.','15 Oct']];
+
+/* Pages. kind: file = item list pane in both options; static = pane (option 1) or in-page list (option 2); plain = no section list. */
+const PAGES=[['dictation','Dictation','mic'],['insights','Insights','insights'],['meetings','Meetings','meetings'],['notes','Scratchpad','notes'],['upload','Upload','upload'],['style','Style','style'],['dictionary','Dictionary','dictionary'],['integrations','Integrations','integrations'],['settings','Settings','settings'],['help','Help','help']];
+const SECTIONS={
+ style:[[null,[['personal','Personal'],['work','Work'],['email','Email'],['coding','Coding'],['other','Other']]],['All apps',[['cleanup','Cleanup']]]],
+ settings:[[null,[['general','General'],['shortcuts','Shortcuts'],['editing','Editing'],['theme','Theme & icons']]],['Engine',[['speech','Speech'],['models','Models'],['meetings','Meetings'],['storage','Storage']]]],
+ integrations:[['Meetings',[['calendar','Calendar']]],['Export',[['applenotes','Apple Notes'],['notion','Notion']]],['Agents',[['mcp','MCP server'],['cli','Command line','Later']]],['Models',[['servers','Local model servers']]]],
+ help:[[null,[['start','Getting started'],['shortcuts','Shortcuts'],['styles','Styles'],['meetings','Meetings'],['agents','Coding agents'],['trouble','Troubleshooting'],['privacy','Privacy']]]],
+};
+function kind(p){if(p==='meetings'||p==='notes')return 'file';if(SECTIONS[p])return 'static';return 'plain'}
+function sectionList(p){return SECTIONS[p].map(([g,items])=>`${g?`<div class="grp">${g}</div>`:''}${items.map(([id,l,b])=>`<button class="nav" data-sec="${p}:${id}" aria-current="${S.sec[p]===id}">${l}${b?`<span class="badge">${b}</span>`:''}</button>`).join('')}`).join('')}
+
+function titleRight(p){
+ const split=(label,id,items,primary=true)=>`<div class="split">${btn(label,'toast:'+label.replace(/<[^>]*>/g,'').trim(),primary?'primary':'')}${btn(ico('down'),'open:'+id,(primary?'primary ':'')+'caret')}${S.open===id?`<div class="dropdown" role="menu">${items.map(i=>i==='-'?'<hr>':mi(i[0],i[1],i[2])).join('')}</div>`:''}</div>`;
+ return {
+  dictation:`<span class="chip"><span style="width:.55em;height:.55em;border-radius:50%;background:var(--good)"></span>Hold ${hk()[1]} to speak</span>`,
+  insights:pill('range',[['7','7 days'],['30','30 days'],['all','All time']],'Range','sm'),
+  meetings:split('<span>●</span> Record meeting','rec',[['meetings','Record meeting','⌃⌥M'],['upload','Upload a recording…']]),
+  notes:split(ico('plus')+' New note','note',[['notes','Note','⌘N'],['open','Floating scratchpad','⌃⌥N'],'-',['sparkle','Ask AI about my notes']]),
+  upload:btn(ico('plus')+' Choose files','toast:File picker opens','primary'),
+  style:btn(ico('sparkle')+' Run setup again','interview'),
+  dictionary:split(ico('plus')+' Add','add',[['dictionary','Word'],['notes','Snippet']]),
+ }[p]||'';
+}
+function searchBox(){const q=S.query.trim();const res=[['Meetings','Product review','“…text size and theme must reach every window…”'],['Scratchpad','App ideas','Improve the menu bar and make every page…'],['Dictation','Orca · 10:40 AM','Tôi muốn làm một application for text to speech…'],['Settings','Editing › Text size','']];
+ return `<div class="search"><label class="box">${ico('search')}<input type="search" placeholder="Search notes, meetings, dictations" aria-label="Search everything" data-search value="${esc(S.query)}"><kbd>⌘K</kbd></label>${S.open==='search'?`<div class="dropdown results" role="listbox">${q?'':'<div class="grp">Recent</div>'}${res.map(r=>`<button class="result" data-act="page:${{Meetings:'meetings',Scratchpad:'notes',Dictation:'dictation',Settings:'settings'}[r[0]]}"><b>${r[1]}</b><small>${r[0]}${r[2]?' · '+esc(r[2]):''}</small></button>`).join('')}<hr><div class="foot" style="padding:.3em .6em">Results from this page come first. Esc closes.</div></div>`:''}</div>`}
+
+function appWindow(){
+ const p=PAGES.find(x=>x[0]===S.page)||PAGES[0];
+ const nav=(x,i)=>`${i===0?'<div class="navgroup">Capture</div>':i===2?'<div class="navgroup">Library</div>':i===5?'<div class="navgroup">Personalize</div>':i===7?'<div class="navgroup">Connect</div>':''}<button class="nav" data-page="${x[0]}" ${x[0]===S.page?'aria-current="page"':''}>${ico(x[2])}${x[1]}</button>`;
+ const k=kind(p[0]);
+ const content=({dictation,insights,meetings,notes,upload,style:stylePage,dictionary,integrations,settings,help})[p[0]]();
+ let page;
+ if(k==='file')page=content; // file pages build their own list pane
+ else if(k==='static'&&S.option===1)page=`<nav class="pane" aria-label="${p[1]} sections">${sectionList(p[0])}</nav><div class="body">${content}</div>`;
+ else if(k==='static')page=`<div class="body"><div class="inline ${p[0]==='style'?'wide':''}"><nav class="subnav" aria-label="${p[1]} sections">${sectionList(p[0])}</nav><div>${content}</div></div></div>`;
+ else page=`<div class="body">${content}</div>`;
+ return `<div class="window ${S.sidebar?'':'nosidebar'}">
+  <aside class="sidebar"><span class="lights" aria-hidden="true"><i></i><i></i><i></i></span><div class="brand">${logo(S.appIcon,24)}BugVoice</div>${PAGES.slice(0,8).map(nav).join('')}<div class="spacer"></div>${nav(PAGES[8],9)}${nav(PAGES[9],10)}</aside>
+  <div class="main"><header class="titlebar"><div class="tb-left">${S.sidebar?'':'<span class="lights" aria-hidden="true"><i></i><i></i><i></i></span>'}${btn(ico('sidebar'),'sidebar','ghost icon')}<h1>${p[1]}</h1></div>${searchBox()}<div class="tb-right">${titleRight(p[0])}</div></header><div class="page">${page}</div></div>
+  ${S.interview?interview():''}</div>`;
+}
+
+function dictation(){const f=S.sec.dictation;const rows=HISTORY.filter(h=>f==='all'||h[3].toLowerCase()===f);
+ return `<div class="dash"><div class="metrics">${[['238','Words this week'],['114','Words / min'],['14','Dictations'],['1.2 s','Release to text']].map(m=>`<div class="metric"><strong>${m[0]}</strong><span>${m[1]}</span></div>`).join('')}</div>
+<div class="toolbar"><div class="pillseg" role="group" aria-label="Filter by style">${[['all','All'],['coding','Coding'],['work','Work'],['personal','Personal'],['email','Email'],['other','Other']].map(([v,l])=>`<button aria-pressed="${f===v}" data-sec="dictation:${v}">${l}</button>`).join('')}</div><div class="spacer"></div><span class="foot">Today</span></div>
+<section class="panel">${rows.map(h=>`<article class="entry"><div class="when">${h[0]}<br>${h[1]}</div><div><div class="read">${esc(h[2])}</div><div class="foot">${h[3]} style</div></div><div>${btn(ico('copy'),'toast:Copied','ghost icon')}${btn(ico('more'),'toast:Undo AI edit, Copy original, Delete','ghost icon')}</div></article>`).join('')||'<p class="muted">No dictations with this style today.</p>'}</section></div>`}
+function insights(){let heat='';for(let i=0;i<294;i++)heat+=`<i class="${i>250&&i%4?'l'+(i%3+1):i>200&&i%7===0?'l1':''}"></i>`;
+return `<div class="dash"><div class="metrics">${[['238','Words spoken'],['114','Words / min'],['14','Dictations'],['3 days','Current streak']].map(m=>`<div class="metric"><strong>${m[0]}</strong><span>${m[1]}</span></div>`).join('')}</div>
+${panel('Speaking activity',`<div class="heat" aria-label="Activity over 42 weeks">${heat}</div>`)}
+${panel('By style',`<div class="bars">${[['Coding',82,'96'],['Work',54,'61'],['Personal',38,'44'],['Other',22,'25'],['Email',10,'12']].map(b=>`<div class="b"><span>${b[0]}</span><div class="track"><i style="width:${b[1]}%"></i></div><span class="foot">${b[2]} words</span></div>`).join('')}</div>`)}</div>`}
+function meetings(){const m=MEETINGS[S.meeting];return `<nav class="pane" aria-label="Meetings"><div class="grp">Folders</div><button class="nav" aria-current="true">All meetings</button><button class="nav">Work</button><div class="grp">Today and earlier</div>${MEETINGS.map((x,i)=>`<button class="item" data-meeting="${i}" aria-current="${i===S.meeting}"><b>${x[0]}</b><span>${x[1]} · ${x[2]}</span></button>`).join('')}</nav>
+<div class="detail"><div class="inner"><div class="foot">${m[1]} · ${m[2]} · Saved on this Mac</div><h2 class="t-2" style="margin:.2em 0 .8em">${m[0]}</h2>
+<div style="margin-bottom:var(--sp4)">${pill('mtab',[['summary','Summary'],['transcript','Transcript'],['ask','Ask']],'Meeting view')}</div>
+${S.mtab==='summary'?`<p class="read">The team agreed to build the appearance foundation first, then move each page onto it. Text size and theme must reach every window, including the menu bar popover.</p><h3 class="t-3" style="margin:1.2em 0 .4em">Decisions</h3><ul class="read" style="margin:0;padding-left:1.2em"><li>Option 2: list pane only for Meetings and Scratchpad.</li><li>Equal-width round pills for views and filters.</li></ul>`:S.mtab==='transcript'?`${[['00:12','Lan','Can we make the text bigger everywhere, not only in the notes?'],['00:19','Cong','Yes. One text size setting, and every screen reads it.'],['00:31','Lan','Và theme nữa, mình cần một theme tương phản cao.']].map(t=>`<div class="tline"><span class="ts">${t[0]}</span><div class="read"><b>${t[1]}</b> ${esc(t[2])}</div></div>`).join('')}`:`<div class="panel"><input type="text" placeholder="Ask about this meeting" style="width:100%"></div><p class="muted">Answers cite the transcript.</p>`}
+</div></div></div>`}
+function notes(){const n=NOTES[S.note];return `<nav class="pane" aria-label="Notes"><div class="grp">Folders</div><button class="nav" aria-current="true">All notes</button><button class="nav">Product</button><div class="grp">Edited recently</div>${NOTES.map((x,i)=>`<button class="item" data-note="${i}" aria-current="${i===S.note}"><b>${x[0]}</b><span>${x[2]} · ${esc(x[1])}</span></button>`).join('')}</nav>
+<div class="detail"><div class="inner"><div class="foot">Edited ${n[2]} · Product</div><h2 class="t-2" style="margin:.2em 0 .8em">${n[0]}</h2><div class="read"><p>${esc(n[1])}</p><ul style="margin:.6em 0;padding-left:1.2em"><li>Text size in Settings › Editing</li><li>Themes for long days</li><li><code style="font-size:var(--t-foot)">BugVoiceTheme.swift</code> holds every token</li></ul></div></div></div>`}
+function upload(){return `<div class="column"><div class="drop">${ico('upload')}<h3 class="t-3" style="margin:.4em 0">Drop an audio or video file</h3><p class="muted">M4A, MP3, WAV, MP4, MOV. Transcribed on this Mac.</p></div>
+${panel('Upload queue',['Interview with Minh.m4a · Transcribing · 42%','Team sync.mp4 · Waiting'].map(r=>`<div class="row"><div class="grow">${r.split(' · ')[0]}<small>${r.split(' · ').slice(1).join(' · ')}</small></div>${btn('Cancel','toast:Cancelled','ghost')}</div>`).join(''))}</div>`}
+function dictionary(){const sn=S.dict==='snippets';return `<div class="column"><div class="toolbar">${pill('dict',[['words','Words'],['snippets','Snippets']],'Dictionary list')}<div class="spacer"></div><span class="foot">${sn?'Say a short phrase, BugVoice types the full text.':'Names and terms BugVoice should spell right.'}</span></div>
+<section class="panel"><table class="table"><thead><tr><th>${sn?'Say':'Word'}</th><th>${sn?'Inserts':'Heard as'}</th></tr></thead><tbody>${(sn?[['my address','12 Nguyễn Huệ, District 1'],['sign off','Best regards, Cong']]:[['WhisperKit','whisper kit'],['oMLX','oh MLX'],['BugMind','bug mind'],['Nguyễn','nguyen']]).map(r=>`<tr><td>${r[0]}</td><td class="muted">${r[1]}</td></tr>`).join('')}</tbody></table></section></div>`}
+
+/* Settings */
+function settings(){const s=S.sec.settings;return `<div class="column">${({general:genSettings,shortcuts,editing,theme:themeIcons})[s]?.()||plainSettings(s)}</div>`}
+function genSettings(){return sechead('General','')+panel('',setrow('Hands-free mode','Double-tap the hotkey to keep listening; tap once more to finish',sw('Hands-free'))+setrow('Sounds','A tick when recording starts and stops',sw('Sounds'))+setrow('Restore clipboard','Put back what you had copied after pasting',sw('Clipboard'))+setrow('Launch at login','',sw('Login',false)))}
+function plainSettings(s){const name=SECTIONS.settings.flatMap(g=>g[1]).find(x=>x[0]===s)[1];return sechead(name,'')+panel('',setrow('Example setting','Same rows, text sizes, and spacing on every settings page.',sw(name))+setrow('Another setting','',`<select><option>Option</option></select>`))}
+function shortcuts(){const h=hk();const row=(name,desc,keys,edit=true,warn='')=>`<div class="setrow"><div>${name}${desc?`<small>${desc}</small>`:''}${warn?`<div class="warnline">${warn}</div>`:''}</div><div style="display:flex;gap:8px;align-items:center"><span class="keycap">${keys.map(k=>`<kbd>${k}</kbd>`).join('')}</span>${edit?btn('Change','toast:Press the new shortcut','ghost'):''}</div></div>`;
+ return sechead('Shortcuts','Global shortcuts work in every app. The others work in BugVoice windows.')+
+ panel('Dictation',`<div class="setrow"><div>Hold to talk<small>Hold, speak, release. The text is pasted at the cursor.</small></div><select data-select="hotkey" aria-label="Hotkey">${HOTKEYS.map(x=>`<option value="${x[0]}" ${S.hotkey===x[0]?'selected':''}>${x[1]} ${x[2]}</option>`).join('')}</select></div>`+
+  row('Hands-free','Double-tap to start; tap once to finish',[h[2],h[2]],false)+row('Paste last dictation','',['⌃','⌥','V'],true,'')+row('Start or stop a meeting','',['⌃','⌥','M'],true,'Another app already uses this shortcut. Pick a different one.'))+
+ panel('Windows',row('Open BugVoice','',['⌃','⌥','B'])+row('Floating scratchpad','',['⌃','⌥','N'])+row('Search everything','In any BugVoice window',['⌘','K'],false)+row('Show or hide sidebar','',['⌃','⌘','S'],false))+
+ panel('Text size',row('Bigger text','',['⌘','+'],false)+row('Smaller text','',['⌘','−'],false)+row('Actual size','',['⌘','0'],false))+
+ panel('Scratchpad editor',row('New note','',['⌘','N'],false)+row('Bold, italic, underline, link','',['⌘B','⌘I','⌘U','⌘K'],false)+row('Copy as Markdown','',['⌘','⇧','C'],false)+row('Run the AI bar','',['⌘','↩'],false));}
+function editing(){return sechead('Editing','How text looks in every BugVoice window.')+
+ panel('Preview',`<div class="preview"><div class="foot">Meetings · Today 9:30 AM</div><h3 class="t-2">Product review</h3><p class="read">One text size for every screen. Một cỡ chữ cho mọi màn hình, kể cả menu bar.</p><div><code>swift test --filter ThemeStoreTests</code></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn primary">Save</button><button class="btn">Cancel</button>${sw('Preview switch')}<span class="chip">Work style</span></div></div>`,'Changes apply right away.')+
+ panel('Text',
+  setrow('Text size',`${S.scale}% of the macOS default. ⌘+ and ⌘− in any BugVoice window; ⌘0 resets. Saved right away.`,`<div class="range"><button class="btn" data-act="size:-5" aria-label="Smaller">A−</button><input type="range" min="90" max="160" step="5" value="${S.scale}" data-range="scale" aria-label="Text size"><button class="btn" data-act="size:5" aria-label="Larger">A+</button><output>${S.scale}%</output></div>`)+
+  `<div class="setrow stack"><div>Font<small>Every option shows Vietnamese so you can check the accents.</small></div><div class="fonts">${FONTS.map(f=>`<button class="fontcard" data-font="${f[0]}" aria-pressed="${S.font===f[0]}" style="font-family:${esc(f[2])}"><div class="aa">Aa</div><div class="vi">Tôi muốn ghi chú.</div><div class="nm">${f[1]}</div></button>`).join('')}<button class="fontcard" data-act="toast:Opens the macOS font panel"><div class="aa">+</div><div class="vi">Any installed font</div><div class="nm">Choose…</div></button></div></div>`+
+  setrow('Code font','Commands, file paths, transcript times',`<select data-select="mono">${MONOS.map(m=>`<option value="${m[0]}" ${S.mono===m[0]?'selected':''}>${m[1]}</option>`).join('')}</select>`)+
+  setrow('Line spacing','',seg('lead',[['normal','Normal'],['relaxed','Relaxed'],['loose','Loose']],'Line spacing'))+
+  setrow('Reading width','Longest line in notes, transcripts, and settings',seg('measure',[['narrow','Narrow'],['medium','Medium'],['wide','Wide']],'Reading width')))+
+ `<div style="display:flex;justify-content:flex-end">${btn('Reset editing','reset:editing')}</div>`}
+function themeTile(t){const m=contrast(t.muted,t.bg);const on=S.mode==='system'?(t.mode==='dark'?S.darkTheme:S.lightTheme)===t.id:S.theme===t.id;
+return `<button class="themetile" data-theme="${t.id}" aria-pressed="${on}" title="Secondary text ${m.toFixed(1)}:1"><div class="mini" style="background:${t.bg}"><div class="ms" style="background:${t.side}"><i style="background:${t.accent};width:80%"></i><i style="background:${t.muted};width:60%;opacity:.6"></i><i style="background:${t.muted};width:70%;opacity:.6"></i></div><div class="mc"><i style="background:${t.text};width:70%"></i><i style="background:${t.muted};width:90%"></i><i style="background:${t.muted};width:80%"></i><i style="background:${t.accent};width:30%;height:8px"></i></div></div><div class="tn"><span>${t.label}</span><span class="ratio ${m>=7?'aaa':''}">${m.toFixed(1)}</span></div></button>`}
+function themeIcons(){
+ const groups=[['comfort','Eye comfort'],['dark','Dark'],['light','Light']];
+ const visible=t=>S.mode==='system'||S.mode===t.mode||t.group==='comfort';
+ const hs={small:.85,medium:1,large:1.3}[S.hud];
+ const hudPill=`<span class="hud" style="font-size:calc(13px*${hs}*var(--s))"><span class="dot"></span>Listening<span class="lv">${[6,12,9,15,7,11].map(h=>`<i style="height:${h*hs}px"></i>`).join('')}</span><span style="opacity:.6">0:04</span></span>`;
+ return sechead('Theme & icons','')+
+ panel('Theme',
+  setrow('Appearance','',pill('mode',[['light','Light'],['dark','Dark'],['system','Match macOS']],'Appearance'))+
+  (S.mode==='system'?setrow('Light theme','When macOS is light',`<select data-select="lightTheme">${THEMES.filter(t=>t[3]==='light').map(t=>`<option value="${t[0]}" ${S.lightTheme===t[0]?'selected':''}>${t[1]}</option>`).join('')}</select>`)+setrow('Dark theme','When macOS is dark',`<select data-select="darkTheme">${THEMES.filter(t=>t[3]==='dark').map(t=>`<option value="${t[0]}" ${S.darkTheme===t[0]?'selected':''}>${t[1]}</option>`).join('')}</select>`):'')+
+  groups.map(([g,l])=>{const list=THEMES.map(t=>T[t[0]]).filter(t=>t.group===g&&visible(t));return list.length?`<div class="themegroup">${l}</div><div class="themes">${list.map(themeTile).join('')}</div>`:''}).join('')+
+  `<p class="foot" style="margin-top:10px">The number is the contrast of secondary text. Green means 7:1 or more.</p>`)+
+ panel('Recording pill',setrow('Size','Shows while you dictate. Uses your theme.',pill('hud',[['small','Small'],['medium','Medium'],['large','Large']],'Pill size'))+`<div class="hudstage"><div style="background:#f4f5f7">${hudPill}</div><div style="background:#1c1d21">${hudPill}</div></div><p class="foot">Shown over a light and a dark app. The border and shadow keep it visible on both.</p>`)+
+ panel('Icons',
+  `<div class="setrow"><div>App icon<small>Dock, app switcher, and windows. Finder keeps the built-in icon.</small></div><div><div class="carousel"><button class="btn" data-act="icon:-1" aria-label="Previous icon">‹</button><span>${logo(S.appIcon,112).replace('<svg','<svg class="big"')}</span><button class="btn" data-act="icon:1" aria-label="Next icon">›</button></div><div style="text-align:center;font-weight:600;margin-top:4px">${LOGOS[S.appIcon-1]}</div><div class="dots">${LOGOS.map((_,i)=>`<i class="${i+1===S.appIcon?'on':''}"></i>`).join('')}</div></div></div>`+
+  `<div class="setrow"><div>Menu bar icon<small>One color, so macOS tints it for light and dark menu bars.</small></div><div><div class="carousel"><button class="btn" data-act="micon:-1" aria-label="Previous menu bar icon">‹</button><span class="mbpreview"><span class="mb l">${glyph(S.menuIcon)}</span><span class="mb d">${glyph(S.menuIcon)}</span></span><button class="btn" data-act="micon:1" aria-label="Next menu bar icon">›</button></div><div style="text-align:center;font-weight:600;margin-top:4px">${LOGOS[S.menuIcon-1]}</div><div class="dots">${LOGOS.map((_,i)=>`<i class="${i+1===S.menuIcon?'on':''}"></i>`).join('')}</div></div></div>`)+
+ `<div style="display:flex;justify-content:flex-end">${btn('Reset theme and icons','reset:theme')}</div>`}
+
+/* Integrations: roadmap item 7 (Calendar + export) plus the MCP server moved from Settings › Agents. */
+function integrations(){const s=S.sec.integrations;
+ if(s==='calendar')return `<div class="column">${sechead('Calendar','Fill meeting titles and attendees from Calendar.app. Google, Exchange, and iCloud accounts you added to macOS work with no sign-in.',docs)}
+ ${panel('',`<div class="row"><span class="appico">${ico('calendar')}</span><div class="grow"><b>Apple Calendar</b><small>Reads events on this Mac. Nothing leaves it.</small></div>${S.switches.cal?'<span class="chip">Connected</span>':btn('Allow access','toggle:cal','primary')}</div>`+(S.switches.cal?`<div class="row"><div class="grow">Work (Exchange)<small>Used for meeting titles</small></div>${sw('Work cal')}</div><div class="row"><div class="grow">Personal (iCloud)</div>${sw('Personal cal',false)}</div><div class="row"><div class="grow">Suggest recording when an event with a video link starts</div>${sw('Suggest')}</div>`:''))}
+ ${panel('Later',`<div class="row"><span class="appico">${ico('agent')}</span><div class="grow"><b>Join calls as a participant</b><small>Would tell speakers apart from the call itself. People in the call can see it joined, so teams may object. Off the roadmap for now.</small></div><span class="badge">Later</span></div>`)}</div>`;
+ if(s==='applenotes')return `<div class="column">${sechead('Apple Notes','Send a meeting summary or a note to Apple Notes.',docs)}${panel('',setrow('Export after each meeting','Summary, decisions, and next steps',sw('Notes export',false))+setrow('Folder','',`<select><option>BugVoice</option><option>Notes</option></select>`))}</div>`;
+ if(s==='notion')return `<div class="column">${sechead('Notion','Send meeting summaries and notes to a Notion page.',docs)}${panel('',`<div class="row"><span class="appico">N</span><div class="grow"><b>Notion</b><small>Needs a Notion integration token. This is the one export that leaves your Mac.</small></div>${btn('Add token','toast:Opens the token sheet')}</div>`+setrow('Parent page','','<input type="text" placeholder="Paste a page link">'))}</div>`;
+ if(s==='mcp')return `<div class="column">${sechead('MCP server','Let coding agents search and read your notes, meetings, and dictations. Runs on this Mac.',docs)}
+ ${panel('',setrow('MCP server','Agents can connect while BugVoice is running',sw('MCP'))+setrow('Agents may edit notes','',sw('MCP edits'))+setrow('Agents may add uploads','',sw('MCP uploads')))}
+ ${panel('Add to your agent',`<div class="foot">Claude Code</div><div class="codebox"><span>claude mcp add bugvoice -- ~/Applications/BugVoice.app/Contents/MacOS/BugVoiceMCP</span>${btn(ico('copy'),'toast:Copied','ghost icon')}</div><div class="foot" style="margin-top:.6em">Codex, Cursor, other clients</div><div class="codebox"><span>{ "mcpServers": { "bugvoice": { "command": "~/Applications/BugVoice.app/Contents/MacOS/BugVoiceMCP" } } }</span>${btn(ico('copy'),'toast:Copied','ghost icon')}</div>`)}
+ ${panel('Recent activity',`<div class="row"><div class="grow">search_notes “appearance”<small>Claude Code · 9:41 AM</small></div></div><div class="row"><div class="grow">read_meeting “Product review”<small>Claude Code · 9:41 AM</small></div></div>`)}</div>`;
+ if(s==='cli')return `<div class="column">${sechead('Command line','Read notes and meetings from the terminal.',`<span class="badge">Later</span>`)}${panel('',`<p class="muted">Not built yet. It would reuse the MCP server’s code:</p><div class="codebox"><span>bugvoice notes list --folder Product</span></div>`)}</div>`;
+ return `<div class="column">${sechead('Local model servers','Servers BugVoice can use for cleanup, summaries, and Ask.','')}${panel('',[['oMLX','localhost:8000 · Connected',true],['MTPLX','localhost:8080 · Not running',false],['Apple Intelligence','On this Mac · Ready',true]].map(r=>`<div class="row"><span class="appico">${ico('cpu')}</span><div class="grow"><b>${r[0]}</b><small>${r[1]}</small></div><span class="chip" style="${r[2]?'':'background:var(--hover)'}">${r[2]?'Ready':'Off'}</span></div>`).join('')+`<div style="margin-top:8px">${btn('Open Settings › Models','settings:models')}</div>`)}</div>`;}
+
+/* Help */
+const HELP={start:['Getting started',['Hold the hotkey (Right Control by default), speak, and release. The text is pasted where your cursor is.','Double-tap the hotkey to keep listening without holding it. Tap once more to finish.','The first time, macOS asks for Microphone, Accessibility, and Input Monitoring. BugVoice needs all three to listen and paste.']],
+ shortcuts:['Shortcuts',['Every shortcut is listed in Settings › Shortcuts, where you can change the global ones.']],
+ styles:['Styles',['BugVoice looks at the app you are typing in and picks a style: Personal, Work, Email, Coding, or Other.','Add your own apps from Style › + › Choose app. Add web apps from Style › + › Add website.']],
+ meetings:['Meetings',['Start a meeting from the menu bar or with ⌃⌥M. BugVoice records your microphone and the call audio on this Mac.']],
+ agents:['Coding agents',['Turn on the MCP server in Integrations › MCP server, then add it to Claude Code or Codex.']],
+ trouble:['Troubleshooting',['Nothing is pasted: check Accessibility in System Settings › Privacy & Security.','Pasting into VS Code copies instead: turn on the accessibility support setting in VS Code.']],
+ privacy:['Privacy',['Speech is turned into text on this Mac. Text goes to a model only on the server you configured. Nothing else leaves your Mac.']]};
+function help(){const h=HELP[S.sec.help];return `<div class="column">${sechead(h[0],'')}<div class="read">${h[1].map(p=>`<p style="margin-bottom:.8em">${p}</p>`).join('')}</div></div>`}
+
+/* Style */
+const CATS={
+ personal:{tab:'Personal',ask:'personal messages',banner:'This style applies in personal messengers',apps:[['Messages','#34c759'],['Zalo','#0068ff'],['WhatsApp','#25d366'],['Telegram','#2aabee']],
+  cards:[['Formal','Caps and full punctuation'],['Casual','Caps, lighter punctuation'],['Very casual','No caps, lighter punctuation']],
+  ex:{en:['Hey, are you free for lunch tomorrow? Let’s do 12 if that works for you.','Hey are you free for lunch tomorrow? Let’s do 12 if that works for you','hey are you free for lunch tomorrow? let’s do 12 if that works for you'],
+      vi:['Tối nay em rảnh không? Mình đi ăn lúc 7 giờ nhé.','Tối nay em rảnh không? Mình đi ăn lúc 7 giờ nhé','tối nay em rảnh không? mình đi ăn lúc 7 giờ nhé']}},
+ work:{tab:'Work',ask:'work messages',banner:'This style applies in workplace chat',apps:[['Slack','#611f69'],['Teams','#5b5fc7'],['Lark','#00d6b9']],
+  cards:[['Formal','Caps and full punctuation'],['Casual','Caps, lighter punctuation'],['Excited','More exclamation marks']],
+  ex:{en:['Hey, if you’re free, let’s chat about the results.','Hey, if you’re free let’s chat about the results','Hey, if you’re free, let’s chat about the results!'],
+      vi:['Anh ơi, nếu rảnh thì mình trao đổi về kết quả nhé.','Anh ơi nếu rảnh thì mình trao đổi về kết quả nhé','Anh ơi, nếu rảnh thì mình trao đổi về kết quả nhé!']}},
+ email:{tab:'Email',ask:'emails',banner:'This style applies in email apps',apps:[['Mail','#1e88e5'],['Outlook','#0a64ad'],['Gmail','#ea4335']],
+  cards:[['Formal','Greeting, paragraphs, sign-off'],['Casual','One short paragraph'],['Excited','More exclamation marks']],
+  ex:{en:['Hi Alex,\n\nIt was great talking with you today. Looking forward to our next chat.\n\nBest,\nCong','Hi Alex, it was great talking with you today. Looking forward to our next chat.\n\nBest,\nCong','Hi Alex,\n\nIt was great talking with you today. Looking forward to our next chat!\n\nBest,\nCong'],
+      vi:['Chào chị Lan,\n\nRất vui được trao đổi với chị hôm nay. Hẹn gặp lại chị buổi sau.\n\nTrân trọng,\nCông','Chào chị Lan, rất vui được trao đổi với chị hôm nay. Hẹn gặp lại chị buổi sau.\n\nCông','Chào chị Lan,\n\nRất vui được trao đổi với chị hôm nay. Hẹn gặp lại chị buổi sau!\n\nCông']}},
+ coding:{tab:'Coding',ask:'prompts for coding agents',banner:'This style applies in terminals and code editors',apps:[['Terminal','#2b2b2b'],['Ghostty','#3b4252'],['iTerm','#16a34a'],['VS Code','#0078d4']],mono:true,
+  cards:[['As spoken','No text model. Fastest.'],['Exact','Fix misheard words only'],['Clean prompt','Sentences, steps as a list']],
+  ex:{en:['um run the tests in voice core uh then fix the failing one','run the tests in VoiceCore then fix the failing one','1. Run the tests in VoiceCore.\n2. Fix the failing one.'],
+      vi:['ờ chạy test trong voice core rồi sửa cái bị lỗi','chạy test trong VoiceCore rồi sửa cái bị lỗi','1. Chạy test trong VoiceCore.\n2. Sửa test bị lỗi.']}},
+ other:{tab:'Other',ask:'other apps',banner:'This style applies in every other app',apps:[['Notion','#111'],['Obsidian','#7c3aed'],['Notes','#f5c400'],['ChatGPT','#10a37f']],
+  cards:[['Formal','Caps and full punctuation'],['Casual','Caps, lighter punctuation'],['Structured','Paragraphs and lists']],
+  ex:{en:['So far, I am enjoying the new workout routine. I am excited for tomorrow’s session.','So far I am enjoying the new workout routine. I am excited for tomorrow’s session','Workout so far:\n- Enjoying the new routine\n- Excited for tomorrow’s session'],
+      vi:['Đến giờ, tôi rất thích lịch tập mới. Tôi mong buổi tập ngày mai.','Đến giờ tôi rất thích lịch tập mới. Tôi mong buổi tập ngày mai','Lịch tập:\n- Rất thích lịch tập mới\n- Mong buổi tập ngày mai']}},
+};
+const CLEANUP={cards:[['None','Exactly what you said, mistakes included'],['Light','Removes filler words, fixes grammar'],['Medium','Edits for clarity and length']],
+ ex:{en:['hey joey we still on for coffee or? i think we maybe should leave earlier there might um be traffic','Hey Joey, are we still on for coffee? I think we should leave earlier. There might be traffic.','Hey Joey, are we still on for coffee? We should leave earlier; there might be traffic.'],
+     vi:['ờ anh ơi mình vẫn đi cà phê chứ hay là? em nghĩ chắc mình nên đi sớm hơn kiểu là có thể kẹt xe','Anh ơi, mình vẫn đi cà phê chứ? Em nghĩ mình nên đi sớm hơn. Có thể kẹt xe.','Anh ơi, mình vẫn đi cà phê chứ? Mình nên đi sớm hơn vì có thể kẹt xe.']}};
+const STEPS=['personal','work','email','coding','other','cleanup'];
+function cardsFor(cat){
+ if(cat==='cleanup')return `<div class="cards">${CLEANUP.cards.map((c,i)=>`<button class="stylecard" data-cleanup="${i}" aria-pressed="${S.cleanup===i}"><div class="nm t-2">${c[0]}</div><div class="rule">${c[1]}</div><div class="ex" style="font-style:italic">${esc(CLEANUP.ex[S.lang][i])}</div></button>`).join('')}</div>`;
+ const c=CATS[cat];return `<div class="cards">${c.cards.map((k,i)=>`<button class="stylecard" data-tone="${cat}:${i}" aria-pressed="${S.tones[cat]===i}"><div><div class="nm">${k[0]}</div><div class="rule">${k[1]}</div></div><div class="ex ${c.mono?'mono':''}">${esc(c.ex[S.lang][i])}</div></button>`).join('')}</div>`}
+function apps(list,withAdd=true){return `<div class="apps">${list.map(a=>`<span class="app" style="background:${a[1]}" title="${a[0]}">${a[0][0]}</span>`).join('')}${withAdd?`<button class="app add" data-act="open:addapp" title="Add an app or website" aria-label="Add an app or website">+</button>${S.open==='addapp'?`<div class="dropdown" role="menu" style="top:calc(100% + 8px)"><div class="grp">You dictated here recently</div>${mi('app','Bugler Desk','your own app')}${mi('app','Orca','')}${mi('app','Herdr','')}<hr>${mi('open','Choose app…','any .app')}${mi('globe','Add website…','e.g. localhost:5173')}</div>`:''}`:''}</div>`}
+const langToggle=()=>`<div class="pillseg" role="group" aria-label="Example language">${[['en','English examples'],['vi','Tiếng Việt']].map(([v,l])=>`<button aria-pressed="${S.lang===v}" data-set="lang" data-val="${v}">${l}</button>`).join('')}</div>`;
+function stylePage(){const tab=S.sec.style,c=CATS[tab];
+ return `<div class="dash">${tab==='cleanup'?`<div class="banner"><div><h2>Cleanup applies to all your dictations</h2><p>How much the text model edits, in every app. Your original words are kept: open a dictation and choose Undo AI edit.</p></div></div>`:`<div class="banner"><div><h2>${c.banner}</h2><p>Works for English, Vietnamese, and mixed speech.</p></div>${apps(c.apps)}</div>`}
+ <div class="toolbar"><span class="foot">Pick the one that sounds like you.</span><div class="spacer"></div>${langToggle()}</div>
+ ${cardsFor(tab)}
+ ${tab==='cleanup'?'':`<details class="custom"><summary>Write your own instructions for ${c.tab.toLowerCase()}</summary><p class="foot" style="margin:.5em 0">Replaces the card above. Leave empty to use the card.</p><textarea placeholder="For example: always use “anh” instead of “bạn”."></textarea></details>`}</div>`}
+function interview(){const cat=STEPS[S.step],last=S.step===STEPS.length;
+ if(last)return `<div class="sheet" role="dialog" aria-label="Style setup"><div class="progress">${STEPS.map(()=>'<i class="on"></i>').join('')}</div><div class="ask"><h1>You’re set.</h1></div><div class="column" style="margin:0 auto;width:100%"><section class="panel">${Object.entries(CATS).map(([k,v])=>`<div class="row"><div class="grow">${v.tab}</div><b>${v.cards[S.tones[k]][0]}</b></div>`).join('')}<div class="row"><div class="grow">Cleanup</div><b>${CLEANUP.cards[S.cleanup][0]}</b></div></section><p class="foot">Change any of these in Style.</p></div><div class="sheetfoot">${btn('Back','step:-1')}${btn('Done','finish','primary')}</div></div>`;
+ const head=cat==='cleanup'?'How much should BugVoice <em>clean up</em>?':cat==='other'?'How do you write in <em>other apps</em>?':`How do you write your <em>${CATS[cat].ask}</em>?`;
+ return `<div class="sheet" role="dialog" aria-label="Style setup"><div class="progress">${STEPS.map((_,i)=>`<i class="${i<=S.step?'on':''}"></i>`).join('')}</div>
+ <div class="ask"><h1>${head}</h1>${cat!=='cleanup'?apps(CATS[cat].apps,false):''}</div>
+ <div style="display:flex;justify-content:center;margin-bottom:var(--sp5)">${langToggle()}</div>
+ ${cardsFor(cat)}
+ <div class="sheetfoot"><div>${btn('Skip setup','finish','ghost')}</div><div style="display:flex;gap:8px">${S.step?btn('Back','step:-1'):''}${btn('Next','step:1','primary')}</div></div></div>`}
+
+/* Menu bar popover: option 2, Open BugVoice moved above Settings. */
+function menuSurface(){
+ return `<div class="menustage"><div class="macbar"><b>BugVoice</b><span>File</span><span>Window</span><div class="spacer"></div>${glyph(S.menuIcon)}<span>Sun 18 Oct  9:30</span></div>
+ <aside class="menuexplain"><h2>A small control panel</h2><p>Option 2 from the first proposal, with Open BugVoice moved down next to Settings. It is a custom popover, so it follows your text size, font, and theme.</p><ol><li>See that BugVoice is ready</li><li>Start something: note, meeting, upload, paste</li><li>Recover the last dictation</li><li>Change dictation options</li><li>Open the app, Settings, or quit</li></ol></aside>
+ <div class="pop" role="menu" aria-label="BugVoice menu">
+  <div class="status"><span class="led"></span><div><b>Ready to dictate</b><small>Hold ${hk()[1]} to speak · Release to paste</small></div></div>
+  <div class="grid">${btn(ico('notes')+' New note','toast:New note')}${btn('<span style="color:var(--rec)">●</span> Record meeting','toast:Recording starts')}${btn(ico('upload')+' Upload','toast:Upload')}${btn(ico('paste')+' Paste last','toast:Pasted')}</div>
+  <hr><div class="last"><div class="foot">Last dictation · Orca · 10:40</div><p class="read">${esc(HISTORY[0][2])}</p><div style="display:flex;gap:6px">${btn(ico('copy')+' Copy','toast:Copied')}${btn(ico('retry')+' Retry','toast:Retrying')}</div></div>
+  <hr>${mi('meetings','Library','›')}${mi('mic','Dictation options','›')}
+  <hr>${mi('open','Open BugVoice','⌃⌥B','page:dictation')}${mi('settings','Settings…','⌘,','page:settings')}${mi('','Tools','›')}${mi('','Quit BugVoice','⌘Q')}
+ </div></div>`}
+
+/* Tokens reference */
+function tokensSurface(){const t=activeTheme(),px=n=>Math.round(n*S.scale)/100;
+ const ramp=[['largeTitle',28,600,'First-run questions'],['title1',22,600,'Large numbers in banners'],['title2',18,600,'Window title, section and detail titles'],['title3',15,600,'Panel headings'],['reading',15,400,'Transcripts, notes, dictations'],['body',13,400,'Controls, rows, menus'],['footnote',12,400,'Secondary lines, metadata'],['caption',11,400,'Group labels, badges']];
+ const cols=[['bg','Window background',t.bg],['sidebar','Sidebar',t.side],['card','Cards and panels',t.card],['separator','Lines',t.line],['text','Primary text',t.text],['secondaryText','Secondary text',t.muted],['accent','Selection, primary buttons',t.accent]];
+ return `<div class="window single"><div class="main"><header class="titlebar"><div class="tb-left"><span class="lights" aria-hidden="true"><i></i><i></i><i></i></span><h1>Design tokens</h1></div><div></div><div class="tb-right foot">${t.label} · ${S.scale}% · ${FONTS.find(f=>f[0]===S.font)[1]}</div></header><div class="body"><div class="dash">
+ ${panel('Type scale',`<table class="table ramp"><thead><tr><th>Token</th><th>Size now</th><th>Sample</th><th>Use</th></tr></thead><tbody>${ramp.map(r=>`<tr><td>${r[0]}</td><td>${px(r[1])} pt</td><td style="font-size:${px(r[1])}px;font-weight:${r[2]};line-height:1.25">Tôi muốn ghi chú</td><td class="muted">${r[3]}</td></tr>`).join('')}</tbody></table>`,'Base sizes at 100% times the text size setting. No view sets a size of its own.')}
+ ${panel('Colors',`<table class="table"><tbody>${cols.map(c=>`<tr><td><span class="sw" style="background:${c[2]}"></span><span class="mono foot">${c[0]}</span></td><td class="muted">${c[1]}</td><td class="mono foot">${c[2]}</td><td>${['text','secondaryText','accent'].includes(c[0])?`<span class="ratio ${contrast(c[2],t.bg)>=7?'aaa':''}">${contrast(c[2],t.bg).toFixed(1)}:1</span>`:''}</td></tr>`).join('')}</tbody></table>`,'Seven colors per theme. Hover and selection colors are mixed from them.')}
+ ${panel('Layout',`<div class="row"><div class="grow">Title bar<small>Sidebar button · page title · search (fixed width, centered) · page action</small></div></div><div class="row"><div class="grow">Section list<small>Option 1: its own pane on every page with sections. Option 2: a pane for Meetings and Scratchpad, a list inside the page for Settings, Style, Dictionary, Integrations, Help.</small></div></div><div class="row"><div class="grow">Selected item<small>Filled with accentSoft plus an accent border. The keyboard focus ring stays separate.</small></div></div><div class="row"><div class="grow">Spacing · radius<small>4 8 12 16 24 32 · 6 controls, 10 cards, 14 large cards</small></div></div>`)}
+ </div></div></div></div>`}
+
+const NOTE={app:'<b>Layout.</b> The sidebar runs the full height with the window buttons at the top. The title bar belongs to the right panel: sidebar button, page title, centered search, page action. Meetings and Scratchpad get a list pane because their lists grow with your files. Settings, Style, Integrations, and Help show a short vertical list inside the page. Dictation, Insights, Dictionary, and the meeting views switch with equal-width round pills.',
+ menu:'<b>Menu bar.</b> Custom popover, so text size, font, and theme apply here too. A native menu would ignore them. The cost is building keyboard navigation and VoiceOver support by hand.',
+ interview:'<b>First-run setup.</b> Six steps, one per style plus cleanup. It writes the same settings as the Style page and can be run again from there.',
+ tokens:'<b>Tokens.</b> What the Swift code will define in one file. Every value here changes with the controls at the top.'};
+
+function quick(){return `<label>Theme <select data-quicktheme aria-label="Theme">${THEMES.map(t=>`<option value="${t[0]}" ${activeTheme().id===t[0]?'selected':''}>${t[1]}</option>`).join('')}</select></label>
+<label>Text <input type="range" min="90" max="160" step="5" value="${S.scale}" data-range="scale" aria-label="Text size"> <b>${S.scale}%</b></label>
+<label>Font <select data-select="font" aria-label="Font">${FONTS.map(f=>`<option value="${f[0]}" ${S.font===f[0]?'selected':''}>${f[1]}</option>`).join('')}</select></label>`}
+function render(){
+ applyAppearance();
+ document.getElementById('quick').innerHTML=quick();
+ document.getElementById('surfaces').innerHTML=[['app','App window'],['menu','Menu bar'],['interview','First-run style setup'],['tokens','Tokens']].map(([k,l])=>`<button aria-pressed="${S.surface===k}" data-surface="${k}">${l}</button>`).join('');
+ document.getElementById('options').innerHTML='';
+ const stage=document.getElementById('stage');
+ if(S.surface==='interview'){S.page='style';S.interview=true;stage.innerHTML=appWindow();}
+ else{if(S.surface!=='app')S.interview=false;stage.innerHTML=S.surface==='menu'?menuSurface():S.surface==='tokens'?tokensSurface():appWindow();}
+ document.getElementById('note').innerHTML=NOTE[S.surface];
+ save();
+ if(S.open==='search'){const i=document.querySelector('[data-search]');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length)}}
+}
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,1600)}
+function setScale(v){S.scale=Math.min(160,Math.max(90,v));render()}
+document.addEventListener('click',e=>{
+ const el=e.target.closest('[data-act],[data-page],[data-sec],[data-set],[data-toggle],[data-font],[data-theme],[data-menuicon],[data-tone],[data-cleanup],[data-meeting],[data-note],[data-surface],[data-option]');
+ if(e.target.closest('.search')&&!el){if(S.open!=='search'){S.open='search';render()}return}
+ const wasOpen=S.open;
+ if(!el){if(S.open){S.open=null;render()}return}
+ const d=el.dataset;S.open=null;
+ if(d.surface){S.surface=d.surface;if(d.surface==='interview')S.step=0;return render()}
+ if(d.option){S.option=+d.option;return render()}
+ if(d.page){S.page=d.page;S.interview=false;return render()}
+ if(d.sec){const[p,v]=d.sec.split(':');S.sec[p]=v;return render()}
+ if(d.set){S[d.set]=d.val;if(d.set==='mode'&&d.val!=='system'&&T[S.theme].mode!==d.val&&T[S.theme].group!=='comfort')S.theme=d.val==='dark'?S.darkTheme:S.lightTheme;return render()}
+ if(d.toggle){S.switches[d.toggle]=!(S.switches[d.toggle]??el.getAttribute('aria-checked')==='true');return render()}
+ if(d.font){S.font=d.font;return render()}
+ if(d.theme){const t=T[d.theme];if(S.mode==='system'){t.mode==='dark'?S.darkTheme=t.id:S.lightTheme=t.id}else{S.theme=t.id;S.mode=t.mode}return render()}
+ if(d.menuicon){S.menuIcon=+d.menuicon;return render()}
+ if(d.tone){const[c,i]=d.tone.split(':');S.tones[c]=+i;return render()}
+ if(d.cleanup){S.cleanup=+d.cleanup;return render()}
+ if(d.meeting){S.meeting=+d.meeting;return render()}
+ if(d.note){S.note=+d.note;return render()}
+ const a=d.act;
+ if(a.startsWith('open:')){const id=a.slice(5);S.open=wasOpen===id?null:id;return render()}
+ if(a.startsWith('toast:')){render();return toast(a.slice(6))}
+ if(a.startsWith('toggle:')){S.switches[a.slice(7)]=true;return render()}
+ if(a.startsWith('size:'))return setScale(S.scale+ +a.slice(5));
+ if(a.startsWith('micon:')){S.menuIcon=(S.menuIcon-1+ +a.slice(6)+15)%15+1;return render()}
+ if(a.startsWith('icon:')){S.appIcon=(S.appIcon-1+ +a.slice(5)+15)%15+1;return render()}
+ if(a.startsWith('step:')){S.step=Math.max(0,Math.min(STEPS.length,S.step+ +a.slice(5)));return render()}
+ if(a.startsWith('page:')){S.surface='app';S.page=a.slice(5);return render()}
+ if(a.startsWith('settings:')){S.surface='app';S.page='settings';S.sec.settings=a.slice(9);return render()}
+ if(a==='sidebar'){S.sidebar=!S.sidebar;return render()}
+ if(a==='interview'){S.interview=true;S.step=0;return render()}
+ if(a==='finish'){S.interview=false;S.surface='app';S.page='style';render();return toast('Saved. Change any of these in Style.')}
+ if(a.startsWith('reset:')){const keys=a==='reset:editing'?['scale','font','mono','lead','measure']:['mode','theme','lightTheme','darkTheme','hud','appIcon','menuIcon'];keys.forEach(k=>S[k]=DEFAULTS[k]);return render()}
+});
+document.addEventListener('input',e=>{const el=e.target;if(el.dataset.range){S.scale=+el.value;applyAppearance();document.querySelectorAll('[data-range]').forEach(r=>{r.value=S.scale;r.parentElement.querySelectorAll('output,b').forEach(o=>o.textContent=S.scale+'%')})}if('search'in el.dataset){S.query=el.value}});
+document.addEventListener('change',e=>{const el=e.target;if(el.dataset.range)return render();if(el.dataset.select){S[el.dataset.select]=el.value;return render()}if('quicktheme'in el.dataset){const t=T[el.value];S.theme=t.id;S.mode=t.mode;if(t.mode==='dark')S.darkTheme=t.id;else S.lightTheme=t.id;return render()}});
+document.addEventListener('keydown',e=>{
+ if(e.key==='Escape'&&S.open){S.open=null;return render()}
+ if(!e.metaKey&&!e.ctrlKey)return;
+ if(e.metaKey&&(e.key==='='||e.key==='+')){e.preventDefault();setScale(S.scale+10)}
+ else if(e.metaKey&&e.key==='-'){e.preventDefault();setScale(S.scale-10)}
+ else if(e.metaKey&&e.key==='0'){e.preventDefault();setScale(100)}
+ else if(e.metaKey&&e.key.toLowerCase()==='k'){e.preventDefault();if(S.surface!=='app'){S.surface='app'}S.open='search';render()}
+ else if(e.metaKey&&e.ctrlKey&&e.key.toLowerCase()==='s'){e.preventDefault();S.sidebar=!S.sidebar;render()}
+});
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{if(S.mode==='system')render()});
+render();
+</script>
+</body>
+</html>
