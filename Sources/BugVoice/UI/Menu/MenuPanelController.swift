@@ -93,12 +93,16 @@ final class MenuPanelController: NSObject {
         workspaceObservers = []
     }
 
+    private var openCount = 0
+
     private func open() {
         model.refreshPermissions()
         Task { await model.refreshSpeechState() }
-        // A fresh view each time resets the submenu and the highlight.
+        // A new identity each open makes SwiftUI drop the old @State, which
+        // resets the submenu, the highlight and the measured height.
+        openCount += 1
         let popover = MenuPopover(model: model, maxHeight: maxHeight) { [weak self] in self?.close() }
-        hosting.rootView = AnyView(popover.bvTheme(menuAppearance, fillsBackground: false))
+        hosting.rootView = AnyView(popover.id(openCount).bvTheme(menuAppearance, fillsBackground: false))
         hosting.layoutSubtreeIfNeeded()
         // Never show a frame at a stale or zero size and position.
         waitingForSize = !layout()
