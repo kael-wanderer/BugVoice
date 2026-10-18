@@ -12,6 +12,7 @@ struct AskCitationSelection: Identifiable, Equatable {
 }
 
 struct CitationPanel: View {
+    @Environment(AppearanceStore.self) private var store
     let model: AppModel
     let selection: AskCitationSelection
     let compact: Bool
@@ -31,7 +32,7 @@ struct CitationPanel: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[2]) {
             HStack {
                 if compact { Button("‹ Answer", action: close) }
                 Spacer()
@@ -39,31 +40,31 @@ struct CitationPanel: View {
             }
             if let meeting {
                 Text("\(meeting.title) · \(AskAnswerView.clock(selection.citation.start ?? 0))–\(AskAnswerView.clock(selection.citation.end ?? 0))")
-                    .font(.headline)
+                    .bvFont(.bodyStrong)
                 Text(meeting.startedAt.formatted(date: .abbreviated, time: .omitted) + " · " + people(meeting))
-                    .font(.caption).foregroundStyle(.secondary)
+                    .bvFont(.footnote).foregroundStyle(.bvSecondary)
                 if let url = audioURL(meeting.id), let start = selection.citation.start, let end = selection.citation.end {
                     CitationPlayer(url: url, start: start, end: end, pauseRequest: pauseRequest).id(selection.id)
                 }
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {
                         ForEach(context) { line in
-                            VStack(alignment: .leading, spacing: 5) {
+                            VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
                                 HStack(alignment: .firstTextBaseline) {
-                                    Text(AskAnswerView.clock(line.start)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                                    Text(line.speaker).font(.callout.weight(.semibold))
+                                    Text(AskAnswerView.clock(line.start)).bvCode(.footnote).monospacedDigit().foregroundStyle(.bvSecondary)
+                                    Text(line.speaker).bvFont(.body)
                                 }
                                 Text(line.text).textSelection(.enabled)
                                 if let english = line.translation {
-                                    if !english.isEmpty { Text(english).font(.callout).foregroundStyle(.secondary).textSelection(.enabled) }
+                                    if !english.isEmpty { Text(english).bvFont(.body).foregroundStyle(.bvSecondary).textSelection(.enabled) }
                                 } else if translating {
-                                    Text("Translating…").font(.callout).foregroundStyle(.secondary)
+                                    Text("Translating…").bvFont(.body).foregroundStyle(.bvSecondary)
                                 } else if translationFailed {
-                                    Text("Translation unavailable").font(.callout).foregroundStyle(.secondary)
+                                    Text("Translation unavailable").bvFont(.body).foregroundStyle(.bvSecondary)
                                 }
                             }
-                            .padding(10).frame(maxWidth: .infinity, alignment: .leading)
-                            .background(citedIDs.contains(line.id) ? Color.accentColor.opacity(0.12) : .clear, in: RoundedRectangle(cornerRadius: 8))
+                            .padding(LayoutTokens.spacing[1]).frame(maxWidth: .infinity, alignment: .leading)
+                            .background(citedIDs.contains(line.id) ? store.theme.accent.opacity(0.12) : .clear, in: RoundedRectangle(cornerRadius: LayoutTokens.controlRadius))
                         }
                     }
                 }
@@ -76,8 +77,8 @@ struct CitationPanel: View {
                 Spacer()
             }
         }
-        .padding(14).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .padding(LayoutTokens.spacing[2]).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(store.theme.background)
         .task(id: selection.id) {
             translating = true
             translationFailed = false

@@ -4,22 +4,8 @@ set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-ALLOW=''
-PENDING='Sources/BugVoice/HUD/HUDView.swift
-Sources/BugVoice/MeetingDetectionController.swift
-Sources/BugVoice/UI/MeetingWindow/MeetingTranscriptView.swift
-Sources/BugVoice/UI/MeetingWindow/MeetingWindowView.swift
-Sources/BugVoice/UI/PermissionsView.swift
-Sources/BugVoice/UI/Scratchpad/AIBar.swift
-Sources/BugVoice/UI/Scratchpad/AskAnswerView.swift
-Sources/BugVoice/UI/Scratchpad/CitationPanel.swift
-Sources/BugVoice/UI/Scratchpad/CitationPlayer.swift
-Sources/BugVoice/UI/Scratchpad/MarkdownDocView.swift
-Sources/BugVoice/UI/Scratchpad/MarkdownTextStyler.swift
-Sources/BugVoice/UI/Scratchpad/MarkdownToolbar.swift
-Sources/BugVoice/UI/Scratchpad/ScratchpadNoteEditor.swift
-Sources/BugVoice/UI/Scratchpad/ScratchpadTabBar.swift
-Sources/BugVoice/UI/Scratchpad/ScratchpadWindowView.swift'
+ALLOW='Sources/BugVoice/UI/MenuContent.swift  # native NSMenu, redesign spec'
+PENDING='Sources/BugVoice/HUD/HUDView.swift'
 
 is_exempt() {
     local path="$1"

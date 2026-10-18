@@ -6,6 +6,7 @@ import VoiceCore
 /// The AI bar: Polish, More professional, More casual, Run again, and a box
 /// for follow-ups or questions. While a request runs it shows Working… and Cancel.
 struct AIBar: View {
+    @Environment(AppearanceStore.self) private var store
     @Bindable var assistant: ScratchpadAssistant
     let model: AppModel
     let noteID: NoteID
@@ -20,26 +21,26 @@ struct AIBar: View {
     @ViewBuilder private var content: some View {
         switch assistant.phase {
         case .running(let label):
-            HStack(spacing: 10) {
+            HStack(spacing: LayoutTokens.spacing[1]) {
                 if assistant.askStep == nil {
                     ProgressView().controlSize(.small)
-                    Text(label).foregroundStyle(.secondary)
+                    Text(label).foregroundStyle(.bvSecondary)
                 }
                 Spacer()
                 Button(assistant.askStep == nil ? "Cancel" : "Stop") { assistant.cancel() }
                     .keyboardShortcut(.escape, modifiers: [])
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, LayoutTokens.spacing[0])
         case .failed(let message):
             HStack {
-                Text(message).foregroundStyle(.orange)
+                Text(message).foregroundStyle(.bvWarning)
                 Spacer()
                 Button("OK") { assistant.cancel() }
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, LayoutTokens.spacing[0])
         case .idle:
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 6) {
+            VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {
+                HStack(spacing: LayoutTokens.spacing[0]) {
                     ForEach(NoteTransform.allCases, id: \.self) { transform in
                         Button(transform.title) { run(transform) }
                             .disabled(assistant.scope != .note(noteID))
@@ -59,19 +60,19 @@ struct AIBar: View {
                     Spacer(minLength: 0)
                 }
                 Divider()
-                HStack(spacing: 8) {
+                HStack(spacing: LayoutTokens.spacing[1]) {
                     scopeMenu
                     TextField("Follow up or ask a question", text: $assistant.message)
                         .textFieldStyle(.plain)
                         .onSubmit(send)
                     Button(action: send) {
-                        Image(systemName: "arrow.up.circle.fill").font(.title3)
+                        Image(systemName: "arrow.up.circle.fill").bvFont(.title3)
                     }
                     .buttonStyle(.borderless)
                     .disabled(assistant.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || assistant.scope.questionIsTooLong(assistant.message))
                     .accessibilityLabel("Send")
                 }
-                if assistant.scope.questionIsTooLong(assistant.message) { Text("Shorter question, please.").font(.caption).foregroundStyle(.secondary) }
+                if assistant.scope.questionIsTooLong(assistant.message) { Text("Shorter question, please.").bvFont(.footnote).foregroundStyle(.bvSecondary) }
             }
         }
     }
@@ -117,13 +118,14 @@ struct AIBar: View {
 
 /// A question's answer above the bar: Copy, Insert below, Dismiss.
 struct AIReplyView: View {
+    @Environment(AppearanceStore.self) private var store
     let reply: AssistantReply
     let onInsert: () -> Void
     let onDismiss: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(reply.message).font(.callout).foregroundStyle(.secondary).lineLimit(2)
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
+            Text(reply.message).bvFont(.body).foregroundStyle(.bvSecondary).lineLimit(2)
             ScrollView {
                 Text(LocalizedStringKey(reply.text))
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -140,8 +142,8 @@ struct AIReplyView: View {
                 Button("Dismiss", action: onDismiss)
             }
         }
-        .padding(10)
-        .background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.secondary.opacity(0.25)))
+        .padding(LayoutTokens.spacing[1])
+        .background(store.theme.background, in: RoundedRectangle(cornerRadius: LayoutTokens.cardRadius))
+        .overlay(RoundedRectangle(cornerRadius: LayoutTokens.cardRadius).stroke(store.theme.secondaryText.opacity(0.25)))
     }
 }

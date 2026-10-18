@@ -4,6 +4,7 @@ import VoiceCore
 
 /// Live transcript lines and marks, newest at the bottom.
 struct MeetingTranscriptView: View {
+    @Environment(AppearanceStore.self) private var store
     let segments: [MeetingSegment]
     let speakers: [MeetingSpeaker]
     let marks: [MeetingMark]
@@ -50,8 +51,8 @@ struct MeetingTranscriptView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 8) {
-                Text(MeetingTimeText.text(elapsed)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+            HStack(spacing: LayoutTokens.spacing[1]) {
+                Text(MeetingTimeText.text(elapsed)).bvCode(.footnote).monospacedDigit().foregroundStyle(.bvSecondary)
                 TextField("Search", text: $query)
                     .textFieldStyle(.roundedBorder)
                     .controlSize(.small)
@@ -62,33 +63,33 @@ struct MeetingTranscriptView: View {
                     Toggle("Show English", isOn: Binding(get: { showEnglish }, set: { onShowEnglish($0) }))
                         .toggleStyle(.switch)
                         .controlSize(.mini)
-                        .font(.caption)
+                        .bvFont(.footnote)
                         .fixedSize()
                 }
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(.horizontal, LayoutTokens.spacing[2])
+            .padding(.vertical, LayoutTokens.spacing[1])
             if offersEnglish && showEnglish && englishNeedsModel {
                 Text("English needs a Meetings model.")
-                    .font(.caption).foregroundStyle(.orange)
+                    .bvFont(.footnote).foregroundStyle(.bvWarning)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 12)
-                    .padding(.bottom, 6)
+                    .padding(.horizontal, LayoutTokens.spacing[2])
+                    .padding(.bottom, LayoutTokens.spacing[0])
             }
             Divider()
             ZStack(alignment: .bottomTrailing) {
                 ScrollViewReader { proxy in
                     ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 8) {
+                        LazyVStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {
                             ForEach(rows) { row in
                                 rowView(row).id(row.id)
                             }
                             if isListening {
-                                Text("Listening…").font(.callout).foregroundStyle(.secondary)
+                                Text("Listening…").bvFont(.body).foregroundStyle(.bvSecondary)
                             }
                             Color.clear.frame(height: 1).id("bottom")
                         }
-                        .padding(12)
+                        .padding(LayoutTokens.spacing[2])
                     }
                     .onScrollGeometryChange(for: Bool.self) { geometry in
                         geometry.contentOffset.y + geometry.containerSize.height >= geometry.contentSize.height - 24
@@ -103,12 +104,12 @@ struct MeetingTranscriptView: View {
                         if !followNewest {
                             Button("Newest") { proxy.scrollTo("bottom", anchor: .bottom) }
                                 .controlSize(.small)
-                                .padding(10)
+                                .padding(LayoutTokens.spacing[1])
                         }
                     }
                 }
                 if segments.isEmpty && !isListening {
-                    Text("No transcript lines.").foregroundStyle(.secondary)
+                    Text("No transcript lines.").foregroundStyle(.bvSecondary)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
@@ -118,29 +119,29 @@ struct MeetingTranscriptView: View {
     @ViewBuilder private func rowView(_ row: Row) -> some View {
         switch row {
         case .line(let segment):
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: LayoutTokens.spacing[1]) {
                 Text(MeetingTimeText.text(segment.start))
-                    .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                    .frame(width: 44, alignment: .leading)
-                Text(segment.speaker).font(.caption.weight(.semibold))
+                    .bvCode(.footnote).monospacedDigit().foregroundStyle(.bvSecondary)
+                    .frame(width: store.scaled(44), alignment: .leading)
+                Text(segment.speaker).bvFont(.footnote)
                     .foregroundStyle(speakerColor(segment))
-                    .frame(width: 62, alignment: .leading)
-                VStack(alignment: .leading, spacing: 2) {
+                    .frame(width: store.scaled(62), alignment: .leading)
+                VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
                     Text(segment.text)
                     if let english = english(segment) {
-                        Text(english).font(.caption).foregroundStyle(.secondary)
+                        Text(english).bvFont(.footnote).foregroundStyle(.bvSecondary)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .textSelection(.enabled)
             }
         case .mark(let mark):
-            HStack(spacing: 6) {
+            HStack(spacing: LayoutTokens.spacing[0]) {
                 Image(systemName: "bookmark.fill")
                 Text("Mark · \(MeetingTimeText.text(mark.offset))")
             }
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(.orange)
+            .bvFont(.footnote)
+            .foregroundStyle(.bvWarning)
         }
     }
 
@@ -148,7 +149,7 @@ struct MeetingTranscriptView: View {
         if let speaker = speakers.first(where: { $0.id == segment.speakerID }) {
             return SpeakerColors.color(speaker.colorIndex)
         }
-        return segment.track == .mic ? .accentColor : .secondary
+        return segment.track == .mic ? store.theme.accent : store.theme.secondaryText
     }
 
     /// The English shown under a line, or nil.

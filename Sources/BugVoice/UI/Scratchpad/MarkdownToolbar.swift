@@ -15,17 +15,18 @@ enum MarkdownToolbarCommand {
 /// The Formatting bar: H1 H2 · B I U S code · lists · quote indent · link table.
 /// Every button writes Markdown and is one edit.
 struct MarkdownToolbar: View {
+    @Environment(AppearanceStore.self) private var store
     let run: (MarkdownToolbarCommand) -> Void
     @State private var pickingTable = false
 
     var body: some View {
         // The compact 440 pt window cannot fit the full row: buttons narrow first, then the bar takes two rows.
         ViewThatFits(in: .horizontal) {
-            HStack(spacing: 2) { headings(26); divider(4); inline(26); divider(4); lists(26); divider(4); blocks(26) }
-            HStack(spacing: 1) { headings(22); divider(2); inline(22); divider(2); lists(22); divider(2); blocks(22) }
-            VStack(spacing: 4) {
-                HStack(spacing: 2) { headings(26); divider(4); inline(26) }
-                HStack(spacing: 2) { lists(26); divider(4); blocks(26) }
+            HStack(spacing: LayoutTokens.spacing[0]) { headings(26); divider(4); inline(26); divider(4); lists(26); divider(4); blocks(26) }
+            HStack(spacing: LayoutTokens.spacing[0]) { headings(22); divider(2); inline(22); divider(2); lists(22); divider(2); blocks(22) }
+            VStack(spacing: LayoutTokens.spacing[0]) {
+                HStack(spacing: LayoutTokens.spacing[0]) { headings(26); divider(4); inline(26) }
+                HStack(spacing: LayoutTokens.spacing[0]) { lists(26); divider(4); blocks(26) }
             }
         }
         .buttonStyle(.borderless)
@@ -77,7 +78,7 @@ struct MarkdownToolbar: View {
 
     private func button(_ title: String, help: String, width: CGFloat, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Text(title).font(.system(size: 12, weight: .semibold)).frame(width: width, height: 24)
+            Text(title).bvFont(.footnote).frame(width: width, height: 24)
         }
         .help(help)
         .accessibilityLabel(help)
@@ -94,20 +95,21 @@ struct MarkdownToolbar: View {
 
 /// An 8 × 8 grid: hover picks columns × rows, click inserts.
 struct TableSizePicker: View {
+    @Environment(AppearanceStore.self) private var store
     static let size = 8
     let pick: (_ columns: Int, _ rows: Int) -> Void
     @State private var hovered = (columns: 1, rows: 1)
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: LayoutTokens.spacing[1]) {
             Grid(horizontalSpacing: 4, verticalSpacing: 4) {
                 ForEach(1...Self.size, id: \.self) { row in
                     GridRow {
                         ForEach(1...Self.size, id: \.self) { column in
                             let on = column <= hovered.columns && row <= hovered.rows
-                            RoundedRectangle(cornerRadius: 3)
-                                .stroke(on ? Color.primary : Color.secondary.opacity(0.35), lineWidth: on ? 1.5 : 1)
-                                .background(on ? Color.accentColor.opacity(0.12) : .clear, in: RoundedRectangle(cornerRadius: 3))
+                            RoundedRectangle(cornerRadius: LayoutTokens.controlRadius)
+                                .stroke(on ? store.theme.text : store.theme.secondaryText.opacity(0.35), lineWidth: on ? 1.5 : 1)
+                                .background(on ? store.theme.accent.opacity(0.12) : .clear, in: RoundedRectangle(cornerRadius: LayoutTokens.controlRadius))
                                 .frame(width: 18, height: 18)
                                 .contentShape(Rectangle())
                                 .onHover { inside in if inside { hovered = (column, row) } }
@@ -117,11 +119,11 @@ struct TableSizePicker: View {
                 }
             }
             Text("\(hovered.columns) × \(hovered.rows)")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .bvFont(.footnote)
+                .foregroundStyle(.bvSecondary)
                 .monospacedDigit()
         }
-        .padding(12)
+        .padding(LayoutTokens.spacing[2])
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Table size, \(hovered.columns) columns by \(hovered.rows) rows")
         .accessibilityAction { pick(hovered.columns, hovered.rows) }
