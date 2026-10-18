@@ -2,6 +2,7 @@ import SwiftUI
 import VoiceCore
 
 struct ManageFoldersSheet: View {
+    @Environment(AppearanceStore.self) private var store
     let model: AppModel
     @Environment(\.dismiss) private var dismiss
     @State private var editing: FolderID?
@@ -11,20 +12,20 @@ struct ManageFoldersSheet: View {
     @State private var creating = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Folders").font(.headline)
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[2]) {
+            Text("Folders").bvFont(.bodyStrong)
             if model.sortedFolders.isEmpty {
-                Text("No folders yet.").foregroundStyle(.secondary)
+                Text("No folders yet.").foregroundStyle(.bvSecondary)
             }
             ForEach(model.sortedFolders) { folder in
-                HStack(spacing: 8) {
+                HStack(spacing: LayoutTokens.spacing[1]) {
                     if editing == folder.id {
                         TextField("Folder name", text: $draft).onSubmit { save(folder.id) }
                     } else {
                         Label(folder.name, systemImage: "folder")
                     }
                     Spacer()
-                    Text(countText(folder.id)).font(.caption).foregroundStyle(.secondary)
+                    Text(countText(folder.id)).bvFont(.footnote).foregroundStyle(.bvSecondary)
                     if editing == folder.id {
                         Button("Save") { save(folder.id) }.buttonStyle(.borderedProminent)
                     } else {
@@ -33,11 +34,11 @@ struct ManageFoldersSheet: View {
                     }
                 }
                 .disabled(model.libraryReadOnly)
-                .padding(8)
-                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.secondary.opacity(0.25)))
+                .padding(LayoutTokens.spacing[1])
+                .overlay(RoundedRectangle(cornerRadius: LayoutTokens.controlRadius).strokeBorder(store.theme.secondaryText.opacity(0.25)))
             }
             if let error {
-                Text(error).font(.caption).foregroundStyle(.red)
+                Text(error).bvFont(.footnote).foregroundStyle(.bvRecording)
             }
             HStack {
                 Button("+ New folder") { creating = true }.disabled(model.libraryReadOnly)
@@ -45,10 +46,10 @@ struct ManageFoldersSheet: View {
                 Button("Done") { dismiss() }.buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction)
             }
             Text("Deleting a folder moves its meetings and notes to Unfiled. Nothing is deleted, and files on disk never move.")
-                .font(.caption).foregroundStyle(.secondary)
+                .bvFont(.footnote).foregroundStyle(.bvSecondary)
         }
-        .padding(20)
-        .frame(width: 460)
+        .padding(LayoutTokens.spacing[3])
+        .frame(width: store.scaled(460))
         .sheet(isPresented: $creating) { NewFolderSheet(model: model) { _ in } }
         .confirmationDialog(
             "Delete folder \"\(pendingDelete?.name ?? "")\"?",

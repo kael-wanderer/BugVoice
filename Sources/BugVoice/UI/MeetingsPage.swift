@@ -15,6 +15,7 @@ private enum MeetingExportKind {
 }
 
 struct MeetingsPage: View {
+    @Environment(AppearanceStore.self) private var store
     @Bindable var model: AppModel
     @State private var player = MeetingPlayerModel()
     @State private var citedLineIDs: Set<String> = []
@@ -40,7 +41,7 @@ struct MeetingsPage: View {
     var body: some View {
         HStack(spacing: 0) {
             library
-                .frame(minWidth: 250, idealWidth: 285, maxWidth: 340)
+                .frame(minWidth: store.scaled(250), idealWidth: store.scaled(285), maxWidth: store.scaled(340))
             Divider()
             if let meeting = model.selectedMeeting {
                 MeetingDetails(model: model, meeting: meeting, player: player, citedLineIDs: $citedLineIDs, citationScrollRequest: citationScrollRequest)
@@ -89,9 +90,9 @@ struct MeetingsPage: View {
     }
 
     private var library: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: LayoutTokens.spacing[1]) {
             HStack {
-                Text("Meetings").font(.title2.weight(.semibold))
+                Text("Meetings").bvFont(.title2)
                 Spacer()
                 if model.meetings?.isRecording == true || model.meetings?.isPaused == true {
                     Button("Stop") { Task { await model.meetings?.stop(); await model.reloadMeetings() } }
@@ -103,7 +104,7 @@ struct MeetingsPage: View {
                         .help("Start meeting recording")
                 }
             }
-            HStack(spacing: 6) {
+            HStack(spacing: LayoutTokens.spacing[0]) {
                 FolderFilterMenu(
                     model: model,
                     filter: Binding(get: { model.meetingsFolderFilter }, set: { model.meetingsFolderFilter = $0 }),
@@ -122,10 +123,10 @@ struct MeetingsPage: View {
                 ContentUnavailableView("No matching meetings", systemImage: "magnifyingglass", description: Text("Try a different title or transcript search."))
             } else {
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 14) {
+                    LazyVStack(alignment: .leading, spacing: LayoutTokens.spacing[2]) {
                         ForEach(groups) { group in
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text(group.label.uppercased()).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                            VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
+                                Text(group.label.uppercased()).bvFont(.footnote).foregroundStyle(.bvSecondary)
                                 ForEach(group.meetings) { meeting in
                                     MeetingListRow(
                                         meeting: meeting,
@@ -162,11 +163,11 @@ struct MeetingsPage: View {
                             }
                         }
                     }
-                    .padding(.vertical, 4)
+                    .padding(.vertical, LayoutTokens.spacing[0])
                 }
             }
         }
-        .padding(14)
+        .padding(LayoutTokens.spacing[2])
         .confirmationDialog(
             "Delete this meeting?",
             isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }),
@@ -185,14 +186,15 @@ struct MeetingsPage: View {
 }
 
 private struct MeetingRenameSheet: View {
+    @Environment(AppearanceStore.self) private var store
     let model: AppModel
     let id: MeetingID
     @Binding var title: String
     let dismiss: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Rename meeting").font(.headline)
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) {
+            Text("Rename meeting").bvFont(.bodyStrong)
             TextField("Meeting title", text: $title)
             HStack {
                 Spacer()
@@ -204,11 +206,12 @@ private struct MeetingRenameSheet: View {
                 .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
-        .padding(20).frame(width: 360)
+        .padding(LayoutTokens.spacing[3]).frame(width: store.scaled(360))
     }
 }
 
 private struct MeetingListRow: View {
+    @Environment(AppearanceStore.self) private var store
     let meeting: MeetingManifest
     let folderName: String?
     let selected: Bool
@@ -216,41 +219,41 @@ private struct MeetingListRow: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 5) {
+            VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
                 HStack {
-                    Text(meeting.title).font(.body.weight(.medium)).lineLimit(1)
+                    Text(meeting.title).bvFont(.reading).lineLimit(1)
                     if meeting.source == .upload {
                         Text("Uploaded")
-                            .font(.caption2.weight(.semibold))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 4))
+                            .bvFont(.caption)
+                            .padding(.horizontal, LayoutTokens.spacing[0])
+                            .padding(.vertical, LayoutTokens.spacing[0])
+                            .background(store.theme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: LayoutTokens.controlRadius))
                     }
                     Spacer(minLength: 3)
-                    Text(status).font(.caption).foregroundStyle(meeting.state == .failed ? .orange : .secondary)
+                    Text(status).bvFont(.footnote).foregroundStyle(meeting.state == .failed ? store.theme.warning : store.theme.secondaryText)
                 }
                 Text(meeting.startedAt.formatted(date: .omitted, time: .shortened) + " · " + clock(meeting.duration))
-                    .font(.caption).foregroundStyle(.secondary)
+                    .bvFont(.footnote).foregroundStyle(.bvSecondary)
                 if folderName != nil || !meeting.tags.isEmpty {
-                    HStack(spacing: 4) {
+                    HStack(spacing: LayoutTokens.spacing[0]) {
                         if let folderName {
-                            Label(folderName, systemImage: "folder").font(.caption).foregroundStyle(.secondary)
+                            Label(folderName, systemImage: "folder").bvFont(.footnote).foregroundStyle(.bvSecondary)
                         }
                         ForEach(meeting.tags.prefix(3), id: \.self) { TagChip(name: $0) }
                         if meeting.tags.count > 3 {
-                            Text("+\(meeting.tags.count - 3)").font(.caption).foregroundStyle(.secondary)
+                            Text("+\(meeting.tags.count - 3)").bvFont(.footnote).foregroundStyle(.bvSecondary)
                         }
                     }
                 }
                 if let line = meeting.segments.last?.text, !line.isEmpty {
-                    Text(line).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                    Text(line).bvFont(.footnote).foregroundStyle(.bvSecondary).lineLimit(2)
                 }
             }
-            .padding(9)
+            .padding(LayoutTokens.spacing[1])
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(selected ? Color.accentColor.opacity(0.15) : Color.clear, in: RoundedRectangle(cornerRadius: 8))
+            .background(selected ? store.theme.accent.opacity(0.15) : Color.clear, in: RoundedRectangle(cornerRadius: LayoutTokens.controlRadius))
             // Make the whole card clickable, not only the drawn text.
-            .contentShape(RoundedRectangle(cornerRadius: 8))
+            .contentShape(RoundedRectangle(cornerRadius: LayoutTokens.controlRadius))
         }
         .buttonStyle(.plain)
     }
@@ -273,6 +276,7 @@ private struct MeetingListRow: View {
 }
 
 private struct MeetingDetails: View {
+    @Environment(AppearanceStore.self) private var store
     @Bindable var model: AppModel
     let meeting: MeetingManifest
     @Bindable var player: MeetingPlayerModel
@@ -293,15 +297,15 @@ private struct MeetingDetails: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[2]) {
             header
             Text(
                 meeting.startedAt.formatted(date: .long, time: .shortened)
                     + " · " + clock(meeting.duration)
                     + (meeting.sourceFileName.map { " · from \($0)" } ?? "")
             )
-            .font(.callout)
-            .foregroundStyle(.secondary)
+            .bvFont(.body)
+            .foregroundStyle(.bvSecondary)
             LabelsBox(
                 model: model,
                 labels: ItemLabels(folderID: meeting.folderID, tags: meeting.tags),
@@ -327,10 +331,10 @@ private struct MeetingDetails: View {
             )
             if let audioURL {
                 MeetingPlayer(audioURL: audioURL, model: player, marks: meeting.marks.map(\.offset))
-                    .padding(.vertical, 4)
+                    .padding(.vertical, LayoutTokens.spacing[0])
             } else {
                 Label(meeting.state == .recording || meeting.state == .paused ? "Audio is recording" : "Audio is unavailable", systemImage: "waveform")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.bvSecondary)
             }
             Picker("Meeting details", selection: $tab) {
                 ForEach(MeetingDetailTab.allCases, id: \.self) { Text($0.rawValue).tag($0) }
@@ -346,7 +350,7 @@ private struct MeetingDetails: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-        .padding(20)
+        .padding(LayoutTokens.spacing[3])
         .confirmationDialog("Delete this meeting?", isPresented: $showDelete, titleVisibility: .visible) {
             Button("Delete meeting", role: .destructive) { Task { await model.deleteMeeting(id: meeting.id) } }
             Button("Cancel", role: .cancel) {}
@@ -367,13 +371,13 @@ private struct MeetingDetails: View {
 
     private var header: some View {
         HStack(alignment: .firstTextBaseline) {
-            Text(meeting.title).font(.title2.weight(.semibold)).lineLimit(2)
+            Text(meeting.title).bvFont(.title2).lineLimit(2)
             if meeting.source == .upload {
                 Text("Uploaded")
-                    .font(.caption2.weight(.semibold))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 4))
+                    .bvFont(.caption)
+                    .padding(.horizontal, LayoutTokens.spacing[0])
+                    .padding(.vertical, LayoutTokens.spacing[0])
+                    .background(store.theme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: LayoutTokens.controlRadius))
             }
             Spacer()
             if recoveryAction == .recoverCapture, meeting.state == .interrupted {
@@ -424,9 +428,9 @@ private struct MeetingDetails: View {
         return ScrollViewReader { reader in
         ScrollView {
             // The speaker row sits outside the lazy stack, so its open edits survive scrolling.
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
                 if let error = meeting.transcriptionError {
-                    Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(.orange).padding(8)
+                    Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(.bvWarning).padding(LayoutTokens.spacing[1])
                 }
                 if meeting.segments.contains(where: { !($0.translation ?? "").isEmpty }) {
                     HStack {
@@ -437,30 +441,30 @@ private struct MeetingDetails: View {
                         ))
                         .toggleStyle(.switch)
                         .controlSize(.mini)
-                        .font(.caption)
+                        .bvFont(.footnote)
                     }
-                    .padding(.horizontal, 9)
+                    .padding(.horizontal, LayoutTokens.spacing[1])
                 }
                 MeetingSpeakersRow(meeting: meeting)
-                LazyVStack(alignment: .leading, spacing: 3) {
+                LazyVStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
                 let segments = meeting.segments.sorted { $0.start < $1.start }
                 ForEach(Array(segments.enumerated()), id: \.element.id) { index, segment in
                     let active = activeSegmentID == segment.id
                     ForEach(marks(from: index == 0 ? -.infinity : segments[index - 1].start, to: segment.start)) { mark in
                         markRow(mark)
                     }
-                    HStack(alignment: .top, spacing: 12) {
+                    HStack(alignment: .top, spacing: LayoutTokens.spacing[2]) {
                         Button { player.seek(to: MeetingTimeline.seekTime(for: segment)) } label: {
                             Text(clock(segment.start))
-                                .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                                .frame(width: 50, alignment: .leading)
+                                .bvCode(.footnote).monospacedDigit().foregroundStyle(.bvSecondary)
+                                .frame(width: store.scaled(50), alignment: .leading)
                         }
                         MeetingSpeakerLineMenu(meeting: meeting, segment: segment)
                         Button { player.seek(to: MeetingTimeline.seekTime(for: segment)) } label: {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(segment.text).font(.body)
+                            VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
+                                Text(segment.text).bvFont(.reading).frame(maxWidth: store.readingWidth, alignment: .leading)
                                 if meeting.showEnglish, let english = segment.translation, !english.isEmpty {
-                                    Text(english).font(.callout).foregroundStyle(.secondary)
+                                    Text(english).bvFont(.body).foregroundStyle(.bvSecondary)
                                 }
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -468,8 +472,8 @@ private struct MeetingDetails: View {
                         }
                     }
                     .buttonStyle(.plain)
-                    .padding(.horizontal, 8).padding(.vertical, 6)
-                    .background(citedLineIDs.contains(segment.id) ? Color.accentColor.opacity(0.24) : active ? Color.accentColor.opacity(0.16) : .clear, in: RoundedRectangle(cornerRadius: 6))
+                    .padding(.horizontal, LayoutTokens.spacing[1]).padding(.vertical, LayoutTokens.spacing[0])
+                    .background(citedLineIDs.contains(segment.id) ? store.theme.accent.opacity(0.24) : active ? store.theme.accent.opacity(0.16) : .clear, in: RoundedRectangle(cornerRadius: LayoutTokens.controlRadius))
                     .id(segment.id)
                 }
                 ForEach(marks(from: segments.last?.start ?? -.infinity, to: .infinity)) { mark in
@@ -497,9 +501,9 @@ private struct MeetingDetails: View {
     private func markRow(_ mark: MeetingMark) -> some View {
         Button { play(from: mark.offset) } label: {
             Label("Mark · \(clock(mark.offset))", systemImage: "bookmark.fill")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.orange)
-                .padding(.horizontal, 9).padding(.vertical, 4)
+                .bvFont(.footnote)
+                .foregroundStyle(.bvWarning)
+                .padding(.horizontal, LayoutTokens.spacing[1]).padding(.vertical, LayoutTokens.spacing[0])
         }
         .buttonStyle(.plain)
     }
@@ -510,9 +514,9 @@ private struct MeetingDetails: View {
     }
 
     private func generatedText(_ value: String?, kind: MeetingTextKind, emptyMessage: String) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[2]) {
             if let value, !value.isEmpty {
-                ScrollView { Text(value).frame(maxWidth: .infinity, alignment: .leading).textSelection(.enabled) }
+                ScrollView { Text(value).bvFont(.reading).frame(maxWidth: store.readingWidth, alignment: .leading).frame(maxWidth: .infinity).textSelection(.enabled) }
             } else {
                 ContentUnavailableView(kind == .summary ? "No summary" : "No action items", systemImage: kind == .summary ? "text.alignleft" : "checklist", description: Text(emptyMessage))
             }
@@ -521,7 +525,7 @@ private struct MeetingDetails: View {
                     Text(generationProgress.phase == .parts ? "Summarizing part \(generationProgress.completedParts) of \(generationProgress.totalParts)" : "Combining results")
                 }
             }
-            if let generationError { Text(generationError).font(.callout).foregroundStyle(.orange) }
+            if let generationError { Text(generationError).bvFont(.body).foregroundStyle(.bvWarning) }
             HStack {
                 if generationTask != nil {
                     Button("Cancel") { generationTask?.cancel() }
@@ -602,6 +606,7 @@ private struct MeetingDetails: View {
 
 /// The meeting's own notes on the detail page; saved 1 second after typing stops.
 private struct MeetingDetailNotes: View {
+    @Environment(AppearanceStore.self) private var store
     let model: AppModel
     let meeting: MeetingManifest
     @State private var draft = ""
@@ -612,13 +617,13 @@ private struct MeetingDetailNotes: View {
             MeetingNotesEditor(text: $draft)
             if draft.isEmpty {
                 Text("No notes for this meeting.")
-                    .foregroundStyle(.tertiary)
-                    .padding(.horizontal, 15)
-                    .padding(.vertical, 12)
+                    .foregroundStyle(.bvSecondary)
+                    .padding(.horizontal, LayoutTokens.spacing[3])
+                    .padding(.vertical, LayoutTokens.spacing[2])
                     .allowsHitTesting(false)
             }
         }
-        .background(Color.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
+        .background(store.theme.secondaryText.opacity(0.06), in: RoundedRectangle(cornerRadius: LayoutTokens.controlRadius))
         .onAppear { draft = meeting.notes }
         .onChange(of: meeting.notes) { _, notes in
             if saveTask == nil { draft = notes }

@@ -3,13 +3,14 @@ import SwiftUI
 import VoiceCore
 
 struct MainWindow: View {
+    @Environment(AppearanceStore.self) private var store
     @Bindable var model: AppModel
 
     var body: some View {
         NavigationSplitView {
             List(Page.allCases, selection: $model.page) { page in
                 HStack {
-                    Label(page.title, systemImage: page.symbol)
+                    Label(page.title, systemImage: page.symbol).bvFont(.body)
                     Spacer()
                     if page == .upload, let job = model.uploads?.active {
                         UploadRing(progress: job.progress)
@@ -17,7 +18,7 @@ struct MainWindow: View {
                 }
                 .tag(page)
             }
-            .navigationSplitViewColumnWidth(200)
+            .navigationSplitViewColumnWidth(store.scaled(200))
         } detail: {
             switch model.page {
             case .dictation: DictationHistoryView(model: model)
@@ -34,12 +35,12 @@ struct MainWindow: View {
         .overlay(alignment: .bottom) {
             if let notice = model.notice {
                 Text(notice)
-                    .font(.callout)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 7)
-                    .background(.regularMaterial, in: Capsule())
-                    .overlay(Capsule().stroke(Color.secondary.opacity(0.25)))
-                    .padding(.bottom, 56)
+                    .bvFont(.body)
+                    .padding(.horizontal, LayoutTokens.spacing[2])
+                    .padding(.vertical, LayoutTokens.spacing[1])
+                    .background(.bvCard, in: Capsule())
+                    .overlay(Capsule().stroke(store.theme.secondaryText.opacity(0.25)))
+                    .padding(.bottom, LayoutTokens.spacing[5])
                     .transition(.opacity)
                     .accessibilityAddTraits(.updatesFrequently)
             }

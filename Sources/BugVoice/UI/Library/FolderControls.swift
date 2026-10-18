@@ -3,6 +3,7 @@ import VoiceCore
 
 /// List-header menu: All, Unfiled, each folder with counts, New folder…, Manage folders….
 struct FolderFilterMenu: View {
+    @Environment(AppearanceStore.self) private var store
     let model: AppModel
     @Binding var filter: FolderFilter
     let counts: FolderCounts
@@ -50,11 +51,12 @@ struct FolderFilterMenu: View {
 
 /// Tags menu plus removable chips. Several chips mean all must match.
 struct TagFilterBar: View {
+    @Environment(AppearanceStore.self) private var store
     let catalog: [TagCount]
     @Binding var selected: [String]
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: LayoutTokens.spacing[0]) {
             Menu {
                 if catalog.isEmpty { Text("No tags yet") }
                 ForEach(catalog) { tag in
@@ -74,26 +76,28 @@ struct TagFilterBar: View {
 }
 
 struct TagChip: View {
+    @Environment(AppearanceStore.self) private var store
     let name: String
     var onRemove: (() -> Void)?
 
     var body: some View {
-        HStack(spacing: 4) {
-            Text("#\(name)").font(.caption)
+        HStack(spacing: LayoutTokens.spacing[0]) {
+            Text("#\(name)").bvFont(.footnote)
             if let onRemove {
-                Button(action: onRemove) { Image(systemName: "xmark").font(.caption2) }
+                Button(action: onRemove) { Image(systemName: "xmark").bvFont(.caption) }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Remove tag \(name)")
             }
         }
-        .padding(.horizontal, 7)
-        .padding(.vertical, 2)
-        .background(Color.secondary.opacity(0.15), in: Capsule())
+        .padding(.horizontal, LayoutTokens.spacing[1])
+        .padding(.vertical, LayoutTokens.spacing[0])
+        .background(store.theme.secondaryText.opacity(0.15), in: Capsule())
     }
 }
 
 /// Folder button for a single item: Unfiled, each folder, New folder….
 struct FolderPicker: View {
+    @Environment(AppearanceStore.self) private var store
     let model: AppModel
     let folderID: FolderID?
     let onChange: (FolderID?) -> Void
@@ -126,6 +130,7 @@ struct FolderPicker: View {
 }
 
 struct NewFolderSheet: View {
+    @Environment(AppearanceStore.self) private var store
     let model: AppModel
     let onCreated: (LibraryFolder) -> Void
     @Environment(\.dismiss) private var dismiss
@@ -133,12 +138,12 @@ struct NewFolderSheet: View {
     @State private var error: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("New folder").font(.headline)
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[2]) {
+            Text("New folder").bvFont(.bodyStrong)
             TextField("Folder name", text: $name)
                 .onSubmit(create)
             if let error {
-                Text(error).font(.caption).foregroundStyle(.red)
+                Text(error).bvFont(.footnote).foregroundStyle(.bvRecording)
             }
             HStack {
                 Spacer()
@@ -148,8 +153,8 @@ struct NewFolderSheet: View {
                     .keyboardShortcut(.defaultAction)
             }
         }
-        .padding(20)
-        .frame(width: 340)
+        .padding(LayoutTokens.spacing[3])
+        .frame(width: store.scaled(340))
     }
 
     private func create() {

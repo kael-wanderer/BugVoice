@@ -10,12 +10,12 @@ struct InsightsPage: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Insights").font(.title2.weight(.semibold))
+            VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) {
+                Text("Insights").bvFont(.title2)
                 header
                 if model.insightsReadOnly {
                     Text("Insights were saved by a newer BugVoice.")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.bvSecondary)
                 } else {
                     InsightsUsageView(
                         summary: InsightsSummary.compute(file: model.insights, period: period, today: Date()),
@@ -23,13 +23,13 @@ struct InsightsPage: View {
                     )
                 }
             }
-            .padding(22)
+            .padding(LayoutTokens.spacing[4])
             .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
     private var header: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: LayoutTokens.spacing[2]) {
             PillTabs(
                 items: [
                     .init(value: InsightsTab.usage, title: "Usage"),
@@ -44,8 +44,8 @@ struct InsightsPage: View {
                 size: .small
             )
             Label("Local", systemImage: "desktopcomputer")
-                .font(.callout)
-                .foregroundStyle(.secondary)
+                .bvFont(.body)
+                .foregroundStyle(.bvSecondary)
         }
     }
 }

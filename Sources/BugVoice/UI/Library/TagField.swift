@@ -5,6 +5,7 @@ import VoiceCore
 /// (prefix matches first) and `Create tag "#x"` for a new name. Return picks
 /// the first entry; Escape cancels.
 struct TagField: View {
+    @Environment(AppearanceStore.self) private var store
     let tags: [String]
     let catalog: [TagCount]
     /// "meeting" or "note", for the limit message.
@@ -16,7 +17,7 @@ struct TagField: View {
     @FocusState private var focused: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
             FlowRow {
                 ForEach(tags, id: \.self) { tag in
                     TagChip(name: tag) { onChange(tags.filter { $0 != tag }) }
@@ -24,7 +25,7 @@ struct TagField: View {
                 if editing {
                     TextField("#tag", text: $text)
                         .textFieldStyle(.roundedBorder)
-                        .frame(width: 140)
+                        .frame(width: store.scaled(140))
                         .focused($focused)
                         .onSubmit { pick(options.first) }
                         .onExitCommand(perform: cancel)
@@ -32,22 +33,22 @@ struct TagField: View {
                 } else {
                     Button("+ Add tag") { editing = true; message = nil }
                         .buttonStyle(.plain)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .bvFont(.footnote)
+                        .foregroundStyle(.bvSecondary)
                 }
             }
             if editing, !options.isEmpty {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
                     ForEach(options, id: \.self) { option in
                         Button { pick(option) } label: { optionLabel(option) }
                             .buttonStyle(.plain)
                     }
                 }
-                .padding(6)
-                .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
+                .padding(LayoutTokens.spacing[0])
+                .background(store.theme.card, in: RoundedRectangle(cornerRadius: LayoutTokens.controlRadius))
             }
             if let message {
-                Text(message).font(.caption).foregroundStyle(.red)
+                Text(message).bvFont(.footnote).foregroundStyle(.bvRecording)
             }
         }
     }
@@ -75,10 +76,10 @@ struct TagField: View {
     @ViewBuilder private func optionLabel(_ option: Option) -> some View {
         switch option {
         case .existing(let name, let count):
-            HStack { Text("#\(name)"); Spacer(); Text("\(count)").foregroundStyle(.secondary) }
-                .font(.caption).frame(width: 200)
+            HStack { Text("#\(name)"); Spacer(); Text("\(count)").foregroundStyle(.bvSecondary) }
+                .bvFont(.footnote).frame(width: store.scaled(200))
         case .create(let name):
-            Text("Create tag \"#\(name)\"").font(.caption).frame(width: 200, alignment: .leading)
+            Text("Create tag \"#\(name)\"").bvFont(.footnote).frame(width: store.scaled(200), alignment: .leading)
         }
     }
 

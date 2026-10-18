@@ -127,6 +127,7 @@ final class MeetingPlayerModel {
 }
 
 struct MeetingPlayer: View {
+    @Environment(AppearanceStore.self) private var store
     let audioURL: URL
     @Bindable var model: MeetingPlayerModel
     /// Mark offsets in seconds, shown as ticks that play from the mark.
@@ -135,22 +136,22 @@ struct MeetingPlayer: View {
     private let speeds: [Float] = [0.75, 1, 1.25, 1.5, 2]
 
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: LayoutTokens.spacing[1]) {
             waveform
                 .frame(height: 54)
                 .accessibilityLabel("Scrub meeting waveform")
-            HStack(spacing: 12) {
+            HStack(spacing: LayoutTokens.spacing[2]) {
                 Button { model.skip(-15) } label: { Image(systemName: "gobackward.15") }.help("Back 15 seconds")
                 Button { model.togglePlayback() } label: { Image(systemName: model.isPlaying ? "pause.fill" : "play.fill") }
                     .buttonStyle(.borderedProminent)
                 Button { model.skip(15) } label: { Image(systemName: "goforward.15") }.help("Forward 15 seconds")
                 Text("\(clock(model.currentTime)) / \(clock(model.duration))")
-                    .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                    .bvCode(.footnote).monospacedDigit().foregroundStyle(.bvSecondary)
                 Spacer()
                 Picker("Playback speed", selection: Binding(get: { model.speed }, set: model.setSpeed)) {
                     ForEach(speeds, id: \.self) { speed in Text("\(speed, format: .number.precision(.fractionLength(2)))×").tag(speed) }
                 }
-                .labelsHidden().frame(width: 86)
+                .labelsHidden().frame(width: store.scaled(86))
             }
         }
         .task(id: audioURL) { await model.load(audioURL) }
@@ -167,7 +168,7 @@ struct MeetingPlayer: View {
                     let x = CGFloat(index) * width
                     let height = max(2, CGFloat(peak) * size.height * 0.9)
                     let rect = CGRect(x: x, y: mid - height / 2, width: max(1, width * 0.62), height: height)
-                    context.fill(Path(roundedRect: rect, cornerRadius: 1), with: .color(x / size.width <= progress ? .accentColor : .secondary.opacity(0.38)))
+                    context.fill(Path(roundedRect: rect, cornerRadius: LayoutTokens.controlRadius), with: .color(x / size.width <= progress ? store.theme.accent : store.theme.secondaryText.opacity(0.38)))
                 }
                 var line = Path()
                 let x = CGFloat(progress) * size.width
@@ -186,8 +187,8 @@ struct MeetingPlayer: View {
                             model.seek(to: mark)
                             if !model.isPlaying { model.togglePlayback() }
                         } label: {
-                            Rectangle().fill(.orange).frame(width: 3, height: geometry.size.height)
-                                .padding(.horizontal, 3)
+                            Rectangle().fill(.bvWarning).frame(width: 3, height: geometry.size.height)
+                                .padding(.horizontal, LayoutTokens.spacing[0])
                                 .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)

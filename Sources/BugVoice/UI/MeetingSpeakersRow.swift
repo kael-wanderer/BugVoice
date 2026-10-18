@@ -2,34 +2,6 @@ import AppKit
 import SwiftUI
 import VoiceCore
 
-/// The six speaker colours from proposal-meeting-speakers.html, adapting to appearance.
-enum SpeakerColors {
-    static func color(_ index: Int) -> Color {
-        let light = [0x3a6ff0, 0x8a57d6, 0xd0731c, 0x1f9a5a, 0xc2407a, 0x2a8fa8]
-        let dark = [0x6e93ff, 0xb48cf0, 0xf0a050, 0x4cc98a, 0xf07aae, 0x5cc4dc]
-        let slot = ((index % light.count) + light.count) % light.count
-        return Color(nsColor: NSColor(name: nil) { appearance in
-            let hex = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark[slot] : light[slot]
-            return NSColor(srgbRed: Double((hex >> 16) & 255) / 255,
-                           green: Double((hex >> 8) & 255) / 255,
-                           blue: Double(hex & 255) / 255, alpha: 1)
-        })
-    }
-}
-
-extension SpeakerColors {
-    /// A filled dot as an image, so menus keep its colour.
-    static func dot(_ index: Int) -> Image {
-        let color = NSColor(color(index))
-        let image = NSImage(size: NSSize(width: 10, height: 10), flipped: false) { rect in
-            color.setFill()
-            NSBezierPath(ovalIn: rect.insetBy(dx: 1, dy: 1)).fill()
-            return true
-        }
-        return Image(nsImage: image)
-    }
-}
-
 extension MeetingSpeaker {
     /// The saved voice waiting for Yes or No, while suggestions are on and the voice is still saved.
     func pendingSuggestion(enabled: Bool, known: [KnownVoice]) -> String? {
@@ -40,6 +12,7 @@ extension MeetingSpeaker {
 }
 
 struct MeetingSpeakersRow: View {
+    @Environment(AppearanceStore.self) private var store
     let meeting: MeetingManifest
     @Environment(AppModel.self) private var model
     @State private var pendingPeople: Int?
@@ -65,16 +38,16 @@ struct MeetingSpeakersRow: View {
     }
 
     private var content: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {
             switch splitState {
             case .running:
-                HStack(spacing: 8) {
+                HStack(spacing: LayoutTokens.spacing[1]) {
                     ProgressView().controlSize(.mini)
-                    Text("Finding speakers…").foregroundStyle(.secondary)
+                    Text("Finding speakers…").foregroundStyle(.bvSecondary)
                 }
             case .failed:
                 HStack {
-                    Text("Speakers could not be found.").foregroundStyle(.secondary)
+                    Text("Speakers could not be found.").foregroundStyle(.bvSecondary)
                     Button("Try again") { find(requestedPeople) }
                 }
             case .none:
@@ -84,26 +57,26 @@ struct MeetingSpeakersRow: View {
                         Spacer(minLength: 0)
                         Button("Find speakers") { find(nil) }.buttonStyle(.borderedProminent)
                     }
-                    .padding(10)
-                    .background(Color.accentColor.opacity(0.10), in: RoundedRectangle(cornerRadius: 8))
+                    .padding(LayoutTokens.spacing[1])
+                    .background(store.theme.accent.opacity(0.10), in: RoundedRectangle(cornerRadius: LayoutTokens.controlRadius))
                 }
             case .done:
                 speakerRow
                 if let pendingPeople {
-                    HStack(spacing: 10) {
+                    HStack(spacing: LayoutTokens.spacing[1]) {
                         Text("Split again for \(pendingPeople) people? Your changes to single lines are cleared. Names stay on the voices that keep them.")
                         Spacer(minLength: 0)
                         Button("Split again") { find(pendingPeople); self.pendingPeople = nil }
                             .buttonStyle(.borderedProminent)
                         Button("Cancel") { self.pendingPeople = nil }
                     }
-                    .padding(10)
-                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.orange, lineWidth: 1))
+                    .padding(LayoutTokens.spacing[1])
+                    .overlay(RoundedRectangle(cornerRadius: LayoutTokens.controlRadius).stroke(store.theme.warning, lineWidth: 1))
                 }
             }
-            if let editError { Text(editError).foregroundStyle(.orange) }
+            if let editError { Text(editError).foregroundStyle(.bvWarning) }
             if MeetingSpeakers.namesChangedSinceSummary(meeting), dismissedChanges != changeStamp {
-                HStack(spacing: 10) {
+                HStack(spacing: LayoutTokens.spacing[1]) {
                     Text("Names changed. The summary still uses the old names.")
                     Spacer(minLength: 0)
                     Button("Regenerate summary") { regenerate() }
@@ -111,14 +84,14 @@ struct MeetingSpeakersRow: View {
                         .disabled(regenerating || splitState == .running)
                     Button("Not now") { dismissedChanges = changeStamp }
                 }
-                .padding(10)
-                .background(Color.accentColor.opacity(0.10), in: RoundedRectangle(cornerRadius: 8))
+                .padding(LayoutTokens.spacing[1])
+                .background(store.theme.accent.opacity(0.10), in: RoundedRectangle(cornerRadius: LayoutTokens.controlRadius))
             }
-            if let generationError { Text(generationError).foregroundStyle(.orange) }
+            if let generationError { Text(generationError).foregroundStyle(.bvWarning) }
         }
-        .font(.system(size: 12))
+        .bvFont(.footnote)
         .controlSize(.small)
-        .padding(.vertical, 8)
+        .padding(.vertical, LayoutTokens.spacing[1])
         .onChange(of: nameFocused) { _, focused in if !focused { saveName() } }
         .onChange(of: meeting.id) { _, _ in
             editingID = nil; pendingPeople = nil; requestedPeople = nil; editError = nil; dismissedChanges = nil
@@ -131,14 +104,14 @@ struct MeetingSpeakersRow: View {
     }
 
     private var speakerRow: some View {
-        FlowLayout(spacing: 8) {
+        FlowLayout(spacing: LayoutTokens.spacing[1]) {
             peopleControl
             Divider().frame(width: 1, height: 18)
             chips
         }
-        .padding(.horizontal, 10).padding(.vertical, 8)
-        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(nsColor: .separatorColor), lineWidth: 0.5))
+        .padding(.horizontal, LayoutTokens.spacing[1]).padding(.vertical, LayoutTokens.spacing[1])
+        .background(store.theme.card, in: RoundedRectangle(cornerRadius: LayoutTokens.controlRadius))
+        .overlay(RoundedRectangle(cornerRadius: LayoutTokens.controlRadius).stroke(store.theme.separator, lineWidth: 0.5))
         .disabled(saving)
     }
 
@@ -146,8 +119,8 @@ struct MeetingSpeakersRow: View {
         // Steps from the number waiting for Split again, so 4 to 2 is two clicks and one confirm.
         let count = pendingPeople ?? MeetingSpeakers.people(in: meeting)
         let range = MeetingSpeakers.peopleRange(in: meeting)
-        return HStack(spacing: 6) {
-            Text("People in this meeting").foregroundStyle(.secondary).fixedSize()
+        return HStack(spacing: LayoutTokens.spacing[0]) {
+            Text("People in this meeting").foregroundStyle(.bvSecondary).fixedSize()
             Button("−") { step(to: count - 1, in: range) }
                 .disabled(count <= range.lowerBound)
                 .accessibilityLabel("Fewer people")
@@ -176,13 +149,13 @@ struct MeetingSpeakersRow: View {
 
     private var chips: some View {
         Group {
-            Text("Speakers").foregroundStyle(.secondary)
+            Text("Speakers").foregroundStyle(.bvSecondary)
             ForEach(orderedSpeakers) { speaker in
-                HStack(spacing: 6) {
+                HStack(spacing: LayoutTokens.spacing[0]) {
                     Circle().fill(SpeakerColors.color(speaker.colorIndex)).frame(width: 8, height: 8)
                     if editingID == speaker.id {
                         TextField("", text: $draft)
-                            .textFieldStyle(.roundedBorder).frame(width: 90)
+                            .textFieldStyle(.roundedBorder).frame(width: store.scaled(90))
                             .focused($nameFocused)
                             .accessibilityLabel("Name for \(display(speaker))")
                             .onSubmit { saveName() }
@@ -205,13 +178,13 @@ struct MeetingSpeakersRow: View {
                     }
                 }
                 .fixedSize()
-                .padding(.horizontal, 9).padding(.vertical, 3)
-                .background(Color(nsColor: .quaternaryLabelColor).opacity(0.20), in: Capsule())
+                .padding(.horizontal, LayoutTokens.spacing[1]).padding(.vertical, LayoutTokens.spacing[0])
+                .background(store.theme.hover.opacity(0.20), in: Capsule())
                 .overlay {
                     if speaker.pendingSuggestion(enabled: suggesting, known: model.knownVoices) != nil {
-                        Capsule().stroke(Color.accentColor, style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
+                        Capsule().stroke(store.theme.accent, style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
                     } else {
-                        Capsule().stroke(Color(nsColor: .separatorColor), lineWidth: 0.5)
+                        Capsule().stroke(store.theme.separator, lineWidth: 0.5)
                     }
                 }
             }
@@ -259,6 +232,7 @@ struct MeetingSpeakersRow: View {
 
 /// Only the speaker label opens a menu; the enclosing page owns seeking on time and text.
 struct MeetingSpeakerLineMenu: View {
+    @Environment(AppearanceStore.self) private var store
     let meeting: MeetingManifest
     let segment: MeetingSegment
     @Environment(AppModel.self) private var model
@@ -280,22 +254,22 @@ struct MeetingSpeakerLineMenu: View {
             Button("New person…") { draft = ""; error = nil; newPerson = true }
         } label: {
             Text(label)
-                .font(.system(size: 12, weight: .semibold))
+                .bvFont(.footnote)
                 .underline(true, pattern: .dot)
                 .foregroundStyle(color)
-                .frame(width: 78, alignment: .leading)
+                .frame(width: store.scaled(78), alignment: .leading)
         }
         .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
         .disabled(meeting.speakerSplit != .done)
         .onChange(of: meeting.speakerSplit) { _, state in if state == .running { newPerson = false } }
         .popover(isPresented: $newPerson) {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {
                 TextField("New person…", text: $draft).textFieldStyle(.roundedBorder)
                     .focused($focused).onSubmit { createPerson() }
                     .onExitCommand { newPerson = false }
-                if let error { Text(error).font(.caption).foregroundStyle(.orange) }
+                if let error { Text(error).bvFont(.footnote).foregroundStyle(.bvWarning) }
             }
-            .padding(12).frame(width: 210)
+            .padding(LayoutTokens.spacing[2]).frame(width: store.scaled(210))
             .onAppear { focused = true }
         }
     }
@@ -307,7 +281,7 @@ struct MeetingSpeakerLineMenu: View {
     }
     private var color: Color {
         if let speaker = meeting.speakers.first(where: { $0.id == segment.speakerID }) { return SpeakerColors.color(speaker.colorIndex) }
-        return segment.track == .mic ? .accentColor : .secondary
+        return segment.track == .mic ? store.theme.accent : store.theme.secondaryText
     }
     private func createPerson() {
         guard !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }

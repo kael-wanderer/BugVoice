@@ -6,7 +6,7 @@ struct InsightsUsageView: View {
     let period: InsightsPeriod
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[2]) {
             Grid(horizontalSpacing: 12, verticalSpacing: 12) {
                 GridRow {
                     StatCard(title: "Words spoken", symbol: "mic", value: summary.words.formatted(),
@@ -30,7 +30,7 @@ struct InsightsUsageView: View {
                 }
             }
             ActivityHeatmap(weeks: summary.weeks)
-            HStack(alignment: .top, spacing: 12) {
+            HStack(alignment: .top, spacing: LayoutTokens.spacing[2]) {
                 BreakdownBars(title: "Where you dictate",
                               trailing: summary.appCount == 1 ? "1 app" : "\(summary.appCount) apps",
                               rows: summary.apps) { $0.words.formatted() }

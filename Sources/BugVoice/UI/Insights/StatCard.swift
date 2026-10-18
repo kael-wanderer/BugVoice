@@ -1,35 +1,36 @@
 import AppKit
 import SwiftUI
+import VoiceCore
 
 extension View {
     /// Rounded panel used by every Insights card.
     func insightsCard() -> some View {
-        padding(16)
+        padding(LayoutTokens.spacing[3])
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 12).fill(Color(nsColor: .controlBackgroundColor)))
-            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color(nsColor: .separatorColor)))
+            .bvCard()
     }
 }
 
 struct StatCard: View {
+    @Environment(AppearanceStore.self) private var store
     let title: String
     let symbol: String
     let value: String
     let subtitle: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
             Label(title, systemImage: symbol)
-                .font(.callout)
-                .foregroundStyle(.secondary)
+                .bvFont(.body)
+                .foregroundStyle(.bvSecondary)
             Text(value)
-                .font(.system(size: 26, weight: .bold))
+                .bvFont(.stat)
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
             Text(subtitle)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .bvFont(.footnote)
+                .foregroundStyle(.bvSecondary)
                 .lineLimit(2)
         }
         .insightsCard()

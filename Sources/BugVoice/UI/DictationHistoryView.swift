@@ -3,6 +3,7 @@ import SwiftUI
 import VoiceCore
 
 struct DictationHistoryView: View {
+    @Environment(AppearanceStore.self) private var store
     @Bindable var model: AppModel
     @State private var query = ""
 
@@ -27,8 +28,8 @@ struct DictationHistoryView: View {
     var body: some View {
         let stats = HistoryStats.compute(model.history, now: Date())
         ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: LayoutTokens.spacing[2]) {
+                HStack(spacing: LayoutTokens.spacing[1]) {
                     StatTile(value: stats.wordsToday.formatted(), label: "words today")
                     StatTile(value: "\(stats.wordsPerMinute)", label: "words per minute")
                     StatTile(value: "\(stats.dictationsToday)", label: "dictations today")
@@ -38,11 +39,11 @@ struct DictationHistoryView: View {
                     ContentUnavailableView("No dictations yet", systemImage: "mic", description: Text("Hold \(model.settings.hotkey.spokenName) anywhere and speak."))
                 }
                 ForEach(groups, id: \.0) { title, entries in
-                    Text(title.uppercased()).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                    Text(title.uppercased()).bvFont(.footnote).foregroundStyle(.bvSecondary)
                     ForEach(entries) { entry in row(entry) }
                 }
             }
-            .padding(22)
+            .padding(LayoutTokens.spacing[4])
         }
         .searchable(text: $query, prompt: "Search dictations")
         .navigationTitle("Dictation")
@@ -50,43 +51,44 @@ struct DictationHistoryView: View {
     }
 
     func row(_ e: HistoryEntry) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(e.startedAt.formatted(date: .omitted, time: .shortened)).font(.callout)
-                HStack(spacing: 4) {
-                    Text(e.appName ?? "Unknown").font(.caption2).foregroundStyle(.secondary)
+        HStack(alignment: .top, spacing: LayoutTokens.spacing[2]) {
+            VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
+                Text(e.startedAt.formatted(date: .omitted, time: .shortened)).bvFont(.body)
+                HStack(spacing: LayoutTokens.spacing[0]) {
+                    Text(e.appName ?? "Unknown").bvFont(.caption).foregroundStyle(.bvSecondary)
                     if let reason = e.rawReason, [.modelError, .modelTimeout, .placeholderLost].contains(reason) {
-                        Text("raw").font(.caption2).foregroundStyle(.orange)
+                        Text("raw").bvFont(.caption).foregroundStyle(.bvWarning)
                     }
                 }
             }
-            .frame(width: 80, alignment: .leading)
-            Text(e.text).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
-            HStack(spacing: 8) {
+            .frame(width: store.scaled(80), alignment: .leading)
+            Text(e.text).bvFont(.reading).textSelection(.enabled).frame(maxWidth: store.readingWidth, alignment: .leading).frame(maxWidth: .infinity)
+            HStack(spacing: LayoutTokens.spacing[1]) {
                 Button { model.dictation?.copy(e.text) } label: { Image(systemName: "doc.on.doc") }.help("Copy")
                 Button { model.dictation?.pasteAgain(e.text) } label: { Image(systemName: "arrow.uturn.right") }.help("Paste again")
                 Button { Task { await model.deleteHistory(id: e.id) } } label: { Image(systemName: "trash") }.help("Delete")
             }
             .buttonStyle(.borderless)
         }
-        .padding(12)
-        .background(.background, in: RoundedRectangle(cornerRadius: 9))
-        .overlay(RoundedRectangle(cornerRadius: 9).stroke(.separator))
+        .padding(LayoutTokens.spacing[2])
+        .background(.bvCard, in: RoundedRectangle(cornerRadius: LayoutTokens.cardRadius))
+        .overlay(RoundedRectangle(cornerRadius: LayoutTokens.cardRadius).stroke(.bvSeparator))
     }
 }
 
 struct StatTile: View {
+    @Environment(AppearanceStore.self) private var store
     let value: String
     let label: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(value).font(.title2.weight(.semibold)).monospacedDigit()
-            Text(label).font(.caption).foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
+            Text(value).bvFont(.title2).monospacedDigit()
+            Text(label).bvFont(.footnote).foregroundStyle(.bvSecondary)
         }
-        .padding(.horizontal, 14).padding(.vertical, 10)
-        .frame(minWidth: 130, alignment: .leading)
-        .background(.background, in: RoundedRectangle(cornerRadius: 10))
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(.separator))
+        .padding(.horizontal, LayoutTokens.spacing[2]).padding(.vertical, LayoutTokens.spacing[1])
+        .frame(minWidth: store.scaled(130), alignment: .leading)
+        .background(.bvCard, in: RoundedRectangle(cornerRadius: LayoutTokens.cardRadius))
+        .overlay(RoundedRectangle(cornerRadius: LayoutTokens.cardRadius).stroke(.bvSeparator))
     }
 }

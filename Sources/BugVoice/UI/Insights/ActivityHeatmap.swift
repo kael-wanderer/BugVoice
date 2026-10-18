@@ -2,27 +2,28 @@ import SwiftUI
 import VoiceCore
 
 struct ActivityHeatmap: View {
+    @Environment(AppearanceStore.self) private var store
     let weeks: [HeatWeek]
     @State private var hovered: HeatCell?
 
-    private let cell: CGFloat = 12
+    private var cell: CGFloat { store.scaled(12) }
     private let gap: CGFloat = 3
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {
             HStack {
-                Text("Speaking activity").font(.headline)
+                Text("Speaking activity").bvFont(.bodyStrong)
                 Spacer()
-                Text("Last 52 weeks").font(.caption).foregroundStyle(.secondary)
+                Text("Last 52 weeks").bvFont(.footnote).foregroundStyle(.bvSecondary)
             }
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(alignment: .top, spacing: 6) {
+                HStack(alignment: .top, spacing: LayoutTokens.spacing[0]) {
                     VStack(alignment: .trailing, spacing: gap) {
-                        Color.clear.frame(height: 14)
+                        Color.clear.frame(height: store.scaled(14))
                         ForEach(0..<7, id: \.self) { row in
                             Text(Self.dayLabel(row))
-                                .font(.system(size: 10))
-                                .foregroundStyle(.secondary)
+                                .bvFont(.caption)
+                                .foregroundStyle(.bvSecondary)
                                 .frame(height: cell)
                         }
                     }
@@ -30,10 +31,10 @@ struct ActivityHeatmap: View {
                         ForEach(weeks) { week in
                             VStack(spacing: gap) {
                                 Text(week.monthLabel ?? "")
-                                    .font(.system(size: 10))
-                                    .foregroundStyle(.secondary)
+                                    .bvFont(.caption)
+                                    .foregroundStyle(.bvSecondary)
                                     .fixedSize()
-                                    .frame(width: cell, height: 14, alignment: .leading)
+                                    .frame(width: cell, height: store.scaled(14), alignment: .leading)
                                 ForEach(0..<7, id: \.self) { row in
                                     if let day = week.days[row] {
                                         square(day)
@@ -48,8 +49,8 @@ struct ActivityHeatmap: View {
             }
             HStack {
                 Text(caption)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .bvFont(.footnote)
+                    .foregroundStyle(.bvSecondary)
                     .monospacedDigit()
                 Spacer()
                 legend
@@ -59,13 +60,13 @@ struct ActivityHeatmap: View {
     }
 
     private func square(_ day: HeatCell) -> some View {
-        RoundedRectangle(cornerRadius: 3)
-            .fill(Self.color(level: day.level))
+        RoundedRectangle(cornerRadius: LayoutTokens.controlRadius)
+            .fill(color(level: day.level))
             .opacity(day.inPeriod ? 1 : 0.35)
             .frame(width: cell, height: cell)
             .overlay {
                 if hovered == day {
-                    RoundedRectangle(cornerRadius: 3).strokeBorder(Color.primary, lineWidth: 1.5)
+                    RoundedRectangle(cornerRadius: LayoutTokens.controlRadius).strokeBorder(store.theme.text, lineWidth: 1.5)
                 }
             }
             .onHover { inside in
@@ -81,15 +82,15 @@ struct ActivityHeatmap: View {
     }
 
     private var legend: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: LayoutTokens.spacing[0]) {
             Text("Less")
             ForEach(1...4, id: \.self) { level in
-                RoundedRectangle(cornerRadius: 2).fill(Self.color(level: level)).frame(width: 10, height: 10)
+                RoundedRectangle(cornerRadius: LayoutTokens.controlRadius).fill(color(level: level)).frame(width: 10, height: 10)
             }
             Text("More")
         }
-        .font(.caption)
-        .foregroundStyle(.secondary)
+        .bvFont(.footnote)
+        .foregroundStyle(.bvSecondary)
     }
 
     static func dayLabel(_ row: Int) -> String {
@@ -101,8 +102,8 @@ struct ActivityHeatmap: View {
         }
     }
 
-    static func color(level: Int) -> Color {
+    private func color(level: Int) -> Color {
         let opacities: [Double] = [0.3, 0.5, 0.75, 1]
-        return level <= 0 ? Color.primary.opacity(0.08) : Color.accentColor.opacity(opacities[min(level, 4) - 1])
+        return level <= 0 ? store.theme.text.opacity(0.08) : store.theme.accent.opacity(opacities[min(level, 4) - 1])
     }
 }

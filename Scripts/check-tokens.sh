@@ -7,22 +7,8 @@ cd "$ROOT"
 ALLOW=''
 PENDING='Sources/BugVoice/HUD/HUDView.swift
 Sources/BugVoice/MeetingDetectionController.swift
-Sources/BugVoice/UI/DictationHistoryView.swift
-Sources/BugVoice/UI/Insights/ActivityHeatmap.swift
-Sources/BugVoice/UI/Insights/BreakdownBars.swift
-Sources/BugVoice/UI/Insights/InsightsPage.swift
-Sources/BugVoice/UI/Insights/StatCard.swift
-Sources/BugVoice/UI/Library/FolderControls.swift
-Sources/BugVoice/UI/Library/LabelsBox.swift
-Sources/BugVoice/UI/Library/ManageFoldersSheet.swift
-Sources/BugVoice/UI/Library/TagField.swift
-Sources/BugVoice/UI/MainWindow.swift
-Sources/BugVoice/UI/MeetingPlayer.swift
-Sources/BugVoice/UI/MeetingSpeakersRow.swift
 Sources/BugVoice/UI/MeetingWindow/MeetingTranscriptView.swift
 Sources/BugVoice/UI/MeetingWindow/MeetingWindowView.swift
-Sources/BugVoice/UI/MeetingsPage.swift
-Sources/BugVoice/UI/NotesPage.swift
 Sources/BugVoice/UI/PermissionsView.swift
 Sources/BugVoice/UI/Scratchpad/AIBar.swift
 Sources/BugVoice/UI/Scratchpad/AskAnswerView.swift
@@ -33,8 +19,7 @@ Sources/BugVoice/UI/Scratchpad/MarkdownTextStyler.swift
 Sources/BugVoice/UI/Scratchpad/MarkdownToolbar.swift
 Sources/BugVoice/UI/Scratchpad/ScratchpadNoteEditor.swift
 Sources/BugVoice/UI/Scratchpad/ScratchpadTabBar.swift
-Sources/BugVoice/UI/Scratchpad/ScratchpadWindowView.swift
-Sources/BugVoice/UI/UploadPage.swift'
+Sources/BugVoice/UI/Scratchpad/ScratchpadWindowView.swift'
 
 is_exempt() {
     local path="$1"
