@@ -26,6 +26,8 @@ struct MeetingWindowView: View {
     private var collapsed: Bool { model.settings.meetings.windowCollapsed }
     private var recording: Bool { controller.isRecording || controller.isPaused }
 
+    @State private var librarySheet: LibrarySheetTab?
+
     var body: some View {
         VStack(spacing: 0) {
             topBar
@@ -54,6 +56,7 @@ struct MeetingWindowView: View {
         .background(.bvCard)
         // The window has no visible title bar; the top bar takes its place.
         .ignoresSafeArea()
+        .sheet(item: $librarySheet) { ManageLibrarySheet(model: model, tab: $0) }
         .onAppear { titleDraft = controller.title }
         .onChange(of: controller.title) { _, title in if !titleFocused { titleDraft = title } }
         .onChange(of: titleFocused) { _, focused in
@@ -135,7 +138,7 @@ struct MeetingWindowView: View {
                 if let started = controller.meetingStartedAt {
                     chip(Label(started.formatted(date: .omitted, time: .shortened), systemImage: "clock"))
                 }
-                FolderPicker(model: model, folderID: controller.folderID) { folderID in
+                FolderPicker(model: model, folderID: controller.folderID, onManage: { librarySheet = .folders }) { folderID in
                     Task { await controller.setFolder(folderID) }
                 }
                 .controlSize(.small)

@@ -54,6 +54,7 @@ struct TagFilterBar: View {
     @Environment(AppearanceStore.self) private var store
     let catalog: [TagCount]
     @Binding var selected: [String]
+    let onManage: () -> Void
 
     var body: some View {
         HStack(spacing: LayoutTokens.spacing[0]) {
@@ -64,6 +65,8 @@ struct TagFilterBar: View {
                         if !selected.contains(tag.name) { selected.append(tag.name) }
                     }
                 }
+                Divider()
+                Button("Manage tags…", action: onManage)
             } label: {
                 Label("Tags", systemImage: "tag")
             }
@@ -104,6 +107,7 @@ struct FolderPicker: View {
     @Environment(AppearanceStore.self) private var store
     let model: AppModel
     let folderID: FolderID?
+    var onManage: (() -> Void)? = nil
     let onChange: (FolderID?) -> Void
     @State private var creating = false
 
@@ -116,6 +120,7 @@ struct FolderPicker: View {
             }
             Divider()
             Button("New folder…") { creating = true }.disabled(model.libraryReadOnly)
+            if let onManage { Button("Manage folders…", action: onManage) }
         } label: {
             Label(model.folderName(folderID) ?? "Unfiled", systemImage: "folder")
         }

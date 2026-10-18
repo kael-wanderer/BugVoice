@@ -43,6 +43,8 @@ struct PageActions: View {
                         .keyboardShortcut("n", modifiers: [.control, .option])
                     Divider()
                     Button("Ask AI about my notes") { Task { await model.openScratchpadAsk() } }
+                    Divider()
+                    Button("Manage folders and tags…") { model.librarySheet = .folders }
                 }
             case .upload:
                 Button("Choose files…") { model.chooseUploadFiles() }.buttonStyle(.borderedProminent)

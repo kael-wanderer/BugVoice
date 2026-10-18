@@ -7,7 +7,7 @@ import VoiceCore
 struct NotesPage: View {
     @Environment(AppearanceStore.self) private var store
     @Bindable var model: AppModel
-    @State private var managingFolders = false
+    @State private var librarySheet: LibrarySheetTab?
     @State private var pendingDelete: NotesListItem?
 
     private var controller: NotesController { model.notesController }
@@ -49,7 +49,7 @@ struct NotesPage: View {
             model.syncScratchpadTabs()
         }
         .onChange(of: controller.notes) { _, _ in model.syncScratchpadTabs() }
-        .sheet(isPresented: $managingFolders) { ManageFoldersSheet(model: model) }
+        .sheet(item: $librarySheet) { ManageLibrarySheet(model: model, tab: $0) }
         .confirmationDialog(
             "Move \(pendingDelete?.title ?? "this note") to the Trash?",
             isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }),
@@ -74,9 +74,9 @@ struct NotesPage: View {
                         model: model,
                         filter: Binding(get: { model.notesFolderFilter }, set: { model.notesFolderFilter = $0 }),
                         counts: LibraryProjection.counts(controller.notes, known: model.library.knownIDs),
-                        allTitle: "All notes", onManage: { managingFolders = true }
+                        allTitle: "All notes", onManage: { librarySheet = .folders }
                     )
-                    TagFilterBar(catalog: model.noteTagCatalog, selected: $model.notesTagFilter)
+                    TagFilterBar(catalog: model.noteTagCatalog, selected: $model.notesTagFilter, onManage: { librarySheet = .tags })
                     Menu {
                         Picker("Sort", selection: $model.settings.scratchpad.sort) {
                             ForEach(NotesSort.allCases, id: \.self) { Text($0.title).tag($0) }

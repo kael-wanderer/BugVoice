@@ -40,6 +40,7 @@ struct MainWindow: View {
                     .accessibilityAddTraits(.updatesFrequently)
             }
         }
+        .sheet(item: $model.librarySheet) { ManageLibrarySheet(model: model, tab: $0) }
         .animation(.easeInOut(duration: 0.2), value: model.notice)
         .alert(
             "Could not save",

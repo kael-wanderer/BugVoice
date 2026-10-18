@@ -10,6 +10,7 @@ struct TagField: View {
     let catalog: [TagCount]
     /// "meeting" or "note", for the limit message.
     let noun: String
+    var onManage: (() -> Void)? = nil
     let onChange: ([String]) -> Void
     @State private var editing = false
     @State private var text = ""
@@ -37,11 +38,15 @@ struct TagField: View {
                         .foregroundStyle(.bvSecondary)
                 }
             }
-            if editing, !options.isEmpty {
+            if editing, !options.isEmpty || onManage != nil {
                 VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
                     ForEach(options, id: \.self) { option in
                         Button { pick(option) } label: { optionLabel(option) }
                             .buttonStyle(.plain)
+                    }
+                    if let onManage {
+                        Divider()
+                        Button("Manage tags…") { cancel(); onManage() }.buttonStyle(.plain)
                     }
                 }
                 .padding(LayoutTokens.spacing[0])
