@@ -18,7 +18,6 @@ struct ScratchpadNoteEditor: View {
     @State private var confirmExternalReload = false
     @State private var caretToEndRequested = false
     @State private var dictateWhenCaretPlaced = false
-    @State private var formattingHeight: CGFloat = 0
 
     private var controller: NotesController { model.notesController }
 
@@ -210,15 +209,11 @@ struct ScratchpadNoteEditor: View {
 
     private var formattingBar: some View {
         ZStack {
-            // Retain the toolbar's measured size in Doc view, including when
-            // the window first opens in Doc view or the controls wrap.
+            // The toolbar stays laid out in Doc view, hidden, so the bar keeps its height.
             MarkdownToolbar { command in run(command) }
                 .disabled(askShowing || model.scratchpadView != .markdown)
                 .opacity(model.scratchpadView == .markdown ? 1 : 0)
                 .accessibilityHidden(model.scratchpadView != .markdown)
-                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height in
-                    formattingHeight = max(formattingHeight, height)
-                }
             if model.scratchpadView == .doc {
                 Text("Doc view is read only. Switch to Markdown to edit.")
                     .bvFont(.footnote)
@@ -226,7 +221,6 @@ struct ScratchpadNoteEditor: View {
                     .frame(maxWidth: .infinity)
             }
         }
-        .frame(minHeight: formattingHeight)
         .padding(LayoutTokens.spacing[1])
         .frame(maxWidth: .infinity)
         .background(.bvCard)

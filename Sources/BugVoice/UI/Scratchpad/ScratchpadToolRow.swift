@@ -62,6 +62,7 @@ struct ScratchpadToolRow<Trailing: View>: View {
                             .stroke(.bvSeparator, lineWidth: 1)
                     }
                 }
+                .contentShape(RoundedRectangle(cornerRadius: LayoutTokens.controlRadius))
         }
         .buttonStyle(.plain)
         .fixedSize()
