@@ -54,6 +54,8 @@ version and build live in `App/Info.plist`. App icon source is `App/Icon/AppIcon
 - Appearance foundation plan: `docs/superpowers/plans/2026-10-18-appearance-foundation.md`
 - Appearance execution log and manual checks: `docs/progress/appearance-log.md`
 - Appearance and redesign mockup: `docs/design/proposal-appearance.html`
+- App shell plan: `docs/superpowers/plans/2026-10-18-app-shell.md`
+- App shell execution log and manual checks: `docs/progress/app-shell-log.md`
 - App shell spec: `docs/superpowers/specs/2026-10-18-app-shell-design.md` (mockup: `docs/design/proposal-appearance.html#shell`)
 - Roadmap (next sub-projects, dropped ideas): `docs/ROADMAP.md`
 

@@ -19,8 +19,8 @@ struct ShortcutsSettingsView: View {
                 AppearanceCard(title: "Windows") {
                     shortcut(.openApp)
                     shortcut(.newNote)
-                    fixed("Search everything", "⌘K", coming: true)
-                    fixed("Show or hide sidebar", "⌃⌘S", coming: true)
+                    fixed("Search everything", "⌘K")
+                    fixed("Show or hide sidebar", "⌃⌘S")
                 }
                 AppearanceCard(title: "Text size") {
                     fixed("Bigger text", "⌘+")

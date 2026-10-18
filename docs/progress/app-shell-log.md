@@ -2,7 +2,28 @@
 
 Branch: `feat/app-shell`. Phase B is implemented directly, as authorized by the owner; no merge or push.
 
+## Phase A (already present)
+
+### Task 1 — ShellLayout
+
+`4725f2c` — feat(core): shell layout widths and minimum window size.
+Read before Phase B; caps, minimum widths and centered block math are reused unchanged.
+
+### Task 2 — GlobalSearch
+
+`0bc1ced` — feat(core): keyword search across meetings, notes, dictations, and settings.
+`7d9f614` — refactor(core): drop unused search helper overload.
+Read before Phase B; keyword ranking, title matching, folding and settings lookup are reused unchanged.
+
+### Task 3 — Pages and empty states
+
+`d4bdda4` — feat(app): integrations and help pages, sidebar groups, token empty states.
+Read before Phase B; page groups and token empty states are reused. The two Phase A
+review notes are addressed in Tasks 4 and 7 below.
+
 ## Task 4 — Window frame
+
+Commit: `b77d453` — feat(app): two-panel window with grouped sidebar and title bar.
 
 - Builder's call: a fixed SwiftUI HStack keeps the sidebar separate from the right-panel title bar without introducing a draggable split.
 - Builder's call: `PageActions` in the shell will switch on the current page (Task 5); shared action state lives in AppModel. This avoids type-erased view preferences and their update cycles.
@@ -15,6 +36,8 @@ Branch: `feat/app-shell`. Phase B is implemented directly, as authorized by the 
 
 ## Task 5 — Page actions
 
+Commit: `e323c99` — feat(app): page actions in the title bar.
+
 - Task 4 commit: `b77d453` — feat(app): two-panel window with grouped sidebar and title bar.
 - Builder's call: split buttons use two adjoining controls, an accent primary button and a caret Menu, so the primary action is explicit on macOS 15.
 - `PageActions` switches on Page; Insights range and Dictionary selection/add request live in AppModel. Page headings and relocated controls were removed.
@@ -25,6 +48,8 @@ Branch: `feat/app-shell`. Phase B is implemented directly, as authorized by the 
 
 ## Task 6 — Round pills
 
+Commit: `e78b130` — feat(app): one round pill control for views and filters.
+
 - Task 5 commit: `e323c99` — feat(app): page actions in the title bar.
 - Builder's call: a SwiftUI Layout measures the widest intrinsic pill and wraps whole pills; each row divides its width equally, including the final row. This preserves equal widths with multiline fallback for a single exceptionally long label.
 - RoundPills now lives in Components; AppearanceCard stays in SettingsComponents. PillTabs is deleted. Dictation style filter preserves day grouping; empty filtered results have their own empty state.
@@ -32,6 +57,8 @@ Branch: `feat/app-shell`. Phase B is implemented directly, as authorized by the 
 - Validation: swift build, swift test (1,034 tests), token check, signed debug app build and dev launch passed. Required 160% screenshots for Insights, Dictation, Dictionary and meeting pills remain blocked by UI access; no wrapping visual pass is claimed.
 
 ## Task 7 — Centered columns and section lists
+
+Commit: `42bd90d` — feat(app): centered page columns and in-page section lists.
 
 - Task 6 commit: `e78b130` — feat(app): one round pill control for views and filters.
 - Builder's call: `bvPageColumn` uses a single-child SwiftUI Layout. It consumes the full scroll-view width, applies ShellLayout.blockWidth, and places the block on the centerline without GeometryReader height feedback.
@@ -44,6 +71,8 @@ Branch: `feat/app-shell`. Phase B is implemented directly, as authorized by the 
 
 ## Task 8 — List panes and note preview
 
+Commit: `e0c6e74` — feat(app): list panes for meetings and notes, note preview.
+
 - Task 7 commit: `42bd90d` — feat(app): centered page columns and in-page section lists.
 - Builder's call: list panes use `.bvSidebar` directly (the spec permits it), sharing the app's sidebar palette without an additional color blend.
 - Meetings uses the capped list width and a full-width detail scroll view around the centered reading column. Filter controls stack; transcript line scrolling and all recovery, export, generation and More-menu actions are retained.
@@ -54,6 +83,8 @@ Branch: `feat/app-shell`. Phase B is implemented directly, as authorized by the 
 
 ## Task 9 — Global search UI
 
+Commit: `8ed1eeb` — feat(app): search everything from the title bar.
+
 - Task 8 commit: `e0c6e74` — feat(app): list panes for meetings and notes, note preview.
 - Uses the existing VoiceCore GlobalSearch ranking and SearchIndexer's local passage builders, plus all meeting/note titles (including unfinished meetings). No model or embedding requests are made by shell search.
 - Builder's call: field results are a SwiftUI overlay; compact search uses a popover. Result rows scroll within a height derived from the window, so eight large-text rows do not require a panel taller than the minimum window. Keyboard selection scrolls with them.
@@ -62,3 +93,60 @@ Branch: `feat/app-shell`. Phase B is implemented directly, as authorized by the 
 - Notes/meetings search opening clears list filters/search that would hide the target; their filtering controls remain. Dictation opening resets its style filter, scrolls and fades accentSoft over 1.5 seconds.
 - Validation: swift build, swift test (910 VoiceCore/100 suites + 30 MCPKit/2 suites + 94 BugVoiceMac/16 suites), token check, signed debug app build and dev launch pass. No existing tests were edited.
 - Runtime matrix remains unverified: meeting line/title/unfinished title, note, dictation, text size, Vietnamese search, search-no-play versus Ask-play, keyboard/sheet scope and VoiceOver. UI tool access remains denied. CGWindowListCopyWindowInfo again reported no visible BugVoice window after the dev launch.
+
+## Task 10 — Shortcuts, docs and handoff
+
+Commit: this documentation commit, `docs: app shell log and handoff` (resolve with
+`git log -1 --format='%h %s' -- docs/progress/app-shell-log.md`; its own hash cannot be embedded in itself).
+
+- Search and sidebar shortcut rows are no longer marked coming.
+- AGENTS lists the plan and execution log. HANDOFF records implementation on the feature branch,
+  with merge/push and runtime passes explicitly unclaimed. Appearance's Models/Storage and
+  system empty-state items point to the implementation and pending screenshot gate.
+- No existing tests were changed; no new VoiceCore logic or dependencies were introduced in Phase B.
+- Final validation: swift build, swift test (910 VoiceCore/100 suites, 30 MCPKit/2 suites,
+  94 BugVoiceMac/16 suites; 1,034 total), Scripts/check-tokens.sh all pass.
+
+## Screenshots and gap measurements
+
+Screenshot directory: `build/screenshots/app-shell/` (empty).
+
+No screenshots were captured. The UI tool denied BugVoice access, and the permitted
+CGWindowListCopyWindowInfo script found no visible BugVoice window after dev launches.
+The required `screencapture -l <windowID>` command therefore had no target. In particular,
+Task 7 has **no measured left/right gaps** at any of the requested sizes. Geometry code
+and passing ShellLayout tests do not substitute for screenshot measurements.
+
+Required outstanding captures: Task 4 sidebar shown/hidden at 100%; Task 6 Insights,
+Dictation, Dictionary and a meeting at 160%; Task 7 Models, Storage, Style, Upload and
+Dictation at 100% and 160%, minimum and 1600 pt widths, plus Integrations at 160% minimum.
+
+## Data and environment
+
+- Original settings copied to `~/Library/Application Support/BugVoice/settings.json.bak-app-shell`
+  before app builds/launches. Original text scale was 100%.
+- Dev app stopped before final settings restore; `cmp` is silent (exit 0), confirming byte-for-byte restore.
+- No notes, meetings, or history were intentionally created, edited or deleted during runtime checks.
+- `.vscode/` was pre-existing and left untracked. No merge or push was performed.
+- The local HTML mockup's requested functions/CSS were read from disk; opening its file URL
+  in the browser was blocked by tool URL policy. No alternate browser path was attempted.
+
+## Remaining limitations
+
+- 160% minimum-window and 100% 1600 pt fit have not been visually verified. Clipping/overlap
+  status is unknown; this branch is not declared to pass the spec's first anti-goal.
+- Action/menu execution, drag/zoom, sidebar persistence/clearance, search and Ask playback,
+  text-size keyboard checks, VoiceOver, and floating-editor preview refresh need runtime checks.
+- The spec's full feature/runtime matrix remains an owner gate; automated checks cover the existing
+  pure logic and package suites, not SwiftUI event routing or rendered geometry.
+
+## Manual checks (owner)
+
+- [ ] Sidebar groups and order match the mockup; Settings and Help at the bottom.
+- [ ] Each page's title-bar action works, including menu items.
+- [ ] ⌘K search finds a meeting line, a meeting by title, a note, a dictation, and "text size".
+- [ ] ⌃⌘S and the button hide and show the sidebar; state kept after relaunch.
+- [ ] Content centered at 100% and 160%, window narrow and wide.
+- [ ] Integrations and Help show Coming soon; the Agents link works.
+- [ ] VoiceOver reads sidebar groups, pills, and search results.
+- [ ] Scratchpad: select a note, see the preview; Open in window edits it; the preview shows the edit after it saves.

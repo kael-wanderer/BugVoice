@@ -122,8 +122,11 @@ owner checks. No claim of a complete spoken-dictation matrix is made.
   - Insights: stat cards wrap in an adaptive grid; the period pills and Local move under
     the Usage / Details pills when they do not fit.
   - Note editors: reading-width centering is recalculated when the editor resizes.
-- **Still open:** Models controls and Storage paths truncate (also at 100%); the Meetings
-  empty-detail message uses system fonts (`ContentUnavailableView`).
+- **Handled in app-shell source; visual recheck pending:** Models controls now stack
+  in the centered Settings column; Storage paths use middle truncation, full-path help
+  and Reveal (Task 7). Token EmptyState replaced ContentUnavailableView in Phase A.
+  See `docs/progress/app-shell-log.md`. The app-shell UI access denial prevented
+  100%/160% screenshots, so the earlier clipping observations are not yet visually closed.
 - **Dictionary:** the add-field placeholder truncates at both sizes. Its existing responsive
   rule hides the illustration at narrow widths. Snippet text deliberately uses one-line
   truncation; the empty Snippets subtab was also captured in the final pass.
