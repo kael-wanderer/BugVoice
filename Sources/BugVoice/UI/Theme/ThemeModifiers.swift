@@ -45,12 +45,16 @@ extension View {
             .overlay(RoundedRectangle(cornerRadius: radius).stroke(.bvSeparator, lineWidth: 1))
     }
     func bvTheme(_ store: AppearanceStore) -> some View {
-        modifier(BVThemeModifier(store: store))
+        modifier(BVThemeModifier(store: store, fillsBackground: true))
+    }
+    func bvTheme(_ store: AppearanceStore, fillsBackground: Bool) -> some View {
+        modifier(BVThemeModifier(store: store, fillsBackground: fillsBackground))
     }
 }
 
 private struct BVThemeModifier: ViewModifier {
     let store: AppearanceStore
+    let fillsBackground: Bool
     func body(content: Content) -> some View {
         content.environment(store).environment(\.bvTheme, store.theme)
             .font(store.type.font(.body))
@@ -58,6 +62,6 @@ private struct BVThemeModifier: ViewModifier {
             .preferredColorScheme(store.theme.isDark ? .dark : .light)
             .controlSize(LayoutTokens.usesLargeControls(scale: store.settings.textScale) ? .large : .regular)
             .foregroundStyle(store.theme.text)
-            .background(store.theme.background)
+            .background(fillsBackground ? store.theme.background : .clear)
     }
 }

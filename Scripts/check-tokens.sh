@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 ALLOW='Sources/BugVoice/UI/MenuContent.swift  # native NSMenu, redesign spec'
-PENDING='Sources/BugVoice/HUD/HUDView.swift'
+PENDING=''
 
 is_exempt() {
     local path="$1"
