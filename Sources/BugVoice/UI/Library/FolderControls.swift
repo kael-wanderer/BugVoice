@@ -76,12 +76,16 @@ struct TagFilterBar: View {
 }
 
 struct TagChip: View {
+    @Environment(\.tagColors) private var tagColors
     @Environment(AppearanceStore.self) private var store
     let name: String
     var onRemove: (() -> Void)?
 
     var body: some View {
         HStack(spacing: LayoutTokens.spacing[0]) {
+            if let c = tagColors[name] {
+                Circle().fill(TagColors.color(c)).frame(width: store.scaled(8), height: store.scaled(8))
+            }
             Text("#\(name)").bvFont(.footnote)
             if let onRemove {
                 Button(action: onRemove) { Image(systemName: "xmark").bvFont(.caption) }
