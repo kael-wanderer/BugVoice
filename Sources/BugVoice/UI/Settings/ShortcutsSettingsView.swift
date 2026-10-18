@@ -6,7 +6,7 @@ struct ShortcutsSettingsView: View {
     @State private var conflicts: [ShortcutAction: String] = [:]
     @Environment(AppearanceStore.self) private var store
     var body: some View {
-        ScrollView {
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) {
             VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) {
                 AppearanceCard(title: "Dictation") {
                     Picker("Hold to talk", selection: $model.settings.hotkey) {
@@ -19,8 +19,8 @@ struct ShortcutsSettingsView: View {
                 AppearanceCard(title: "Windows") {
                     shortcut(.openApp)
                     shortcut(.newNote)
-                    fixed("Search everything", "⌘K", coming: true)
-                    fixed("Show or hide sidebar", "⌃⌘S", coming: true)
+                    fixed("Search everything", "⌘K")
+                    fixed("Show or hide sidebar", "⌃⌘S")
                 }
                 AppearanceCard(title: "Text size") {
                     fixed("Bigger text", "⌘+")

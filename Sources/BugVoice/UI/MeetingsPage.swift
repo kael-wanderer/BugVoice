@@ -3,7 +3,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 import VoiceCore
 
-private enum MeetingDetailTab: String, CaseIterable {
+enum MeetingDetailTab: String, CaseIterable {
     case transcript = "Transcript"
     case summary = "Summary"
     case actionItems = "Action items"
@@ -41,17 +41,18 @@ struct MeetingsPage: View {
     var body: some View {
         HStack(spacing: 0) {
             library
-                .frame(minWidth: store.scaled(250), idealWidth: store.scaled(285), maxWidth: store.scaled(340))
-            Divider()
+                .frame(width: ShellLayout.listPaneWidth(scale: model.settings.appearance.textScale))
+                .background(.bvSidebar)
+            Rectangle().fill(.bvSeparator).frame(width: 1)
             if let meeting = model.selectedMeeting {
                 MeetingDetails(model: model, meeting: meeting, player: player, citedLineIDs: $citedLineIDs, citationScrollRequest: citationScrollRequest)
                     .environment(model)
             } else {
-                ContentUnavailableView("No meeting selected", systemImage: "waveform.path", description: Text("Choose a meeting or start a recording."))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                EmptyState("No meeting selected", systemImage: "waveform.path", message: "Choose a meeting or start a recording.")
             }
         }
         .simultaneousGesture(TapGesture().onEnded { citedLineIDs = [] })
+        .onChange(of: model.meetingSelectionRequest) { _, _ in citedLineIDs = [] }
         .task(id: model.pendingMeetingJump) { await consumeMeetingJump() }
         .task {
             await model.reloadMeetings()
@@ -73,16 +74,17 @@ struct MeetingsPage: View {
             return
         }
         citedLineIDs = jump.lineIDs
+        if !jump.lineIDs.isEmpty { model.meetingDetailTab = .transcript }
         citationScrollRequest &+= 1
         let audio = directory.appendingPathComponent("audio.m4a")
         let hasAudio = FileManager.default.fileExists(atPath: audio.path)
-        if hasAudio { await player.load(audio) }
+        if hasAudio && jump.play { await player.load(audio) }
         guard !Task.isCancelled, model.pendingMeetingJump == jump else { return }
         guard model.selectedMeetingID == jump.id, FileManager.default.fileExists(atPath: manifest.path) else {
             model.pendingMeetingJump = nil
             return
         }
-        if hasAudio {
+        if hasAudio && jump.play {
             player.seek(to: jump.start)
             if !player.isPlaying { player.togglePlayback() }
         }
@@ -90,21 +92,9 @@ struct MeetingsPage: View {
     }
 
     private var library: some View {
+        ScrollView {
         VStack(spacing: LayoutTokens.spacing[1]) {
-            HStack {
-                Text("Meetings").bvFont(.title2)
-                Spacer()
-                if model.meetings?.isRecording == true || model.meetings?.isPaused == true {
-                    Button("Stop") { Task { await model.meetings?.stop(); await model.reloadMeetings() } }
-                } else if model.meetings?.isTranscribing == true {
-                    Label("Transcribing…", systemImage: "hourglass")
-                } else {
-                    Button { Task { await model.meetings?.start() } } label: { Image(systemName: "record.circle") }
-                        .buttonStyle(.borderedProminent)
-                        .help("Start meeting recording")
-                }
-            }
-            HStack(spacing: LayoutTokens.spacing[0]) {
+            VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {
                 FolderFilterMenu(
                     model: model,
                     filter: Binding(get: { model.meetingsFolderFilter }, set: { model.meetingsFolderFilter = $0 }),
@@ -113,16 +103,15 @@ struct MeetingsPage: View {
                     onManage: { managingFolders = true }
                 )
                 TagFilterBar(catalog: model.meetingTagCatalog, selected: $model.meetingTagFilter)
-                Spacer(minLength: 0)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             TextField("Search meetings", text: $model.meetingSearchQuery)
                 .textFieldStyle(.roundedBorder)
             if model.meetingManifests.isEmpty {
-                ContentUnavailableView("No meetings yet", systemImage: "waveform.path", description: Text("Record a meeting to see its transcript here."))
+                EmptyState("No meetings yet", systemImage: "waveform.path", message: "Record a meeting to see its transcript here.")
             } else if groups.isEmpty {
-                ContentUnavailableView("No matching meetings", systemImage: "magnifyingglass", description: Text("Try a different title or transcript search."))
+                EmptyState("No matching meetings", systemImage: "magnifyingglass", message: "Try a different title or transcript search.")
             } else {
-                ScrollView {
                     LazyVStack(alignment: .leading, spacing: LayoutTokens.spacing[2]) {
                         ForEach(groups) { group in
                             VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
@@ -164,10 +153,10 @@ struct MeetingsPage: View {
                         }
                     }
                     .padding(.vertical, LayoutTokens.spacing[0])
-                }
             }
         }
         .padding(LayoutTokens.spacing[2])
+        }
         .confirmationDialog(
             "Delete this meeting?",
             isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }),
@@ -235,7 +224,7 @@ private struct MeetingListRow: View {
                 Text(meeting.startedAt.formatted(date: .omitted, time: .shortened) + " · " + clock(meeting.duration))
                     .bvFont(.footnote).foregroundStyle(.bvSecondary)
                 if folderName != nil || !meeting.tags.isEmpty {
-                    HStack(spacing: LayoutTokens.spacing[0]) {
+                    FlowLayout(spacing: LayoutTokens.spacing[0]) {
                         if let folderName {
                             Label(folderName, systemImage: "folder").bvFont(.footnote).foregroundStyle(.bvSecondary)
                         }
@@ -282,7 +271,6 @@ private struct MeetingDetails: View {
     @Bindable var player: MeetingPlayerModel
     @Binding var citedLineIDs: Set<String>
     let citationScrollRequest: UInt64
-    @State private var tab: MeetingDetailTab = .transcript
     @State private var showDelete = false
     @State private var showRename = false
     @State private var renameTitle = ""
@@ -297,6 +285,8 @@ private struct MeetingDetails: View {
     }
 
     var body: some View {
+        ScrollViewReader { reader in
+        ScrollView {
         VStack(alignment: .leading, spacing: LayoutTokens.spacing[2]) {
             header
             Text(
@@ -336,21 +326,25 @@ private struct MeetingDetails: View {
                 Label(meeting.state == .recording || meeting.state == .paused ? "Audio is recording" : "Audio is unavailable", systemImage: "waveform")
                     .foregroundStyle(.bvSecondary)
             }
-            Picker("Meeting details", selection: $tab) {
-                ForEach(MeetingDetailTab.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-            }
-            .pickerStyle(.segmented)
+            RoundPills("Meeting view", items: MeetingDetailTab.allCases.map { ($0, $0.rawValue) }, selection: $model.meetingDetailTab)
             Group {
-                switch tab {
+                switch model.meetingDetailTab {
                 case .transcript: transcript
                 case .summary: generatedText(meeting.summary, kind: .summary, emptyMessage: "Generate a summary from this transcript.")
                 case .actionItems: generatedText(meeting.actionItems, kind: .actionItems, emptyMessage: "Find the action items discussed in this meeting.")
                 case .notes: MeetingDetailNotes(model: model, meeting: meeting).id(meeting.id)
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .padding(LayoutTokens.spacing[3])
+        .bvPageColumn(.reading)
+        }
+        .task(id: citationScrollRequest) {
+            if let first = meeting.segments.sorted(by: { $0.start < $1.start }).first(where: { citedLineIDs.contains($0.id) }) {
+                reader.scrollTo(first.id, anchor: .center)
+            }
+        }
+        }
         .confirmationDialog("Delete this meeting?", isPresented: $showDelete, titleVisibility: .visible) {
             Button("Delete meeting", role: .destructive) { Task { await model.deleteMeeting(id: meeting.id) } }
             Button("Cancel", role: .cancel) {}
@@ -359,9 +353,6 @@ private struct MeetingDetails: View {
         }
         .sheet(isPresented: $showRename) {
             MeetingRenameSheet(model: model, id: meeting.id, title: $renameTitle) { showRename = false }
-        }
-        .task(id: citationScrollRequest) {
-            if !citedLineIDs.isEmpty { tab = .transcript }
         }
         .onChange(of: meeting.id) { _, _ in
             generationTask?.cancel()
@@ -425,8 +416,7 @@ private struct MeetingDetails: View {
 
     private var transcript: some View {
         let activeSegmentID = MeetingTimeline.activeSegment(at: player.currentTime, segments: meeting.segments, isPlaying: player.isPlaying)?.id
-        return ScrollViewReader { reader in
-        ScrollView {
+        return Group {
             // The speaker row sits outside the lazy stack, so its open edits survive scrolling.
             VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
                 if let error = meeting.transcriptionError {
@@ -480,16 +470,10 @@ private struct MeetingDetails: View {
                     markRow(mark)
                 }
                 if meeting.segments.isEmpty {
-                    ContentUnavailableView("No transcript yet", systemImage: "text.bubble", description: Text("Transcript lines appear as speech is processed."))
+                    EmptyState("No transcript yet", systemImage: "text.bubble", message: "Transcript lines appear as speech is processed.")
                 }
                 }
             }
-        }
-        .task(id: citationScrollRequest) {
-            if let first = meeting.segments.sorted(by: { $0.start < $1.start }).first(where: { citedLineIDs.contains($0.id) }) {
-                reader.scrollTo(first.id, anchor: .center)
-            }
-        }
         }
     }
 
@@ -516,9 +500,9 @@ private struct MeetingDetails: View {
     private func generatedText(_ value: String?, kind: MeetingTextKind, emptyMessage: String) -> some View {
         VStack(alignment: .leading, spacing: LayoutTokens.spacing[2]) {
             if let value, !value.isEmpty {
-                ScrollView { Text(value).bvFont(.reading).frame(maxWidth: store.readingWidth, alignment: .leading).frame(maxWidth: .infinity).textSelection(.enabled) }
+                Text(value).bvFont(.reading).frame(maxWidth: .infinity, alignment: .leading).textSelection(.enabled)
             } else {
-                ContentUnavailableView(kind == .summary ? "No summary" : "No action items", systemImage: kind == .summary ? "text.alignleft" : "checklist", description: Text(emptyMessage))
+                EmptyState(kind == .summary ? "No summary" : "No action items", systemImage: kind == .summary ? "text.alignleft" : "checklist", message: emptyMessage)
             }
             if let generationProgress {
                 ProgressView(value: generationProgress.fraction) {
@@ -614,7 +598,7 @@ private struct MeetingDetailNotes: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            MeetingNotesEditor(text: $draft)
+            MeetingNotesEditor(text: $draft).frame(minHeight: store.scaled(220))
             if draft.isEmpty {
                 Text("No notes for this meeting.")
                     .foregroundStyle(.bvSecondary)

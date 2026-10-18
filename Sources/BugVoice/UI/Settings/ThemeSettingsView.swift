@@ -5,10 +5,10 @@ struct ThemeSettingsView: View {
     @Bindable var model: AppModel
     @Environment(AppearanceStore.self) private var store
     var body: some View {
-        ScrollView {
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) {
             VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) {
                 AppearanceCard(title: "Theme") {
-                    RoundPills(items: [(.light,"Light"),(.dark,"Dark"),(.system,"Match macOS")], selection: $model.settings.appearance.mode)
+                    RoundPills("Light and dark", items: [(.light,"Light"),(.dark,"Dark"),(.system,"Match macOS")], selection: $model.settings.appearance.mode)
                         .onChange(of: model.settings.appearance.mode) { _, mode in
                             if mode == .light && store.theme.isDark { model.settings.appearance.theme = model.settings.appearance.lightTheme }
                             if mode == .dark && !store.theme.isDark { model.settings.appearance.theme = model.settings.appearance.darkTheme }
@@ -25,7 +25,7 @@ struct ThemeSettingsView: View {
                     }
                 }
                 AppearanceCard(title: "Recording pill") {
-                    RoundPills(items: [(.small,"Small"),(.medium,"Medium"),(.large,"Large")], selection: $model.settings.appearance.hudSize)
+                    RoundPills("Recording pill", items: [(.small,"Small"),(.medium,"Medium"),(.large,"Large")], selection: $model.settings.appearance.hudSize)
                     HStack(spacing: LayoutTokens.spacing[2]) {
                         hudPreview(dark: false)
                         hudPreview(dark: true)

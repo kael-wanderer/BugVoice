@@ -19,32 +19,60 @@ enum ConnectionStatus: Equatable {
     case failed(String)
 }
 
-/// Main-window pages, in sidebar order.
+/// Main-window pages.
 enum Page: String, CaseIterable, Identifiable {
-    case dictation, insights, dictionary, style, meetings, upload, notes, settings
+    case dictation, insights, meetings, notes, upload, style, dictionary, integrations, settings, help
     var id: String { rawValue }
     var title: String {
         switch self {
         case .dictation: "Dictation"
         case .insights: "Insights"
-        case .dictionary: "Dictionary"
-        case .style: "Style"
         case .meetings: "Meetings"
-        case .upload: "Upload"
         case .notes: "Scratchpad"
+        case .upload: "Upload"
+        case .style: "Style"
+        case .dictionary: "Dictionary"
+        case .integrations: "Integrations"
         case .settings: "Settings"
+        case .help: "Help"
         }
     }
     var symbol: String {
         switch self {
         case .dictation: "mic"
         case .insights: "chart.bar"
-        case .dictionary: "character.book.closed"
-        case .style: "paintbrush.pointed"
         case .meetings: "waveform.path"
-        case .upload: "square.and.arrow.up"
         case .notes: "note.text"
+        case .upload: "square.and.arrow.up"
+        case .style: "paintbrush.pointed"
+        case .dictionary: "character.book.closed"
+        case .integrations: "puzzlepiece.extension"
         case .settings: "gearshape"
+        case .help: "questionmark.circle"
+        }
+    }
+}
+
+enum SidebarGroup: CaseIterable {
+    case capture, library, personalize, connect, bottom
+
+    var title: String? {
+        switch self {
+        case .capture: "Capture"
+        case .library: "Library"
+        case .personalize: "Personalize"
+        case .connect: "Connect"
+        case .bottom: nil
+        }
+    }
+
+    var pages: [Page] {
+        switch self {
+        case .capture: [.dictation, .insights]
+        case .library: [.meetings, .notes, .upload]
+        case .personalize: [.style, .dictionary]
+        case .connect: [.integrations]
+        case .bottom: [.settings, .help]
         }
     }
 }
@@ -80,6 +108,16 @@ final class AppModel {
             settingsDidChange(from: oldValue)
         }
     }
+    var insightsPeriod: InsightsPeriod = .all
+    var dictionaryTab: DictionaryTab = .words
+    var dictionaryAddRequest: UInt64 = 0
+    var dictionaryAddTarget: DictionaryTab?
+    func requestDictionaryAdd(_ tab: DictionaryTab? = nil) {
+        if let tab { dictionaryTab = tab }
+        dictionaryAddTarget = dictionaryTab
+        dictionaryAddRequest &+= 1
+    }
+    var scratchpadAskRequest: UInt64 = 0
     var settingsTab: SettingsTab = .general
     var dictionary = DictionaryFile()
     var dictionaryReadOnly = false
@@ -94,6 +132,7 @@ final class AppModel {
         var id: MeetingID
         var start: Double
         var lineIDs: Set<String>
+        var play = true
     }
     var pendingMeetingJump: MeetingJump?
 
@@ -105,6 +144,10 @@ final class AppModel {
         openMainWindow(.meetings)
     }
 
+    var meetingDetailTab: MeetingDetailTab = .transcript
+    var meetingSelectionRequest: UInt64 = 0
+    var notesSearchQuery = ""
+    var selectedNoteID: NoteID?
     var selectedMeetingID: MeetingID?
     var meetingSearchQuery = ""
     /// Folders from `library.json`. Notes and meetings carry their own labels.
@@ -116,6 +159,60 @@ final class AppModel {
     /// The latest dictation, for the menu preview and *Paste last*. A
     /// secure-field result is stored without its text.
     var lastResult: DictationResult?
+    var sidebarHidden = UserDefaults.standard.bool(forKey: "BugVoice.sidebarHidden") {
+        didSet { UserDefaults.standard.set(sidebarHidden, forKey: "BugVoice.sidebarHidden") }
+    }
+    var searchFocusRequest: UInt64 = 0
+    var mainWindowIsKey = false
+    var mainContentHeight: CGFloat = ShellLayout.minimumWindowHeight
+    var searchQuery = ""
+    var searchIsPresented = false
+    var searchFieldFrame: CGRect = .zero
+    var searchResultsFrame: CGRect = .zero
+    var dictationHighlight: UUID?
+
+    func open(_ hit: SearchHit) {
+        searchIsPresented = false
+        searchQuery = ""
+        switch hit.target {
+        case .meeting(let id, let part, let lineID):
+            guard let meeting = meetingManifests.first(where: { $0.id == id }) else { return }
+            meetingsFolderFilter = .all
+            meetingTagFilter = []
+            meetingSearchQuery = ""
+            switch part {
+            case .summary: meetingDetailTab = .summary
+            case .actionItems: meetingDetailTab = .actionItems
+            case .myNotes: meetingDetailTab = .notes
+            case .transcript: meetingDetailTab = .transcript
+            default: break
+            }
+            if part == nil {
+                pendingMeetingJump = nil
+                meetingSelectionRequest &+= 1
+                selectedMeetingID = id
+                openMainWindow(.meetings)
+            } else {
+                let start = meeting.segments.first(where: { $0.id == lineID })?.start ?? 0
+                openMeeting(MeetingJump(id: id, start: start, lineIDs: lineID.map { [$0] } ?? [], play: false))
+            }
+        case .note(let id):
+            guard notesController.notes.contains(where: { $0.id == id }) else { return }
+            notesFolderFilter = .all
+            notesTagFilter = []
+            notesSearchQuery = ""
+            selectedNoteID = id
+            openMainWindow(.notes)
+        case .dictation(let id):
+            dictationHighlight = id
+            openMainWindow(.dictation)
+        case .settings(let section):
+            guard let tab = SettingsTab(rawValue: section) else { return }
+            settingsTab = tab
+            openMainWindow(.settings)
+        }
+    }
+    func toggleSidebar() { withAnimation(.easeInOut(duration: 0.2)) { sidebarHidden.toggle() } }
     var page: Page = .dictation
     var speechState: WhisperKitTranscriber.LoadState = .notLoaded
     /// Coding CLIs found on this Mac, looked up at launch and when Settings → Models opens.
@@ -192,7 +289,10 @@ final class AppModel {
             saveError = "Could not create \(paths.root.path): \(error.localizedDescription)"
         }
         notesController.onSaved = { [weak self] id in self?.searchIndexer.schedule(.note(id), after: .seconds(30)) }
-        notesController.onListLoaded = { [weak self] in self?.searchIndexer.listLoaded(.note) }
+        notesController.onListLoaded = { [weak self] in
+            self?.searchIndexer.listLoaded(.note)
+            self?.pruneSelectedNote()
+        }
         await notesController.reloadList()
         let loaded = store.load()
         importKeychainKeys(connections: loaded.models.connections)

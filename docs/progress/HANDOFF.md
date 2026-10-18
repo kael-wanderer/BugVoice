@@ -4,6 +4,21 @@ Last updated: 2026-10-18
 
 ## Current state
 
+**App shell: Tasks 1–10 implemented on `feat/app-shell` (2026-10-18), not merged or pushed.**
+Phase B adds the grouped sidebar, right-panel title bar and actions, round pills,
+centered columns, vertical Settings/Style sections, Meetings/Scratchpad list panes,
+read-only note preview, and local keyword search. See
+`docs/superpowers/specs/2026-10-18-app-shell-design.md`,
+`docs/superpowers/plans/2026-10-18-app-shell.md`, and
+`docs/progress/app-shell-log.md` for choices, commits and the eight owner checks.
+`swift build`, 1,034 tests (910 VoiceCore + 30 MCPKit + 94 BugVoiceMac), token check,
+and signed app builds pass. **Runtime/visual gates remain open:** the UI tool denied
+BugVoice access, and dev launch did not expose a visible window. No screenshots or
+left/right gap measurements could be collected. Do not infer 160% fit, action,
+keyboard, VoiceOver, preview-update, or playback passes from builds. Settings were
+backed up before launches and restored byte-for-byte after the work.
+
+
 **Appearance foundation: implemented on `feat/appearance-foundation` (2026-10-18), not merged or pushed.**
 Tasks 6–9 and 11–16 extend the reviewed Tasks 0–5 and 10: shared appearance store,
 21 themes, text/font controls, app/menu icon pickers, shortcut letters, token migration,

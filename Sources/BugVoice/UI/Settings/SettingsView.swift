@@ -1,28 +1,18 @@
 import SwiftUI
 import VoiceCore
 
-enum SettingsTab: Hashable { case general, shortcuts, editing, theme, speech, models, agents, meetings, storage }
+enum SettingsTab: String, Hashable { case general, shortcuts, editing, theme, speech, models, agents, meetings, storage }
 
 struct SettingsView: View {
     @Bindable var model: AppModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) {
-            Text("Settings").bvFont(.title2)
-            PillTabs(
-                items: [
-                    .init(value: SettingsTab.general, title: "General"),
-                    .init(value: SettingsTab.shortcuts, title: "Shortcuts"),
-                    .init(value: SettingsTab.editing, title: "Editing"),
-                    .init(value: SettingsTab.theme, title: "Theme & icons"),
-                    .init(value: SettingsTab.speech, title: "Speech"),
-                    .init(value: SettingsTab.models, title: "Models"),
-                    .init(value: SettingsTab.agents, title: "Agents"),
-                    .init(value: SettingsTab.meetings, title: "Meetings"),
-                    .init(value: SettingsTab.storage, title: "Storage"),
-                ],
-                selection: $model.settingsTab
-            )
+        ScrollView {
+            HStack(alignment: .top, spacing: LayoutTokens.spacing[4]) {
+                SectionList("Settings sections", groups: [
+                    .init(title: nil, items: [(.general, "General"), (.shortcuts, "Shortcuts"), (.editing, "Editing"), (.theme, "Theme & icons")]),
+                    .init(title: "Engine", items: [(.speech, "Speech"), (.models, "Models"), (.agents, "Agents"), (.meetings, "Meetings"), (.storage, "Storage")])
+                ], selection: $model.settingsTab)
             Group {
                 switch model.settingsTab {
                 case .general: GeneralTab(model: model)
@@ -36,10 +26,9 @@ struct SettingsView: View {
                 case .storage: StorageTab(model: model)
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .padding(LayoutTokens.spacing[4])
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .navigationTitle("Settings")
+            .bvPageColumn(.sectioned)
+        }
     }
 }

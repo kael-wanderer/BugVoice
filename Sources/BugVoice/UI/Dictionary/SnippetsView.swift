@@ -40,6 +40,12 @@ struct SnippetsView: View {
             }
             .insightsCard()
         }
+        .task(id: model.dictionaryAddRequest) {
+            if model.dictionaryAddTarget == .snippets {
+                draft = SnippetDraft(snippetID: nil, trigger: "", text: "")
+                model.dictionaryAddTarget = nil
+            }
+        }
         .sheet(item: $draft) { SnippetEditorSheet(model: model, draft: $0) }
     }
 

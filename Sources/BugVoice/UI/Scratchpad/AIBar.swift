@@ -12,10 +12,14 @@ struct AIBar: View {
     let noteID: NoteID
     let input: () -> TransformInput?
 
+    @FocusState private var questionFocused: Bool
     @State private var choosingMeeting = false
 
     var body: some View {
         content.sheet(isPresented: $choosingMeeting) { meetingPicker }
+            .task(id: assistant.questionFocusRequest) {
+                if assistant.questionFocusRequest > 0 { questionFocused = true }
+            }
     }
 
     @ViewBuilder private var content: some View {
@@ -64,6 +68,7 @@ struct AIBar: View {
                     scopeMenu
                     TextField("Follow up or ask a question", text: $assistant.message)
                         .textFieldStyle(.plain)
+                        .focused($questionFocused)
                         .onSubmit(send)
                     Button(action: send) {
                         Image(systemName: "arrow.up.circle.fill").bvFont(.title3)

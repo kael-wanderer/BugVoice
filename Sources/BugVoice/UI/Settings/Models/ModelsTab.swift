@@ -6,7 +6,7 @@ struct ModelsTab: View {
     @Bindable var model: AppModel
 
     var body: some View {
-        ScrollView {
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) {
             VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) {
                 UseForCard(model: model)
                 ConnectionsCard(model: model)

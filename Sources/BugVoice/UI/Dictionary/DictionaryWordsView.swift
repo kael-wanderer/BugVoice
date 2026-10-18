@@ -14,6 +14,7 @@ struct DictionaryWordsView: View {
                 placeholder: "Add words separated by commas — OpenWhispr, Supabase, Kael",
                 hint: "Words also guide speech recognition and the text model.",
                 isDisabled: model.dictionaryReadOnly,
+                focusRequest: model.dictionaryAddTarget == .words ? model.dictionaryAddRequest : 0,
                 onAdd: { text in Task { await model.editDictionary { _ = $0.addWords(text) } } }
             ) {
                 HeroIllustration(symbol: "character.book.closed") {

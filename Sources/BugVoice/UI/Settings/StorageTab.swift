@@ -13,9 +13,12 @@ struct StorageTab: View {
     var body: some View {
         SettingsScroll {
             SettingsCard {
-                SettingsRow(title: "Data folder") {
-                    Text(model.paths.root.path).bvCode(.body).textSelection(.enabled).lineLimit(1)
-                    Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([model.paths.root]) }
+                VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {
+                    Text("Data folder")
+                    Text(model.paths.root.path).bvCode(.body).textSelection(.enabled)
+                        .lineLimit(1).truncationMode(.middle).help(model.paths.root.path)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Button("Reveal") { NSWorkspace.shared.activateFileViewerSelecting([model.paths.root]) }
                 }
                 Divider()
                 SettingsRow(title: "Disk used") {
@@ -96,12 +99,26 @@ struct StorageTab: View {
     }
 
     func row(_ title: String, path: URL, detail: String, @ViewBuilder action: () -> some View) -> some View {
-        HStack {
-            Text(title)
-            Spacer()
-            Text(detail).foregroundStyle(.bvSecondary)
-            Text(format(sizes[path.path] ?? 0)).monospacedDigit().frame(width: store.scaled(90), alignment: .trailing)
-            action()
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: LayoutTokens.spacing[2]) {
+                    Text(title).fixedSize()
+                    Spacer(minLength: LayoutTokens.spacing[1])
+                    Text(detail).foregroundStyle(.bvSecondary).fixedSize()
+                    Text(format(sizes[path.path] ?? 0)).monospacedDigit().fixedSize()
+                }
+                VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
+                    Text(title)
+                    Text(detail).foregroundStyle(.bvSecondary)
+                    Text(format(sizes[path.path] ?? 0)).monospacedDigit()
+                }
+            }
+            Text(path.path).bvCode(.footnote).lineLimit(1).truncationMode(.middle).help(path.path)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            FlowLayout(spacing: LayoutTokens.spacing[1]) {
+                action()
+                Button("Reveal") { NSWorkspace.shared.activateFileViewerSelecting([path]) }
+            }
         }
     }
 

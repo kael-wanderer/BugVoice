@@ -16,7 +16,7 @@ struct UseForCard: View {
                 Spacer()
                 Text("Which model each feature uses.").bvFont(.footnote).foregroundStyle(.bvSecondary)
             }
-            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 10) {
+            VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) {
                 row(.dictation, use: $model.settings.models.dictation)
                 notesRow
                 row(.meetings, use: $model.settings.models.meetings)
@@ -44,12 +44,12 @@ struct UseForCard: View {
             Text(feature.title).fontWeight(.semibold)
             Text(subtitle(feature)).bvFont(.footnote).foregroundStyle(.bvSecondary)
         }
-        .frame(width: store.scaled(190), alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// Every row has six cells so the Grid columns line up.
+    /// Each feature stacks its controls so the settings column can stay narrow.
     private func row(_ feature: ModelFeature, use: Binding<ModelUse>) -> some View {
-        GridRow {
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {
             label(feature)
             enginePicker(use.engine, allowCLI: feature == .meetings)
             TextField(placeholder(use.wrappedValue), text: use.model).textFieldStyle(.roundedBorder)
@@ -61,15 +61,13 @@ struct UseForCard: View {
                     Text("8 s").tag(8.0)
                 }
                 .labelsHidden().frame(width: store.scaled(70))
-            } else {
-                Color.clear.frame(width: store.scaled(70), height: 1)
             }
             StatusDot(status: status(use.wrappedValue.engine))
         }
     }
 
     private var notesRow: some View {
-        GridRow {
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {
             label(.notes)
             Picker("", selection: Binding<ModelEngine?>(
                 get: { model.settings.models.notes?.engine },
@@ -93,8 +91,6 @@ struct UseForCard: View {
             } else {
                 Text("—").foregroundStyle(.bvSecondary)
             }
-            Color.clear.frame(width: 1, height: 1)
-            Color.clear.frame(width: store.scaled(70), height: 1)
             StatusDot(status: status((model.settings.models.notes ?? model.settings.models.dictation).engine))
         }
     }

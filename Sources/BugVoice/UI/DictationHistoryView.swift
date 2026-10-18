@@ -5,13 +5,12 @@ import VoiceCore
 struct DictationHistoryView: View {
     @Environment(AppearanceStore.self) private var store
     @Bindable var model: AppModel
-    @State private var query = ""
+    @State private var filter: Style?
+    @State private var highlighted: UUID?
 
     var filtered: [HistoryEntry] {
-        guard !query.isEmpty else { return model.history }
-        return model.history.filter {
-            $0.text.localizedCaseInsensitiveContains(query) || ($0.appName ?? "").localizedCaseInsensitiveContains(query)
-        }
+        model.history.filter { filter == nil || $0.style == filter }
+
     }
 
     var groups: [(String, [HistoryEntry])] {
@@ -27,6 +26,7 @@ struct DictationHistoryView: View {
 
     var body: some View {
         let stats = HistoryStats.compute(model.history, now: Date())
+        ScrollViewReader { reader in
         ScrollView {
             VStack(alignment: .leading, spacing: LayoutTokens.spacing[2]) {
                 LazyVGrid(
@@ -38,19 +38,35 @@ struct DictationHistoryView: View {
                     StatTile(value: "\(stats.dictationsToday)", label: "dictations today")
                     StatTile(value: stats.medianReleaseToText.map { String(format: "%.1f s", $0) } ?? "–", label: "median release → text")
                 }
+                RoundPills("Filter by style", items: [(Style?.none, "All")] + Style.allCases.map { (Optional($0), $0.rawValue.capitalized) }, selection: $filter)
+                if filtered.isEmpty && !model.history.isEmpty {
+                    EmptyState("No dictations with this style", systemImage: "line.3.horizontal.decrease")
+                }
                 if model.history.isEmpty {
-                    ContentUnavailableView("No dictations yet", systemImage: "mic", description: Text("Hold \(model.settings.hotkey.spokenName) anywhere and speak."))
+                    EmptyState("No dictations yet", systemImage: "mic", message: "Hold \(model.settings.hotkey.spokenName) anywhere and speak.")
                 }
                 ForEach(groups, id: \.0) { title, entries in
                     Text(title.uppercased()).bvFont(.footnote).foregroundStyle(.bvSecondary)
-                    ForEach(entries) { entry in row(entry) }
+                    ForEach(entries) { entry in row(entry).id(entry.id) }
                 }
             }
-            .padding(LayoutTokens.spacing[4])
+            .bvPageColumn(.wide)
         }
-        .searchable(text: $query, prompt: "Search dictations")
-        .navigationTitle("Dictation")
+
         .task { await model.reloadHistory() }
+        .task(id: model.dictationHighlight) {
+            guard let id = model.dictationHighlight else { return }
+            filter = nil
+            // Let the All filter lay out the requested row before scrolling.
+            await Task.yield()
+            reader.scrollTo(id, anchor: .center)
+            highlighted = id
+            do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
+            withAnimation(.easeOut(duration: 1.5)) { highlighted = nil }
+            do { try await Task.sleep(for: .milliseconds(1500)) } catch { return }
+            if model.dictationHighlight == id { model.dictationHighlight = nil }
+        }
+        }
     }
 
     func row(_ e: HistoryEntry) -> some View {
@@ -74,7 +90,7 @@ struct DictationHistoryView: View {
             .buttonStyle(.borderless)
         }
         .padding(LayoutTokens.spacing[2])
-        .background(.bvCard, in: RoundedRectangle(cornerRadius: LayoutTokens.cardRadius))
+        .background(highlighted == e.id ? AnyShapeStyle(.bvAccentSoft) : AnyShapeStyle(.bvCard), in: RoundedRectangle(cornerRadius: LayoutTokens.cardRadius))
         .overlay(RoundedRectangle(cornerRadius: LayoutTokens.cardRadius).stroke(.bvSeparator))
     }
 }
@@ -87,7 +103,7 @@ struct StatTile: View {
     var body: some View {
         VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
             Text(value).bvFont(.title2).monospacedDigit()
-            Text(label).bvFont(.footnote).foregroundStyle(.bvSecondary).lineLimit(1)
+            Text(label).bvFont(.footnote).foregroundStyle(.bvSecondary)
         }
         .padding(.horizontal, LayoutTokens.spacing[2]).padding(.vertical, LayoutTokens.spacing[1])
         .frame(maxWidth: .infinity, alignment: .leading)

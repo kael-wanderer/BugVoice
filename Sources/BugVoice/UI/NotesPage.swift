@@ -3,15 +3,12 @@ import BugVoiceMac
 import SwiftUI
 import VoiceCore
 
-/// The Scratchpad page: every note as a card. Notes are edited in the
-/// Scratchpad window; Edit or a click opens one there.
+/// A growing note library and a read-only preview. Editing stays in the floating window.
 struct NotesPage: View {
     @Environment(AppearanceStore.self) private var store
     @Bindable var model: AppModel
-    @State private var searchText = ""
     @State private var managingFolders = false
     @State private var pendingDelete: NotesListItem?
-    @State private var hovered: NoteID?
 
     private var controller: NotesController { model.notesController }
 
@@ -28,76 +25,25 @@ struct NotesPage: View {
                     id: $0.id, title: $0.title, body: $0.body, modifiedAt: $0.modifiedAt,
                     tags: $0.frontMatter.tags, pinned: $0.frontMatter.pinned)
             },
-            query: searchText,
+            query: model.notesSearchQuery,
             sort: model.settings.scratchpad.sort
         )
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: LayoutTokens.spacing[2]) {
-            HStack(spacing: LayoutTokens.spacing[1]) {
-                Text("Scratchpad").bvFont(.title2)
-                Spacer()
-                Button {
-                    Task { await model.openScratchpadWindow(newNote: false) }
-                } label: {
-                    Text("Open window ⌃⌥N")
-                }
-                Button {
-                    Task { await model.openScratchpadWindow(newNote: true) }
-                } label: {
-                    Label("New note", systemImage: "plus")
-                }
-                .buttonStyle(.borderedProminent)
+        HStack(spacing: 0) {
+            library
+                .frame(width: ShellLayout.listPaneWidth(scale: model.settings.appearance.textScale))
+                .background(.bvSidebar)
+            Rectangle().fill(.bvSeparator).frame(width: 1)
+            if let note = controller.notes.first(where: { $0.id == model.selectedNoteID }) {
+                NotePreview(note: note, model: model)
+            } else {
+                EmptyState("Choose a note", systemImage: "note.text") {
+                    Button("New note") { Task { await model.openScratchpadWindow(newNote: true) } }
+                }.frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-
-            HStack(spacing: LayoutTokens.spacing[1]) {
-                FolderFilterMenu(
-                    model: model,
-                    filter: Binding(get: { model.notesFolderFilter }, set: { model.notesFolderFilter = $0 }),
-                    counts: LibraryProjection.counts(controller.notes, known: model.library.knownIDs),
-                    allTitle: "All notes",
-                    onManage: { managingFolders = true }
-                )
-                TagFilterBar(catalog: model.noteTagCatalog, selected: $model.notesTagFilter)
-                Spacer(minLength: 8)
-                TextField("Search notes", text: $searchText)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(maxWidth: store.scaled(200))
-                    .accessibilityLabel("Search notes")
-                Picker("Sort", selection: $model.settings.scratchpad.sort) {
-                    ForEach(NotesSort.allCases, id: \.self) { Text($0.title).tag($0) }
-                }
-                .labelsHidden()
-                .fixedSize()
-                .help("Sort")
-                Button {
-                    Task { await controller.reloadList() }
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                }
-                .buttonStyle(.borderless)
-                .help("Reload from disk")
-                .accessibilityLabel("Reload from disk")
-            }
-
-            ForEach(controller.insertionRecoveries) { recovery in
-                HStack {
-                    Text(recovery.message).foregroundStyle(.bvRecording)
-                    Spacer()
-                    Button("Copy") {
-                        ScratchpadClipboard.copyText(recovery.text)
-                        controller.dismissInsertionRecovery(id: recovery.id)
-                    }
-                }
-            }
-
-            Divider()
-
-            content
         }
-        .padding(.horizontal, LayoutTokens.spacing[4])
-        .padding(.top, LayoutTokens.spacing[3])
         .task {
             await controller.reloadList()
             model.syncScratchpadTabs()
@@ -120,79 +66,78 @@ struct NotesPage: View {
         }
     }
 
+    private var library: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {
+                FolderFilterMenu(
+                    model: model,
+                    filter: Binding(get: { model.notesFolderFilter }, set: { model.notesFolderFilter = $0 }),
+                    counts: LibraryProjection.counts(controller.notes, known: model.library.knownIDs),
+                    allTitle: "All notes", onManage: { managingFolders = true }
+                )
+                TagFilterBar(catalog: model.noteTagCatalog, selected: $model.notesTagFilter)
+                TextField("Search notes", text: $model.notesSearchQuery).textFieldStyle(.roundedBorder).accessibilityLabel("Search notes")
+                HStack(spacing: LayoutTokens.spacing[1]) {
+                    Picker("Sort", selection: $model.settings.scratchpad.sort) {
+                        ForEach(NotesSort.allCases, id: \.self) { Text($0.title).tag($0) }
+                    }.labelsHidden().help("Sort")
+                    Button { Task { await controller.reloadList() } } label: { Image(systemName: "arrow.clockwise") }
+                        .buttonStyle(.borderless).help("Reload from disk").accessibilityLabel("Reload from disk")
+                }
+                ForEach(controller.insertionRecoveries) { recovery in
+                    VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
+                        Text(recovery.message).foregroundStyle(.bvRecording)
+                        Button("Copy") {
+                            ScratchpadClipboard.copyText(recovery.text)
+                            controller.dismissInsertionRecovery(id: recovery.id)
+                        }
+                    }
+                }
+                content
+            }.padding(LayoutTokens.spacing[2])
+        }
+    }
+
     @ViewBuilder private var content: some View {
         if let listError = controller.listError {
-            ContentUnavailableView {
-                Label("Notes unavailable", systemImage: "exclamationmark.triangle")
-            } description: {
-                Text(listError)
-            } actions: {
+            EmptyState("Notes unavailable", systemImage: "exclamationmark.triangle", message: listError) {
                 Button("Retry") { Task { await controller.reloadList() } }
             }
         } else if items.isEmpty {
             if controller.notes.isEmpty {
-                ContentUnavailableView {
-                    Label("No notes", systemImage: "note.text")
-                } actions: {
+                EmptyState("No notes", systemImage: "note.text") {
                     Button("New note") { Task { await model.openScratchpadWindow(newNote: true) } }
                 }
             } else {
-                ContentUnavailableView("No results", systemImage: "magnifyingglass")
+                EmptyState("No results", systemImage: "magnifyingglass")
             }
         } else {
-            GeometryReader { proxy in
-                ScrollView {
-                    LazyVGrid(
-                        columns: Array(repeating: GridItem(.flexible(), spacing: LayoutTokens.spacing[2]), count: proxy.size.width < 640 ? 1 : 2),
-                        spacing: LayoutTokens.spacing[2]
-                    ) {
-                        ForEach(items) { item in card(item) }
-                    }
-                    .padding(.bottom, LayoutTokens.spacing[3])
-                }
+            LazyVStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
+                ForEach(items) { item in card(item) }
             }
         }
     }
 
     private func card(_ item: NotesListItem) -> some View {
-        let isHovered = hovered == item.id
-        let folderID = controller.notes.first { $0.id == item.id }?.frontMatter.folderID
-        let folder = folderID.flatMap { id in model.library.folders.first { $0.id == id } }
+        let selected = model.selectedNoteID == item.id
         return VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
             HStack(spacing: LayoutTokens.spacing[0]) {
-                if item.pinned {
-                    Image(systemName: "pin.fill").bvFont(.footnote).foregroundStyle(store.theme.accent)
-                        .accessibilityLabel("Pinned")
-                }
+                if item.pinned { Image(systemName: "pin.fill").bvFont(.footnote).foregroundStyle(.bvAccent).accessibilityLabel("Pinned") }
                 Text(item.title).bvFont(.bodyStrong).lineLimit(1)
             }
-            Text(preview(item.body))
-                .foregroundStyle(.bvSecondary)
-                .lineLimit(2)
-                .frame(maxWidth: .infinity, minHeight: 34, alignment: .topLeading)
-            HStack(spacing: LayoutTokens.spacing[0]) {
-                Text(item.modifiedAt.formatted(date: .abbreviated, time: .shortened))
-                if let folder {
-                    Text("·")
-                    Text(folder.name)
-                }
-                ForEach(item.tags.prefix(3), id: \.self) { TagChip(name: $0) }
-                Spacer(minLength: 0)
-            }
-            .bvFont(.footnote)
-            .foregroundStyle(.bvSecondary)
+            Text(item.modifiedAt.formatted(date: .abbreviated, time: .shortened))
+                .bvFont(.footnote).foregroundStyle(.bvSecondary).lineLimit(1)
+            Text(preview(item.body)).bvFont(.footnote).foregroundStyle(.bvSecondary).lineLimit(1)
         }
-        .padding(LayoutTokens.spacing[2])
-        .background(store.theme.card, in: RoundedRectangle(cornerRadius: LayoutTokens.cardRadius))
-        .overlay(RoundedRectangle(cornerRadius: LayoutTokens.cardRadius).stroke(isHovered ? store.theme.accent : store.theme.secondaryText.opacity(0.2)))
-        .overlay(alignment: .topTrailing) {
-            if isHovered { cardActions(item) }
-        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(LayoutTokens.spacing[1])
+        .background(selected ? AnyShapeStyle(.bvAccentSoft) : AnyShapeStyle(.clear), in: RoundedRectangle(cornerRadius: LayoutTokens.controlRadius))
+        .overlay(RoundedRectangle(cornerRadius: LayoutTokens.controlRadius).stroke(selected ? store.theme.accent.opacity(0.55) : .clear))
         .contentShape(Rectangle())
-        .onHover { inside in
-            if inside { hovered = item.id } else if hovered == item.id { hovered = nil }
-        }
-        .onTapGesture { Task { await model.openNoteInWindow(item.id) } }
+        .onTapGesture(count: 2) { model.selectedNoteID = item.id; Task { await model.openNoteInWindow(item.id) } }
+        .onTapGesture { model.selectedNoteID = item.id }
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityAction { model.selectedNoteID = item.id }
         .contextMenu {
             Button("Edit") { Task { await model.openNoteInWindow(item.id) } }
             Button(item.pinned ? "Unpin" : "Pin") { Task { await model.setNotePinned(item.id, pinned: !item.pinned) } }
@@ -210,29 +155,6 @@ struct NotesPage: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityAction(named: "Edit") { Task { await model.openNoteInWindow(item.id) } }
-    }
-
-    private func cardActions(_ item: NotesListItem) -> some View {
-        HStack(spacing: LayoutTokens.spacing[0]) {
-            iconButton("pencil", help: "Edit") { Task { await model.openNoteInWindow(item.id) } }
-            iconButton(item.pinned ? "pin.slash" : "pin", help: item.pinned ? "Unpin" : "Pin") {
-                Task { await model.setNotePinned(item.id, pinned: !item.pinned) }
-            }
-            iconButton("trash", help: "Move to Trash", tint: store.theme.recording) { pendingDelete = item }
-        }
-        .padding(LayoutTokens.spacing[0])
-        .background(.bvCard, in: RoundedRectangle(cornerRadius: LayoutTokens.controlRadius))
-        .overlay(RoundedRectangle(cornerRadius: LayoutTokens.controlRadius).stroke(store.theme.secondaryText.opacity(0.2)))
-        .padding(LayoutTokens.spacing[1])
-    }
-
-    private func iconButton(_ symbol: String, help: String, tint: Color? = nil, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: symbol).foregroundStyle(tint ?? store.theme.secondaryText).frame(width: 24, height: 22)
-        }
-        .buttonStyle(.borderless)
-        .help(help)
-        .accessibilityLabel(help)
     }
 
     /// The first lines of the body without Markdown marks.

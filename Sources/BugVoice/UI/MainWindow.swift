@@ -7,39 +7,26 @@ struct MainWindow: View {
     @Bindable var model: AppModel
 
     var body: some View {
-        NavigationSplitView {
-            List(Page.allCases, selection: $model.page) { page in
-                HStack {
-                    // Not a Label: its icon column keeps a fixed width and the
-                    // icon runs into the title at large text sizes.
-                    HStack(spacing: LayoutTokens.spacing[1]) {
-                        Image(systemName: page.symbol).frame(width: store.scaled(20))
-                        Text(page.title).lineLimit(1)
-                    }
-                    .bvFont(.body)
-                    Spacer()
-                    if page == .upload, let job = model.uploads?.active {
-                        UploadRing(progress: job.progress)
-                    }
-                }
-                .tag(page)
+        HStack(spacing: 0) {
+            if !model.sidebarHidden {
+                AppSidebar(model: model).frame(width: ShellLayout.sidebarWidth(scale: model.settings.appearance.textScale))
+                Rectangle().fill(.bvSeparator).frame(width: 1)
             }
-            .scrollContentBackground(.hidden)
-            .background(.bvSidebar)
-            .navigationSplitViewColumnWidth(store.scaled(200))
-        } detail: {
-            switch model.page {
-            case .dictation: DictationHistoryView(model: model)
-            case .insights: InsightsPage(model: model)
-            case .dictionary: DictionaryPage(model: model)
-            case .style: StylePage(model: model)
-            case .meetings: MeetingsPage(model: model)
-            case .upload: UploadPage(model: model)
-            case .notes: NotesPage(model: model)
-            case .settings: SettingsView(model: model)
+            VStack(spacing: 0) {
+                TitleBar(model: model, title: model.page.title) { PageActions(model: model) }.zIndex(1)
+                Rectangle().fill(.bvSeparator).frame(height: 1)
+                pageContent.frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+            .background(.bvBackground)
         }
-        .frame(minWidth: 820, minHeight: 560)
+        .ignoresSafeArea(.container, edges: .top)
+        .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { model.mainContentHeight = $0 }
+        .simultaneousGesture(SpatialTapGesture(coordinateSpace: .global).onEnded { value in
+            if !model.searchFieldFrame.contains(value.location) && !model.searchResultsFrame.contains(value.location) {
+                model.searchIsPresented = false
+            }
+        })
+        .onChange(of: model.page) { _, _ in model.searchIsPresented = false }
         .overlay(alignment: .bottom) {
             if let notice = model.notice {
                 Text(notice)
@@ -66,6 +53,21 @@ struct MainWindow: View {
             Text(model.saveError ?? "")
         }
     }
+    @ViewBuilder private var pageContent: some View {
+            switch model.page {
+            case .dictation: DictationHistoryView(model: model)
+            case .insights: InsightsPage(model: model)
+            case .dictionary: DictionaryPage(model: model)
+            case .style: StylePage(model: model)
+            case .meetings: MeetingsPage(model: model)
+            case .upload: UploadPage(model: model)
+            case .notes: NotesPage(model: model)
+            case .integrations: ComingSoonPage(page: .integrations, model: model)
+            case .settings: SettingsView(model: model)
+            case .help: ComingSoonPage(page: .help, model: model)
+            }
+    }
+
 }
 
 /// Owns the main window. AppKit-managed rather than a SwiftUI `Window` scene
@@ -79,6 +81,8 @@ struct MainWindow: View {
 final class MainWindowController: NSObject, NSWindowDelegate {
     private let model: AppModel
     private var window: NSWindow?
+    /// Smallest frame size for the current text size (see `updateMinimum`).
+    private var minimumFrameSize = NSSize(width: ShellLayout.baseMinimumWindowWidth, height: ShellLayout.minimumWindowHeight)
 
     init(model: AppModel) {
         self.model = model
@@ -105,7 +109,12 @@ final class MainWindowController: NSObject, NSWindowDelegate {
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.identifier = AppWindow.main
-        window.contentViewController = NSHostingController(rootView: MainWindow(model: model).bvTheme(model.appearance))
+        let hosting = NSHostingController(rootView: MainWindow(model: model).bvTheme(model.appearance))
+        // The window's minimum comes from `updateMinimum`, which follows text
+        // size; by default the hosting controller would overwrite it with the
+        // SwiftUI content's own minimum.
+        hosting.sizingOptions = []
+        window.contentViewController = hosting
         model.appearance.attach(window)
         window.isReleasedWhenClosed = false
         window.delegate = self
@@ -115,9 +124,50 @@ final class MainWindowController: NSObject, NSWindowDelegate {
         }
         window.setFrameAutosaveName("BugVoiceMain")
         AppWindow.placeForDevelopment(window)
+        updateMinimum(window)
+        observeScale()
         return window
     }
 
+    private func observeScale() {
+        withObservationTracking {
+            _ = model.settings.appearance.textScale
+        } onChange: { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if let window = self.window { self.updateMinimum(window) }
+                self.observeScale()
+            }
+        }
+    }
+
+    private func updateMinimum(_ window: NSWindow) {
+        let visible = (window.screen ?? NSScreen.main)?.visibleFrame ?? window.frame
+        let scale = model.settings.appearance.textScale
+        let width = ShellLayout.minimumWindowWidth(scale: scale, screenWidth: visible.width)
+        window.contentMinSize = NSSize(width: width, height: ShellLayout.minimumWindowHeight)
+        minimumFrameSize = window.frameRect(forContentRect: NSRect(origin: .zero, size: window.contentMinSize)).size
+        if ShellLayout.sidebarMustHide(scale: scale, screenWidth: visible.width) { model.sidebarHidden = true }
+        var frame = window.frame
+        frame.size.width = max(frame.width, width)
+        let height = max(frame.height, ShellLayout.minimumWindowHeight)
+        frame.origin.y -= height - frame.height // keep the top edge in place
+        frame.size.height = height
+        frame.origin.y = max(visible.minY, frame.origin.y)
+        frame.origin.x = max(visible.minX, min(frame.minX, visible.maxX - frame.width))
+        window.setFrame(frame, display: true)
+    }
+
+    /// `contentMinSize` alone does not hold here (the SwiftUI content view
+    /// still lets AppKit shrink the window), so clamp every resize.
+    func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {
+        NSSize(width: max(frameSize.width, minimumFrameSize.width), height: max(frameSize.height, minimumFrameSize.height))
+    }
+
+    func windowDidBecomeKey(_ notification: Notification) { model.mainWindowIsKey = true }
+    func windowDidResignKey(_ notification: Notification) {
+        model.mainWindowIsKey = false
+    }
     func windowWillClose(_ notification: Notification) {
         AppWindow.didClose(notification.object as? NSWindow)
     }

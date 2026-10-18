@@ -52,6 +52,7 @@ final class ScratchpadAssistant {
     }
 
     var phase: Phase = .idle
+    var questionFocusRequest: UInt64 = 0
     var scope: AskScope = .note(NoteID(rawValue: ""))
     var askStep: AskStep?
     var askResult: (question: String, outcome: AskOutcome, scope: AskScope, counts: (meetings: Int, notes: Int, dictations: Int))?
