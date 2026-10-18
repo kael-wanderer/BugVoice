@@ -746,7 +746,11 @@ const SECTIONS={
  integrations:[['Meetings',[['calendar','Calendar']]],['Export',[['applenotes','Apple Notes'],['notion','Notion']]],['Agents',[['mcp','MCP server'],['cli','Command line','Later']]],['Models',[['servers','Local model servers']]]],
  help:[[null,[['start','Getting started'],['shortcuts','Shortcuts'],['styles','Styles'],['meetings','Meetings'],['agents','Coding agents'],['trouble','Troubleshooting'],['privacy','Privacy']]]],
 };
-function kind(p){if(p==='meetings'||p==='notes')return 'file';if(SECTIONS[p])return 'static';return 'plain'}
+/* #shell: the app shell round. Integrations and Help are Coming soon pages; Settings keeps Agents. */
+const SHELL=location.hash==='#shell';
+if(SHELL)SECTIONS.settings[1][1].splice(2,0,['agents','Agents']);
+function comingSoon(t,d){return `<div class="column" style="text-align:center;padding-top:calc(80px*var(--s))"><h2 class="t-2" style="margin:.4em 0">${t}</h2><p class="muted">${d}</p><span class="chip">Coming soon</span></div>`}
+function kind(p){if(p==='meetings'||p==='notes')return 'file';if(SHELL&&(p==='integrations'||p==='help'))return 'plain';if(SECTIONS[p])return 'static';return 'plain'}
 function sectionList(p){return SECTIONS[p].map(([g,items])=>`${g?`<div class="grp">${g}</div>`:''}${items.map(([id,l,b])=>`<button class="nav" data-sec="${p}:${id}" aria-current="${S.sec[p]===id}">${l}${b?`<span class="badge">${b}</span>`:''}</button>`).join('')}`).join('')}
 
 function titleRight(p){
@@ -794,7 +798,7 @@ function meetings(){const m=MEETINGS[S.meeting];return `<nav class="pane" aria-l
 ${S.mtab==='summary'?`<p class="read">The team agreed to build the appearance foundation first, then move each page onto it. Text size and theme must reach every window, including the menu bar popover.</p><h3 class="t-3" style="margin:1.2em 0 .4em">Decisions</h3><ul class="read" style="margin:0;padding-left:1.2em"><li>Option 2: list pane only for Meetings and Scratchpad.</li><li>Equal-width round pills for views and filters.</li></ul>`:S.mtab==='transcript'?`${[['00:12','Lan','Can we make the text bigger everywhere, not only in the notes?'],['00:19','Cong','Yes. One text size setting, and every screen reads it.'],['00:31','Lan','Và theme nữa, mình cần một theme tương phản cao.']].map(t=>`<div class="tline"><span class="ts">${t[0]}</span><div class="read"><b>${t[1]}</b> ${esc(t[2])}</div></div>`).join('')}`:`<div class="panel"><input type="text" placeholder="Ask about this meeting" style="width:100%"></div><p class="muted">Answers cite the transcript.</p>`}
 </div></div></div>`}
 function notes(){const n=NOTES[S.note];return `<nav class="pane" aria-label="Notes"><div class="grp">Folders</div><button class="nav" aria-current="true">All notes</button><button class="nav">Product</button><div class="grp">Edited recently</div>${NOTES.map((x,i)=>`<button class="item" data-note="${i}" aria-current="${i===S.note}"><b>${x[0]}</b><span>${x[2]} · ${esc(x[1])}</span></button>`).join('')}</nav>
-<div class="detail"><div class="inner"><div class="foot">Edited ${n[2]} · Product</div><h2 class="t-2" style="margin:.2em 0 .8em">${n[0]}</h2><div class="read"><p>${esc(n[1])}</p><ul style="margin:.6em 0;padding-left:1.2em"><li>Text size in Settings › Editing</li><li>Themes for long days</li><li><code style="font-size:var(--t-foot)">BugVoiceTheme.swift</code> holds every token</li></ul></div></div></div>`}
+<div class="detail"><div class="inner">${SHELL?`<div style="float:right">${btn('Open in window','toast:Opens the note in the floating Scratchpad','primary')}</div>`:''}<div class="foot">Edited ${n[2]} · Product</div><h2 class="t-2" style="margin:.2em 0 .8em">${n[0]}</h2><div class="read"><p>${esc(n[1])}</p><ul style="margin:.6em 0;padding-left:1.2em"><li>Text size in Settings › Editing</li><li>Themes for long days</li><li><code style="font-size:var(--t-foot)">BugVoiceTheme.swift</code> holds every token</li></ul></div></div></div>`}
 function upload(){return `<div class="column"><div class="drop">${ico('upload')}<h3 class="t-3" style="margin:.4em 0">Drop an audio or video file</h3><p class="muted">M4A, MP3, WAV, MP4, MOV. Transcribed on this Mac.</p></div>
 ${panel('Upload queue',['Interview with Minh.m4a · Transcribing · 42%','Team sync.mp4 · Waiting'].map(r=>`<div class="row"><div class="grow">${r.split(' · ')[0]}<small>${r.split(' · ').slice(1).join(' · ')}</small></div>${btn('Cancel','toast:Cancelled','ghost')}</div>`).join(''))}</div>`}
 function dictionary(){const sn=S.dict==='snippets';return `<div class="column"><div class="toolbar">${pill('dict',[['words','Words'],['snippets','Snippets']],'Dictionary list')}<div class="spacer"></div><span class="foot">${sn?'Say a short phrase, BugVoice types the full text.':'Names and terms BugVoice should spell right.'}</span></div>
@@ -840,7 +844,7 @@ function themeIcons(){
  `<div style="display:flex;justify-content:flex-end">${btn('Reset theme and icons','reset:theme')}</div>`}
 
 /* Integrations: roadmap item 7 (Calendar + export) plus the MCP server moved from Settings › Agents. */
-function integrations(){const s=S.sec.integrations;
+function integrations(){if(SHELL)return comingSoon('Integrations','Calendar, export to Apple Notes and Notion, and the MCP server will live here. The MCP server is in Settings › Agents for now.');const s=S.sec.integrations;
  if(s==='calendar')return `<div class="column">${sechead('Calendar','Fill meeting titles and attendees from Calendar.app. Google, Exchange, and iCloud accounts you added to macOS work with no sign-in.',docs)}
  ${panel('',`<div class="row"><span class="appico">${ico('calendar')}</span><div class="grow"><b>Apple Calendar</b><small>Reads events on this Mac. Nothing leaves it.</small></div>${S.switches.cal?'<span class="chip">Connected</span>':btn('Allow access','toggle:cal','primary')}</div>`+(S.switches.cal?`<div class="row"><div class="grow">Work (Exchange)<small>Used for meeting titles</small></div>${sw('Work cal')}</div><div class="row"><div class="grow">Personal (iCloud)</div>${sw('Personal cal',false)}</div><div class="row"><div class="grow">Suggest recording when an event with a video link starts</div>${sw('Suggest')}</div>`:''))}
  ${panel('Later',`<div class="row"><span class="appico">${ico('agent')}</span><div class="grow"><b>Join calls as a participant</b><small>Would tell speakers apart from the call itself. People in the call can see it joined, so teams may object. Off the roadmap for now.</small></div><span class="badge">Later</span></div>`)}</div>`;
@@ -861,7 +865,7 @@ const HELP={start:['Getting started',['Hold the hotkey (Right Control by default
  agents:['Coding agents',['Turn on the MCP server in Integrations › MCP server, then add it to Claude Code or Codex.']],
  trouble:['Troubleshooting',['Nothing is pasted: check Accessibility in System Settings › Privacy & Security.','Pasting into VS Code copies instead: turn on the accessibility support setting in VS Code.']],
  privacy:['Privacy',['Speech is turned into text on this Mac. Text goes to a model only on the server you configured. Nothing else leaves your Mac.']]};
-function help(){const h=HELP[S.sec.help];return `<div class="column">${sechead(h[0],'')}<div class="read">${h[1].map(p=>`<p style="margin-bottom:.8em">${p}</p>`).join('')}</div></div>`}
+function help(){if(SHELL)return comingSoon('Help','Guides for getting started, shortcuts, styles, meetings, and coding agents, readable offline.');const h=HELP[S.sec.help];return `<div class="column">${sechead(h[0],'')}<div class="read">${h[1].map(p=>`<p style="margin-bottom:.8em">${p}</p>`).join('')}</div></div>`}
 
 /* Style */
 const CATS={
