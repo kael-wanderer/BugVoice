@@ -87,6 +87,12 @@ extension AppModel {
         notesFocusRequest &+= 1
     }
 
+    func openScratchpadAsk() async {
+        await openScratchpadWindow(newNote: false)
+        settings.scratchpad.bottomBar = .ai
+        scratchpadAskRequest &+= 1
+    }
+
     /// A new note in the page's current folder, opened in a tab.
     func newScratchpadNoteInWindow() async {
         do {

@@ -12,3 +12,13 @@ Branch: `feat/app-shell`. Phase B is implemented directly, as authorized by the 
 - Validation: swift build, swift test, Scripts/check-tokens.sh pass.
 - Runtime limitation: the UI tool returned “Computer Use was not approved to use BugVoice”. It cannot operate this app for clicks/shortcuts. Browser opening of the local mockup was blocked by URL policy; HTML source was read. No visual pass is inferred from builds.
 - Signed app build and dev launch passed. CGWindowListCopyWindowInfo reported no visible BugVoice window after launch; no Task 4 screenshot could be captured without UI access. Shown/hidden clearance, close/reopen, drag/zoom, and sidebar scrolling remain runtime checks.
+
+## Task 5 — Page actions
+
+- Task 4 commit: `b77d453` — feat(app): two-panel window with grouped sidebar and title bar.
+- Builder's call: split buttons use two adjoining controls, an accent primary button and a caret Menu, so the primary action is explicit on macOS 15.
+- `PageActions` switches on Page; Insights range and Dictionary selection/add request live in AppModel. Page headings and relocated controls were removed.
+- Preserved Meetings Stop/Transcribing in the title bar, Upload browse in the drop zone and queue/error recovery actions, and Scratchpad Open window in the New note menu.
+- Ask AI reuses ScratchpadAssistant.changeScope(.all), the existing AI bottom bar, and per-note assistants, with a question focus request.
+- Validation: swift build, swift test (910 VoiceCore + 30 MCPKit + 94 BugVoiceMac), token check pass. Action/menu click checks are blocked by denied UI access; none are claimed passed.
+- Signed app build/dev launch passed. Also corrected window-button height measurement for flipped NSHostingView coordinates during action-slot review. No UI interaction or screenshots were possible.

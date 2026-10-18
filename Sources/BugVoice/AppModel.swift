@@ -108,6 +108,16 @@ final class AppModel {
             settingsDidChange(from: oldValue)
         }
     }
+    var insightsPeriod: InsightsPeriod = .all
+    var dictionaryTab: DictionaryTab = .words
+    var dictionaryAddRequest: UInt64 = 0
+    var dictionaryAddTarget: DictionaryTab?
+    func requestDictionaryAdd(_ tab: DictionaryTab? = nil) {
+        if let tab { dictionaryTab = tab }
+        dictionaryAddTarget = dictionaryTab
+        dictionaryAddRequest &+= 1
+    }
+    var scratchpadAskRequest: UInt64 = 0
     var settingsTab: SettingsTab = .general
     var dictionary = DictionaryFile()
     var dictionaryReadOnly = false

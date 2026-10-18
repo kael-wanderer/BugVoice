@@ -90,19 +90,6 @@ struct MeetingsPage: View {
 
     private var library: some View {
         VStack(spacing: LayoutTokens.spacing[1]) {
-            HStack {
-                Text("Meetings").bvFont(.title2)
-                Spacer()
-                if model.meetings?.isRecording == true || model.meetings?.isPaused == true {
-                    Button("Stop") { Task { await model.meetings?.stop(); await model.reloadMeetings() } }
-                } else if model.meetings?.isTranscribing == true {
-                    Label("Transcribing…", systemImage: "hourglass")
-                } else {
-                    Button { Task { await model.meetings?.start() } } label: { Image(systemName: "record.circle") }
-                        .buttonStyle(.borderedProminent)
-                        .help("Start meeting recording")
-                }
-            }
             HStack(spacing: LayoutTokens.spacing[0]) {
                 FolderFilterMenu(
                     model: model,

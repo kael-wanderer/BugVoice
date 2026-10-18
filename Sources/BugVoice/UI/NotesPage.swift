@@ -36,22 +36,6 @@ struct NotesPage: View {
     var body: some View {
         VStack(alignment: .leading, spacing: LayoutTokens.spacing[2]) {
             HStack(spacing: LayoutTokens.spacing[1]) {
-                Text("Scratchpad").bvFont(.title2)
-                Spacer()
-                Button {
-                    Task { await model.openScratchpadWindow(newNote: false) }
-                } label: {
-                    Text("Open window ⌃⌥N")
-                }
-                Button {
-                    Task { await model.openScratchpadWindow(newNote: true) }
-                } label: {
-                    Label("New note", systemImage: "plus")
-                }
-                .buttonStyle(.borderedProminent)
-            }
-
-            HStack(spacing: LayoutTokens.spacing[1]) {
                 FolderFilterMenu(
                     model: model,
                     filter: Binding(get: { model.notesFolderFilter }, set: { model.notesFolderFilter = $0 }),

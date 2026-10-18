@@ -38,7 +38,6 @@ struct StylePage: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) {
-                Text("Style").bvFont(.title2)
                 Text("Each app is matched to a style when you start dictating. The style sets how the text model cleans your words.")
                     .foregroundStyle(.bvSecondary)
                 PillTabs(

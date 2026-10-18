@@ -13,7 +13,7 @@ struct MainWindow: View {
                 Rectangle().fill(.bvSeparator).frame(width: 1)
             }
             VStack(spacing: 0) {
-                TitleBar(model: model, title: model.page.title) { EmptyView() }
+                TitleBar(model: model, title: model.page.title) { PageActions(model: model) }
                 Rectangle().fill(.bvSeparator).frame(height: 1)
                 pageContent.frame(maxWidth: .infinity, maxHeight: .infinity)
             }

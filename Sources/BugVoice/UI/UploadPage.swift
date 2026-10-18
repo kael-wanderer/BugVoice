@@ -37,7 +37,6 @@ struct UploadPage: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: LayoutTokens.spacing[4]) {
-                Text("Upload").bvFont(.title2)
                 if let controller = model.uploads {
                     VStack(spacing: LayoutTokens.spacing[3]) {
                         if controller.active == nil {
@@ -166,18 +165,7 @@ struct UploadPage: View {
             "Transcribed by \(URL(string: speech.serverBaseURL)?.host ?? speech.serverBaseURL) with \(speech.serverModel)"
     }
 
-    private func browse() {
-        let panel = NSOpenPanel()
-        panel.allowedContentTypes = MediaAudioDecoder.extensions.compactMap {
-            UTType(filenameExtension: $0)
-        }
-        panel.allowsOtherFileTypes = false
-        panel.canChooseDirectories = false
-        panel.canChooseFiles = true
-        panel.allowsMultipleSelection = true
-        guard panel.runModal() == .OK else { return }
-        Task { await model.uploads?.choose(panel.urls) }
-    }
+    private func browse() { model.chooseUploadFiles() }
 
     private func loadURL(_ provider: NSItemProvider) async -> URL? {
         await withCheckedContinuation { continuation in

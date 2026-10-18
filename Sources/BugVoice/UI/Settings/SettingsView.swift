@@ -8,7 +8,6 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) {
-            Text("Settings").bvFont(.title2)
             PillTabs(
                 items: [
                     .init(value: SettingsTab.general, title: "General"),

@@ -9,6 +9,8 @@ struct HeroCard<Illustration: View>: View {
     let placeholder: String
     var hint: String?
     var isDisabled = false
+    var focusRequest: UInt64 = 0
+    @FocusState private var inputFocused: Bool
     let onAdd: (String) -> Void
     @ViewBuilder var illustration: Illustration
 
@@ -23,6 +25,7 @@ struct HeroCard<Illustration: View>: View {
                 HStack {
                     TextField(placeholder, text: $input)
                         .textFieldStyle(.roundedBorder)
+                        .focused($inputFocused)
                         .onSubmit(add)
                     Button("Add", action: add)
                         .buttonStyle(.borderedProminent)
@@ -38,6 +41,7 @@ struct HeroCard<Illustration: View>: View {
             }
         }
         .insightsCard()
+        .task(id: focusRequest) { if focusRequest > 0 { inputFocused = true } }
         .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { cardWidth = $0 }
     }
 

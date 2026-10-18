@@ -50,6 +50,11 @@ struct ScratchpadWindowView: View {
             if let assistantNoteID, !ids.contains(assistantNoteID) { assistant.cancel() }
         }
         .onDisappear { assistant.cancel(); for saved in assistants.values { saved.cancel() } }
+        .onChange(of: model.scratchpadAskRequest) { _, _ in
+            activateAssistant(controller.selectedNoteID)
+            assistant.changeScope(.all)
+            assistant.questionFocusRequest &+= 1
+        }
         .onChange(of: model.notesFocusRequest) { _, _ in bodyFocusRequested = true }
         .animation(.easeInOut(duration: 0.2), value: model.notice)
         .animation(.easeInOut(duration: 0.2), value: assistant.notice)

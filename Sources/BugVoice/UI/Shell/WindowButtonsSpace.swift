@@ -28,7 +28,7 @@ private struct ButtonFrameReader: NSViewRepresentable {
             guard let window, let button = window.standardWindowButton(.zoomButton), let parent = button.superview,
                   let content = window.contentView else { return }
             let frame = parent.convert(button.frame, to: content)
-            changed?(CGSize(width: frame.maxX + LayoutTokens.spacing[1], height: content.bounds.maxY - frame.minY + LayoutTokens.spacing[1]))
+            changed?(CGSize(width: frame.maxX + LayoutTokens.spacing[1], height: (content.isFlipped ? frame.maxY : content.bounds.maxY - frame.minY) + LayoutTokens.spacing[1]))
         }
     }
 }
