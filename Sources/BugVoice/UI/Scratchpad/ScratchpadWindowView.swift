@@ -3,7 +3,8 @@ import SwiftUI
 import VoiceCore
 
 /// Contents of the Scratchpad window: tabs on top, the notes list on the
-/// left (hidden when smaller or by Hide notes), the note editor.
+/// left (hidden when smaller or by Hide notes), then the editor with its
+/// tool row, always-visible Formatting bar and AI bar shown on request.
 struct ScratchpadWindowView: View {
     @Environment(AppearanceStore.self) private var store
     @Bindable var model: AppModel
@@ -11,6 +12,7 @@ struct ScratchpadWindowView: View {
     @State private var assistants: [NoteID: ScratchpadAssistant] = [:]
     @State private var assistantNoteID: NoteID?
     @State private var searchText = ""
+    @State private var pendingDelete: NotesListItem?
     @State private var bodyFocusRequested = false
     @FocusState private var searchFocused: Bool
 
@@ -50,6 +52,20 @@ struct ScratchpadWindowView: View {
             if let assistantNoteID, !ids.contains(assistantNoteID) { assistant.cancel() }
         }
         .onDisappear { assistant.cancel(); for saved in assistants.values { saved.cancel() } }
+        .confirmationDialog(
+            "Move \(pendingDelete?.title ?? "this note") to the Trash?",
+            isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }),
+            titleVisibility: .visible
+        ) {
+            Button("Move to Trash", role: .destructive) {
+                guard let item = pendingDelete else { return }
+                Task {
+                    do { try await model.deleteNote(item.id) }
+                    catch { model.saveError = "Could not move note to the Trash: \(error.localizedDescription)" }
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        }
         .onChange(of: model.scratchpadAskRequest) { _, _ in
             activateAssistant(controller.selectedNoteID)
             assistant.changeScope(.all)
@@ -125,15 +141,25 @@ struct ScratchpadWindowView: View {
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
+                        .contextMenu {
+                            Button(item.pinned ? "Unpin" : "Pin") { Task { await model.setNotePinned(item.id, pinned: !item.pinned) } }
+                            Menu("Move to folder") {
+                                Button("Unfiled") { Task { await model.setNoteLabels(id: item.id, folderID: nil, tags: item.tags) } }
+                                Divider()
+                                ForEach(model.sortedFolders) { folder in
+                                    Button(folder.name) {
+                                        Task { await model.setNoteLabels(id: item.id, folderID: folder.id, tags: item.tags) }
+                                    }
+                                }
+                            }
+                            Divider()
+                            Button("Move to Trash…", role: .destructive) { pendingDelete = item }
+                        }
                     }
                 }
                 .padding(.horizontal, LayoutTokens.spacing[1])
             }
             Spacer(minLength: 0)
-            Divider().padding(.horizontal, LayoutTokens.spacing[1])
-            barButton(.ai, title: "AI", symbol: "sparkles")
-            barButton(.formatting, title: "Formatting", symbol: "textformat")
-                .padding(.bottom, LayoutTokens.spacing[1])
         }
         .padding(.top, LayoutTokens.spacing[0])
     }
@@ -170,25 +196,6 @@ struct ScratchpadWindowView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-    }
-
-    private func barButton(_ bar: ScratchpadBottomBar, title: String, symbol: String) -> some View {
-        let on = model.settings.scratchpad.bottomBar == bar
-        return Button {
-            model.settings.scratchpad.bottomBar = bar
-        } label: {
-            HStack(spacing: LayoutTokens.spacing[1]) {
-                Image(systemName: symbol).frame(width: 16)
-                Text(title)
-                Spacer()
-            }
-            .padding(.horizontal, LayoutTokens.spacing[2])
-            .padding(.vertical, LayoutTokens.spacing[1])
-            .background(on ? store.theme.secondaryText.opacity(0.15) : .clear)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(on ? .isSelected : [])
     }
 
     // MARK: Editor

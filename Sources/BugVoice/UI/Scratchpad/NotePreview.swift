@@ -9,14 +9,14 @@ struct NotePreview: View {
             VStack(alignment: .leading, spacing: LayoutTokens.spacing[2]) {
                 Text("Edited \(note.modifiedAt.formatted(date: .abbreviated, time: .shortened))" + (model.folderName(note.frontMatter.folderID).map { " · \($0)" } ?? ""))
                     .bvFont(.footnote).foregroundStyle(.bvSecondary)
-                Text(note.title).bvFont(.title2)
+                HStack(alignment: .firstTextBaseline) {
+                    Text(note.title).bvFont(.title2)
+                    Spacer(minLength: LayoutTokens.spacing[2])
+                    Button("Open Scratchpad editor") { Task { await model.openNoteInWindow(note.id) } }
+                        .buttonStyle(.borderedProminent)
+                }
                 if !note.frontMatter.tags.isEmpty {
                     FlowLayout { ForEach(note.frontMatter.tags, id: \.self) { TagChip(name: $0) } }
-                }
-                HStack {
-                    Spacer(minLength: 0)
-                    Button("Open in window") { Task { await model.openNoteInWindow(note.id) } }
-                        .buttonStyle(.borderedProminent)
                 }
                 MarkdownDocView(text: note.body, onToggleTask: { _ in }, scrolls: false, pagePadding: false)
             }
