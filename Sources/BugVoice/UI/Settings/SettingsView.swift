@@ -1,6 +1,6 @@
 import SwiftUI
 
-enum SettingsTab: Hashable { case general, speech, models, agents, meetings, storage }
+enum SettingsTab: Hashable { case general, shortcuts, editing, theme, speech, models, agents, meetings, storage }
 
 struct SettingsView: View {
     @Bindable var model: AppModel
@@ -11,6 +11,9 @@ struct SettingsView: View {
             PillTabs(
                 items: [
                     .init(value: SettingsTab.general, title: "General"),
+                    .init(value: SettingsTab.shortcuts, title: "Shortcuts"),
+                    .init(value: SettingsTab.editing, title: "Editing"),
+                    .init(value: SettingsTab.theme, title: "Theme & icons"),
                     .init(value: SettingsTab.speech, title: "Speech"),
                     .init(value: SettingsTab.models, title: "Models"),
                     .init(value: SettingsTab.agents, title: "Agents"),
@@ -22,6 +25,9 @@ struct SettingsView: View {
             Group {
                 switch model.settingsTab {
                 case .general: GeneralTab(model: model)
+                case .shortcuts: ShortcutsSettingsView(model: model)
+                case .editing: EditingSettingsView(model: model)
+                case .theme: ThemeSettingsView(model: model)
                 case .speech: SpeechTab(model: model)
                 case .models: ModelsTab(model: model)
                 case .agents: AgentsSettings(model: model)
