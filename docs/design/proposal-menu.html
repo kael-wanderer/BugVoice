@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BugVoice Menu Popover</title>
+<meta name="description" content="Menu bar popover (option 2): ready, a submenu, a meeting recording, and a problem state.">
+<style>
+:root{
+  --bg:#f7f0d2;--card:#fbf5df;--hover:#efe6c6;--line:#d9cfa8;--text:#2b2a26;--muted:#77705d;--accent:#9a7a2a;--on-accent:#fff;
+  --rec:#d8443f;--good:#3f9a5e;--warn:#c47a1c;--desk:linear-gradient(160deg,#c9b98a,#8f7f56);
+  --sp1:4px;--sp2:8px;--sp3:12px;--sp4:16px;--r1:6px;--r3:14px;
+  --t-cap:11px;--t-foot:12px;--t-body:13px;--t-read:15px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#202225;--card:#272a2e;--hover:#2e3136;--line:#393d43;--text:#eeeff1;--muted:#a4aab3;--accent:#88aaff;--on-accent:#0b0d12;
+  --desk:linear-gradient(160deg,#5a6b8c,#2b3346)}}
+:root[data-theme="dark"]{
+  --bg:#202225;--card:#272a2e;--hover:#2e3136;--line:#393d43;--text:#eeeff1;--muted:#a4aab3;--accent:#88aaff;--on-accent:#0b0d12;
+  --desk:linear-gradient(160deg,#5a6b8c,#2b3346)}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font:13px/1.45 -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+.review{max-width:1440px;margin:0 auto;padding:20px 16px 48px}
+header{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:flex-end;margin-bottom:16px}
+header h1{font-size:22px;margin:0}
+header p{margin:4px 0 0;color:var(--muted);max-width:720px}
+.toggle{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 14px}
+.stages{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:16px}
+.stage{background:var(--desk);border-radius:12px;padding:16px;min-height:560px;display:flex;flex-direction:column;align-items:center;gap:12px}
+.stage h2{align-self:stretch;margin:0;font-size:13px;font-weight:600;color:#fff;text-shadow:0 1px 2px #0006}
+.pop{width:330px;max-width:100%;background:var(--card);border:1px solid var(--line);border-radius:var(--r3);box-shadow:0 18px 50px #0006;padding:var(--sp2)}
+.status{display:flex;gap:var(--sp2);align-items:center;padding:6px 8px 10px}
+.status b{display:block}
+.status small{display:block;color:var(--muted);font-size:var(--t-foot)}
+.led{width:10px;height:10px;border-radius:50%;flex:none;background:var(--good)}
+.led.rec{background:var(--rec)}.led.warn{background:var(--warn)}
+.status .fix{margin-left:auto}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:0 2px 6px}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--bg);border-radius:var(--r1);padding:9px 11px;white-space:nowrap}
+.btn.small{padding:4px 9px;font-size:var(--t-foot)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600}
+.btn.stop{color:var(--rec)}
+.btn[disabled]{opacity:.45;cursor:default}
+.btn.focus,.mi.focus{outline:2px solid var(--accent);outline-offset:1px}
+hr{border:0;border-top:1px solid var(--line);margin:6px 3px}
+.last{padding:6px 8px}
+.last p{margin:4px 0 8px;font-size:var(--t-read);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.foot{font-size:var(--t-foot);color:var(--muted)}
+.row{display:flex;gap:6px}
+.mi{display:flex;align-items:center;gap:8px;width:100%;border:0;background:transparent;border-radius:var(--r1);padding:6px 8px;text-align:left}
+.mi:hover,.mi.hl{background:var(--hover)}
+.mi .k{margin-left:auto;color:var(--muted);font-size:var(--t-foot)}
+.mi .ic{width:16px;text-align:center;color:var(--muted)}
+.mi .check{width:16px;text-align:center}
+.sub{padding:2px 0}
+.subhead{display:flex;align-items:center;gap:6px;padding:4px 4px 8px;font-weight:600}
+.back{border:0;background:transparent;color:var(--accent);padding:2px 6px;border-radius:var(--r1)}
+.switch{margin-left:auto;width:30px;height:18px;border-radius:9px;background:var(--line);position:relative;flex:none}
+.switch.on{background:var(--accent)}
+.switch::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:left .1s}
+.switch.on::after{left:14px}
+.group{font-size:var(--t-cap);text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:6px 8px 2px}
+.meeting{display:flex;align-items:center;gap:6px;padding:0 8px 8px}
+.meeting .time{font-variant-numeric:tabular-nums;font-weight:600;margin-right:auto}
+.warnline{font-size:var(--t-foot);color:var(--warn);padding:0 8px 8px}
+.notes{max-width:330px;color:#fff;font-size:12px;text-shadow:0 1px 2px #0008}
+</style>
+</head>
+<body>
+<div class="review">
+<header>
+  <div><h1>Menu bar popover</h1>
+  <p>Option 2 from the appearance proposal, with Open BugVoice next to Settings. Four states. The popover follows text size, font and theme; this page shows the default size.</p></div>
+  <button class="toggle" id="theme">Light / dark</button>
+</header>
+<div class="stages">
+
+<section class="stage" aria-label="Ready">
+  <h2>1 · Ready, with a last dictation</h2>
+  <div class="pop" role="menu" aria-label="BugVoice menu">
+    <div class="status"><span class="led"></span><div><b>Ready to dictate</b><small>Hold Right Option to speak · release to paste</small></div></div>
+    <div class="grid">
+      <button class="btn">✎ New note</button>
+      <button class="btn"><span style="color:var(--rec)">●</span> Record meeting</button>
+      <button class="btn">⇪ Upload</button>
+      <button class="btn">⎘ Paste last</button>
+    </div>
+    <hr>
+    <div class="last"><div class="foot">Last dictation · Orca · 10:40 AM</div>
+      <p>We have to check with the user whether they like any other symptoms so we can have more information before doing troubleshooting.</p>
+      <div class="row"><button class="btn small">Copy</button><button class="btn small">Retry</button></div></div>
+    <hr>
+    <button class="mi hl"><span class="ic">▤</span>Library<span class="k">›</span></button>
+    <button class="mi"><span class="ic">🎙︎</span>Dictation options<span class="k">›</span></button>
+    <hr>
+    <button class="mi"><span class="ic">◱</span>Open BugVoice<span class="k">⌃⌥B</span></button>
+    <button class="mi"><span class="ic">⚙︎</span>Settings…<span class="k">⌘,</span></button>
+    <button class="mi"><span class="ic"></span>Tools<span class="k">›</span></button>
+    <button class="mi"><span class="ic"></span>Quit BugVoice<span class="k">⌘Q</span></button>
+  </div>
+  <p class="notes">Up and Down move through every control in order (the four buttons left to right). Return or Space runs it. Escape closes.</p>
+</section>
+
+<section class="stage" aria-label="Submenu">
+  <h2>2 · Dictation options (a submenu)</h2>
+  <div class="pop" role="menu" aria-label="Dictation options">
+    <div class="sub">
+      <div class="subhead"><button class="back">‹ Back</button>Dictation options</div>
+      <button class="mi">Clean up with the text model<span class="switch on"></span></button>
+      <button class="mi">Hands-free (double-tap the hotkey)<span class="switch"></span></button>
+      <div class="group">Language</div>
+      <button class="mi"><span class="check">✓</span>Auto</button>
+      <button class="mi focus"><span class="check"></span>Vietnamese</button>
+      <button class="mi"><span class="check"></span>English</button>
+      <div class="group">Text model</div>
+      <button class="mi"><span class="check">✓</span>oMLX</button>
+      <button class="mi"><span class="check"></span>Apple Intelligence</button>
+      <button class="mi"><span class="check"></span>None</button>
+    </div>
+  </div>
+  <p class="notes">A submenu replaces the list in place. Back, Left arrow or Escape returns. Choosing a language or model keeps the submenu open, so the check moves.<br><br>
+  Library: Meetings, Scratchpad, Floating scratchpad ⌃⌥N.<br>Tools: Permissions…, Open data folder.</p>
+</section>
+
+<section class="stage" aria-label="Meeting">
+  <h2>3 · A meeting is recording</h2>
+  <div class="pop" role="menu" aria-label="BugVoice menu">
+    <div class="status"><span class="led rec"></span><div><b>Recording a meeting</b><small>Dictation still works · hold Right Option</small></div></div>
+    <div class="meeting"><span class="time">12:34</span><button class="btn small">Pause</button><button class="btn small">Mark moment</button><button class="btn small stop">Stop</button></div>
+    <div class="grid">
+      <button class="btn">✎ New note</button>
+      <button class="btn stop">■ Stop meeting</button>
+      <button class="btn">⇪ Upload</button>
+      <button class="btn">⎘ Paste last</button>
+    </div>
+    <hr>
+    <div class="last"><div class="foot">Last dictation · Code · 10:25 AM</div>
+      <p>We need to check any other issues before we can start.</p>
+      <div class="row"><button class="btn small">Copy</button><button class="btn small">Retry</button></div></div>
+    <hr>
+    <button class="mi"><span class="ic">▤</span>Library<span class="k">›</span></button>
+    <button class="mi"><span class="ic">🎙︎</span>Dictation options<span class="k">›</span></button>
+    <hr>
+    <button class="mi"><span class="ic">◱</span>Open BugVoice<span class="k">⌃⌥B</span></button>
+    <button class="mi"><span class="ic">⚙︎</span>Settings…<span class="k">⌘,</span></button>
+    <button class="mi"><span class="ic"></span>Tools<span class="k">›</span></button>
+    <button class="mi"><span class="ic"></span>Quit BugVoice<span class="k">⌘Q</span></button>
+  </div>
+  <p class="notes">Paused: the time stops and Pause reads Resume. Transcribing after Stop: the strip reads "Transcribing meeting…" and the second button is Record meeting, disabled.</p>
+</section>
+
+<section class="stage" aria-label="Problem">
+  <h2>4 · Needs attention, no dictation yet</h2>
+  <div class="pop" role="menu" aria-label="BugVoice menu">
+    <div class="status"><span class="led warn"></span><div><b>Needs permissions</b><small>Microphone and Accessibility are off</small></div><button class="btn small primary fix">Fix…</button></div>
+    <div class="warnline">⌃⌥N is used by another app</div>
+    <div class="grid">
+      <button class="btn">✎ New note</button>
+      <button class="btn"><span style="color:var(--rec)">●</span> Record meeting</button>
+      <button class="btn">⇪ Upload</button>
+      <button class="btn" disabled>⎘ Paste last</button>
+    </div>
+    <hr>
+    <button class="mi"><span class="ic">▤</span>Library<span class="k">›</span></button>
+    <button class="mi"><span class="ic">🎙︎</span>Dictation options<span class="k">›</span></button>
+    <hr>
+    <button class="mi"><span class="ic">◱</span>Open BugVoice<span class="k">⌃⌥B</span></button>
+    <button class="mi"><span class="ic">⚙︎</span>Settings…<span class="k">⌘,</span></button>
+    <button class="mi"><span class="ic"></span>Tools<span class="k">›</span></button>
+    <button class="mi"><span class="ic"></span>Quit BugVoice<span class="k">⌘Q</span></button>
+  </div>
+  <p class="notes">Other states use the same line: secure input on (orange, no button), speech model downloading 40% or loading (orange), model failed (Retry), hotkey not active (Fix…), listening (red).</p>
+</section>
+
+</div>
+</div>
+<script>
+document.getElementById('theme').onclick=()=>{const r=document.documentElement;const dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme: dark)').matches;r.dataset.theme=dark?'light':'dark'};
+</script>
+</body>
+</html>

@@ -57,6 +57,7 @@ version and build live in `App/Info.plist`. App icon source is `App/Icon/AppIcon
 - App shell plan: `docs/superpowers/plans/2026-10-18-app-shell.md`
 - App shell execution log and manual checks: `docs/progress/app-shell-log.md`
 - App shell spec: `docs/superpowers/specs/2026-10-18-app-shell-design.md` (mockup: `docs/design/proposal-appearance.html#shell`)
+- Menu bar popover spec: `docs/superpowers/specs/2026-10-18-menu-popover-design.md` (mockup: `docs/design/proposal-menu.html`)
 - Roadmap (next sub-projects, dropped ideas): `docs/ROADMAP.md`
 
 ## Rules
