@@ -77,11 +77,16 @@ struct NotesPage: View {
                         allTitle: "All notes", onManage: { managingFolders = true }
                     )
                     TagFilterBar(catalog: model.noteTagCatalog, selected: $model.notesTagFilter)
-                }
-                HStack(spacing: LayoutTokens.spacing[1]) {
-                    Picker("Sort", selection: $model.settings.scratchpad.sort) {
-                        ForEach(NotesSort.allCases, id: \.self) { Text($0.title).tag($0) }
-                    }.labelsHidden().help("Sort")
+                    Menu {
+                        Picker("Sort", selection: $model.settings.scratchpad.sort) {
+                            ForEach(NotesSort.allCases, id: \.self) { Text($0.title).tag($0) }
+                        }.pickerStyle(.inline).labelsHidden()
+                    } label: {
+                        Label("Sort", systemImage: "arrow.up.arrow.down").labelStyle(.iconOnly)
+                    }
+                    .fixedSize()
+                    .help("Sort: \(model.settings.scratchpad.sort.title)")
+                    .accessibilityLabel("Sort, \(model.settings.scratchpad.sort.title)")
                     Button { Task { await controller.reloadList() } } label: { Image(systemName: "arrow.clockwise") }
                         .buttonStyle(.borderless).help("Reload from disk").accessibilityLabel("Reload from disk")
                 }
