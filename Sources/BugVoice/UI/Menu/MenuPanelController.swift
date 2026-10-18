@@ -30,6 +30,8 @@ final class MenuPanelController: NSObject {
     private let panel: MenuPanel
     private let hosting: MenuHostingView
     private var mouseMonitor: Any?
+    /// App-activation and Space-change observers, installed while open.
+    private var workspaceObservers: [NSObjectProtocol] = []
     /// Opened, but waiting for a non-zero fitted size before it shows.
     private var waitingForSize = false
     private var resignObserver: NSObjectProtocol?
@@ -86,6 +88,9 @@ final class MenuPanelController: NSObject {
         panel.orderOut(nil)
         if let mouseMonitor { NSEvent.removeMonitor(mouseMonitor) }
         mouseMonitor = nil
+        let center = NSWorkspace.shared.notificationCenter
+        workspaceObservers.forEach(center.removeObserver)
+        workspaceObservers = []
     }
 
     private func open() {
@@ -117,6 +122,20 @@ final class MenuPanelController: NSObject {
                 self.close()
             }
         }
+        // ⌘Tab, a Space swipe or Mission Control make no mouse event and leave
+        // BugVoice without a key window, so they are watched separately.
+        let center = NSWorkspace.shared.notificationCenter
+        let ownPID = ProcessInfo.processInfo.processIdentifier
+        workspaceObservers = [
+            center.addObserver(forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main) { [weak self] note in
+                let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+                guard app?.processIdentifier != ownPID else { return }
+                MainActor.assumeIsolated { self?.close() }
+            },
+            center.addObserver(forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.close() }
+            },
+        ]
     }
 
     /// Losing key closes the panel only when another BugVoice window took it,
