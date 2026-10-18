@@ -140,6 +140,39 @@ Dictation at 100% and 160%, minimum and 1600 pt widths, plus Integrations at 160
 - The spec's full feature/runtime matrix remains an owner gate; automated checks cover the existing
   pure logic and package suites, not SwiftUI event routing or rendered geometry.
 
+## Review (Claude, 2026-10-18)
+
+Built and ran the branch, captured the main window with `screencapture -l`, and
+clicked through every page at 100% (1637 × 1005) and at 160% on the minimum window.
+
+Fixed in the review commit:
+- **Crash** on Style, Settings, Integrations, and Help: `ShellTitleLayout` read
+  `subviews[2]`, but a page with no action supplied no third subview. The action
+  slot is now always wrapped in one `HStack`.
+- **Window minimum not enforced**: a drag shrank the window to 586 × 417 at 160%.
+  `NSHostingController` overwrote `contentMinSize`; now `sizingOptions = []` and
+  `windowWillResize(_:to:)` clamps to the minimum. `updateMinimum` also grows the
+  height to 560. Checked: at 160% the window stops at 1048 × 560.
+- **Compact search** (icon at narrow widths): the popover's field never took focus,
+  so typing was lost, and the popover was a fixed 420 pt (scaled) tall, opened
+  upward, and clipped. It now has its own focus state, opens below the icon, and
+  sizes to its content.
+- Insights range pills now read 7 days, 30 days, All time (spec order).
+- Meetings pane filters are left-aligned like the Scratchpad pane.
+
+Seen working: grouped sidebar, window buttons above the brand, title bar actions per
+page, centered columns (left gap = right gap on Dictation, Insights, Upload, Settings),
+Settings section list, Style section list, round pills wrapping at 160%, Scratchpad
+list plus preview, Coming soon pages with the wrapping Agents link, ⌘K search with
+Vietnamese folding ("tieng viet"), opening a meeting result on the right tab without
+playing audio, ⌘K in the floating Scratchpad not raising the main window.
+
+Still open:
+- The split button's menu half draws as a plain button, not primary colored
+  (macOS styles `Menu` its own way). Cosmetic.
+- Not exercised: VoiceOver, ⌃⌘S persistence across relaunch, the preview refreshing
+  after a floating-window save, Ask AI menu item, Dictionary Add menu.
+
 ## Manual checks (owner)
 
 - [ ] Sidebar groups and order match the mockup; Settings and Help at the bottom.

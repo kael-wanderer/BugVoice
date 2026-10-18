@@ -103,8 +103,8 @@ struct MeetingsPage: View {
                     onManage: { managingFolders = true }
                 )
                 TagFilterBar(catalog: model.meetingTagCatalog, selected: $model.meetingTagFilter)
-                Spacer(minLength: 0)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             TextField("Search meetings", text: $model.meetingSearchQuery)
                 .textFieldStyle(.roundedBorder)
             if model.meetingManifests.isEmpty {

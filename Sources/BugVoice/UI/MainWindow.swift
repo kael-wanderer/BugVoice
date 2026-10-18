@@ -81,6 +81,8 @@ struct MainWindow: View {
 final class MainWindowController: NSObject, NSWindowDelegate {
     private let model: AppModel
     private var window: NSWindow?
+    /// Smallest frame size for the current text size (see `updateMinimum`).
+    private var minimumFrameSize = NSSize(width: ShellLayout.baseMinimumWindowWidth, height: ShellLayout.minimumWindowHeight)
 
     init(model: AppModel) {
         self.model = model
@@ -107,7 +109,12 @@ final class MainWindowController: NSObject, NSWindowDelegate {
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.identifier = AppWindow.main
-        window.contentViewController = NSHostingController(rootView: MainWindow(model: model).bvTheme(model.appearance))
+        let hosting = NSHostingController(rootView: MainWindow(model: model).bvTheme(model.appearance))
+        // The window's minimum comes from `updateMinimum`, which follows text
+        // size; by default the hosting controller would overwrite it with the
+        // SwiftUI content's own minimum.
+        hosting.sizingOptions = []
+        window.contentViewController = hosting
         model.appearance.attach(window)
         window.isReleasedWhenClosed = false
         window.delegate = self
@@ -139,11 +146,22 @@ final class MainWindowController: NSObject, NSWindowDelegate {
         let scale = model.settings.appearance.textScale
         let width = ShellLayout.minimumWindowWidth(scale: scale, screenWidth: visible.width)
         window.contentMinSize = NSSize(width: width, height: ShellLayout.minimumWindowHeight)
+        minimumFrameSize = window.frameRect(forContentRect: NSRect(origin: .zero, size: window.contentMinSize)).size
         if ShellLayout.sidebarMustHide(scale: scale, screenWidth: visible.width) { model.sidebarHidden = true }
         var frame = window.frame
         frame.size.width = max(frame.width, width)
+        let height = max(frame.height, ShellLayout.minimumWindowHeight)
+        frame.origin.y -= height - frame.height // keep the top edge in place
+        frame.size.height = height
+        frame.origin.y = max(visible.minY, frame.origin.y)
         frame.origin.x = max(visible.minX, min(frame.minX, visible.maxX - frame.width))
         window.setFrame(frame, display: true)
+    }
+
+    /// `contentMinSize` alone does not hold here (the SwiftUI content view
+    /// still lets AppKit shrink the window), so clamp every resize.
+    func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {
+        NSSize(width: max(frameSize.width, minimumFrameSize.width), height: max(frameSize.height, minimumFrameSize.height))
     }
 
     func windowDidBecomeKey(_ notification: Notification) { model.mainWindowIsKey = true }

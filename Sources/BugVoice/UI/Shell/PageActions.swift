@@ -23,7 +23,7 @@ struct PageActions: View {
                     .background(.bvHover, in: Capsule())
                 }.buttonStyle(.plain)
             case .insights:
-                RoundPills("Range", items: InsightsPeriod.allCases.map { ($0, $0.title) }, selection: $model.insightsPeriod, size: .small)
+                RoundPills("Range", items: [InsightsPeriod.days7, .days30, .all].map { ($0, $0.title) }, selection: $model.insightsPeriod, size: .small)
             case .meetings:
                 if model.meetings?.isRecording == true || model.meetings?.isPaused == true {
                     Button("Stop") { Task { await model.meetings?.stop(); await model.reloadMeetings() } }

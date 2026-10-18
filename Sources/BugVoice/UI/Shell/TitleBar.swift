@@ -17,7 +17,8 @@ struct TitleBar<Action: View>: View {
                 Text(title).bvFont(.title2).lineLimit(1).truncationMode(.tail)
             }
             SearchField(model: model)
-            action
+            // Always one subview, also when the page has no action.
+            HStack(spacing: 0) { action }
         }
         .padding(.horizontal, LayoutTokens.spacing[3])
         .padding(.vertical, LayoutTokens.spacing[1])
@@ -38,6 +39,7 @@ struct ShellTitleLayout: Layout {
         return (side, min(searchWidth, max(0, width - side * 2 - gap * 2)))
     }
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        precondition(subviews.count == 3, "title, search, action")
         let width = proposal.width ?? searchWidth * 2
         let (side, center) = widths(width, subviews)
         let height = max(subviews[0].sizeThatFits(.init(width: side, height: nil)).height,

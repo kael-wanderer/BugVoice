@@ -16,19 +16,22 @@ struct SearchField: View {
             if compact {
                 Button { iconPopover = true; model.searchIsPresented = true } label: { Image(systemName: "magnifyingglass") }
                     .buttonStyle(.plain).help("Search notes, meetings, dictations ⌘K")
-                    .popover(isPresented: $iconPopover) {
-                        ScrollView {
+                    .popover(isPresented: $iconPopover, arrowEdge: .bottom) {
+                        // The popover is its own window: it needs its own focus
+                        // state, set once that window is key.
+                        FocusedOnAppear { focus in
                             VStack(spacing: LayoutTokens.spacing[1]) {
-                                field
+                                field(focus)
                                 if !model.searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { results }
-                            }.padding(LayoutTokens.spacing[2])
+                            }
+                            .padding(LayoutTokens.spacing[2])
+                            .frame(width: store.scaled(360))
+                            .fixedSize(horizontal: false, vertical: true)
                         }
-                        .frame(width: store.scaled(360), height: store.scaled(420))
                         .bvTheme(store)
-                        .onAppear { focused = true }
                     }
             } else {
-                field
+                field($focused)
                     .overlay(alignment: .top) {
                         if model.searchIsPresented && !model.searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                             results
@@ -60,11 +63,11 @@ struct SearchField: View {
         .task(id: model.searchQuery + "\u{0}" + model.page.rawValue) { await search() }
     }
 
-    private var field: some View {
+    private func field(_ focus: FocusState<Bool>.Binding) -> some View {
         HStack(spacing: LayoutTokens.spacing[1]) {
             Image(systemName: "magnifyingglass").foregroundStyle(.bvSecondary)
             TextField("Search notes, meetings, dictations", text: $model.searchQuery)
-                .textFieldStyle(.plain).focused($focused)
+                .textFieldStyle(.plain).focused(focus)
                 .accessibilityLabel("Search notes, meetings, dictations")
                 .onSubmit(openSelected)
                 .onKeyPress(.upArrow) { move(-1); return .handled }
@@ -113,5 +116,17 @@ struct SearchField: View {
         guard !Task.isCancelled, query == model.searchQuery else { return }
         hits = found
         selected = min(selected, max(0, found.count - 1))
+    }
+}
+
+private struct FocusedOnAppear<Content: View>: View {
+    @FocusState private var focused: Bool
+    @ViewBuilder var content: (FocusState<Bool>.Binding) -> Content
+
+    var body: some View {
+        content($focused).task {
+            try? await Task.sleep(for: .milliseconds(100))
+            focused = true
+        }
     }
 }
