@@ -286,6 +286,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var library = LibrarySettings()
     public var scratchpad = ScratchpadSettings()
     public var agents = AgentSettings()
+    public var appearance = AppearanceSettings()
 
     public init() {}
 }
@@ -379,5 +380,6 @@ extension AppSettings {
         library = c.value(.library, default: library)
         scratchpad = c.value(.scratchpad, default: scratchpad)
         agents = c.value(.agents, default: agents)
+        appearance = c.value(.appearance, default: appearance)
     }
 }
