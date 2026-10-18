@@ -22,3 +22,11 @@ Branch: `feat/app-shell`. Phase B is implemented directly, as authorized by the 
 - Ask AI reuses ScratchpadAssistant.changeScope(.all), the existing AI bottom bar, and per-note assistants, with a question focus request.
 - Validation: swift build, swift test (910 VoiceCore + 30 MCPKit + 94 BugVoiceMac), token check pass. Action/menu click checks are blocked by denied UI access; none are claimed passed.
 - Signed app build/dev launch passed. Also corrected window-button height measurement for flipped NSHostingView coordinates during action-slot review. No UI interaction or screenshots were possible.
+
+## Task 6 — Round pills
+
+- Task 5 commit: `e323c99` — feat(app): page actions in the title bar.
+- Builder's call: a SwiftUI Layout measures the widest intrinsic pill and wraps whole pills; each row divides its width equally, including the final row. This preserves equal widths with multiline fallback for a single exceptionally long label.
+- RoundPills now lives in Components; AppearanceCard stays in SettingsComponents. PillTabs is deleted. Dictation style filter preserves day grouping; empty filtered results have their own empty state.
+- Editing line spacing/reading width use the specified square segmented controls. Speech, floating Scratchpad, and meeting-window controls remain their existing tools.
+- Validation: swift build, swift test (1,034 tests), token check, signed debug app build and dev launch passed. Required 160% screenshots for Insights, Dictation, Dictionary and meeting pills remain blocked by UI access; no wrapping visual pass is claimed.

@@ -5,13 +5,11 @@ import VoiceCore
 struct DictationHistoryView: View {
     @Environment(AppearanceStore.self) private var store
     @Bindable var model: AppModel
-    @State private var query = ""
+    @State private var filter: Style?
 
     var filtered: [HistoryEntry] {
-        guard !query.isEmpty else { return model.history }
-        return model.history.filter {
-            $0.text.localizedCaseInsensitiveContains(query) || ($0.appName ?? "").localizedCaseInsensitiveContains(query)
-        }
+        model.history.filter { filter == nil || $0.style == filter }
+
     }
 
     var groups: [(String, [HistoryEntry])] {
@@ -37,6 +35,10 @@ struct DictationHistoryView: View {
                     StatTile(value: "\(stats.wordsPerMinute)", label: "words per minute")
                     StatTile(value: "\(stats.dictationsToday)", label: "dictations today")
                     StatTile(value: stats.medianReleaseToText.map { String(format: "%.1f s", $0) } ?? "–", label: "median release → text")
+                }
+                RoundPills("Filter by style", items: [(Style?.none, "All")] + Style.allCases.map { (Optional($0), $0.rawValue.capitalized) }, selection: $filter)
+                if filtered.isEmpty && !model.history.isEmpty {
+                    EmptyState("No dictations with this style", systemImage: "line.3.horizontal.decrease")
                 }
                 if model.history.isEmpty {
                     EmptyState("No dictations yet", systemImage: "mic", message: "Hold \(model.settings.hotkey.spokenName) anywhere and speak.")

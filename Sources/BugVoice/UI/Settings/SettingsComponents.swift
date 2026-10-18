@@ -115,3 +115,17 @@ struct SettingsScroll<Content: View>: View {
         }
     }
 }
+
+struct AppearanceCard<Content: View>: View {
+    let title: String
+    @ViewBuilder var content: Content
+    var body: some View {
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[2]) {
+            Text(title).bvFont(.title3)
+            content
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(LayoutTokens.spacing[3])
+        .bvCard()
+    }
+}

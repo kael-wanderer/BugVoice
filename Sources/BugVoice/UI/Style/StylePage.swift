@@ -40,10 +40,7 @@ struct StylePage: View {
             VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) {
                 Text("Each app is matched to a style when you start dictating. The style sets how the text model cleans your words.")
                     .foregroundStyle(.bvSecondary)
-                PillTabs(
-                    items: Style.allCases.map { .init(value: $0, title: $0.title) },
-                    selection: $selected
-                )
+                RoundPills("Style", items: Style.allCases.map { ($0, $0.title) }, selection: $selected)
                 StyleDetailView(model: model, style: selected)
             }
             .padding(LayoutTokens.spacing[4])

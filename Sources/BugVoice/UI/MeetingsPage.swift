@@ -322,10 +322,7 @@ private struct MeetingDetails: View {
                 Label(meeting.state == .recording || meeting.state == .paused ? "Audio is recording" : "Audio is unavailable", systemImage: "waveform")
                     .foregroundStyle(.bvSecondary)
             }
-            Picker("Meeting details", selection: $tab) {
-                ForEach(MeetingDetailTab.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-            }
-            .pickerStyle(.segmented)
+            RoundPills("Meeting view", items: MeetingDetailTab.allCases.map { ($0, $0.rawValue) }, selection: $tab)
             Group {
                 switch tab {
                 case .transcript: transcript

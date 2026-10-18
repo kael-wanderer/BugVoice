@@ -8,17 +8,17 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) {
-            PillTabs(
+            RoundPills("Settings section",
                 items: [
-                    .init(value: SettingsTab.general, title: "General"),
-                    .init(value: SettingsTab.shortcuts, title: "Shortcuts"),
-                    .init(value: SettingsTab.editing, title: "Editing"),
-                    .init(value: SettingsTab.theme, title: "Theme & icons"),
-                    .init(value: SettingsTab.speech, title: "Speech"),
-                    .init(value: SettingsTab.models, title: "Models"),
-                    .init(value: SettingsTab.agents, title: "Agents"),
-                    .init(value: SettingsTab.meetings, title: "Meetings"),
-                    .init(value: SettingsTab.storage, title: "Storage"),
+                    (SettingsTab.general, "General"),
+                    (SettingsTab.shortcuts, "Shortcuts"),
+                    (SettingsTab.editing, "Editing"),
+                    (SettingsTab.theme, "Theme & icons"),
+                    (SettingsTab.speech, "Speech"),
+                    (SettingsTab.models, "Models"),
+                    (SettingsTab.agents, "Agents"),
+                    (SettingsTab.meetings, "Meetings"),
+                    (SettingsTab.storage, "Storage"),
                 ],
                 selection: $model.settingsTab
             )

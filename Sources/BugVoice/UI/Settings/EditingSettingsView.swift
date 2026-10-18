@@ -70,9 +70,17 @@ struct EditingSettingsView: View {
                     }
                     Button("Other code font…") { pickingCode = true; showFonts = true }
                     Text("Line spacing").bvFont(.bodyStrong)
-                    RoundPills(items: [(.normal,"Normal"),(.relaxed,"Relaxed"),(.loose,"Loose")], selection: $model.settings.appearance.lineSpacing)
+                    Picker("Line spacing", selection: $model.settings.appearance.lineSpacing) {
+                        Text("Normal").tag(LineSpacing.normal)
+                        Text("Relaxed").tag(LineSpacing.relaxed)
+                        Text("Loose").tag(LineSpacing.loose)
+                    }.pickerStyle(.segmented)
                     Text("Reading width").bvFont(.bodyStrong)
-                    RoundPills(items: [(.narrow,"Narrow"),(.medium,"Medium"),(.wide,"Wide")], selection: $model.settings.appearance.readingWidth)
+                    Picker("Reading width", selection: $model.settings.appearance.readingWidth) {
+                        Text("Narrow").tag(ReadingWidth.narrow)
+                        Text("Medium").tag(ReadingWidth.medium)
+                        Text("Wide").tag(ReadingWidth.wide)
+                    }.pickerStyle(.segmented)
                 }
                 Button("Reset editing") { model.settings.appearance.resetEditing() }
             }.bvFont(.body).padding(LayoutTokens.spacing[0])

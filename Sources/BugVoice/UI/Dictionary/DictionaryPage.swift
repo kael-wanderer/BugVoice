@@ -9,13 +9,7 @@ struct DictionaryPage: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) {
-                PillTabs(
-                    items: [
-                        .init(value: DictionaryTab.words, title: "Dictionary"),
-                        .init(value: DictionaryTab.snippets, title: "Snippets"),
-                    ],
-                    selection: $model.dictionaryTab
-                )
+                RoundPills("Dictionary list", items: [(.words, "Words"), (.snippets, "Snippets")], selection: $model.dictionaryTab)
                 if model.dictionaryReadOnly {
                     Text("Dictionary was saved by a newer BugVoice.").foregroundStyle(.bvSecondary)
                 }
