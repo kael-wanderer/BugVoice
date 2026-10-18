@@ -40,6 +40,7 @@ struct MainWindow: View {
                     .accessibilityAddTraits(.updatesFrequently)
             }
         }
+        .sheet(item: $model.librarySheet) { ManageLibrarySheet(model: model, tab: $0) }
         .animation(.easeInOut(duration: 0.2), value: model.notice)
         .alert(
             "Could not save",
@@ -109,7 +110,7 @@ final class MainWindowController: NSObject, NSWindowDelegate {
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.identifier = AppWindow.main
-        let hosting = NSHostingController(rootView: MainWindow(model: model).bvTheme(model.appearance))
+        let hosting = NSHostingController(rootView: MainWindow(model: model).bvTheme(model.appearance).tagColors(model))
         // The window's minimum comes from `updateMinimum`, which follows text
         // size; by default the hosting controller would overwrite it with the
         // SwiftUI content's own minimum.

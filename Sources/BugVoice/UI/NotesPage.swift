@@ -7,7 +7,7 @@ import VoiceCore
 struct NotesPage: View {
     @Environment(AppearanceStore.self) private var store
     @Bindable var model: AppModel
-    @State private var managingFolders = false
+    @State private var librarySheet: LibrarySheetTab?
     @State private var pendingDelete: NotesListItem?
 
     private var controller: NotesController { model.notesController }
@@ -30,6 +30,12 @@ struct NotesPage: View {
         )
     }
 
+    private var folderIDs: [NoteID: FolderID] {
+        controller.notes.reduce(into: [:]) { result, note in
+            if let id = note.frontMatter.folderID { result[note.id] = id }
+        }
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             library
@@ -49,7 +55,7 @@ struct NotesPage: View {
             model.syncScratchpadTabs()
         }
         .onChange(of: controller.notes) { _, _ in model.syncScratchpadTabs() }
-        .sheet(isPresented: $managingFolders) { ManageFoldersSheet(model: model) }
+        .sheet(item: $librarySheet) { ManageLibrarySheet(model: model, tab: $0) }
         .confirmationDialog(
             "Move \(pendingDelete?.title ?? "this note") to the Trash?",
             isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }),
@@ -74,9 +80,9 @@ struct NotesPage: View {
                         model: model,
                         filter: Binding(get: { model.notesFolderFilter }, set: { model.notesFolderFilter = $0 }),
                         counts: LibraryProjection.counts(controller.notes, known: model.library.knownIDs),
-                        allTitle: "All notes", onManage: { managingFolders = true }
+                        allTitle: "All notes", onManage: { librarySheet = .folders }
                     )
-                    TagFilterBar(catalog: model.noteTagCatalog, selected: $model.notesTagFilter)
+                    TagFilterBar(catalog: model.noteTagCatalog, selected: $model.notesTagFilter, onManage: { librarySheet = .tags })
                     Menu {
                         Picker("Sort", selection: $model.settings.scratchpad.sort) {
                             ForEach(NotesSort.allCases, id: \.self) { Text($0.title).tag($0) }
@@ -88,7 +94,7 @@ struct NotesPage: View {
                     .help("Sort: \(model.settings.scratchpad.sort.title)")
                     .accessibilityLabel("Sort, \(model.settings.scratchpad.sort.title)")
                     Button { Task { await controller.reloadList() } } label: { Image(systemName: "arrow.clockwise") }
-                        .buttonStyle(.borderless).help("Reload from disk").accessibilityLabel("Reload from disk")
+                        .fixedSize().buttonStyle(.borderless).help("Reload from disk").accessibilityLabel("Reload from disk")
                 }
                 ForEach(controller.insertionRecoveries) { recovery in
                     VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
@@ -118,13 +124,14 @@ struct NotesPage: View {
                 EmptyState("No results", systemImage: "magnifyingglass")
             }
         } else {
+            let folders = folderIDs
             LazyVStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
-                ForEach(items) { item in card(item) }
+                ForEach(items) { item in card(item, folderName: model.folderName(folders[item.id])) }
             }
         }
     }
 
-    private func card(_ item: NotesListItem) -> some View {
+    private func card(_ item: NotesListItem, folderName: String?) -> some View {
         let selected = model.selectedNoteID == item.id
         return VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
             HStack(spacing: LayoutTokens.spacing[0]) {
@@ -133,6 +140,17 @@ struct NotesPage: View {
             }
             Text(item.modifiedAt.formatted(date: .abbreviated, time: .shortened))
                 .bvFont(.footnote).foregroundStyle(.bvSecondary).lineLimit(1)
+            if folderName != nil || !item.tags.isEmpty {
+                FlowLayout(spacing: LayoutTokens.spacing[0]) {
+                    if let folderName {
+                        Label(folderName, systemImage: "folder").bvFont(.footnote).foregroundStyle(.bvSecondary)
+                    }
+                    ForEach(Array(item.tags.prefix(3)), id: \.self) { TagChip(name: $0) }
+                    if item.tags.count > 3 {
+                        Text("+\(item.tags.count - 3)").bvFont(.footnote).foregroundStyle(.bvSecondary)
+                    }
+                }
+            }
             Text(preview(item.body)).bvFont(.footnote).foregroundStyle(.bvSecondary).lineLimit(1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

@@ -139,7 +139,7 @@ final class MeetingWindowController: NSObject, NSWindowDelegate {
                     self.hide()
                     Task { await self.controller.closeWindow() }
                 }
-            ).bvTheme(model.appearance)
+            ).bvTheme(model.appearance).tagColors(model)
         )
         model.appearance.attach(window)
         // The window's frame comes from the user and autosave, not the content.

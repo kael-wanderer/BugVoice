@@ -29,6 +29,7 @@ struct UploadRing: View {
 struct UploadPage: View {
     @Environment(AppearanceStore.self) private var store
     @Bindable var model: AppModel
+    @State private var librarySheet: LibrarySheetTab?
     @State private var targeted = false
     @State private var page = 0
 
@@ -61,7 +62,7 @@ struct UploadPage: View {
                                         GridRow {
                                             Text("Save to").bvFont(.footnote).foregroundStyle(.bvSecondary)
                                             HStack(spacing: LayoutTokens.spacing[1]) {
-                                                FolderPicker(model: model, folderID: draft.labels.folderID) { id in
+                                                FolderPicker(model: model, folderID: draft.labels.folderID, onManage: { librarySheet = .folders }) { id in
                                                     controller.setDraftLabels(draft.id, ItemLabels(folderID: id, tags: draft.labels.tags))
                                                 }
                                                 if draft.labels.folderID != nil, draft.labels.folderID == model.library.lastUploadFolderID {
@@ -71,7 +72,7 @@ struct UploadPage: View {
                                         }
                                         GridRow {
                                             Text("Tags").bvFont(.footnote).foregroundStyle(.bvSecondary)
-                                            TagField(tags: draft.labels.tags, catalog: model.allTagCatalog, noun: "meeting") { tags in
+                                            TagField(tags: draft.labels.tags, catalog: model.allTagCatalog, noun: "meeting", onManage: { librarySheet = .tags }) { tags in
                                                 controller.setDraftLabels(draft.id, ItemLabels(folderID: draft.labels.folderID, tags: tags))
                                             }
                                         }
@@ -139,6 +140,7 @@ struct UploadPage: View {
             }
             .bvPageColumn(.wide)
         }
+        .sheet(item: $librarySheet) { ManageLibrarySheet(model: model, tab: $0) }
         .background(targeted ? store.theme.accent.opacity(0.06) : store.theme.background)
         .contentShape(Rectangle())
         .onDrop(of: [UTType.fileURL.identifier], isTargeted: $targeted) { providers in

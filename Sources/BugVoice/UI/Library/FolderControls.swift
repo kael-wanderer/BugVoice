@@ -49,39 +49,66 @@ struct FolderFilterMenu: View {
     }
 }
 
-/// Tags menu plus removable chips. Several chips mean all must match.
+/// Tags menu; several selected tags mean all must match.
 struct TagFilterBar: View {
-    @Environment(AppearanceStore.self) private var store
+    @Environment(\.tagColors) private var tagColors
     let catalog: [TagCount]
     @Binding var selected: [String]
+    let onManage: () -> Void
 
     var body: some View {
-        HStack(spacing: LayoutTokens.spacing[0]) {
-            Menu {
-                if catalog.isEmpty { Text("No tags yet") }
-                ForEach(catalog) { tag in
-                    Button("#\(tag.name)  \(tag.count)") {
-                        if !selected.contains(tag.name) { selected.append(tag.name) }
+        Menu {
+            ForEach(catalog) { tag in
+                Toggle(isOn: Binding(
+                    get: { selected.contains(tag.name) },
+                    set: { on in
+                        if on {
+                            if !selected.contains(tag.name) { selected.append(tag.name) }
+                        } else {
+                            selected.removeAll { $0 == tag.name }
+                        }
+                    }
+                )) {
+                    HStack {
+                        if let color = tagColors[tag.name] { TagColors.dot(color) }
+                        Text("#\(tag.name)  \(tag.count)")
                     }
                 }
-            } label: {
-                Label("Tags", systemImage: "tag")
             }
-            .fixedSize()
-            ForEach(selected, id: \.self) { tag in
-                TagChip(name: tag) { selected.removeAll { $0 == tag } }
+            if catalog.isEmpty { Text("No tags yet") }
+            Divider()
+            Button("Clear tags") { selected = [] }.disabled(selected.isEmpty)
+            Button("Manage tags…", action: onManage)
+        } label: {
+            Label("Tags", systemImage: "tag")
+        }
+        .fixedSize()
+        // A menu button draws only its label's icon and title, so the count sits on top of it.
+        .overlay(alignment: .topTrailing) {
+            if !selected.isEmpty {
+                Text("\(selected.count)").bvFont(.caption)
+                    .foregroundStyle(.bvOnAccent)
+                    .padding(.horizontal, LayoutTokens.spacing[0])
+                    .background(.bvAccent, in: Capsule())
+                    .offset(x: LayoutTokens.spacing[1], y: -LayoutTokens.spacing[1])
+                    .allowsHitTesting(false)
             }
         }
+        .accessibilityLabel("Tags, \(selected.count) selected")
     }
 }
 
 struct TagChip: View {
+    @Environment(\.tagColors) private var tagColors
     @Environment(AppearanceStore.self) private var store
     let name: String
     var onRemove: (() -> Void)?
 
     var body: some View {
         HStack(spacing: LayoutTokens.spacing[0]) {
+            if let c = tagColors[name] {
+                Circle().fill(TagColors.color(c)).frame(width: store.scaled(8), height: store.scaled(8))
+            }
             Text("#\(name)").bvFont(.footnote)
             if let onRemove {
                 Button(action: onRemove) { Image(systemName: "xmark").bvFont(.caption) }
@@ -100,6 +127,7 @@ struct FolderPicker: View {
     @Environment(AppearanceStore.self) private var store
     let model: AppModel
     let folderID: FolderID?
+    var onManage: (() -> Void)? = nil
     let onChange: (FolderID?) -> Void
     @State private var creating = false
 
@@ -112,6 +140,7 @@ struct FolderPicker: View {
             }
             Divider()
             Button("New folder…") { creating = true }.disabled(model.libraryReadOnly)
+            if let onManage { Button("Manage folders…", action: onManage) }
         } label: {
             Label(model.folderName(folderID) ?? "Unfiled", systemImage: "folder")
         }

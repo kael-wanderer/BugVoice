@@ -62,6 +62,8 @@ version and build live in `App/Info.plist`. App icon source is `App/Icon/AppIcon
 - Note editor redesign spec: `docs/superpowers/specs/2026-10-18-note-editor-design.md` (mockup: `docs/design/proposal-editor.html`)
 - Note editor execution log and manual checks: `docs/progress/note-editor-log.md`
 - Folders and tags management spec: `docs/superpowers/specs/2026-10-18-library-management-design.md` (mockup: `docs/design/proposal-library.html`)
+- Folders and tags management plan: `docs/superpowers/plans/2026-10-18-library-management.md`
+- Folders and tags execution log and manual checks: `docs/progress/library-management-log.md`
 - Roadmap (next sub-projects, dropped ideas): `docs/ROADMAP.md`
 
 ## Rules

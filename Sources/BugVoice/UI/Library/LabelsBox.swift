@@ -14,17 +14,19 @@ struct LabelsBox: View {
     var onAcceptSuggestion: (String) -> Void = { _ in }
     var onDismissSuggestions: () -> Void = {}
 
+    @State private var librarySheet: LibrarySheetTab?
+
     var body: some View {
         Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 12, verticalSpacing: 8) {
             GridRow {
                 Text("Folder").bvFont(.footnote).foregroundStyle(.bvSecondary)
-                FolderPicker(model: model, folderID: labels.folderID) { id in
+                FolderPicker(model: model, folderID: labels.folderID, onManage: { librarySheet = .folders }) { id in
                     onChange(ItemLabels(folderID: id, tags: labels.tags))
                 }
             }
             GridRow {
                 Text("Tags").bvFont(.footnote).foregroundStyle(.bvSecondary)
-                TagField(tags: labels.tags, catalog: catalog, noun: noun) { tags in
+                TagField(tags: labels.tags, catalog: catalog, noun: noun, onManage: { librarySheet = .tags }) { tags in
                     onChange(ItemLabels(folderID: labels.folderID, tags: tags))
                 }
             }
@@ -52,6 +54,7 @@ struct LabelsBox: View {
                 }
             }
         }
+        .sheet(item: $librarySheet) { ManageLibrarySheet(model: model, tab: $0) }
         .padding(LayoutTokens.spacing[1])
         .frame(maxWidth: .infinity, alignment: .leading)
         .overlay(RoundedRectangle(cornerRadius: LayoutTokens.cardRadius).strokeBorder(store.theme.secondaryText.opacity(0.25)))

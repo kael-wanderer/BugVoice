@@ -19,6 +19,17 @@ enum ConnectionStatus: Equatable {
     case failed(String)
 }
 
+enum TagRenameOutcome: Equatable {
+    case renamed, unchanged, invalid
+    case needsMerge(target: String, notes: Int, meetings: Int)
+    case failed(count: Int)
+}
+
+enum LibrarySheetTab: String, Identifiable {
+    case folders, tags
+    var id: String { rawValue }
+}
+
 /// Main-window pages.
 enum Page: String, CaseIterable, Identifiable {
     case dictation, insights, meetings, notes, upload, style, dictionary, integrations, settings, help
@@ -154,6 +165,7 @@ final class AppModel {
     var library = LibraryFile()
     /// True when `library.json` was written by a newer BugVoice: shown, never written.
     var libraryReadOnly = false
+    var librarySheet: LibrarySheetTab?
     var meetingTagFilter: [String] = []
     var notesTagFilter: [String] = []
     /// The latest dictation, for the menu preview and *Paste last*. A
@@ -718,8 +730,100 @@ final class AppModel {
     var allTagCatalog: [TagCount] {
         var totals: [String: Int] = [:]
         for tag in meetingTagCatalog + noteTagCatalog { totals[tag.name, default: 0] += tag.count }
+        // Tags made with New tag in the Manage library sheet, not on any item yet.
+        for tag in library.tags where totals[tag.name] == nil { totals[tag.name] = 0 }
         return totals.map { TagCount(name: $0.key, count: $0.value) }
             .sorted { $0.count != $1.count ? $0.count > $1.count : $0.name < $1.name }
+    }
+
+    var tagRows: [TagRow] {
+        LibraryProjection.tagRows(notes: noteTagCatalog, meetings: meetingTagCatalog, file: library)
+    }
+
+    var tagColors: [String: TagColor] {
+        var colors: [String: TagColor] = [:]
+        for tag in library.tags { colors[tag.name] = tag.color }
+        return colors
+    }
+
+    func createTag(_ raw: String) async -> TagCreateResult {
+        guard !libraryReadOnly else { return .invalid }
+        let result = LibraryTags.create(raw, inUse: Set(allTagCatalog.map(\.name)), in: &library)
+        if case .created = result { await saveLibrary() }
+        return result
+    }
+
+    func setTagColor(_ color: TagColor?, for name: String) async {
+        guard !libraryReadOnly else { return }
+        LibraryTags.setColor(color, for: name, in: &library)
+        await saveLibrary()
+    }
+
+    func renameTag(_ old: String, to raw: String) async -> TagRenameOutcome {
+        guard !libraryReadOnly else { return .failed(count: 0) }
+        guard let new = TagName.normalize(raw) else { return .invalid }
+        guard old != new else { return .unchanged }
+        if allTagCatalog.contains(where: { $0.name == new }) || library.tags.contains(where: { $0.name == new }) {
+            return .needsMerge(target: new,
+                              notes: notesController.notes.filter { $0.frontMatter.tags.contains(old) }.count,
+                              meetings: meetingManifests.filter { $0.tags.contains(old) }.count)
+        }
+        return await applyTagEdit(old, to: new)
+    }
+
+    func mergeTag(_ old: String, into new: String) async -> TagRenameOutcome {
+        guard !libraryReadOnly else { return .failed(count: 0) }
+        guard old != new else { return .unchanged }
+        return await applyTagEdit(old, to: new)
+    }
+
+    func deleteTag(_ name: String) async -> TagRenameOutcome {
+        guard !libraryReadOnly else { return .failed(count: 0) }
+        return await applyTagEdit(name, to: nil)
+    }
+
+    private func applyTagEdit(_ old: String, to new: String?) async -> TagRenameOutcome {
+        func edited(_ tags: [String]) -> [String] {
+            if let new { return TagEdit.rename(old, to: new, in: tags) }
+            return TagEdit.remove(old, from: tags)
+        }
+        var failures = 0
+        for note in notesController.notes where note.frontMatter.tags.contains(old) {
+            do {
+                try await notesController.setLabels(id: note.id, folderID: note.frontMatter.folderID,
+                                                    tags: edited(note.frontMatter.tags))
+                if !(await notesController.flush(id: note.id)) {
+                    // Keep the old tag visible on failed items so the same
+                    // action can be retried. The editor's body stays intact.
+                    try await notesController.setLabels(id: note.id, folderID: note.frontMatter.folderID,
+                                                        tags: note.frontMatter.tags)
+                    failures += 1
+                }
+            } catch {
+                failures += 1
+            }
+        }
+        for meeting in meetingManifests where meeting.tags.contains(old) || meeting.suggestedTags.contains(old) {
+            let tags = edited(meeting.tags)
+            let suggestions = edited(meeting.suggestedTags).filter { !tags.contains($0) }
+            await setMeetingLabels(id: meeting.id, folderID: meeting.folderID, tags: tags, suggestedTags: suggestions)
+            await reloadMeetings()
+            guard let current = meetingManifests.first(where: { $0.id == meeting.id }) else {
+                failures += 1
+                continue
+            }
+            if current.tags.contains(old) || current.suggestedTags.contains(old) { failures += 1 }
+        }
+        guard failures == 0 else {
+            saveError = "Could not update \(failures) items. Try again."
+            return .failed(count: failures)
+        }
+        if let new { LibraryTags.rename(old, to: new, in: &library) }
+        else { LibraryTags.delete(old, in: &library) }
+        await saveLibrary()
+        notesTagFilter = edited(notesTagFilter)
+        meetingTagFilter = edited(meetingTagFilter)
+        return .renamed
     }
 
     func createFolder(_ name: String) async -> Result<LibraryFolder, LibraryFolderError> {

@@ -4,6 +4,8 @@ import VoiceCore
 struct GeneralTab: View {
     @Bindable var model: AppModel
 
+    @State private var librarySheet: LibrarySheetTab?
+
     var body: some View {
         SettingsScroll {
             SettingsCard {
@@ -26,6 +28,11 @@ struct GeneralTab: View {
                     .labelsHidden().fixedSize()
                 }
             }
+            SettingsCard(title: "Folders and tags") {
+                SettingsRow(title: "\(counted(model.library.folders.count, "folder")) · \(counted(model.tagRows.count, "tag"))") {
+                    Button("Manage…") { librarySheet = .folders }
+                }
+            }
             SettingsCard {
                 SettingsToggle(title: "Start and stop sounds", isOn: $model.settings.soundsEnabled)
                 Divider()
@@ -34,5 +41,6 @@ struct GeneralTab: View {
                 SettingsToggle(title: "Launch at login", isOn: $model.settings.launchAtLogin)
             }
         }
+        .sheet(item: $librarySheet) { ManageLibrarySheet(model: model, tab: $0) }
     }
 }

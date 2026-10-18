@@ -74,7 +74,7 @@ final class ScratchpadWindowController: NSObject, NSWindowDelegate {
         window.identifier = AppWindow.scratchpad
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         window.contentMinSize = NSSize(width: 420, height: 360)
-        window.contentViewController = NSHostingController(rootView: ScratchpadWindowView(model: model).bvTheme(model.appearance))
+        window.contentViewController = NSHostingController(rootView: ScratchpadWindowView(model: model).bvTheme(model.appearance).tagColors(model))
         model.appearance.attach(window)
         window.isReleasedWhenClosed = false
         window.hidesOnDeactivate = false

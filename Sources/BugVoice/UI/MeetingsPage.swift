@@ -23,7 +23,7 @@ struct MeetingsPage: View {
     @State private var pendingDelete: MeetingManifest?
     @State private var pendingRename: MeetingManifest?
     @State private var renameTitle = ""
-    @State private var managingFolders = false
+    @State private var librarySheet: LibrarySheetTab?
 
     private var visibleMeetings: [MeetingManifest] {
         LibraryProjection.filter(
@@ -100,9 +100,9 @@ struct MeetingsPage: View {
                     filter: Binding(get: { model.meetingsFolderFilter }, set: { model.meetingsFolderFilter = $0 }),
                     counts: LibraryProjection.counts(model.meetingManifests, known: model.library.knownIDs),
                     allTitle: "All meetings",
-                    onManage: { managingFolders = true }
+                    onManage: { librarySheet = .folders }
                 )
-                TagFilterBar(catalog: model.meetingTagCatalog, selected: $model.meetingTagFilter)
+                TagFilterBar(catalog: model.meetingTagCatalog, selected: $model.meetingTagFilter, onManage: { librarySheet = .tags })
             }
             if model.meetingManifests.isEmpty {
                 EmptyState("No meetings yet", systemImage: "waveform.path", message: "Record a meeting to see its transcript here.")
@@ -164,7 +164,7 @@ struct MeetingsPage: View {
         } message: { _ in
             Text("The transcript and audio files will be deleted.")
         }
-        .sheet(isPresented: $managingFolders) { ManageFoldersSheet(model: model) }
+        .sheet(item: $librarySheet) { ManageLibrarySheet(model: model, tab: $0) }
         .sheet(item: $pendingRename) { meeting in
             MeetingRenameSheet(model: model, id: meeting.id, title: $renameTitle) { pendingRename = nil }
         }

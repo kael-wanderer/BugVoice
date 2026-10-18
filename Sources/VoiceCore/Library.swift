@@ -18,12 +18,24 @@ public struct LibraryFile: Codable, Equatable, Sendable {
 
     public var version: Int
     public var folders: [LibraryFolder]
+    public var tags: [LibraryTag]
     public var lastUploadFolderID: FolderID?
 
-    public init(version: Int = LibraryFile.currentVersion, folders: [LibraryFolder] = [], lastUploadFolderID: FolderID? = nil) {
+    public init(version: Int = LibraryFile.currentVersion, folders: [LibraryFolder] = [], lastUploadFolderID: FolderID? = nil, tags: [LibraryTag] = []) {
+        self.tags = tags
         self.version = version
         self.folders = folders
         self.lastUploadFolderID = lastUploadFolderID
+    }
+
+    private enum CodingKeys: String, CodingKey { case version, folders, lastUploadFolderID, tags }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        version = try c.decode(Int.self, forKey: .version)
+        folders = try c.decode([LibraryFolder].self, forKey: .folders)
+        lastUploadFolderID = try c.decodeIfPresent(FolderID.self, forKey: .lastUploadFolderID)
+        tags = try c.decodeIfPresent([LibraryTag].self, forKey: .tags) ?? []
     }
 
     public func folder(_ id: FolderID?) -> LibraryFolder? {

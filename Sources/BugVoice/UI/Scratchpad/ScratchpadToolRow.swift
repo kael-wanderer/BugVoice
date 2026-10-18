@@ -14,6 +14,8 @@ struct ScratchpadToolRow<Trailing: View>: View {
         self.trailing = trailing()
     }
 
+    @State private var librarySheet: LibrarySheetTab?
+
     var body: some View {
         ViewThatFits(in: .horizontal) {
             HStack {
@@ -27,16 +29,17 @@ struct ScratchpadToolRow<Trailing: View>: View {
             }
         }
         .padding(.horizontal, LayoutTokens.spacing[3])
+        .sheet(item: $librarySheet) { ManageLibrarySheet(model: model, tab: $0) }
         .padding(.bottom, LayoutTokens.spacing[0])
     }
 
     private var left: some View {
         HStack(spacing: LayoutTokens.spacing[1]) {
             aiToggle
-            FolderPicker(model: model, folderID: note.frontMatter.folderID) { id in
+            FolderPicker(model: model, folderID: note.frontMatter.folderID, onManage: { librarySheet = .folders }) { id in
                 Task { await model.setNoteLabels(id: note.id, folderID: id, tags: note.frontMatter.tags) }
             }
-            TagField(tags: note.frontMatter.tags, catalog: model.allTagCatalog, noun: "note") { tags in
+            TagField(tags: note.frontMatter.tags, catalog: model.allTagCatalog, noun: "note", onManage: { librarySheet = .tags }) { tags in
                 Task { await model.setNoteLabels(id: note.id, folderID: note.frontMatter.folderID, tags: tags) }
             }
         }
