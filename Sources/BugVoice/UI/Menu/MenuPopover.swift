@@ -24,7 +24,6 @@ struct MenuHighlight {
 
 /// The menu bar popover (spec: docs/superpowers/specs/2026-10-18-menu-popover-design.md).
 struct MenuPopover: View {
-    @Environment(AppearanceStore.self) private var store
     let model: AppModel
     let maxHeight: CGFloat
     let close: () -> Void
@@ -39,7 +38,7 @@ struct MenuPopover: View {
     }
 
     var body: some View {
-        let radius = min(store.scaled(LayoutTokens.largeCardRadius), 20)
+        let radius = LayoutTokens.largeCardRadius
         ScrollView(.vertical) {
             VStack(alignment: .leading, spacing: 0) {
                 if let submenu {
@@ -53,7 +52,7 @@ struct MenuPopover: View {
             .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { contentHeight = $0 }
         }
         .scrollBounceBehavior(.basedOnSize)
-        .frame(width: min(store.scaled(330), 520), height: min(contentHeight, maxHeight))
+        .frame(width: 330, height: min(contentHeight, maxHeight))
         .background(.bvCard, in: RoundedRectangle(cornerRadius: radius))
         .overlay(RoundedRectangle(cornerRadius: radius).stroke(.bvSeparator, lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: radius))
@@ -170,9 +169,9 @@ struct MenuPopover: View {
         case .retrySpeech:
             model.retrySpeech()
         case .fixHotkey:
+            close()
             model.dictation?.retryHotkey()
             if !Permissions.isGranted(.inputMonitoring) { model.openPermissionsWindow() }
-            close()
         }
     }
 }

@@ -23,10 +23,15 @@ private final class MenuPanel: NSPanel {
 @MainActor
 final class MenuPanelController: NSObject {
     private let model: AppModel
+    /// The popover's own appearance: the app's theme at 100% in the system
+    /// font, so text size and font family settings do not change it.
+    private let menuAppearance = AppearanceStore()
     private let statusItem: NSStatusItem
     private let panel: MenuPanel
     private let hosting: MenuHostingView
     private var mouseMonitor: Any?
+    /// Opened, but waiting for a non-zero fitted size before it shows.
+    private var waitingForSize = false
     private var resignObserver: NSObjectProtocol?
 
     init(model: AppModel) {
@@ -57,9 +62,10 @@ final class MenuPanelController: NSObject {
         panel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
         hosting.sizingOptions = [.intrinsicContentSize]
         panel.contentView = hosting
-        model.appearance.attach(panel)
+        menuAppearance.attach(panel)
+        syncAppearance()
         hosting.onSizeChange = { [weak self] in
-            MainActor.assumeIsolated { self?.layout() }
+            MainActor.assumeIsolated { self?.sizeChanged() }
         }
         resignObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.didResignKeyNotification, object: panel, queue: .main
@@ -71,10 +77,11 @@ final class MenuPanelController: NSObject {
     @objc private func statusButtonClicked() { toggle() }
 
     func toggle() {
-        if panel.isVisible { close() } else { open() }
+        if panel.isVisible || waitingForSize { close() } else { open() }
     }
 
     func close() {
+        waitingForSize = false
         guard panel.isVisible else { return }
         panel.orderOut(nil)
         if let mouseMonitor { NSEvent.removeMonitor(mouseMonitor) }
@@ -86,25 +93,51 @@ final class MenuPanelController: NSObject {
         Task { await model.refreshSpeechState() }
         // A fresh view each time resets the submenu and the highlight.
         let popover = MenuPopover(model: model, maxHeight: maxHeight) { [weak self] in self?.close() }
-        hosting.rootView = AnyView(popover.bvTheme(model.appearance, fillsBackground: false))
+        hosting.rootView = AnyView(popover.bvTheme(menuAppearance, fillsBackground: false))
         hosting.layoutSubtreeIfNeeded()
-        layout()
+        // Never show a frame at a stale or zero size and position.
+        waitingForSize = !layout()
+        if !waitingForSize { show() }
+    }
+
+    private func sizeChanged() {
+        guard layout(), waitingForSize else { return }
+        waitingForSize = false
+        show()
+    }
+
+    private func show() {
         panel.makeKeyAndOrderFront(nil)
-        mouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
+        mouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
+            // A global event's location is already in screen coordinates.
+            let location = event.locationInWindow
             MainActor.assumeIsolated {
                 guard let self else { return }
-                if let frame = self.buttonScreenFrame, NSMouseInRect(NSEvent.mouseLocation, frame, false) { return }
+                if let frame = self.buttonScreenFrame, NSMouseInRect(location, frame, false) { return }
                 self.close()
             }
         }
     }
 
-    /// Losing key closes the panel, except while the status button is being
-    /// pressed: its own action toggles the panel, so it must not reopen.
+    /// Losing key closes the panel only when another BugVoice window took it,
+    /// for example after an action opened the main window. Key going back to
+    /// the frontmost app or the status bar must not close it; outside clicks
+    /// close it through the mouse monitor.
     private func panelResignedKey() {
-        if NSEvent.pressedMouseButtons != 0, let frame = buttonScreenFrame,
-           NSMouseInRect(NSEvent.mouseLocation, frame, false) { return }
+        guard let key = NSApp.keyWindow, key !== panel else { return }
         close()
+    }
+
+    /// Mirrors the app's appearance with text scale 100 and the system font.
+    private func syncAppearance() {
+        withObservationTracking {
+            var settings = model.appearance.settings
+            settings.textScale = 100
+            settings.font = .system
+            menuAppearance.apply(settings)
+        } onChange: { [weak self] in
+            Task { @MainActor [weak self] in self?.syncAppearance() }
+        }
     }
 
     // MARK: Layout
@@ -124,9 +157,9 @@ final class MenuPanelController: NSObject {
     }
 
     /// Top edge 4 pt below the icon, centred on it, kept 8 pt inside the screen.
-    private func layout() {
+    @discardableResult private func layout() -> Bool {
         let size = hosting.fittingSize
-        guard size.width > 0, size.height > 0, let visible = screen?.visibleFrame else { return }
+        guard size.width > 0, size.height > 0, let visible = screen?.visibleFrame else { return false }
         let anchor = buttonScreenFrame ?? NSRect(x: visible.midX, y: visible.maxY, width: 0, height: 0)
         let margin: CGFloat = 8
         var x = anchor.midX - size.width / 2
@@ -135,6 +168,7 @@ final class MenuPanelController: NSObject {
         let y = max(top - size.height, visible.minY + margin)
         panel.setFrame(NSRect(x: x, y: y, width: size.width, height: size.height), display: true)
         panel.invalidateShadow()
+        return true
     }
 
     // MARK: Icon
