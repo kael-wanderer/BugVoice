@@ -9,7 +9,7 @@ Read this file first, then `docs/progress/HANDOFF.md` for current state.
 ## Project
 
 BugVoice is a personal, local-first macOS menu-bar dictation app: hold Right
-Option, speak English / Vietnamese / mixed, release, and cleaned text is pasted
+Control (the default hotkey), speak English / Vietnamese / mixed, release, and cleaned text is pasted
 at the cursor (terminal coding agents, Notion, browsers, chat). Speech-to-text
 runs on device (WhisperKit); cleanup uses any local model through an
 OpenAI-compatible or Anthropic-compatible API (LM Studio, Ollama, MLX…) or
