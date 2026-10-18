@@ -230,10 +230,6 @@ public enum GlobalSearch {
         lhs.score != rhs.score ? lhs.score > rhs.score : lhs.passage.index < rhs.passage.index
     }
 
-    private static func isBetter(_ lhs: PassageMatch, _ rhs: PassageMatch) -> Bool {
-        isBetter(lhs, than: rhs)
-    }
-
     private static func passageTitle(_ passages: [PassageMatch]) -> String? {
         passages.first(where: { $0.passage.part == .title })?.passage.lines.first?.text
     }
