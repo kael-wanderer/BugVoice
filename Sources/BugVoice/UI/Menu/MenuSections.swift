@@ -6,6 +6,8 @@ struct MenuStatusLine: View {
     @Environment(AppearanceStore.self) private var store
     let status: MenuStatus
     let hotkey: String
+    /// How VoiceOver says the hotkey ("Right Option", not "Right ⌥").
+    let spokenHotkey: String
     let unavailableShortcuts: [String]
     let highlight: MenuHighlight
 
@@ -23,7 +25,7 @@ struct MenuStatusLine: View {
                     }
                 }
                 .accessibilityElement(children: .combine)
-                .accessibilityLabel(spokenStatus(detail))
+                .accessibilityLabel(spokenStatus(status.detail(hotkey: spokenHotkey)))
                 .accessibilitySortPriority(1)
                 Spacer(minLength: LayoutTokens.spacing[1])
                 if let title = status.actionTitle {

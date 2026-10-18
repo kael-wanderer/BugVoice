@@ -55,6 +55,7 @@ final class MenuPanelController: NSObject {
             button.setAccessibilityLabel("BugVoice")
         }
         updateIcon()
+        closeWhenDictating()
 
         panel.level = .popUpMenu
         panel.isOpaque = false
@@ -84,8 +85,14 @@ final class MenuPanelController: NSObject {
 
     func close() {
         waitingForSize = false
+        removeMonitors()
         guard panel.isVisible else { return }
         panel.orderOut(nil)
+    }
+
+    /// Safe to call at any time; the panel can be ordered out without close(),
+    /// for example by NSApp.hide, and the monitors must not outlive it.
+    private func removeMonitors() {
         if let mouseMonitor { NSEvent.removeMonitor(mouseMonitor) }
         mouseMonitor = nil
         let center = NSWorkspace.shared.notificationCenter
@@ -116,9 +123,13 @@ final class MenuPanelController: NSObject {
     }
 
     private func show() {
+        removeMonitors()
         panel.makeKeyAndOrderFront(nil)
         mouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
             // A global event's location is already in screen coordinates.
+            // Global monitors never see events delivered to BugVoice, so a
+            // click on the status button does not reach this closure; the
+            // check below is a guard only, and toggle() handles that click.
             let location = event.locationInWindow
             MainActor.assumeIsolated {
                 guard let self else { return }
@@ -158,6 +169,7 @@ final class MenuPanelController: NSObject {
             settings.textScale = 100
             settings.font = .system
             menuAppearance.apply(settings)
+            panel.invalidateShadow()
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in self?.syncAppearance() }
         }
@@ -192,6 +204,18 @@ final class MenuPanelController: NSObject {
         panel.setFrame(NSRect(x: x, y: y, width: size.width, height: size.height), display: true)
         panel.invalidateShadow()
         return true
+    }
+
+    // MARK: Dictation
+
+    /// The panel stays key, so a paste would land in it; close it when
+    /// dictation starts so the text goes to the app the owner works in.
+    private func closeWhenDictating() {
+        withObservationTracking {
+            if model.isListening { close() }
+        } onChange: { [weak self] in
+            Task { @MainActor [weak self] in self?.closeWhenDictating() }
+        }
     }
 
     // MARK: Icon

@@ -200,6 +200,7 @@ struct MenuPopover: View {
 
     @ViewBuilder private var mainList: some View {
         MenuStatusLine(status: status, hotkey: model.settings.hotkey.displayName,
+                       spokenHotkey: model.settings.hotkey.spokenName,
                        unavailableShortcuts: model.unavailableShortcuts, highlight: highlight)
         if let meetings = model.meetings, meetings.isRecording || meetings.isPaused || meetings.isTranscribing {
             MenuMeetingStrip(meetings: meetings, highlight: highlight)

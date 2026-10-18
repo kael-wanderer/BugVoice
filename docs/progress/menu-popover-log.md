@@ -27,6 +27,9 @@ Fix `e1e202e`: the popover opens on the main list every time.
 ### Task 6 — Log and manual checks
 `74e8179` (log), plus the wording fix commit `docs: menu popover log wording`.
 
+### Final review fixes
+`fix(app): popover speaks the hotkey name, closes when dictation starts, cleans up monitors` (the commit that adds this line).
+
 ## Verification
 
 `swift test` passes (925 VoiceCore, 30 MCPKit, 94 BugVoiceMac). `Scripts/check-tokens.sh` exits 0 with an empty allow list.
@@ -60,6 +63,9 @@ Agent column: what the agent ran in the dev app. Boxes are for the owner.
 - Back-row highlight after leaving a submenu with the mouse (synthetic clicks could not test it).
 - Return on a › row opens the submenu with no highlight; Right highlights its first row.
 - An empty "Untitled" note was created in the owner's Scratchpad by the Task 3 New note check. It was left in place; delete it if unwanted.
+- Hold the hotkey with the popover open: the popover closes and the text lands in the app. Not verified by the agent.
+- Tab with Full Keyboard Access turned on. Not verified by the agent.
+- Click the primary display's icon after using the second display's icon. Not verified by the agent.
 - The status item can be reached from the primary display's menu bar too (not clicked: Record meeting would start a recording and New note would create a note).
 
 ## Data and environment
