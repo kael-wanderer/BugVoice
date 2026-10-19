@@ -74,6 +74,10 @@ version and build live in `App/Info.plist`. Every commit raises the build by one
 - Language per app and fix last paste plan: `docs/superpowers/plans/2026-10-19-language-and-fix-last.md`
 - Language per app and fix last paste execution log and device checks: `docs/progress/language-log.md`
 
+- Command mode spec: `docs/superpowers/specs/2026-10-19-command-mode-design.md` (mockup: `docs/design/proposal-command.html`)
+- Command mode plan: `docs/superpowers/plans/2026-10-19-command-mode.md`
+- Command mode execution log and device checks: `docs/progress/command-log.md`
+
 ## Rules
 
 - Swift package, tools 6.0, macOS 15.0 floor. `VoiceCore` imports Foundation only.

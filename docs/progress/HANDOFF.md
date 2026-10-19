@@ -4,6 +4,20 @@ Last updated: 2026-10-19
 
 ## Current state
 
+**Command mode:** implemented on `feat/command-mode` from `main` (2026-10-19),
+not merged or pushed. Hold Right Option to rewrite the selection or write new
+text; Settings › General chooses Right Option / Right Command / Off. Includes
+language rules, selection capture with clipboard restore, focus/selection checks,
+terminal copy-only behavior, Escape cancellation, Original via select-back,
+command history/search and Insights exclusion (including backfill).
+Final tests: **1,060 VoiceCore, 30 MCPKit, 100 BugVoiceMac**. Signed app build
+succeeds with `Bugler Local Dev`. Read-only General/Shortcuts smoke check passed
+on the secondary display. C1–C11 not run; C12 has partial dark Settings evidence
+only and is not marked passed. No synthetic command, paste or Return was used.
+Application Support was backed up and restored with regular-file hashes verified;
+the dev app is stopped. Full task evidence, deviations and C1–C12 results:
+`docs/progress/command-log.md`.
+
 **Language per app and fix last paste:** implemented on `feat/language-fix-last`
 from `main` (2026-10-19), not merged or pushed. Per-app language rules,
 popover switch, language key while recording, English-word preservation, and
