@@ -84,6 +84,7 @@ version and build live in `App/Info.plist`. Every commit raises the build by one
 - Learn from corrections plan: `docs/superpowers/plans/2026-10-19-learn-from-corrections.md`
 - Action items spec: `docs/superpowers/specs/2026-10-19-action-items-design.md` (mockup: `docs/design/proposal-action-items.html`)
 - Action items plan: `docs/superpowers/plans/2026-10-19-action-items.md`
+- Shortcuts support spec: `docs/superpowers/specs/2026-10-19-shortcuts-design.md` (mockup: `docs/design/proposal-shortcuts.html`)
 - Action items execution log and device checks: `docs/progress/action-items-log.md`
 - Learn from corrections execution log and device checks: `docs/progress/corrections-log.md`
 

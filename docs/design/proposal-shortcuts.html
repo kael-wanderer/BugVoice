@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BugVoice Shortcuts</title>
+<meta name="description" content="Shortcuts support: BugVoice actions in the Shortcuts app, Spotlight and Siri.">
+<style>
+:root{
+  --bg:#f7f0d2;--panel:#fbf5df;--hover:#efe6c6;--line:#d9cfa8;--text:#2b2a26;--muted:#77705d;--accent:#9a7a2a;--soft:#e9dcae;--on:#fff;--rec:#d8443f;--ok:#3f9a5e;
+  --desk:linear-gradient(160deg,#c9b98a,#8f7f56);
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#2b2f37;--panel:#323741;--hover:#3a404b;--line:#454b57;--text:#eceff4;--muted:#a3abb8;--accent:#88c0d0;--soft:#3d4a5a;--on:#0b0d12;--rec:#e06c66;--ok:#8fc79f;
+  --desk:linear-gradient(160deg,#5a6b8c,#2b3346)}}
+:root[data-theme="dark"]{
+  --bg:#2b2f37;--panel:#323741;--hover:#3a404b;--line:#454b57;--text:#eceff4;--muted:#a3abb8;--accent:#88c0d0;--soft:#3d4a5a;--on:#0b0d12;--rec:#e06c66;--ok:#8fc79f;
+  --desk:linear-gradient(160deg,#5a6b8c,#2b3346)}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font:13px/1.45 -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+.review{max-width:1300px;margin:0 auto;padding:20px 16px 48px}
+header.top{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:flex-end;margin-bottom:12px}
+header.top h1{font-size:22px;margin:0}
+header.top p{margin:4px 0 0;color:var(--muted);max-width:860px}
+.toggle{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:6px 14px}
+h2.sec{font-size:15px;margin:28px 0 6px}
+p.why{margin:0 0 12px;color:var(--muted);max-width:900px}
+.stage{background:var(--desk);border-radius:12px;padding:16px}
+.pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,400px),1fr));gap:16px;align-items:start}
+.label{color:#fff;font-weight:600;margin:0 0 8px;text-shadow:0 1px 2px #0006}
+.notes{color:#fff;font-size:12px;margin:8px 0 0;text-shadow:0 1px 2px #0008}
+.win{background:var(--bg);border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 50px #0006;overflow:hidden}
+.wbar{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.wbar b{font-size:15px}
+.cols{display:flex}
+.side{width:150px;flex:none;border-right:1px solid var(--line);padding:8px}
+.side div{padding:4px 8px;border-radius:6px;color:var(--muted)}
+.side div.on{background:var(--soft);color:var(--text);font-weight:600}
+.body{flex:1;min-width:0;padding:12px;display:flex;flex-direction:column;gap:10px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.card h3{margin:0;font-size:13px}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.row .grow{flex:1;min-width:120px}
+hr{border:0;border-top:1px solid var(--line);margin:0}
+.btn{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:3px 9px;white-space:nowrap}
+.btn.prim{background:var(--accent);color:var(--on);border-color:var(--accent);font-weight:600}
+.btn.danger{color:var(--rec)}
+.pop{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:3px 8px}
+.foot{color:var(--muted);font-size:12px}
+.ok{color:var(--ok)}
+.err{color:var(--rec)}
+.bar{height:6px;border-radius:3px;background:var(--hover);overflow:hidden}
+.bar i{display:block;height:100%;width:34%;background:var(--accent)}
+.path{font:12px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sheet{background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 50px #0006;overflow:hidden;max-width:460px}
+.shead{padding:14px 16px 6px}
+.shead b{font-size:15px}
+.sbody{padding:0 16px 12px;display:flex;flex-direction:column;gap:10px}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:3px 14px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.facts span{color:var(--muted)}
+.callout{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12px}
+.callout.warn{border-color:var(--rec)}
+.sfoot{display:flex;justify-content:flex-end;gap:8px;padding:10px 16px;border-top:1px solid var(--line)}
+code{font-size:12px;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:0 4px}
+</style>
+<style>
+.lib{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr));gap:10px}
+.act{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;gap:10px;align-items:flex-start}
+.act .ic{width:28px;height:28px;border-radius:7px;background:var(--accent);color:var(--on);display:grid;place-items:center;font-weight:700;flex:none;font-size:13px}
+.act b{display:block}
+.act .foot{margin-top:2px}
+.flow{display:flex;flex-direction:column;gap:8px;max-width:520px}
+.step{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.step .h{display:flex;gap:8px;align-items:center;font-weight:600}
+.step .h .ic{width:20px;height:20px;border-radius:5px;background:var(--accent);color:var(--on);display:grid;place-items:center;font-size:11px}
+.step .h .ic.sys{background:var(--muted)}
+.tok{display:inline-block;background:var(--soft);border-radius:5px;padding:0 6px;color:var(--accent);font-weight:600}
+.param{color:var(--muted);font-size:12px;margin-top:4px}
+.spot{background:#1d1f24cc;color:#eee;border-radius:14px;padding:10px;max-width:560px;box-shadow:0 18px 50px #0008}
+.spot .q{font-size:18px;padding:6px 8px;border-bottom:1px solid #fff2}
+.spot .r{display:flex;gap:10px;align-items:center;padding:7px 8px;border-radius:8px}
+.spot .r.on{background:#3b6fd4}
+.spot .r .ic{width:22px;height:22px;border-radius:6px;background:#88c0d0;color:#0b0d12;display:grid;place-items:center;font-size:11px;font-weight:700}
+.spot .r .k{margin-left:auto;font-size:12px;opacity:.7}
+.err{background:var(--panel);border:1px solid var(--rec);border-radius:10px;padding:10px 12px;max-width:520px}
+table.m{border-collapse:collapse;width:100%;font-size:12px}
+table.m td,table.m th{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+table.m th{color:var(--muted);font-weight:600}
+.tw{overflow-x:auto}
+</style>
+</head>
+<body>
+<div class="review">
+<header class="top">
+  <div>
+    <h1>Shortcuts support</h1>
+    <p>Spec: <code>docs/superpowers/specs/2026-10-19-shortcuts-design.md</code>. Six BugVoice actions in the Shortcuts app; three of them also in Spotlight and Siri. Everything runs from the menu bar app, offline unless you chose a remote model.</p>
+  </div>
+  <button class="toggle" id="t">Light / dark</button>
+</header>
+
+<h2 class="sec">1. BugVoice in the Shortcuts library</h2>
+<div class="stage"><div class="lib">
+  <div class="act"><span class="ic">●</span><div><b>Start meeting recording</b><div class="foot">Starts recording a meeting, like Start meeting in the menu bar. Optional title.</div></div></div>
+  <div class="act"><span class="ic">■</span><div><b>Stop meeting recording</b><div class="foot">Stops the meeting that is recording. Transcription continues in BugVoice.</div></div></div>
+  <div class="act"><span class="ic">♪</span><div><b>Transcribe audio file</b><div class="foot">Transcribes an audio file on this Mac and returns the transcript. The recording is kept in Meetings.</div></div></div>
+  <div class="act"><span class="ic">✎</span><div><b>Rewrite text</b><div class="foot">Applies an instruction to text with your Dictation cleanup model, like command mode.</div></div></div>
+  <div class="act"><span class="ic">+</span><div><b>New note</b><div class="foot">Creates a Scratchpad note with the text. Optional title and folder.</div></div></div>
+  <div class="act"><span class="ic">✓</span><div><b>Get open action items</b><div class="foot">Returns open action items from your meetings, newest meeting first.</div></div></div>
+</div></div>
+
+<h2 class="sec">2. Example shortcut: voice memo to note</h2>
+<p class="why">Chains three BugVoice actions. Could run from a folder automation, a menu bar button or "Hey Siri".</p>
+<div class="stage"><div class="flow">
+  <div class="step"><div class="h"><span class="ic sys">⌂</span>Get latest Voice Memo</div></div>
+  <div class="step"><div class="h"><span class="ic">♪</span>Transcribe <span class="tok">Voice Memo</span> with BugVoice</div>
+    <div class="param">Language: Auto · Wait for transcript: On</div></div>
+  <div class="step"><div class="h"><span class="ic">✎</span>Rewrite <span class="tok">Transcript</span></div>
+    <div class="param">Instruction: turn this into a short daily log entry with bullet points</div></div>
+  <div class="step"><div class="h"><span class="ic">+</span>New note with <span class="tok">Rewritten text</span></div>
+    <div class="param">Title: Daily log · Folder: Personal</div></div>
+</div></div>
+
+<h2 class="sec">3. Spotlight and Siri (App Shortcuts)</h2>
+<div class="stage">
+  <div class="spot">
+    <div class="q">start a meeting</div>
+    <div class="r on"><span class="ic">●</span>Start a meeting in BugVoice<span class="k">App Shortcut</span></div>
+    <div class="r"><span class="ic">■</span>Stop the meeting in BugVoice<span class="k">App Shortcut</span></div>
+    <div class="r"><span class="ic">+</span>New BugVoice note<span class="k">App Shortcut</span></div>
+  </div>
+  <p class="notes">Available right after install, no setup. Siri phrases: "Start a meeting in BugVoice", "Start recording a meeting in BugVoice", "Stop the meeting in BugVoice", "New BugVoice note".</p>
+</div>
+
+<h2 class="sec">4. Errors in Shortcuts</h2>
+<div class="stage"><div class="pair">
+  <div class="err"><b>Rewrite text</b><div class="foot">Command mode needs a text model — choose one in Settings › Models</div></div>
+  <div class="err"><b>Stop meeting recording</b><div class="foot">No meeting is recording.</div></div>
+  <div class="err"><b>Transcribe audio file</b><div class="foot">Still transcribing after 30 minutes. The transcript will finish in BugVoice › Meetings.</div></div>
+  <div class="err"><b>New note</b><div class="foot">No folder named “Wrok”.</div></div>
+</div></div>
+
+<h2 class="sec">5. Settings › Shortcuts footnote</h2>
+<div class="stage"><div class="win"><div class="cols">
+  <div class="side"><div>General</div><div class="on">Shortcuts</div><div>Speech</div></div>
+  <div class="body"><div class="card">
+    <div class="row"><span class="grow">Paste last dictation</span><span class="pop">⌃⌥ V ▾</span></div>
+    <div class="row"><span class="grow">Start or stop a meeting</span><span class="pop">⌃⌥ M ▾</span></div>
+    <hr>
+    <div class="foot">BugVoice actions are also in the Shortcuts app: start and stop meetings, transcribe files, rewrite text, new notes and open action items.</div>
+  </div></div>
+</div></div></div>
+</div>
+<script>
+document.getElementById('t').onclick=()=>{const r=document.documentElement;const dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme: dark)').matches;r.dataset.theme=dark?'light':'dark'};
+</script>
+</body>
+</html>
