@@ -366,6 +366,7 @@ final class DictationController {
     // MARK: Menu actions
 
     func retryLast() {
+        model.correctionWatcher.cancel()
         guard model.command?.isActive != true, model.lastResult?.command == nil else { return }
         guard !isBusy, !recorder.isRunning else { return }
         if let notReady = speechNotReadyState() {
@@ -383,6 +384,7 @@ final class DictationController {
     }
 
     func pasteRaw() {
+        model.correctionWatcher.cancel()
         guard model.command?.isActive != true else { return }
         if let previous = model.lastResult, previous.command != nil {
             restoreCommandOriginal(previous)
@@ -410,6 +412,7 @@ final class DictationController {
     }
 
     func redoInOtherLanguage() {
+        model.correctionWatcher.cancel()
         guard model.command?.isActive != true else { return }
         if model.lastResult?.command != nil { showNothingToFix(); return }
         guard !isBusy, !recorder.isRunning, let previous = model.lastResult,
@@ -552,8 +555,10 @@ final class DictationController {
     }
 
     func recordOrdinaryInsertion(_ text: String, focus: FocusSnapshot) {
-        correctionFocus = FocusInspector.read()
-        correctionElement = FocusInspector.focusedElement()
+        if model.settings.speech.learnFromCorrections, !focus.isSecure {
+            correctionFocus = FocusInspector.read()
+            correctionElement = FocusInspector.focusedElement()
+        }
         guard !focus.isSecure else { clearReplacementRecord(); return }
         let processID = NSWorkspace.shared.frontmostApplication?.processIdentifier ?? 0
         replacementGuard.recordInsertion(LastInsertion(text: text, processID: processID, at: Date()))

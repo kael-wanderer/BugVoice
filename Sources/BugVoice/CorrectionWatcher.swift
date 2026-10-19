@@ -36,6 +36,15 @@ final class CorrectionWatcher {
         watch?.observe(value: FocusInspector.value(of: element)) ?? false
     }
 
+    /// Ends the watch without recording: the pasted text was replaced by
+    /// BugVoice itself (Paste raw, Redo, Retry), so a diff would be noise.
+    func cancel() {
+        task?.cancel()
+        task = nil
+        watch = nil
+        app = nil
+    }
+
     func stop() {
         task?.cancel()
         task = nil

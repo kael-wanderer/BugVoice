@@ -99,3 +99,13 @@ Development errors resolved before commits: AppKit exposes `availableLanguages`
 on the checker instance; Swift Testing assertions around mutating `observe`
 calls need local result variables. An initial process-stop check matched its
 own shell command; an exact process-name check was used before restoration.
+
+## Review fixes (2026-10-19)
+
+- Paste raw (⌃⌥R), Redo in the other language (⌃⌥L) and Retry cancel the
+  watch without recording (`CorrectionWatcher.cancel()`). The field then holds
+  BugVoice's own replacement, so diffing it against the cleaned paste would
+  turn cleanup's edits into false suggestions.
+- The field read just before the paste (anchors) runs only when Learn from
+  corrections is on and the field is not secure, so a paste with the setting
+  off does no extra Accessibility work.
