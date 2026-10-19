@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BugVoice Live Preview</title>
+<meta name="description" content="Live preview: the words heard appear under the HUD while speaking and stay during transcribing and cleaning.">
+<style>
+:root{
+  --bg:#f7f0d2;--panel:#fbf5df;--hover:#efe6c6;--line:#d9cfa8;--text:#2b2a26;--muted:#77705d;--accent:#9a7a2a;--soft:#e9dcae;--on:#fff;--rec:#d8443f;--ok:#3f9a5e;
+  --desk:linear-gradient(160deg,#c9b98a,#8f7f56);
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#2b2f37;--panel:#323741;--hover:#3a404b;--line:#454b57;--text:#eceff4;--muted:#a3abb8;--accent:#88c0d0;--soft:#3d4a5a;--on:#0b0d12;--rec:#e06c66;--ok:#8fc79f;
+  --desk:linear-gradient(160deg,#5a6b8c,#2b3346)}}
+:root[data-theme="dark"]{
+  --bg:#2b2f37;--panel:#323741;--hover:#3a404b;--line:#454b57;--text:#eceff4;--muted:#a3abb8;--accent:#88c0d0;--soft:#3d4a5a;--on:#0b0d12;--rec:#e06c66;--ok:#8fc79f;
+  --desk:linear-gradient(160deg,#5a6b8c,#2b3346)}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font:13px/1.45 -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+.review{max-width:1300px;margin:0 auto;padding:20px 16px 48px}
+header.top{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:flex-end;margin-bottom:12px}
+header.top h1{font-size:22px;margin:0}
+header.top p{margin:4px 0 0;color:var(--muted);max-width:860px}
+.toggle{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:6px 14px}
+h2.sec{font-size:15px;margin:28px 0 6px}
+p.why{margin:0 0 12px;color:var(--muted);max-width:900px}
+.stage{background:var(--desk);border-radius:12px;padding:16px}
+.pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,400px),1fr));gap:16px;align-items:start}
+.label{color:#fff;font-weight:600;margin:0 0 8px;text-shadow:0 1px 2px #0006}
+.notes{color:#fff;font-size:12px;margin:8px 0 0;text-shadow:0 1px 2px #0008}
+.win{background:var(--bg);border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 50px #0006;overflow:hidden}
+.wbar{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.wbar b{font-size:15px}
+.cols{display:flex}
+.side{width:150px;flex:none;border-right:1px solid var(--line);padding:8px}
+.side div{padding:4px 8px;border-radius:6px;color:var(--muted)}
+.side div.on{background:var(--soft);color:var(--text);font-weight:600}
+.body{flex:1;min-width:0;padding:12px;display:flex;flex-direction:column;gap:10px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.card h3{margin:0;font-size:13px}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.row .grow{flex:1;min-width:120px}
+hr{border:0;border-top:1px solid var(--line);margin:0}
+.btn{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:3px 9px;white-space:nowrap}
+.btn.prim{background:var(--accent);color:var(--on);border-color:var(--accent);font-weight:600}
+.btn.danger{color:var(--rec)}
+.pop{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:3px 8px}
+.foot{color:var(--muted);font-size:12px}
+.ok{color:var(--ok)}
+.err{color:var(--rec)}
+.bar{height:6px;border-radius:3px;background:var(--hover);overflow:hidden}
+.bar i{display:block;height:100%;width:34%;background:var(--accent)}
+.path{font:12px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sheet{background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 50px #0006;overflow:hidden;max-width:460px}
+.shead{padding:14px 16px 6px}
+.shead b{font-size:15px}
+.sbody{padding:0 16px 12px;display:flex;flex-direction:column;gap:10px}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:3px 14px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.facts span{color:var(--muted)}
+.callout{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12px}
+.callout.warn{border-color:var(--rec)}
+.sfoot{display:flex;justify-content:flex-end;gap:8px;padding:10px 16px;border-top:1px solid var(--line)}
+code{font-size:12px;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:0 4px}
+</style>
+<style>
+.hud{display:inline-flex;align-items:center;gap:10px;background:#111c;color:#fff;border-radius:999px;padding:8px 14px;box-shadow:0 8px 24px #0006}
+.hud .dot{width:8px;height:8px;border-radius:50%;background:var(--rec)}
+.hud .lang{font-size:11px;font-weight:700;border:1px solid #fff8;border-radius:5px;padding:0 5px}
+.hud .sub{color:#fffa;font-size:12px}
+.hud .app{font-size:12px;background:#fff2;border-radius:999px;padding:0 7px}
+.hud .cmd{font-size:11px;font-weight:700;background:var(--accent);color:var(--on);border-radius:5px;padding:0 6px}
+.bars{display:inline-flex;gap:2px;align-items:center;height:18px}
+.bars i{display:block;width:3px;background:#fff;border-radius:2px}
+.spin{width:12px;height:12px;border-radius:50%;border:2px solid #fff4;border-top-color:#fff}
+.ok{color:var(--ok);font-weight:700}
+.stack{display:inline-flex;flex-direction:column;align-items:center;gap:6px;max-width:100%}
+.pv{background:#111c;color:#fff;border-radius:12px;padding:8px 14px;max-width:min(460px,100%);line-height:1.4;box-shadow:0 8px 24px #0006;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.pv.dim{color:#fff9}
+.moments{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:14px}
+.moment .n{color:#fff;font-weight:700;margin:0 0 8px;text-shadow:0 1px 2px #0008;font-size:13px}
+.sw{width:34px;height:20px;border-radius:999px;background:var(--accent);position:relative;flex:none}
+.sw::after{content:"";position:absolute;right:2px;top:2px;width:16px;height:16px;border-radius:50%;background:#fff}
+.body{flex:1;padding:12px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.foot{color:var(--muted);font-size:12px}
+.note{color:#fff;font-size:12px;margin-top:8px;text-shadow:0 1px 2px #0008}
+</style>
+</head>
+<body>
+<div class="review">
+<header class="top">
+  <div>
+    <h1>Live preview while speaking</h1>
+    <p>Spec: <code>docs/superpowers/specs/2026-10-19-live-preview-design.md</code>. The words BugVoice hears appear under the HUD while you talk and stay there while it transcribes and cleans. The pasted text still comes from the whole recording after you release.</p>
+  </div>
+  <button class="toggle" id="t">Light / dark</button>
+</header>
+
+<h2 class="sec">1. One dictation, start to finish</h2>
+<p class="why">Hold Right Control in Slack. The card appears after about a second and updates about once a second. After release it stays, dimmed, until the text is pasted.</p>
+<div class="stage"><div class="moments">
+  <div class="moment"><p class="n">0:00 — key down</p><div class="stack"><div class="hud"><span class="dot"></span><span class="bars"><i style="height:6px"></i><i style="height:11px"></i><i style="height:17px"></i><i style="height:13px"></i><i style="height:8px"></i><i style="height:15px"></i><i style="height:10px"></i><i style="height:18px"></i><i style="height:7px"></i><i style="height:12px"></i><i style="height:6px"></i><i style="height:9px"></i></span><span class="sub">0:00</span><span class="app">Slack</span><span class="lang">Auto</span></div></div><p class="note">No card until the first words come back.</p></div>
+  <div class="moment"><p class="n">0:02 — speaking</p><div class="stack"><div class="hud"><span class="dot"></span><span class="bars"><i style="height:6px"></i><i style="height:11px"></i><i style="height:17px"></i><i style="height:13px"></i><i style="height:8px"></i><i style="height:15px"></i><i style="height:10px"></i><i style="height:18px"></i><i style="height:7px"></i><i style="height:12px"></i><i style="height:6px"></i><i style="height:9px"></i></span><span class="sub">0:02</span><span class="app">Slack</span><span class="lang">Auto</span></div><div class="pv">Hey Linh, the build for</div></div></div>
+  <div class="moment"><p class="n">0:05 — speaking</p><div class="stack"><div class="hud"><span class="dot"></span><span class="bars"><i style="height:6px"></i><i style="height:11px"></i><i style="height:17px"></i><i style="height:13px"></i><i style="height:8px"></i><i style="height:15px"></i><i style="height:10px"></i><i style="height:18px"></i><i style="height:7px"></i><i style="height:12px"></i><i style="height:6px"></i><i style="height:9px"></i></span><span class="sub">0:05</span><span class="app">Slack</span><span class="lang">Auto</span></div><div class="pv">Hey Linh, the build for QA is ready, can you check the login screen on</div></div></div>
+  <div class="moment"><p class="n">0:07 — released, transcribing</p><div class="stack"><div class="hud"><span class="spin"></span><b>Transcribing</b><span class="sub">Auto</span></div><div class="pv dim">Hey Linh, the build for QA is ready, can you check the login screen on the small iPhone before lunch</div></div></div>
+  <div class="moment"><p class="n">0:08 — cleaning</p><div class="stack"><div class="hud"><span class="spin"></span><b>Cleaning (Qwen)</b><span class="sub">Slack</span></div><div class="pv dim">Hey Linh, the build for QA is ready, can you check the login screen on the small iPhone before lunch</div></div></div>
+  <div class="moment"><p class="n">0:09 — pasted</p><div class="stack"><div class="hud"><span class="ok">✓</span><b>Done (Personal)</b><span class="sub">19 words · 1.9 s</span></div></div><p class="note">The card hides with the result.</p></div>
+</div></div>
+
+<h2 class="sec">2. Long dictation and hands-free</h2>
+<p class="why">Two lines at most. When the text is longer the start is cut, so the newest words stay visible. Only the last 15 seconds of audio are previewed.</p>
+<div class="stage"><div class="moments">
+  <div class="moment"><p class="n">Hold, 0:24</p><div class="stack"><div class="hud"><span class="dot"></span><span class="bars"><i style="height:6px"></i><i style="height:11px"></i><i style="height:17px"></i><i style="height:13px"></i><i style="height:8px"></i><i style="height:15px"></i><i style="height:10px"></i><i style="height:18px"></i><i style="height:7px"></i><i style="height:12px"></i><i style="height:6px"></i><i style="height:9px"></i></span><span class="sub">0:24</span><span class="app">Notion</span><span class="lang">Auto</span></div><div class="pv">… then the second part of the plan is to move the upload queue into its own controller and keep the meeting store as it is</div></div></div>
+  <div class="moment"><p class="n">Hands-free, 1:12 / 5:00</p><div class="stack"><div class="hud"><span class="dot"></span><b>Hands-free</b><span class="bars"><i style="height:6px"></i><i style="height:11px"></i><i style="height:17px"></i><i style="height:13px"></i><i style="height:8px"></i><i style="height:15px"></i><i style="height:10px"></i><i style="height:18px"></i><i style="height:7px"></i><i style="height:12px"></i><i style="height:6px"></i><i style="height:9px"></i></span><span class="sub">1:12 / 5:00</span><span class="app">Notes</span><span class="lang">VI</span></div><div class="pv">… sáng nay mình họp với team mobile về bản build mới, cần sửa lỗi đăng nhập trước thứ sáu</div></div></div>
+</div></div>
+
+<h2 class="sec">3. Command mode</h2>
+<p class="why">The instruction shows the same way, so a misheard command is visible before release.</p>
+<div class="stage"><div class="moments">
+  <div class="moment"><p class="n">Holding Right Option, 142 characters selected</p><div class="stack"><div class="hud"><span class="dot"></span><span class="cmd">Command</span>142 characters<span class="sub">· Notion</span><span class="lang">Auto</span></div><div class="pv">make this more formal and shorter</div></div></div>
+  <div class="moment"><p class="n">Released</p><div class="stack"><div class="hud"><span class="spin"></span><b>Rewriting (Qwen)</b><span class="sub">Notion · Esc to cancel</span></div><div class="pv dim">make this more formal and shorter</div></div></div>
+</div></div>
+
+<h2 class="sec">4. When there is no preview</h2>
+<p class="why">The pill looks exactly as today. No message: the preview is extra, its absence is not an error.</p>
+<div class="stage"><div class="moments">
+  <div class="moment"><p class="n">Secure field (password)</p><div class="stack"><div class="hud"><span class="dot"></span><span class="bars"><i style="height:6px"></i><i style="height:11px"></i><i style="height:17px"></i><i style="height:13px"></i><i style="height:8px"></i><i style="height:15px"></i><i style="height:10px"></i><i style="height:18px"></i><i style="height:7px"></i><i style="height:12px"></i><i style="height:6px"></i><i style="height:9px"></i></span><span class="sub">0:03</span><span class="app">Safari</span><span class="lang">Auto</span></div></div></div>
+  <div class="moment"><p class="n">A meeting is recording</p><div class="stack"><div class="hud"><span class="dot"></span><span class="bars"><i style="height:6px"></i><i style="height:11px"></i><i style="height:17px"></i><i style="height:13px"></i><i style="height:8px"></i><i style="height:15px"></i><i style="height:10px"></i><i style="height:18px"></i><i style="height:7px"></i><i style="height:12px"></i><i style="height:6px"></i><i style="height:9px"></i></span><span class="sub">0:03</span><span class="app">Slack</span><span class="lang">Auto</span></div></div></div>
+  <div class="moment"><p class="n">OpenAI-compatible speech engine</p><div class="stack"><div class="hud"><span class="dot"></span><span class="bars"><i style="height:6px"></i><i style="height:11px"></i><i style="height:17px"></i><i style="height:13px"></i><i style="height:8px"></i><i style="height:15px"></i><i style="height:10px"></i><i style="height:18px"></i><i style="height:7px"></i><i style="height:12px"></i><i style="height:6px"></i><i style="height:9px"></i></span><span class="sub">0:03</span><span class="app">Ghostty</span><span class="lang">EN</span></div></div></div>
+  <div class="moment"><p class="n">Silence or only “Thank you.”</p><div class="stack"><div class="hud"><span class="dot"></span><span class="bars"><i style="height:6px"></i><i style="height:11px"></i><i style="height:17px"></i><i style="height:13px"></i><i style="height:8px"></i><i style="height:15px"></i><i style="height:10px"></i><i style="height:18px"></i><i style="height:7px"></i><i style="height:12px"></i><i style="height:6px"></i><i style="height:9px"></i></span><span class="sub">0:04</span><span class="app">Slack</span><span class="lang">Auto</span></div></div></div>
+</div></div>
+
+<h2 class="sec">5. Settings › Speech</h2>
+<div class="stage"><div class="win"><div class="cols">
+  <div class="side"><div>General</div><div>Shortcuts</div><div class="on">Speech</div></div>
+  <div class="body"><div class="card">
+    <div class="row"><span class="grow">Use vocabulary hints</span><span class="sw"></span></div>
+    <hr>
+    <div class="row"><span class="grow">Live preview</span><span class="sw"></span></div>
+    <div class="foot">Shows the words under the HUD while you speak. The pasted text still comes from the whole recording after you release. Off with the OpenAI-compatible engine.</div>
+  </div></div>
+</div></div></div>
+</div>
+<script>
+document.getElementById('t').onclick=()=>{const r=document.documentElement;const dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme: dark)').matches;r.dataset.theme=dark?'light':'dark'};
+</script>
+</body>
+</html>
