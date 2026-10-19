@@ -77,7 +77,8 @@ public enum KeyEventMapper {
         flags: UInt64,
         isAutorepeat: Bool,
         hotkey: HotkeyKey,
-        timestamp: TimeInterval
+        timestamp: TimeInterval,
+        languageKey: LanguageKey = .off
     ) -> KeyInput? {
         let spec = spec(for: hotkey)
         let otherModifierHeld = flags & anyModifier & ~spec.ownBits != 0
@@ -89,6 +90,15 @@ public enum KeyEventMapper {
             if keyCode == spec.keyCode, spec.downBit != nil {
                 guard isDown else { return .hotkeyUp(timestamp) }
                 return otherModifierHeld ? nil : .hotkeyDown(timestamp)
+            }
+            let isLanguageKey: Bool
+            switch languageKey {
+            case .off: isLanguageKey = false
+            case .shift: isLanguageKey = [56, 60].contains(keyCode)
+            case .option: isLanguageKey = [58, 61].contains(keyCode) && keyCode != spec.keyCode
+            }
+            if isLanguageKey {
+                return isDown ? .languageKeyDown(timestamp) : .languageKeyUp(timestamp)
             }
             return isDown ? .otherKeyDown(timestamp) : nil
 

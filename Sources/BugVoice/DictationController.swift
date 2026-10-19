@@ -104,6 +104,7 @@ final class DictationController {
 
     private func perform(_ action: GestureAction) {
         switch action {
+        case .languageTap: break
         case .startHold: begin(handsFree: false)
         case .startHandsFree: begin(handsFree: true)
         case .stop: finish()

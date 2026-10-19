@@ -45,12 +45,31 @@ private func map(
     _ flags: UInt64 = 0,
     repeat isAutorepeat: Bool = false,
     hotkey: HotkeyKey = .rightOption,
+    languageKey: LanguageKey = .off,
     at t: Double = 1
 ) -> KeyInput? {
-    KeyEventMapper.map(kind: kind, keyCode: code, flags: flags, isAutorepeat: isAutorepeat, hotkey: hotkey, timestamp: t)
+    KeyEventMapper.map(kind: kind, keyCode: code, flags: flags, isAutorepeat: isAutorepeat, hotkey: hotkey, timestamp: t, languageKey: languageKey)
 }
 
 struct KeyEventMapperTests {
+    @Test func shiftMapsToLanguageKey() {
+        #expect(map(.flagsChanged, 56, Bits.shift | Bits.leftShift, languageKey: .shift) == .languageKeyDown(1))
+        #expect(map(.flagsChanged, 56, 0, languageKey: .shift) == .languageKeyUp(1))
+    }
+
+    @Test func shiftIgnoredWhenOff() {
+        #expect(map(.flagsChanged, 56, Bits.shift | Bits.leftShift) == .otherKeyDown(1))
+    }
+
+    @Test func hotkeyOptionNotLanguageKey() {
+        #expect(map(.flagsChanged, 61, Bits.rightOptionDown, hotkey: .rightOption, languageKey: .option) == .hotkeyDown(1))
+        #expect(map(.flagsChanged, 58, Bits.leftOptionDown, hotkey: .rightOption, languageKey: .option) == .languageKeyDown(1))
+    }
+
+    @Test func hotkeyWithShiftHeldIgnored() {
+        #expect(map(.flagsChanged, 62, Bits.rightControlDown | Bits.shiftDown, hotkey: .rightControl, languageKey: .shift) == nil)
+    }
+
     @Test func rightControlPressAndRelease() {
         #expect(map(.flagsChanged, Code.rightControl, Bits.rightControlDown, hotkey: .rightControl, at: 2) == .hotkeyDown(2))
         #expect(map(.flagsChanged, Code.rightControl, 0, hotkey: .rightControl, at: 3) == .hotkeyUp(3))
