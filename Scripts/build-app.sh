@@ -41,6 +41,37 @@ BIN="$(swift build -c "$CONFIGURATION" --arch arm64 "${FLAGS[@]+"${FLAGS[@]}"}" 
 rm -rf "$APP_DIR"
 mkdir -p "$CONTENTS/MacOS" "$CONTENTS/Resources"
 cp "$BIN/$APP_NAME" "$CONTENTS/MacOS/$APP_NAME"
+# App Intents metadata requires full Xcode; the app still packages without it.
+XCODE_DEVELOPER="${BUGVOICE_XCODE_DEVELOPER:-/Applications/Xcode.app/Contents/Developer}"
+if PROCESSOR="$(DEVELOPER_DIR="$XCODE_DEVELOPER" xcrun --find appintentsmetadataprocessor 2>/dev/null)"; then
+    METADATA_TEMP="$(mktemp -d "${TMPDIR:-/tmp}/bugvoice-appintents.XXXXXX")"
+    trap 'rm -rf "$METADATA_TEMP"' EXIT
+    find "$ROOT/Sources/BugVoice" -name '*.swift' -type f | sort > "$METADATA_TEMP/sources.txt"
+    # Match only this product, configuration and architecture, excluding tests
+    # and stale sanitizer outputs from other builds.
+    { find "$ROOT/.build/out/Intermediates.noindex/BugVoice.build" -name '*.swiftconstvalues' -type f 2>/dev/null || true; } |
+        awk -F/ -v config="$CONFIGURATION" '
+            tolower($(NF-4)) == tolower(config) && $(NF-3) == "BugVoice-p.build" &&
+            $(NF-2) == "Objects-normal" && $(NF-1) == "arm64" { print }
+        ' > "$METADATA_TEMP/const-values.txt"
+    if [[ ! -s "$METADATA_TEMP/const-values.txt" ]]; then
+        echo "error: no BugVoice .swiftconstvalues files found for $CONFIGURATION (arm64)" >&2
+        exit 1
+    fi
+    SDK_ROOT="$(DEVELOPER_DIR="$XCODE_DEVELOPER" xcrun --sdk macosx --show-sdk-path)"
+    XCODE_VERSION="$(DEVELOPER_DIR="$XCODE_DEVELOPER" xcodebuild -version | awk '/Build version/ { print $3 }')"
+    "$PROCESSOR" --output "$METADATA_TEMP/output" \
+        --toolchain-dir "$XCODE_DEVELOPER/Toolchains/XcodeDefault.xctoolchain" \
+        --module-name "$APP_NAME" --sdk-root "$SDK_ROOT" --xcode-version "$XCODE_VERSION" \
+        --platform-family macOS --deployment-target 15.0 --target-triple arm64-apple-macos15.0 \
+        --source-file-list "$METADATA_TEMP/sources.txt" --swift-const-vals-list "$METADATA_TEMP/const-values.txt" \
+        --binary-file "$BIN/$APP_NAME"
+    cp -R "$METADATA_TEMP/output/Metadata.appintents" "$CONTENTS/Resources/"
+    rm -rf "$METADATA_TEMP"
+    trap - EXIT
+else
+    echo "Skipping Shortcuts metadata: Xcode not found"
+fi
 # The MCP bridge agents start; it finds the app three folders up from itself.
 cp "$BIN/bugvoice-mcp" "$CONTENTS/MacOS/bugvoice-mcp"
 cp "$ROOT/App/Info.plist" "$CONTENTS/Info.plist"

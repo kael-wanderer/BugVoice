@@ -431,6 +431,7 @@ final class AppModel {
             showNotice(restoreMessage)
             self.restoreMessage = nil
         }
+        ShortcutsBridge.model = self
     }
 
     /// Configured from the settings just loaded (loading does not fire

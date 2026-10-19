@@ -74,3 +74,38 @@ extension CommandPipelineTests {
         #expect(InsightsDelta.history(entry) == nil)
     }
 }
+
+extension CommandPipelineTests {
+    @Test func rewriteReturnsModelText() async {
+        let model = RecordingModel(output: "Short.")
+        #expect(await pipeline(model: model).rewrite(text: "Long text here.", instruction: "shorter") == .success("Short."))
+        let requests = await model.requests
+        #expect(requests.first?.user.contains("<instruction>\nshorter\n</instruction>") == true)
+        #expect(requests.first?.user.contains("<text>\nLong text here.\n</text>") == true)
+    }
+    @Test func rewriteSanitizes() async {
+        #expect(await pipeline(model: FakeModel(output: "Here is the text:\n“Short.”")).rewrite(text: "Long text", instruction: "shorter") == .success("Short."))
+    }
+    @Test func rewriteNoModel() async {
+        #expect(await pipeline(model: nil).rewrite(text: "hello", instruction: "shorter") == .failure(.command(.noModel)))
+    }
+    @Test func rewriteModelThrows() async {
+        #expect(await pipeline(model: FakeModel(error: ProviderError.unavailable("offline"))).rewrite(text: "hello", instruction: "shorter") == .failure(.command(.modelFailed)))
+    }
+    @Test func rewriteTimeout() async {
+        #expect(await pipeline(model: FakeModel(delay: 1), timeout: 0.1).rewrite(text: "hello", instruction: "shorter") == .failure(.command(.modelFailed)))
+    }
+    @Test func rewriteChecksFirst() async {
+        let model = RecordingModel()
+        #expect(await pipeline(model: model).rewrite(text: String(repeating: "a", count: 8001), instruction: "shorter") == .failure(.textTooLong))
+        #expect(await model.requests.isEmpty)
+        #expect(await pipeline(model: nil).rewrite(text: " ", instruction: "shorter") == .failure(.emptyText))
+        #expect(await pipeline(model: nil).rewrite(text: "hello", instruction: " ") == .failure(.emptyInstruction))
+    }
+    @Test func rewriteOutputTooLong() async {
+        #expect(await pipeline(model: FakeModel(output: String(repeating: "a", count: 2100))).rewrite(text: "hello", instruction: "shorter") == .failure(.command(.outputTooLong)))
+    }
+    @Test func rewriteEmptyOutput() async {
+        #expect(await pipeline(model: FakeModel(output: "  ")).rewrite(text: "hello", instruction: "shorter") == .failure(.command(.emptyOutput)))
+    }
+}

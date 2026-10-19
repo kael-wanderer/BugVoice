@@ -4,6 +4,15 @@ Last updated: 2026-10-19
 
 ## Current state
 
+**Shortcuts support:** built on `feat/shortcuts` (2026-10-19), not merged.
+Six App Intents: start/stop meeting recording, transcribe audio file, rewrite text,
+new note and get open action items. Three App Shortcuts, four phrases; bundle
+metadata generated with Xcode, skipped with a warning without Xcode. Settings ›
+Shortcuts includes the footnote. Tests: **1,177 VoiceCore, 30 MCPKit,
+114 BugVoiceMac**. Owner checks S1–S10 not run; see
+`docs/progress/shortcuts-log.md`. No app or Shortcuts launch during implementation.
+
+
 **Action items:** merged on `main` (2026-10-19), not pushed. Sidebar page
 after Meetings: Open / Done / All, owner and meeting-date filters, search, Copy
 open items, two-second Undo; the meeting's Action items tab is the same

@@ -44,6 +44,23 @@ public struct CommandPipeline: Sendable {
         self.projects = projects
         self.timeout = timeout
     }
+    public func rewrite(text: String, instruction: String) async -> Result<String, ShortcutsError> {
+        if let error = ShortcutsActions.checkRewrite(text: text, instruction: instruction) { return .failure(error) }
+        guard let model else { return .failure(.command(.noModel)) }
+        let request = CommandPrompt.request(instruction: instruction, selection: text, style: .other,
+            focus: FocusSnapshot(appName: "Shortcuts"), vocabulary: vocabulary.with(projectWords: []),
+            language: settings.speech.language, keepEnglishWords: settings.speech.keepEnglishWords,
+            modelID: model.modelID, disableThinking: model.disableThinking)
+        do {
+            let output = try await withTimeout(seconds: timeout) { try await model.model.clean(request) }
+            try Task.checkCancellation()
+            switch CommandOutput.sanitize(output, selection: text) {
+            case .success(let text): return .success(text)
+            case .failure(.empty): return .failure(.command(.emptyOutput))
+            case .failure(.tooLong): return .failure(.command(.outputTooLong))
+            }
+        } catch { return .failure(.command(.modelFailed)) }
+    }
     public func run(clip: AudioClip, selection: String?, startFocus: FocusSnapshot, startedAt: Date,
                     languageChoice: SpeechLanguage? = nil,
                     onStage: @escaping @Sendable (PipelineStage) -> Void) async -> CommandRun {
