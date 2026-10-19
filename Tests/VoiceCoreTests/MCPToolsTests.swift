@@ -3,9 +3,32 @@ import Testing
 @testable import VoiceCore
 
 struct MCPToolsTests {
-    @Test func toolListHasAllTwelve() {
+    @Test func listActionItemsDefaults() throws {
+        #expect(try MCPTools.check("list_action_items", nil).get() == .listActionItems(status: .open, meeting: nil, limit: 50))
+        #expect(try MCPTools.check("list_action_items", .object(["status": .string("done"), "meeting": .string("m"), "limit": .number(200)])).get() == .listActionItems(status: .done, meeting: "m", limit: 200))
+    }
+    @Test func listActionItemsRejectsBadStatus() {
+        #expect(throws: MCPArgumentError.self) { try MCPTools.check("list_action_items", .object(["status": .string("later")])).get() }
+    }
+    @Test func listActionItemsLimitBounds() {
+        for limit in [0, 201] {
+            #expect(throws: MCPArgumentError.self) { try MCPTools.check("list_action_items", .object(["limit": .number(Double(limit))])).get() }
+        }
+    }
+    @Test func actionItemFormat() throws {
+        let date = ISO8601DateFormatter().date(from: "2026-10-19T12:00:00Z")!
+        let item = ActionItemParser.parse("- Send X", meetingID: MeetingID(rawValue: "m")).items[0]
+        let row = ActionItemRow(item: item, doneAt: nil)
+        let json = MCPFormat.actionItem(row, meetingTitle: "Sync", meetingDate: date)
+        #expect(json == .object(["meeting_id": .string("m"), "meeting_title": .string("Sync"), "meeting_date": .string("2026-10-19"), "text": .string("Send X"), "owner": .null, "done": .bool(false), "done_at": .null]))
+        let finished = MCPFormat.actionItem(ActionItemRow(item: item, doneAt: date), meetingTitle: "Sync", meetingDate: date)
+        #expect(finished["done"] == .bool(true))
+        #expect(finished["done_at"] == .string(MCPFormat.iso(date)))
+    }
+
+    @Test func toolListHasAllThirteen() {
         let names = MCPTools.definitions["tools"]?.arrayValue?.compactMap { $0["name"]?.stringValue } ?? []
-        #expect(names.count == 12)
+        #expect(names.count == 13)
         #expect(Set(names) == Set(MCPTool.allCases.map(\.rawValue)))
         for t in MCPTools.definitions["tools"]?.arrayValue ?? [] {
             #expect(t["inputSchema"]?["type"] == .string("object"))

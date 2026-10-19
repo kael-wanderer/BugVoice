@@ -38,6 +38,18 @@ public enum MCPFormat {
         return "# \(title)\n\(header)\n\n\(body)"
     }
 
+    public static func actionItem(_ row: ActionItemRow, meetingTitle: String, meetingDate: Date) -> JSONValue {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd"
+        return .object([
+            "meeting_id": .string(row.item.meetingID.rawValue), "meeting_title": .string(meetingTitle),
+            "meeting_date": .string(formatter.string(from: meetingDate)), "text": .string(row.item.text),
+            "owner": row.item.owner.map(JSONValue.string) ?? .null, "done": .bool(row.doneAt != nil),
+            "done_at": row.doneAt.map { .string(iso($0)) } ?? .null,
+        ])
+    }
+
     // MARK: Meetings
 
     /// Speaker labels in the order they first speak.

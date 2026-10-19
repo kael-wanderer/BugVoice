@@ -4,6 +4,7 @@ public enum MCPTool: String, CaseIterable, Sendable {
     case listFolders = "list_folders"
     case listNotes = "list_notes"
     case getNote = "get_note"
+    case listActionItems = "list_action_items"
     case listMeetings = "list_meetings"
     case getMeeting = "get_meeting"
     case search
@@ -54,6 +55,7 @@ public enum MCPCall: Equatable, Sendable {
     case listFolders
     case listNotes(folder: String?, tag: String?, text: String?, limit: Int)
     case getNote(id: String)
+    case listActionItems(status: ActionItemStatus, meeting: String?, limit: Int)
     case listMeetings(folder: String?, tag: String?, from: Date?, to: Date?, text: String?, limit: Int)
     case getMeeting(id: String, parts: Set<MCPMeetingPart>, fromLine: Int)
     case search(query: String, scope: MCPScopeArgument, limit: Int)
@@ -69,6 +71,7 @@ public enum MCPCall: Equatable, Sendable {
         case .listFolders: .listFolders
         case .listNotes: .listNotes
         case .getNote: .getNote
+        case .listActionItems: .listActionItems
         case .listMeetings: .listMeetings
         case .getMeeting: .getMeeting
         case .search: .search
@@ -125,6 +128,12 @@ public enum MCPTools {
             ], [])
         case .getNote:
             ("Read one note as Markdown.", ["id": prop("string", "Note id.")], ["id"])
+        case .listActionItems:
+            ("List action items from meetings, newest meeting first.", [
+                "status": prop("string", "open, done or all. Default open."),
+                "meeting": prop("string", "Meeting id."),
+                "limit": prop("integer", "Most items to return, 1 to 200. Default 50."),
+            ], [])
         case .listMeetings:
             ("List meetings and uploaded recordings, newest first.", [
                 "folder": prop("string", "Folder id or name."),
@@ -245,6 +254,16 @@ public enum MCPTools {
                 limit: try a.limit("limit", default: listDefault, max: listMax))
         case .getNote:
             return .getNote(id: try a.required("id"))
+        case .listActionItems:
+            guard let status = ActionItemStatus(rawValue: try a.string("status") ?? "open") else {
+                throw MCPArgumentError(message: "status must be open, done or all.")
+            }
+            if let value = a.values["limit"], value != .null {
+                guard let limit = value.intValue, (1...listMax).contains(limit) else {
+                    throw MCPArgumentError(message: "limit must be a whole number from 1 to 200.")
+                }
+            }
+            return .listActionItems(status: status, meeting: try a.string("meeting"), limit: try a.limit("limit", default: listDefault, max: listMax))
         case .listMeetings:
             return .listMeetings(
                 folder: try a.string("folder"), tag: try a.string("tag"),

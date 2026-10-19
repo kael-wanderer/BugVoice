@@ -14,7 +14,14 @@ struct TitleBar<Action: View>: View {
                 Button { model.toggleSidebar() } label: { Image(systemName: "sidebar.left") }
                     .buttonStyle(.plain)
                     .help(model.sidebarHidden ? "Show sidebar ⌃⌘S" : "Hide sidebar ⌃⌘S")
-                Text(title).bvFont(.title2).lineLimit(1).truncationMode(.tail)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(title).bvFont(.title2).lineLimit(1).truncationMode(.tail)
+                    if model.page == .actions {
+                        let board = ActionItemBoard(meetings: model.meetingManifests, done: model.actionItemsDone,
+                                                    status: .all, owner: .anyone, range: .all, query: "", now: Date())
+                        Text("\(board.openTotal) open · \(board.doneTotal) done").bvFont(.caption).foregroundStyle(.bvSecondary)
+                    }
+                }
             }
             SearchField(model: model)
             // Always one subview, also when the page has no action.

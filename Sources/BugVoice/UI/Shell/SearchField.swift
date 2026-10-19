@@ -21,9 +21,10 @@ struct SearchField: View {
         default: nil
         }
     }
-    private var showsResults: Bool { hasQuery && (listKind == nil || !hits.isEmpty) }
+    private var showsResults: Bool { model.page != .actions && hasQuery && (listKind == nil || !hits.isEmpty) }
     private var placeholder: String {
         switch model.page {
+        case .actions: "Search action items"
         case .meetings: "Search meetings"
         case .notes: "Search notes"
         case .dictation: "Search dictations"
@@ -124,6 +125,7 @@ struct SearchField: View {
         hits = []
     }
     private func search() async {
+        guard model.page != .actions else { hits = []; return }
         let query = model.searchQuery
         guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { hits = []; return }
         do { try await Task.sleep(for: .milliseconds(150)) } catch { return }

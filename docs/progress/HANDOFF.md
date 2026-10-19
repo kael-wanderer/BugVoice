@@ -4,6 +4,15 @@ Last updated: 2026-10-19
 
 ## Current state
 
+**Action items:** merged on `main` (2026-10-19), not pushed. Sidebar page
+after Meetings: Open / Done / All, owner and meeting-date filters, search, Copy
+open items, two-second Undo; the meeting's Action items tab is the same
+checklist; read-only MCP `list_action_items`. Done keys in `action-items.json`
+(in backups). Tests: **1,163 VoiceCore, 30 MCPKit, 114 BugVoiceMac**. Device
+checks A1–A10 not run yet (owner merged before trying them; the library had no
+generated action items); list in `docs/progress/action-items-log.md`.
+
+
 **Learn from corrections:** merged on `main` (2026-10-19), not pushed. Ordinary
 non-terminal pastes are watched locally for 60 s; word fixes become Dictionary
 suggestions with Add / Dismiss and Replace every time (off when both words are
