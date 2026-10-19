@@ -12,7 +12,7 @@ public struct BackupPlan: Equatable, Sendable {
     }
 
     public static let rootFiles = [
-        "settings.json", "dictionary.json", "history.jsonl", "insights.json", "library.json", "projects.json", "suggestions.json", "voices.json"
+        "settings.json", "dictionary.json", "history.jsonl", "insights.json", "library.json", "projects.json", "suggestions.json", "action-items.json", "voices.json"
     ]
     public static let rootFolders = ["Meetings", "Notes"]
 

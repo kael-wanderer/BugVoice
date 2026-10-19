@@ -55,3 +55,88 @@ public enum ActionItemParser {
         return result
     }
 }
+
+
+public struct DoneActionItem: Codable, Equatable, Sendable {
+    public var meetingID: MeetingID
+    public var key: String
+    public var doneAt: Date
+
+    public init(meetingID: MeetingID, key: String, doneAt: Date) {
+        self.meetingID = meetingID; self.key = key; self.doneAt = doneAt
+    }
+
+    private enum CodingKeys: String, CodingKey { case meetingID, key, doneAt }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        meetingID = MeetingID(rawValue: try c.decode(String.self, forKey: .meetingID))
+        key = try c.decode(String.self, forKey: .key)
+        doneAt = try c.decode(Date.self, forKey: .doneAt)
+    }
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(meetingID.rawValue, forKey: .meetingID)
+        try c.encode(key, forKey: .key)
+        try c.encode(doneAt, forKey: .doneAt)
+    }
+}
+
+public struct ActionItemFile: Codable, Equatable, Sendable {
+    public static let supportedSchemaVersion = 1
+    public static let maxEntries = 5_000
+    public var schemaVersion: Int
+    public var done: [DoneActionItem]
+
+    public init(schemaVersion: Int = supportedSchemaVersion, done: [DoneActionItem] = []) {
+        self.schemaVersion = schemaVersion; self.done = done
+        cap()
+    }
+    public func doneAt(_ item: ActionItem) -> Date? {
+        done.first { $0.meetingID == item.meetingID && $0.key == item.key }?.doneAt
+    }
+    public mutating func setDone(_ item: ActionItem, _ done: Bool, at: Date) {
+        if done {
+            guard doneAt(item) == nil else { return }
+            self.done.append(DoneActionItem(meetingID: item.meetingID, key: item.key, doneAt: at))
+            cap()
+        } else { self.done.removeAll { $0.meetingID == item.meetingID && $0.key == item.key } }
+    }
+    public mutating func prune(keeping meetings: Set<MeetingID>) {
+        done.removeAll { !meetings.contains($0.meetingID) }
+        cap()
+    }
+    private mutating func cap() {
+        if done.count > Self.maxEntries { done = Array(done.sorted { $0.doneAt > $1.doneAt }.prefix(Self.maxEntries)) }
+    }
+    private enum CodingKeys: String, CodingKey { case schemaVersion, done }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = c.value(.schemaVersion, default: Self.supportedSchemaVersion)
+        done = c.value(.done, default: [DoneActionItem]())
+        cap()
+    }
+}
+
+public actor ActionItemStore {
+    public let url: URL
+    private var lastRevision = Int.min
+    public init(url: URL) { self.url = url }
+    public func load() -> ActionItemFile {
+        guard FileManager.default.fileExists(atPath: url.path) else { return ActionItemFile() }
+        let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601
+        guard let data = try? Data(contentsOf: url), let file = try? decoder.decode(ActionItemFile.self, from: data) else {
+            let backup = url.deletingLastPathComponent().appendingPathComponent("action-items.corrupt-\(Int(Date().timeIntervalSince1970)).json")
+            try? FileManager.default.moveItem(at: url, to: backup)
+            return ActionItemFile()
+        }
+        return file
+    }
+    public func save(_ file: ActionItemFile, revision: Int? = nil) throws {
+        if let revision, revision <= lastRevision { return }
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        try encoder.encode(file).write(to: url, options: .atomic)
+        if let revision { lastRevision = revision }
+    }
+}
