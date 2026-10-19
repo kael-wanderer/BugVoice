@@ -5,6 +5,9 @@ implementation, like Dictation, Meetings and Notes before it.
 
 ## Current state
 
+The owner marked every device check done on 2026-10-19; "pending" below is history.
+Proposed new features from the 2026-10-19 review: `docs/propose-new-features.md`.
+
 | Feature | State |
 |---|---|
 | Dictation (speech → text at the cursor) | Works. Device checks passed for Terminal, VS Code, Notion, Chrome, Vietnamese, hands-free. |

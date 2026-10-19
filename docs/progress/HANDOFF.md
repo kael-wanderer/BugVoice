@@ -16,6 +16,15 @@ drive real Core Audio callbacks). History timings (12 dictations): speech-to-tex
 1.25–2.0 s, cleanup 0.3–0.8 s, so release to text is about 2 s; the old 6.2 s
 cleanup benchmark figure is stale.
 
+**Device checks: the owner marked all of them done on 2026-10-19.** "Pending" in the
+sections below and in the per-project logs is history.
+
+**Build number:** every commit raises `CFBundleVersion` by one through
+`Scripts/git-hooks/pre-commit` (`git config core.hooksPath Scripts/git-hooks`); it
+started at 200 on 2026-10-19.
+
+**Next: Backup and restore spec** (export the library to a file, restore from it).
+
 **`main` was last pushed 2026-10-19 at `0478cdd`.**
 Merged 2026-10-18, each with its own log and pending owner checks:
 
