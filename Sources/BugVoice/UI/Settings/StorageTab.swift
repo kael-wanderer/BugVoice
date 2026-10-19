@@ -64,6 +64,7 @@ struct StorageTab: View {
                     .labelsHidden().fixedSize()
                 }
             }
+            BackupCard(model: model)
             SettingsCard {
                 SettingsRow(title: "Diagnostics") {
                     Button(diagnosticsCopied ? "Copied" : "Copy diagnostics") { copyDiagnostics() }

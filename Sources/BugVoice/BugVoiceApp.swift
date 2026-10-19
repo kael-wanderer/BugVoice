@@ -1,6 +1,7 @@
 import AppKit
 import BugVoiceMac
 import SwiftUI
+import VoiceCore
 
 @main
 struct BugVoiceApp: App {
@@ -27,9 +28,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var sleepObserver: NSObjectProtocol?
     private var wakeObserver: NSObjectProtocol?
     private var textSizeAlternateMonitor: Any?
+    private var launchReady = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         Log.app.notice("launch \(Log.appVersion, privacy: .public) on \(Log.systemVersion, privacy: .public)")
+        Task { @MainActor in
+            // Return from the delegate callback so Workspace can notify the old
+            // instance, then wait until its final saves and termination finish.
+            let arguments = ProcessInfo.processInfo.arguments
+            if let index = arguments.firstIndex(of: "--restore-after-process"),
+               arguments.indices.contains(index + 1), let pid = Int32(arguments[index + 1]),
+               pid != ProcessInfo.processInfo.processIdentifier {
+                let ready = VoiceCore.RestoreApplier.pendingDirectory(for: model.paths.root).appendingPathComponent("ready")
+                while let previous = NSRunningApplication(processIdentifier: pid), !previous.isTerminated {
+                    guard FileManager.default.fileExists(atPath: ready.path) else {
+                        NSApp.terminate(nil)
+                        return
+                    }
+                    try? await Task.sleep(for: .milliseconds(50))
+                }
+            }
+            model.restoreMessage = BackupController.applyPendingRestore(root: model.paths.root)
+            finishLaunching()
+        }
+    }
+
+    private func finishLaunching() {
+        launchReady = true
         FontRegistry.registerBundledFonts()
         menuPanel = MenuPanelController(model: model)
         model.presentMainWindow = { [weak self] in
@@ -68,6 +93,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidBecomeActive(_ notification: Notification) {
+        guard launchReady else { return }
         Task { @MainActor in
             await model.notesController.refreshAll(trigger: .appActivation)
         }
@@ -138,6 +164,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// launched from Finder again) brings the window back.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool
     {
+        guard launchReady else { return false }
         model.openMainWindow()
         return false
     }
@@ -147,6 +174,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        Log.app.notice("quit requested")
         let meetings = model.meetings
         let meetingIsActive = meetings?.isRecording == true || meetings?.isPaused == true
         if meetingIsActive {
@@ -156,12 +184,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 "Stop the recording and keep the audio before quitting? The transcript can finish later."
             alert.addButton(withTitle: "Stop and keep")
             alert.addButton(withTitle: "Cancel")
-            guard alert.runModal() == .alertFirstButtonReturn else { return .terminateCancel }
+            guard alert.runModal() == .alertFirstButtonReturn else {
+                model.backup.cancelPendingRelaunch()
+                return .terminateCancel
+            }
         } else if !model.notesController.hasUnsavedChanges && model.uploads?.isBusy != true {
             return .terminateNow
         }
+        let backup = model.backup
         Task { [weak self] in
             guard let self else {
+                backup.cancelPendingRelaunch()
                 NSApp.reply(toApplicationShouldTerminate: false)
                 return
             }
@@ -169,6 +202,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 guard await model.notesController.flushAll() else {
                     model.saveError =
                         "Could not save notes before quitting. Resolve the note changes and try again."
+                    model.backup.cancelPendingRelaunch()
                     NSApp.reply(toApplicationShouldTerminate: false)
                     return
                 }
@@ -180,6 +214,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     meetingIsActive
                     ? "Could not checkpoint the meeting before quitting: \(error.localizedDescription)"
                     : "Could not save notes before quitting: \(error.localizedDescription)"
+                model.backup.cancelPendingRelaunch()
                 NSApp.reply(toApplicationShouldTerminate: false)
             }
         }

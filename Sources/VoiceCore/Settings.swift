@@ -264,6 +264,32 @@ extension AgentSettings {
     }
 }
 
+public enum BackupFrequency: String, Codable, Sendable, CaseIterable {
+    case off, daily, weekly
+}
+
+public struct BackupSettings: Codable, Equatable, Sendable {
+    public var frequency: BackupFrequency = .off
+    public var folderBookmark: Data? = nil
+    public var keep = 5
+
+    public init(frequency: BackupFrequency = .off, folderBookmark: Data? = nil, keep: Int = 5) {
+        self.frequency = frequency
+        self.folderBookmark = folderBookmark
+        self.keep = keep
+    }
+}
+
+extension BackupSettings {
+    public init(from decoder: Decoder) throws {
+        self.init()
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        frequency = c.value(.frequency, default: frequency)
+        folderBookmark = c.value(.folderBookmark, default: folderBookmark)
+        keep = c.value(.keep, default: keep)
+    }
+}
+
 public struct AppSettings: Codable, Equatable, Sendable {
     public var hotkey: HotkeyKey = .rightControl
     public var handsFreeEnabled = true
@@ -283,6 +309,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var agents = AgentSettings()
     public var appearance = AppearanceSettings()
     public var shortcuts = ShortcutSettings()
+    public var backup = BackupSettings()
 
     public init() {}
 }
@@ -378,5 +405,6 @@ extension AppSettings {
         agents = c.value(.agents, default: agents)
         appearance = c.value(.appearance, default: appearance)
         shortcuts = c.value(.shortcuts, default: shortcuts)
+        backup = c.value(.backup, default: backup)
     }
 }
