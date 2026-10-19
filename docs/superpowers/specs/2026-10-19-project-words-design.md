@@ -102,7 +102,9 @@ On add, on Rescan, and at launch when the last scan is older than 24 hours
 4. **Rank:** number of files the word appears in, plus 5 when the word is
    also a file name or follows a declaration keyword (`class struct enum
    protocol actor extension func def fn type interface trait function`).
-   Ties break alphabetically.
+   Ties break alphabetically. Declared and file-name words sort before all
+   other words (review fix: in BugVoice's own repo, library calls such as
+   `isEmpty` and `foregroundStyle` otherwise filled the 150-word list).
 5. **Keep** the top 1,000 per project. Hidden words are never kept.
 
 A scan of BugVoice itself (about 400 files) should take well under a second;
@@ -117,7 +119,11 @@ the 5,000-file cap bounds the worst case.
   exactly" line, one more line:
   "Code names from the current project. When the speaker says one as plain
   words, write the name exactly (for example "app model" is AppModel): …"
-  with the active project's top **150** words.
+  with **150** of the active project's words: first the ones the speaker
+  said (their spoken form, "dictation controller" or "dictationcontroller",
+  appears in the transcript), then the top-ranked rest. A large repo has more
+  names than fit, so picking by what was said is what makes a deep name like
+  `DictationController` reach the model (review fix).
 - Dictionary words always win: a Dictionary word is not repeated in the
   project list.
 - No text model (provider None): only the Whisper prompt helps.

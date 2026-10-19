@@ -86,6 +86,7 @@ public struct ProjectFile: Codable, Equatable, Sendable {
 
 public actor ProjectStore {
     public let url: URL
+    private var lastRevision = Int.min
 
     public init(url: URL) { self.url = url }
 
@@ -100,7 +101,12 @@ public actor ProjectStore {
         return file
     }
 
-    public func save(_ file: ProjectFile) throws {
+    /// Saves older than the last revision written are ignored.
+    public func save(_ file: ProjectFile, revision: Int? = nil) throws {
+        if let revision {
+            guard revision > lastRevision else { return }
+            lastRevision = revision
+        }
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]

@@ -64,3 +64,25 @@ row: **Not run**. The dev app process launched successfully, but computer-use
 access to BugVoice was denied before either view could be inspected. The
 Application Support data was restored from `/private/tmp/bv-before-codex`
 after launch; temporary backup copies were removed.
+
+## Review fixes (2026-10-19)
+
+A scratch scan of BugVoice itself (586 files, 1.1 s) showed the plan's ranking
+fill the list with library calls (`isEmpty`, `foregroundStyle`,
+`trimmingCharacters`) and put `DictationController` at 397, outside the
+150-word cleanup list.
+
+- Declared and file-name words now sort before all other words (test
+  `projectNamesBeforeLibraryNames`). Top of BugVoice's list afterwards:
+  `AppModel BugVoice LayoutTokens AppearanceStore MeetingManifest …`.
+- The cleanup and command prompts put the words the speaker said first: a
+  word whose spoken form ("replace last", "dictationcontroller") appears in
+  the transcript goes ahead of the ranking (`ProjectWordExtractor.spokenForm`,
+  `ProjectMatcher.prioritized`; tests `prioritizedMovesHeardWordsFirst`,
+  `spokenForm`, `heardWordBeyondLimitReachesCleanup`). The pipelines now
+  match up to 1,000 words; the Whisper prompt still stops at 600 characters.
+- `AppModel+Models.swift` gives only `AppModel`; plain pieces such as
+  `Models` are left to Whisper, as the spec says (reverts deviation 1).
+- Project saves carry a revision and older ones are ignored, so two quick
+  edits (hide, hide) cannot be overwritten by a late earlier save (test
+  `olderRevisionIsIgnored`).

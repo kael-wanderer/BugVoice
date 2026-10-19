@@ -12,7 +12,8 @@ struct ProjectWordExtractorTests {
     }
 
     @Test func fileNames() {
-        #expect(ProjectWordExtractor.fileNameWords(path: "Sources/BugVoice/AppModel+Models.swift") == ["AppModel", "Models"])
+        #expect(ProjectWordExtractor.fileNameWords(path: "Sources/BugVoice/AppModel+Models.swift") == ["AppModel"])
+        #expect(ProjectWordExtractor.fileNameWords(path: "Sources/BugVoice/AppModel+ProjectWords.swift") == ["AppModel", "ProjectWords"])
         #expect(ProjectWordExtractor.fileNameWords(path: "Scripts/build-app.sh") == ["build-app.sh"])
         #expect(ProjectWordExtractor.fileNameWords(path: "README.md").isEmpty)
         #expect(ProjectWordExtractor.fileNameWords(path: "docs/HANDOFF.md").isEmpty)
@@ -68,5 +69,13 @@ struct ProjectWordExtractorTests {
         let contents = names.map { "let item = \($0)()" }.joined(separator: "\n")
         let words = ProjectWordExtractor.extract(files: [ProjectSourceFile(path: "A.swift", contents: contents)], hidden: [])
         #expect(words.count == ProjectWordExtractor.maxWords)
+    }
+    @Test func projectNamesBeforeLibraryNames() {
+        var files = [ProjectSourceFile(path: "A.swift", contents: "final class AppModel {}")]
+        for n in 0..<10 { files.append(ProjectSourceFile(path: "U\(n).swift", contents: "if items.isEmpty {}")) }
+        let words = ProjectWordExtractor.extract(files: files, hidden: [])
+        #expect(words.map(\.word) == ["AppModel", "isEmpty"])
+        #expect(words.first?.rank == 6)
+        #expect(words.last?.rank == 10)
     }
 }

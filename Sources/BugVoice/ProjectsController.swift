@@ -16,6 +16,7 @@ final class ProjectsController {
     private var queue: [UUID] = []
     private var scanning = false
     private var activeID: UUID?
+    private var revision = 0
 
     init(model: AppModel, store: ProjectStore) {
         self.model = model
@@ -115,14 +116,17 @@ final class ProjectsController {
 
     private func persist() {
         let file = model.projects
+        revision += 1
+        let revision = revision
         Task {
-            do { try await store.save(file) }
+            do { try await store.save(file, revision: revision) }
             catch { model.saveError = "Could not save projects: \(error.localizedDescription)" }
         }
     }
 
     private func save() async {
-        do { try await store.save(model.projects) }
+        revision += 1
+        do { try await store.save(model.projects, revision: revision) }
         catch { model.saveError = "Could not save projects: \(error.localizedDescription)" }
     }
 }

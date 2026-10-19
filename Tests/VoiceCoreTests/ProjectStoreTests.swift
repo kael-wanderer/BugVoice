@@ -99,6 +99,16 @@ struct ProjectStoreTests {
         #expect(await store.load() == ProjectFile())
     }
 
+    @Test func olderRevisionIsIgnored() async throws {
+        let url = tempDir().appendingPathComponent("projects.json")
+        let store = ProjectStore(url: url)
+        var newer = ProjectFile()
+        _ = newer.add(path: "/tmp/New")
+        try await store.save(newer, revision: 2)
+        try await store.save(ProjectFile(), revision: 1)
+        #expect(await ProjectStore(url: url).load() == newer)
+    }
+
     @Test func storeSurvivesCorruptFile() async throws {
         let dir = tempDir()
         let url = dir.appendingPathComponent("projects.json")

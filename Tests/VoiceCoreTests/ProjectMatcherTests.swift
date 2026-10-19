@@ -71,4 +71,19 @@ struct ProjectMatcherTests {
         let match = ProjectMatcher.match(focus: focus, style: .terminal, projects: [project("BugVoice", words: words)], scope: .codingApps, excluding: [])
         #expect(match.words.count == 150)
     }
+    @Test func prioritizedMovesHeardWordsFirst() {
+        let words = ["AppModel", "HistoryEntry", "replaceLast", "DictationController", "build-app.sh"]
+        #expect(ProjectMatcher.prioritized(words, heard: "Open app model and check Replace last.")
+            == ["AppModel", "replaceLast", "HistoryEntry", "DictationController", "build-app.sh"])
+        #expect(ProjectMatcher.prioritized(words, heard: "run build app sh").first == "build-app.sh")
+        #expect(ProjectMatcher.prioritized(words, heard: "the dictationcontroller").first == "DictationController")
+        #expect(ProjectMatcher.prioritized(words, heard: "app models", limit: 2) == ["AppModel", "HistoryEntry"])
+    }
+
+    @Test func spokenForm() {
+        #expect(ProjectWordExtractor.spokenForm("DictationController") == "dictation controller")
+        #expect(ProjectWordExtractor.spokenForm("max_tokens") == "max tokens")
+        #expect(ProjectWordExtractor.spokenForm("build-app.sh") == "build app sh")
+        #expect(ProjectWordExtractor.spokenForm("URLSession") == "url session")
+    }
 }

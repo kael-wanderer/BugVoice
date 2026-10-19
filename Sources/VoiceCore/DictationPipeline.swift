@@ -134,7 +134,7 @@ public struct DictationPipeline: Sendable {
             ? Style.document
             : StyleRouter(overrides: settings.styles.appOverrides).style(for: startFocus)
         let projectMatch = ProjectMatcher.match(focus: startFocus, style: style, projects: projects,
-            scope: settings.speech.projectWordsScope, excluding: vocabulary.terms)
+            scope: settings.speech.projectWordsScope, excluding: vocabulary.terms, limit: ProjectWordExtractor.maxWords)
         let vocabulary = vocabulary.with(projectWords: projectMatch.words)
         let requestedLanguage = LanguageResolver(settings: settings.speech).language(for: startFocus, keyChoice: languageChoice)
         var result = DictationResult(
@@ -196,7 +196,8 @@ public struct DictationPipeline: Sendable {
             onStage(.cleaning(model: cleanup.modelID))
             mark = Date()
             var built = PromptBuilder(customRules: settings.styles.customRules).request(
-                raw: protected.text, style: style, focus: startFocus, vocabulary: vocabulary,
+                raw: protected.text, style: style, focus: startFocus,
+                vocabulary: vocabulary.with(projectWords: ProjectMatcher.prioritized(vocabulary.projectWords, heard: raw)),
                 modelID: cleanup.modelID, disableThinking: cleanup.disableThinking,
                 language: requestedLanguage, keepEnglishWords: settings.speech.keepEnglishWords
             )

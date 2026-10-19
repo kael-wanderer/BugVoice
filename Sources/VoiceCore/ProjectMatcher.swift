@@ -40,7 +40,7 @@ public enum ProjectMatcher {
         }.first
         let source = active.map { [$0] } ?? enabled
         let excluded = Set(dictionaryTerms)
-        let cappedLimit = max(0, min(limit, promptLimit))
+        let cappedLimit = max(0, min(limit, ProjectWordExtractor.maxWords))
         guard cappedLimit > 0 else { return ProjectMatch(projectName: active?.name, words: []) }
 
         var words: [String] = []
@@ -65,6 +65,23 @@ public enum ProjectMatcher {
             }
         }
         return ProjectMatch(projectName: active?.name, words: words)
+    }
+
+    /// Words the speaker said (as plain words or run together) move to the
+    /// front, so a name far down the ranking still reaches the cleanup prompt.
+    public static func prioritized(_ words: [String], heard: String, limit: Int = promptLimit) -> [String] {
+        let normalized = " " + heard.lowercased()
+            .map { $0.isLetter || $0.isNumber ? $0 : " " }
+            .reduce(into: "") { $0.append($1) }
+            .split(separator: " ").joined(separator: " ") + " "
+        func said(_ word: String) -> Bool {
+            let spoken = ProjectWordExtractor.spokenForm(word)
+            guard !spoken.isEmpty else { return false }
+            return normalized.contains(" \(spoken) ") || normalized.contains(" \(spoken.replacingOccurrences(of: " ", with: "")) ")
+        }
+        let heardWords = words.filter(said)
+        let heardSet = Set(heardWords)
+        return Array((heardWords + words.filter { !heardSet.contains($0) }).prefix(max(0, limit)))
     }
 
     private static func wholeWord(_ candidate: String, in text: String) -> Bool {

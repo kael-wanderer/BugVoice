@@ -110,6 +110,11 @@ public enum ProjectWordExtractor {
         guard digits.count <= letters.count else { return false }
         if token.count >= 8, token.allSatisfy({ $0.isHexDigit }) { return false }
 
+        return parts(of: token).count >= 2
+    }
+
+    /// Splits a name on `_` and case boundaries: `URLSession` → URL, Session.
+    static func parts(of token: String) -> [String] {
         var parts: [String] = []
         var current = ""
         let chars = Array(token)
@@ -130,18 +135,22 @@ public enum ProjectWordExtractor {
             current.append(char)
         }
         if !current.isEmpty { parts.append(current) }
-        return parts.filter { !$0.isEmpty }.count >= 2
+        return parts.filter { !$0.isEmpty }
+    }
+
+    /// How the name sounds when said as words: `DictationController` → "dictation controller".
+    public static func spokenForm(_ word: String) -> String {
+        word.split(whereSeparator: { !$0.isLetter && !$0.isNumber && $0 != "_" })
+            .flatMap { parts(of: String($0)) }
+            .map { $0.lowercased() }
+            .joined(separator: " ")
     }
 
     public static func fileNameWords(path: String) -> [String] {
         let name = URL(fileURLWithPath: path).lastPathComponent
         let stem = URL(fileURLWithPath: name).deletingPathExtension().lastPathComponent
         if stem.contains("-") || stem.contains(".") { return [name] }
-        let pieces = stem.split(separator: "+").map(String.init)
-        if pieces.count > 1 {
-            return pieces.filter { isCodeShaped($0) || ($0.first?.isUppercase == true && $0.count >= 4) }
-        }
-        return pieces.filter(isCodeShaped)
+        return stem.split(separator: "+").map(String.init).filter(isCodeShaped)
     }
 
     public static func identifiers(in contents: String) -> [String] {
@@ -183,11 +192,17 @@ public enum ProjectWordExtractor {
             boosted.formUnion(fileWords)
             if let contents = file.contents { boosted.formUnion(declared(in: contents)) }
         }
+        // Names the project declares (or uses as file names) come first, so
+        // library calls used everywhere (`isEmpty`) do not crowd them out.
         return fileCounts.compactMap { word, count -> ProjectWord? in
             guard !hidden.contains(word) else { return nil }
             return ProjectWord(word: word, rank: count + (boosted.contains(word) ? 5 : 0))
         }
-        .sorted { lhs, rhs in lhs.rank == rhs.rank ? lhs.word < rhs.word : lhs.rank > rhs.rank }
+        .sorted { lhs, rhs in
+            let l = boosted.contains(lhs.word), r = boosted.contains(rhs.word)
+            if l != r { return l }
+            return lhs.rank == rhs.rank ? lhs.word < rhs.word : lhs.rank > rhs.rank
+        }
         .prefix(maxWords)
         .map { $0 }
     }

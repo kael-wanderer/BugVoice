@@ -54,7 +54,7 @@ public struct CommandPipeline: Sendable {
         let language = LanguageResolver(settings: settings.speech).language(for: startFocus, keyChoice: languageChoice)
         let style = StyleRouter(overrides: settings.styles.appOverrides).style(for: startFocus)
         let projectMatch = ProjectMatcher.match(focus: startFocus, style: style, projects: projects,
-            scope: settings.speech.projectWordsScope, excluding: vocabulary.terms)
+            scope: settings.speech.projectWordsScope, excluding: vocabulary.terms, limit: ProjectWordExtractor.maxWords)
         let vocabulary = vocabulary.with(projectWords: projectMatch.words)
         var timings = StageTimings(recording: clip.duration)
         onStage(.transcribing)
@@ -71,7 +71,9 @@ public struct CommandPipeline: Sendable {
         let instruction = HallucinationFilter.strip(DictationPipeline.stripPlaceholders(transcript.text))
         guard !instruction.isEmpty, !HallucinationFilter.isHallucination(instruction) else { return .nothingHeard }
         let request = CommandPrompt.request(instruction: instruction, selection: selection, style: style, focus: startFocus,
-            vocabulary: vocabulary, language: language, keepEnglishWords: settings.speech.keepEnglishWords,
+            vocabulary: vocabulary.with(projectWords: ProjectMatcher.prioritized(vocabulary.projectWords,
+                heard: instruction + " " + (selection ?? ""))),
+            language: language, keepEnglishWords: settings.speech.keepEnglishWords,
             modelID: model.modelID, disableThinking: model.disableThinking)
         onStage(.cleaning(model: model.modelID))
         mark = Date()
