@@ -86,6 +86,7 @@ public enum BackupError: Error, Equatable, LocalizedError {
     case newerFormat
     case damaged(count: Int)
     case meetingActive
+    case uploadActive
     case notEnoughSpace(bytes: Int64)
     case destinationInsideLibrary
     case failed(String)
@@ -100,6 +101,8 @@ public enum BackupError: Error, Equatable, LocalizedError {
             "The backup is damaged: \(count) \(count == 1 ? "file is" : "files are") missing or the wrong size. Nothing was changed."
         case .meetingActive:
             "A meeting is recording. Stop the meeting first."
+        case .uploadActive:
+            "An upload is transcribing. Wait for it to finish first."
         case .notEnoughSpace(let bytes):
             "Not enough free space to restore. Free \(ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)) and try again."
         case .destinationInsideLibrary:

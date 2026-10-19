@@ -50,4 +50,7 @@ struct BackupManifestTests {
         let bytes: Int64 = 1_000_000
         #expect(BackupError.notEnoughSpace(bytes: bytes).errorDescription == "Not enough free space to restore. Free \(ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)) and try again.")
     }
+    @Test func uploadActiveMessage() {
+        #expect(BackupError.uploadActive.errorDescription == "An upload is transcribing. Wait for it to finish first.")
+    }
 }

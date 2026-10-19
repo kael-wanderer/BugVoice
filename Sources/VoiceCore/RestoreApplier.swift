@@ -22,8 +22,10 @@ public enum RestoreApplier {
     }
 
     public static func stage(archive: URL, root: URL, writer: BackupWriter,
-                             meetingActive: Bool, availableBytes: Int64) async throws -> BackupManifest {
+                             meetingActive: Bool, uploadActive: Bool = false,
+                             availableBytes: Int64) async throws -> BackupManifest {
         guard !meetingActive else { throw BackupError.meetingActive }
+        guard !uploadActive else { throw BackupError.uploadActive }
         let manifest = try await writer.readManifest(archive)
         let needed = manifest.totalBytes + manifest.totalBytes / 10
         guard availableBytes >= needed else { throw BackupError.notEnoughSpace(bytes: needed - availableBytes) }
@@ -33,6 +35,8 @@ public enum RestoreApplier {
         if manager.fileExists(atPath: pending.path) { try manager.removeItem(at: pending) }
         do {
             try await writer.extract(archive, into: pending)
+            // A symlink would move into the library and point it at another folder.
+            guard !containsSymlink(pending) else { throw BackupError.notABackup }
             let problems = manifest.problems(in: pending.appendingPathComponent("data"))
             guard problems.isEmpty else { throw BackupError.damaged(count: problems.count) }
             try Task.checkCancellation()
@@ -51,6 +55,14 @@ public enum RestoreApplier {
                 (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
         }.map { URL(fileURLWithPath: $0.path, isDirectory: true) }
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
+    }
+
+    private static func containsSymlink(_ directory: URL) -> Bool {
+        guard let items = FileManager.default.enumerator(at: directory, includingPropertiesForKeys: [.isSymbolicLinkKey]) else { return false }
+        for case let url as URL in items where (try? url.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) == true {
+            return true
+        }
+        return false
     }
 
     private static func checkRecoveryData(in pending: URL) throws {
@@ -108,10 +120,11 @@ public enum RestoreApplier {
             }
             throw BackupError.failed("Restore did not finish: \(error.localizedDescription)")
         }
-        let index = root.appendingPathComponent("SearchIndex")
-        if manager.fileExists(atPath: index.path) { try manager.removeItem(at: index) }
-        for old in safetyCopies(in: root) where old.lastPathComponent != safety.lastPathComponent { try manager.removeItem(at: old) }
-        try manager.removeItem(at: pending)
+        // The restore is committed; cleanup that fails leaves a stale index or an
+        // extra folder, never a wrong library, so it does not fail the restore.
+        try? manager.removeItem(at: root.appendingPathComponent("SearchIndex"))
+        for old in safetyCopies(in: root) where old.lastPathComponent != safety.lastPathComponent { try? manager.removeItem(at: old) }
+        try? manager.removeItem(at: pending)
         return Outcome(backupCreatedAt: manifest.createdAt, safetyCopy: safety)
     }
 }

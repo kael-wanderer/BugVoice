@@ -100,12 +100,17 @@ final class BackupController {
             if automatic {
                 let folder = destination.deletingLastPathComponent()
                 let keep = model.settings.backup.keep
-                try await Task.detached(priority: .utility) {
-                    let names = try FileManager.default.contentsOfDirectory(atPath: folder.path)
-                    for name in BackupSchedule.filesToDelete(names, keep: keep, timeZone: .current) {
-                        try FileManager.default.removeItem(at: folder.appendingPathComponent(name))
-                    }
-                }.value
+                // The backup is written; failing to delete old ones only leaves extra files.
+                do {
+                    try await Task.detached(priority: .utility) {
+                        let names = try FileManager.default.contentsOfDirectory(atPath: folder.path)
+                        for name in BackupSchedule.filesToDelete(names, keep: keep, timeZone: .current) {
+                            try FileManager.default.removeItem(at: folder.appendingPathComponent(name))
+                        }
+                    }.value
+                } catch {
+                    Log.app.error("Could not delete old backups: \(error.localizedDescription, privacy: .public)")
+                }
             }
             await refreshFolder()
         } catch is CancellationError {
@@ -128,7 +133,7 @@ final class BackupController {
 
     func restoreAndRelaunch(_ archive: URL) async -> BackupError? {
         guard !writing, !restoring else { return .failed("A backup or restore is already running.") }
-        guard model.meetings?.isActive != true, model.uploads?.isBusy != true else { return .meetingActive }
+        if let busy = busyReason { return busy }
         relaunchError = nil
         restoring = true
         defer { restoring = false }
@@ -137,7 +142,7 @@ final class BackupController {
                 return .failed("Could not save notes before restoring. Resolve the note changes and try again.")
             }
             await model.meetings?.flushNotes()
-            guard model.meetings?.isActive != true, model.uploads?.isBusy != true else { return .meetingActive }
+            if let busy = busyReason { return busy }
             let root = model.paths.root
             _ = try await Task.detached {
                 let values = try root.deletingLastPathComponent().resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
@@ -151,9 +156,9 @@ final class BackupController {
                 return .failed("Could not save notes before restoring. Resolve the note changes and try again.")
             }
             await model.meetings?.flushNotes()
-            guard model.meetings?.isActive != true, model.uploads?.isBusy != true else {
+            if let busy = busyReason {
                 try? FileManager.default.removeItem(at: RestoreApplier.pendingDirectory(for: root))
-                return .meetingActive
+                return busy
             }
             let config = NSWorkspace.OpenConfiguration()
             config.createsNewApplicationInstance = true
@@ -176,6 +181,12 @@ final class BackupController {
                 }
             }
         } catch { return error as? BackupError ?? .failed(error.localizedDescription) }
+    }
+
+    private var busyReason: BackupError? {
+        if model.meetings?.isActive == true { return .meetingActive }
+        if model.uploads?.isBusy == true { return .uploadActive }
+        return nil
     }
 
     /// Disarm the handoff when the old instance cannot finish quitting.

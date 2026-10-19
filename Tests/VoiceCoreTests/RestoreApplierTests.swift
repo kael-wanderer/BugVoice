@@ -126,11 +126,32 @@ struct RestoreApplierTests {
         try write(root, "SearchIndex/i", "index")
         try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: index.path)
         try await stage(root)
-        #expect(throws: (any Error).self) { try RestoreApplier.applyPending(root: root, now: now, timeZone: zone) }
+        // The library is already replaced, so a failed cleanup still reports the restore.
+        #expect(try RestoreApplier.applyPending(root: root, now: now, timeZone: zone)?.backupCreatedAt == now)
         #expect(try read(root, "settings.json") == "nnn")
-        _ = try? RestoreApplier.applyPending(root: root, now: now, timeZone: zone)
+        #expect(try RestoreApplier.applyPending(root: root, now: now, timeZone: zone) == nil)
         #expect(try read(root, "settings.json") == "nnn")
         #expect(exists(root, "Notes/b.md"))
+    }
+    @Test func stageRejectsSymlinks() async throws {
+        let root = try fixture(); defer { try? FileManager.default.removeItem(at: root.deletingLastPathComponent()) }
+        let source = root.deletingLastPathComponent().appendingPathComponent(UUID().uuidString)
+        let outside = root.deletingLastPathComponent().appendingPathComponent("outside")
+        try write(outside, "b.md", "")
+        try write(source, "data/settings.json", "nnn")
+        try FileManager.default.createSymbolicLink(at: source.appendingPathComponent("data/Notes"), withDestinationURL: outside)
+        let manifest = BackupManifest(format: 1, createdAt: now, appVersion: "1", build: "1", counts: .init(notes: 1, meetings: 0, dictations: 0, dictionaryWords: 0, folders: 0, tags: 0), files: [.init(path: "settings.json", size: 3), .init(path: "Notes/b.md", size: 0)])
+        try manifest.encoded().write(to: source.appendingPathComponent("backup.json"))
+        let archive = source.appendingPathExtension("zip")
+        _ = try await FoundationProcessRunner().run(executable: "/usr/bin/ditto", arguments: ["-c", "-k", source.path, archive.path], stdin: "", workingDirectory: nil, timeout: 60)
+        await #expect(throws: BackupError.notABackup) {
+            try await RestoreApplier.stage(archive: archive, root: root, writer: BackupWriter(), meetingActive: false, availableBytes: 100_000)
+        }
+        #expect(!FileManager.default.fileExists(atPath: RestoreApplier.pendingDirectory(for: root).path))
+    }
+    @Test func stageRefusesBusyUpload() async throws {
+        let root = try fixture(); defer { try? FileManager.default.removeItem(at: root.deletingLastPathComponent()) }
+        await #expect(throws: BackupError.uploadActive) { try await RestoreApplier.stage(archive: root, root: root, writer: BackupWriter(), meetingActive: false, uploadActive: true, availableBytes: 1000) }
     }
     @Test func nothingPendingReturnsNil() throws {
         let root = try fixture(); defer { try? FileManager.default.removeItem(at: root.deletingLastPathComponent()) }
