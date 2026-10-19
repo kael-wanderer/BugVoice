@@ -166,20 +166,40 @@ final class BackupController {
             if let screen = ProcessInfo.processInfo.environment["BUGVOICE_DEV_SCREEN"] {
                 config.environment = ["BUGVOICE_DEV_SCREEN": screen]
             }
-            return await withCheckedContinuation { continuation in
-                NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: config) { _, error in
-                    if let error {
-                        try? FileManager.default.removeItem(at: RestoreApplier.pendingDirectory(for: root))
-                        continuation.resume(returning: .failed("Could not relaunch BugVoice: \(error.localizedDescription)"))
-                    } else {
-                        continuation.resume(returning: nil)
-                        DispatchQueue.main.async {
-                            self.pendingRelaunch = true
-                            NSApp.terminate(nil)
-                        }
-                    }
-                }
+            // Workspace reports a launch only after the new instance finishes launching,
+            // and that instance waits for this one to exit before it does: waiting for
+            // the completion handler deadlocked. Quit once the new process exists.
+            let pending = RestoreApplier.pendingDirectory(for: root)
+            let launchError = LaunchErrorBox()
+            NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: config) { _, error in
+                if let error { Task { @MainActor in launchError.message = error.localizedDescription } }
             }
+            let ownPID = ProcessInfo.processInfo.processIdentifier
+            for _ in 0..<150 {
+                if let message = launchError.message {
+                    try? FileManager.default.removeItem(at: pending)
+                    return .failed("Could not relaunch BugVoice: \(message)")
+                }
+                let started = NSRunningApplication.runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier ?? "")
+                    .contains { $0.processIdentifier != ownPID && $0.bundleURL == Bundle.main.bundleURL }
+                if started {
+                    pendingRelaunch = true
+                    Log.app.notice("restore: new instance started, quitting")
+                    // AppKit ignores terminate while a sheet is attached. Returning nil makes
+                    // the restore sheet dismiss itself; quit once it has gone.
+                    Task { @MainActor in
+                        for _ in 0..<40 where NSApp.windows.contains(where: { $0.attachedSheet != nil }) {
+                            try? await Task.sleep(for: .milliseconds(50))
+                        }
+                        NSApp.terminate(nil)
+                    }
+                    return nil
+                }
+                try? await Task.sleep(for: .milliseconds(100))
+            }
+            // Removing the pending folder also stops a late-starting instance from waiting.
+            try? FileManager.default.removeItem(at: pending)
+            return .failed("Could not relaunch BugVoice. Nothing was changed; try restoring again.")
         } catch { return error as? BackupError ?? .failed(error.localizedDescription) }
     }
 
@@ -305,4 +325,9 @@ final class BackupController {
             return error.localizedDescription
         }
     }
+}
+
+@MainActor
+private final class LaunchErrorBox {
+    var message: String?
 }

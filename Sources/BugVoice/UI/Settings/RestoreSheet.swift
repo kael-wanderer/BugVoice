@@ -49,6 +49,10 @@ struct RestoreSheet: View {
                                 if case .damaged = error { restoreFailed = true }
                                 if case .failed = error { restoreFailed = true }
                                 preparing = false
+                            } else {
+                                // BugVoice is quitting to finish the restore.
+                                preparing = false
+                                dismiss()
                             }
                         }
                     }.buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction).disabled(inspecting || preparing)

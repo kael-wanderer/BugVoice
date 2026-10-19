@@ -174,6 +174,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        Log.app.notice("quit requested")
         let meetings = model.meetings
         let meetingIsActive = meetings?.isRecording == true || meetings?.isPaused == true
         if meetingIsActive {
