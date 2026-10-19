@@ -16,6 +16,7 @@ final class UploadController {
         /// Set for files an agent added: the meeting title and the agent's name.
         var title: String?
         var addedBy: String?
+        var languages: [SpeechLanguage]?
     }
 
     enum AgentUploadError: LocalizedError {
@@ -140,7 +141,7 @@ final class UploadController {
     /// Queues a file for an agent as Transcribe does, without touching the
     /// owner's drafts. The meeting saved for it keeps the job id, so the job
     /// is found again after a relaunch. The original file is only read.
-    func submitForAgent(url: URL, title: String?, labels: ItemLabels, client: String) async throws -> UUID {
+    func submitForAgent(url: URL, title: String?, labels: ItemLabels, client: String, languages: [SpeechLanguage]? = nil) async throws -> UUID {
         guard accepting else { throw AgentUploadError.notReady }
         let metadata = try await Task.detached(priority: .utility) {
             try await MediaAudioDecoder.probe(url)
@@ -149,6 +150,7 @@ final class UploadController {
         var draft = Draft(url: url, metadata: metadata, scoped: false, labels: labels)
         draft.title = title
         draft.addedBy = client
+        draft.languages = languages
         let job = UploadJob(
             fileName: metadata.fileName, kind: metadata.kind, duration: metadata.duration,
             byteSize: metadata.byteSize, addedBy: client)
@@ -362,7 +364,7 @@ final class UploadController {
         let writer = MeetingPCMJournalWriter(directory: directory.appendingPathComponent(".capture"))
         let scheduler = UploadTranscriptionScheduler(
             writer: writer, transcriber: model.transcriptionRouter,
-            languages: model.settings.meetings.languages,
+            languages: inputs[job.id]?.languages ?? model.settings.meetings.languages,
             gate: { [weak self] in
                 guard let self else { throw CancellationError() }
                 try await self.waitForRecognition()
