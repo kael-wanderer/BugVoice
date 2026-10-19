@@ -67,6 +67,7 @@ version and build live in `App/Info.plist`. Every commit raises the build by one
 - Folders and tags execution log and manual checks: `docs/progress/library-management-log.md`
 - Roadmap (next sub-projects, dropped ideas): `docs/ROADMAP.md`
 - Proposed new features (unscheduled, from the 2026-10-19 review): `docs/propose-new-features.md`
+- Backup and restore spec (draft): `docs/superpowers/specs/2026-10-19-backup-restore-design.md` (mockup: `docs/design/proposal-backup.html`)
 
 ## Rules
 
