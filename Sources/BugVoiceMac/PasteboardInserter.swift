@@ -68,6 +68,20 @@ public final class PasteboardInserter: InsertionTarget {
         }
     }
 
+    public func selectBack(_ count: Int) async {
+        var sent = 0
+        let total = max(0, count)
+        while sent < total {
+            let batch = min(50, total - sent)
+            for _ in 0..<batch {
+                Self.makeKeyEvent(keyCode: 123, keyDown: true, flags: .maskShift)?.post(tap: .cghidEventTap)
+                Self.makeKeyEvent(keyCode: 123, keyDown: false, flags: .maskShift)?.post(tap: .cghidEventTap)
+            }
+            sent += batch
+            if sent < total { try? await Task.sleep(for: .milliseconds(10)) }
+        }
+    }
+
     public static func makeKeyEvent(keyCode: CGKeyCode, keyDown: Bool, flags: CGEventFlags) -> CGEvent? {
         let event = CGEvent(keyboardEventSource: CGEventSource(stateID: .hidSystemState), virtualKey: keyCode, keyDown: keyDown)
         event?.flags = flags
