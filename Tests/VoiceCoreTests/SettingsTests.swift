@@ -30,6 +30,31 @@ struct SettingsTests {
         #expect(store.load() == s)
     }
 
+    @Test func oldSettingsGetDefaultRules() throws {
+        let settings = try JSONDecoder().decode(AppSettings.self, from: Data(#"{"speech":{"language":"auto"}}"#.utf8))
+        #expect(settings.speech.appLanguages == AppLanguageRule.defaults)
+        #expect(settings.speech.languageKey == .shift)
+        #expect(settings.speech.keepEnglishWords)
+        #expect(settings.speech.showLanguageSwitch)
+    }
+
+    @Test func emptyRuleListStaysEmpty() throws {
+        let settings = try JSONDecoder().decode(AppSettings.self, from: Data(#"{"speech":{"appLanguages":[]}}"#.utf8))
+        #expect(settings.speech.appLanguages.isEmpty)
+    }
+
+    @Test func badRuleIsDroppedAlone() throws {
+        let json = #"{"speech":{"appLanguages":[{"kind":"app","id":"com.bad","language":"xx"},{"kind":"app","id":"com.good","language":"en"}]}}"#
+        let settings = try JSONDecoder().decode(AppSettings.self, from: Data(json.utf8))
+        #expect(settings.speech.appLanguages == [AppLanguageRule(kind: .app, id: "com.good", language: .en)])
+    }
+
+    @Test func languageRulesRoundTrip() throws {
+        let settings = AppSettings()
+        let data = try JSONEncoder().encode(settings)
+        #expect(try JSONDecoder().decode(AppSettings.self, from: data) == settings)
+    }
+
     @Test func legacyTextModelMigratesToModels() throws {
         let url = tempDir().appendingPathComponent("settings.json")
         try Data(#"{"hotkey":"fn","textModel":{"model":"other","timeoutSeconds":5}}"#.utf8).write(to: url)
