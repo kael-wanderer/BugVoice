@@ -78,6 +78,7 @@ version and build live in `App/Info.plist`. Every commit raises the build by one
 - Command mode plan: `docs/superpowers/plans/2026-10-19-command-mode.md`
 - Command mode execution log and device checks: `docs/progress/command-log.md`
 - Project words spec: `docs/superpowers/specs/2026-10-19-project-words-design.md` (mockup: `docs/design/proposal-project-words.html`)
+- Project words plan: `docs/superpowers/plans/2026-10-19-project-words.md`
 
 ## Rules
 
