@@ -456,6 +456,7 @@ final class UploadController {
                 failure = (error as? UploadFailure) == .noAudio ? .noAudio : .unreadable
                 await removeFailedImport(directory)
             }
+            Log.upload.error("job failed as \(String(describing: failure), privacy: .public): \(String(describing: error), privacy: .public)")
             queue.apply(id: job.id, event: .failed(failure.localizedDescription))
         }
         await model.reloadMeetings()

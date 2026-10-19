@@ -287,7 +287,9 @@ final class AppModel {
     /// The latest failure to save something (settings, Dictionary, history,
     /// API key, login item). The UI shows it and sets it back to nil once
     /// the user has seen it. Never cleared by a later success.
-    var saveError: String?
+    var saveError: String? {
+        didSet { if let saveError { Log.app.error("\(saveError, privacy: .public)") } }
+    }
 
     @ObservationIgnored var onSettingsChanged: (() -> Void)?
     /// Brings up the main window. Set by the app delegate, which owns it.

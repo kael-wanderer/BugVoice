@@ -262,6 +262,8 @@ final class DictationController {
                 }
             }
             stagedRun = nil
+            Log.dictation.info("\(Diagnostics.dictationSummary(result), privacy: .public)")
+            if let message = result.errorMessage { Log.dictation.error("\(message, privacy: .public)") }
             // Agents may edit the note again once this dictation is in.
             if let notesCapture { model.notesController.releaseCapture(notesCapture) }
             if result.outcome == .cancelled {
