@@ -85,3 +85,38 @@
   unrelated fields. `git diff --check` passed. Foundation only; fixtures use
   temporary synthetic files with cleanup, and no owner data was accessed.
 - No scope deviations.
+
+## Task 5 — Write and read backup files (2026-10-19)
+
+- Added `BackupWriter`: stages copied files and their actual sizes with a
+  format-1 manifest, writes a ditto ZIP through a `.partial` file, reads the
+  manifest with unzip, and extracts with ditto. Refuses destinations inside
+  the library, reports each copied file, checks cancellation between files
+  and before publication, and removes staging/partial files on exit.
+- Test-first evidence: six tests were written before implementation;
+  `swift test --filter BackupWriterTests` failed because `BackupWriter` did
+  not exist (`/tmp/bugvoice-task5-red.log`). Focused green passed 6 tests /
+  1 suite (`/tmp/bugvoice-task5-green.log`).
+- Tests use real system archive tools and synthetic temporary files: Unicode
+  round trip and byte validation, destination rejection, failed archive
+  cleanup (fake runner leaves partial output), missing manifest, invalid ZIP,
+  and per-file progress. No owner data was accessed.
+- Full `swift test` passed: 965 VoiceCore tests / 108 suites, 30 MCPKit tests /
+  2 suites, 94 BugVoiceMac tests / 16 suites (1,089 total;
+  `/tmp/bugvoice-task5-full.log`). `git diff --check` passed.
+- Foundation only, no new dependencies, and no scope deviations.
+
+### Task 5 review correction and Deviations
+
+- The plan's literal descendant-prefix guard did not reject a destination
+  equal to the library root. Such a destination could replace the library
+  directory with its archive. Deviations: corrected that guard to reject
+  equality as well as descendants, preserving the plan's protective intent.
+- Added `writerRefusesDestinationEqualToLibrary` first. It failed before the
+  fix: no error was thrown and the synthetic library's settings file was no
+  longer readable (`/tmp/bugvoice-task5-equality-red.log`). The fixed test
+  verifies the original settings bytes remain intact.
+- Focused green: 7 tests / 1 suite
+  (`/tmp/bugvoice-task5-equality-green.log`). Full `swift test` passed:
+  966 VoiceCore / 108 suites, 30 MCPKit / 2, 94 BugVoiceMac / 16 (1,090 total;
+  `/tmp/bugvoice-task5-equality-full.log`). `git diff --check` passed.
