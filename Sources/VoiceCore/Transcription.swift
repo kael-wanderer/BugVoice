@@ -31,6 +31,7 @@ public enum MeetingLanguages {
 public enum TranscriptionPriority: Int, Codable, Sendable {
     case meeting = 0
     case dictation = 1
+    case preview = 2
 }
 
 /// One timed piece of a transcript. Dictation ignores timing; Meetings
