@@ -1,6 +1,6 @@
 # Backup and restore
 
-Date: 2026-10-19. Status: draft, waiting for owner review.
+Date: 2026-10-19. Status: approved by owner 2026-10-19 (calls 1–4 below accepted).
 Mockup: `docs/design/proposal-backup.html`.
 Follows: the app review of 2026-10-19 (`docs/propose-new-features.md`, speed note
 and review findings in `docs/progress/HANDOFF.md`).
@@ -150,21 +150,29 @@ missing source file each show one sentence in the card and in the log
    - there is not enough free disk space for the unzipped backup plus a
      margin of 10%.
 4. On **Restore and relaunch**:
-   1. Unzip into a temporary folder inside the library's parent folder (same
-      disk, so moves are renames).
+   1. Unzip into `BugVoice Restore Pending/` next to the library folder (same
+      disk, so later moves are renames).
    2. Check every file in `files` is present with its size. On a mismatch,
-      stop, delete the temporary folder, change nothing, and say the backup
+      stop, delete the pending folder, change nothing, and say the backup
       is damaged.
-   3. Create `Restore safety copy 2026-10-19 0915/` inside the library folder
+   3. Write a `ready` marker into the pending folder, last.
+   4. Relaunch BugVoice.
+5. At the start of the next launch, before anything is loaded (added
+   2026-10-19 while planning: swapping files under the running app would let
+   its in-memory notes, settings or insights save over the restored ones):
+   1. A pending folder without `ready` is deleted (a restore interrupted
+      before it was checked).
+   2. Create `Restore safety copy 2026-10-19 0915/` inside the library folder
       and move every included item of the current library into it.
-   4. Move the restored items into the library folder.
-   5. Leave `credentials.json`, `models/` and `MCP/` where they are. Delete
+   3. Move the restored items into the library folder.
+   4. Leave `credentials.json`, `models/` and `MCP/` where they are. Delete
       `SearchIndex/` so it rebuilds.
-   6. Relaunch BugVoice.
-5. If step 3 or 4 fails part way, move everything back from the safety copy
-   before reporting the error. The library is either the old one or the new
-   one, never a mix.
-6. A backup from a newer build restores. The stores already open files with a
+   5. Delete the pending folder and show "Restored the backup from 17 Oct
+      2026, 18:40."
+6. If step 5.2 or 5.3 fails part way, move everything back before reporting
+   the error. The library is either the old one or the new one, never a
+   mix.
+7. A backup from a newer build restores. The stores already open files with a
    newer version read-only (Insights, folders and tags), and the app says so
    as it does today.
 
@@ -183,7 +191,9 @@ missing source file each show one sentence in the card and in the log
   `~/Documents/BugVoice Backups` (created if missing).
 - BugVoice checks at launch and then every hour. A backup is due when the
   newest `*.bugvoicebackup` in the folder is older than a day (Daily) or 7
-  days (Weekly), judged by the date in `backup.json`, or the folder has none.
+  days (Weekly), judged by the date in its file name (changed 2026-10-19 while
+  planning: reading each zip's `backup.json` is slow on a network drive), or
+  the folder has none.
 - It runs at low priority, skips the run while a meeting records or
   transcribes, and tries again at the next hourly check.
 - After a successful automatic backup, BugVoice deletes the oldest backup
