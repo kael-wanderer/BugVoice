@@ -106,6 +106,9 @@ final class AppModel {
     /// The MCP server for coding agents (Settings › Agents).
     @ObservationIgnored lazy var mcp = MCPService(model: self)
 
+    @ObservationIgnored lazy var backup = BackupController(model: self)
+    var restoreMessage: String?
+
     var settings = AppSettings() {
         didSet {
             guard settings != oldValue, !isLoadingSettings else { return }
@@ -369,6 +372,13 @@ final class AppModel {
         Task { await refreshCLIs() }
         // Last, so agents never see half-loaded notes or meetings.
         mcp.start()
+        backup.startSchedule()
+        if let restoreMessage {
+            settingsTab = .storage
+            openMainWindow(.settings)
+            showNotice(restoreMessage)
+            self.restoreMessage = nil
+        }
     }
 
     /// Configured from the settings just loaded (loading does not fire
@@ -432,6 +442,7 @@ final class AppModel {
         if settings.scratchpad.keepOnTop != old.scratchpad.keepOnTop || settings.scratchpad.compact != old.scratchpad.compact {
             scratchpadWindow?.applyLayout()
         }
+        if settings.backup != old.backup { backup.settingsChanged() }
         onSettingsChanged?()
     }
 

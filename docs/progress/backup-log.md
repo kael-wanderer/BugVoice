@@ -152,3 +152,41 @@
   94 BugVoiceMac / 16 suites, all pass (1,102 total;
   `/tmp/task6-full.log`). `git diff --check` passed. No app launch or device
   checks were performed; no dependency was added.
+
+## Task 7 — Backup controller and launch-time restore (2026-10-19)
+
+- Added the observable app controller for manual and scheduled backups, flush-before-
+  planning consistency, detached planning/copy/archive work, main-actor progress,
+  cancellation, result copy/counts, bookmark folder selection/refresh, hourly and
+  immediate settings checks, filename-based due dates and automatic retention.
+  Automatic failures report once per launch; missing folders only update the card.
+- Added detached manifest inspection and restore staging with the library parent's
+  important-usage free capacity, active meeting/upload guards, safety-copy details
+  and deletion. AppModel starts the controller only after data loads and shows
+  launch restore messages using its existing notice capsule, opening Settings ›
+  Storage so the result and safety-copy row are visible after the menu-bar launch.
+- Deviations: `backup` is a lazy property, matching other self-owning app services,
+  because constructing the controller needs the fully initialized AppModel.
+  The existing Task 1 settings API calls its schedule property `frequency`; the
+  controller consumes that API rather than introducing a second property.
+- Review correction and approved deviation: Workspace launches the new instance
+  before its completion terminates the old one. The new instance receives the old
+  PID and asynchronously waits for its exit before applying pending restore or
+  loading stores; activation/reopen callbacks are gated during that wait. This
+  prevents the old instance's final saves from overwriting restored data. The
+  OpenConfiguration/new-instance/completion-termination mechanism remains the
+  PermissionsView mechanism. Failed launches remove pending data and return an
+  error. Notes/meeting notes are flushed and active operations rechecked both
+  before staging and immediately before relaunch.
+- Quality-review correction: a quit veto cancels the handoff by removing the ready
+  marker/pending directory and showing a failure. The waiting instance watches the
+  marker and exits without applying or loading files when cancellation occurs.
+  Every quit-cancel/reply-false path disarms the handoff, including a late note-save
+  failure or cancelling a meeting quit prompt. This coordination requires device
+  checking; no app launch or owner data access was performed in this task.
+  Device launch/handoff verification remains unverified because CUA access was
+  blocked in the parent session. Relaunch preserves BUGVOICE_DEV_SCREEN when set.
+- Checks: `swift build` passed with no new warnings (`/tmp/task7-build.log`), and
+  full `swift test` passed: 978 VoiceCore / 109 suites, 30 MCPKit / 2 suites,
+  94 BugVoiceMac / 16 suites (1,102 total; `/tmp/task7-full.log`).
+  `git diff --check` passed. No dependencies were added.
