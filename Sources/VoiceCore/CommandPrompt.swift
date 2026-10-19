@@ -35,7 +35,8 @@ public enum CommandOutput {
             .trimmingCharacters(in: .whitespacesAndNewlines)
         if let newline = text.firstIndex(of: "\n") {
             let first = text[..<newline].trimmingCharacters(in: .whitespaces)
-            if first.hasSuffix(":"), first.split(whereSeparator: \.isWhitespace).count <= 12 {
+            if first.hasSuffix(":"), first.split(whereSeparator: \.isWhitespace).count <= 12,
+               !(selection ?? "").contains(first) {
                 text = String(text[text.index(after: newline)...]).trimmingCharacters(in: .whitespacesAndNewlines)
             }
         }

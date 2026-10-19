@@ -109,3 +109,15 @@ left for the owner, as instructed.
 | C10 History Command tag; Insights unchanged | **Not run** | No real command was generated. History round trip and Insights/backfill exclusion pass in tests; device behavior remains unverified. |
 | C11 Off key and hotkey conflict | **Not run** | Requires changing settings and exercising a hotkey. Default Right Option was observed in Settings, but Off/conflict were not exercised. |
 | C12 Light and dark match mockup | **Not run — partial read-only inspection** | Current dark General and Shortcuts layouts were inspected, with the Command key and row present and readable. Light theme, command HUD, command menu card and command history were not inspected. Completing both themes would require settings changes and live command states. |
+
+## Review fixes (2026-10-19)
+
+- Selection capture trusts an Accessibility read that shows nothing selected
+  and skips the ⌘C fallback. VS Code, Cursor and JetBrains copy the whole
+  line on ⌘C with no selection, which would have rewritten that line and
+  pasted it at the cursor. Test `emptyReadableSelectionSkipsCopy`.
+- An announcing line ending in ":" is kept when the selection contains it
+  (a real heading such as "Agenda:"). Test `keepsHeadingFromSelection`.
+- Original after a write-new command selects the written text and deletes it
+  (HUD "Written text removed") instead of pasting an empty string; a second
+  Original shows "Nothing to fix".

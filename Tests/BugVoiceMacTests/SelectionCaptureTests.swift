@@ -35,6 +35,16 @@ struct SelectionCaptureTests {
         #expect(p.string(forType: .string) == "old")
         #expect(p.data(forType: custom) == Data([1, 2, 3]))
     }
+    @Test func emptyReadableSelectionSkipsCopy() async {
+        // Editors such as VS Code copy the whole line on ⌘C with nothing selected.
+        let p = board()
+        defer { p.releaseGlobally() }
+        var called = false
+        let capture = SelectionCapture(pasteboard: p, postCopy: { called = true })
+        #expect(await capture.capture(axSelection: "") == nil)
+        #expect(await capture.capture(axSelection: " \n") == nil)
+        #expect(!called)
+    }
     @Test func noChangeMeansNoSelection() async {
         let p = board()
         defer { p.releaseGlobally() }

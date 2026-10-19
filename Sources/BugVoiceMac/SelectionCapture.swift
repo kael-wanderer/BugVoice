@@ -12,7 +12,11 @@ public final class SelectionCapture {
     }
 
     public func capture(axSelection: String?) async -> String? {
-        if let axSelection, !axSelection.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return axSelection }
+        // Accessibility read the field: trust it, even when nothing is selected.
+        // ⌘C with no selection copies the whole line in editors like VS Code.
+        if let axSelection {
+            return axSelection.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : axSelection
+        }
         let saved = PasteboardSnapshot.capture(pasteboard)
         defer { saved.restore(to: pasteboard) }
         let changeCount = pasteboard.changeCount

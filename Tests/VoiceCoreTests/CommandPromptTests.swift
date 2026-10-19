@@ -34,6 +34,10 @@ struct CommandPromptTests {
         #expect(CommandOutput.sanitize("Here is the formal version:\nDear team,", selection: nil) == .success("Dear team,"))
         #expect(CommandOutput.sanitize("Note: done", selection: nil) == .success("Note: done"))
     }
+    @Test func keepsHeadingFromSelection() {
+        let selection = "Agenda:\nbudget, hiring"
+        #expect(CommandOutput.sanitize("Agenda:\n- budget\n- hiring", selection: selection) == .success("Agenda:\n- budget\n- hiring"))
+    }
     @Test func dropsWrappingQuotes() {
         #expect(CommandOutput.sanitize("\"Hello there.\"", selection: "hello there") == .success("Hello there."))
         #expect(CommandOutput.sanitize("“Xin chào”", selection: nil) == .success("Xin chào"))

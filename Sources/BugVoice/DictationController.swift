@@ -460,6 +460,7 @@ final class DictationController {
 
     private func restoreCommandOriginal(_ previous: DictationResult) {
         guard !isBusy, !isRecording else { return }
+        guard !previous.finalText.isEmpty else { showNothingToFix(); return }
         isBusy = true
         Task { [self] in
             defer { isBusy = false }
@@ -474,6 +475,17 @@ final class DictationController {
                 await inserter.copy(previous.uncleanedText)
                 clearReplacementRecord()
                 hud.show(.message(title: "Copied — press ⌘V", detail: "text changed since the paste"))
+                return
+            }
+            if previous.uncleanedText.isEmpty {
+                // New text had no original: remove what was written.
+                await inserter.deleteBackward(1)
+                clearReplacementRecord()
+                var replacement = previous
+                replacement.finalText = ""
+                replacement.cleaned = nil
+                await model.replaceLast(replacement, kind: .raw)
+                hud.show(.message(title: "Written text removed", detail: nil))
                 return
             }
             let outcome = await inserter.insert(previous.uncleanedText)
