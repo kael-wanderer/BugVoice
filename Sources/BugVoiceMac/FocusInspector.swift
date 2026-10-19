@@ -33,6 +33,14 @@ public struct FocusInspector: FocusProvider {
             snap.isSecure = true
             return snap
         }
+        if let frontPID {
+            let appElement = AXUIElementCreateApplication(frontPID)
+            AXUIElementSetMessagingTimeout(appElement, 0.25)
+            if let window = element(appElement, kAXFocusedWindowAttribute) {
+                AXUIElementSetMessagingTimeout(window, 0.25)
+                snap.windowTitle = string(window, kAXTitleAttribute)
+            }
+        }
         let system = AXUIElementCreateSystemWide()
         AXUIElementSetMessagingTimeout(system, 0.25)
         guard let element = element(system, kAXFocusedUIElementAttribute) else {
