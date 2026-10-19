@@ -4,7 +4,9 @@ Last updated: 2026-10-19
 
 ## Current state
 
-**Live preview:** built on `feat/live-preview` (2026-10-19), not merged.
+**Live preview:** merged on `main` (2026-10-19, build 290), not pushed. Preview runs
+on its own `openai_whisper-base` model (no added release-to-text in the
+benchmark; see the log's review section). Device checks P1–P11 pending.
 Settings › Speech › Live preview (default on), WhisperKit only: display-only
 passes show the last words under the dictation and Command HUD, kept dimmed
 through Transcribing / Cleaning / Rewriting. Secure fields, meetings, unloaded
