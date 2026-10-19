@@ -94,6 +94,14 @@ final class MCPService {
             return listNotes(folder: folder, tag: tag, text: text, limit: limit)
         case .getNote(let id):
             return await getNote(NoteID(rawValue: id))
+        case .listActionItems(let status, let meeting, let limit):
+            let done = await ActionItemStore(url: model.paths.actionItems).load()
+            let board = ActionItemBoard(meetings: model.meetingManifests.filter { meeting == nil || $0.id.rawValue == meeting },
+                                        done: done, status: status, owner: .anyone, range: .all, query: "", now: Date())
+            let rows = board.groups.flatMap { group in
+                group.rows.map { MCPFormat.actionItem($0, meetingTitle: group.title, meetingDate: group.date) }
+            }
+            return .success(MCPFormat.jsonRows(Array(rows.prefix(limit))))
         case .listMeetings(let folder, let tag, let from, let to, let text, let limit):
             return listMeetings(folder: folder, tag: tag, from: from, to: to, text: text, limit: limit)
         case .getMeeting(let id, let parts, let fromLine):

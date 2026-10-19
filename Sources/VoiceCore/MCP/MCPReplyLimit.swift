@@ -40,7 +40,7 @@ extension MCPFormat {
     public static func fitted(_ text: String, for call: MCPCall, limit: Int = maxReplyBytes) -> String {
         guard text.utf8.count > limit else { return text }
         switch call {
-        case .listFolders, .listNotes, .listMeetings:
+        case .listFolders, .listNotes, .listMeetings, .listActionItems:
             if let rows = (try? JSONDecoder().decode(JSONValue.self, from: Data(text.utf8)))?.arrayValue {
                 return jsonRows(rows, limit: limit)
             }

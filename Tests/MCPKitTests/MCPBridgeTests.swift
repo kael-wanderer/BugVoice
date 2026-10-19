@@ -69,7 +69,7 @@ struct MCPBridgeTests {
         let paths = shortTempPaths()
         let recorder = Recorder()
         await bridge(paths, recorder).handle(line: line(#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#))
-        #expect(recorder.lines.first?["result"]?["tools"]?.arrayValue?.count == 12)
+        #expect(recorder.lines.first?["result"]?["tools"]?.arrayValue?.count == 13)
         #expect(recorder.launches == 0)
     }
 
