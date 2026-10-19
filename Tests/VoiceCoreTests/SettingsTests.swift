@@ -236,3 +236,10 @@ extension SettingsTests {
         }
     }
 }
+
+struct CorrectionSettingsTests {
+    @Test func learnFromCorrectionsDefaultsOn() throws {
+        #expect(SpeechSettings().learnFromCorrections)
+        #expect(try JSONDecoder().decode(SpeechSettings.self, from: Data("{}".utf8)).learnFromCorrections)
+    }
+}

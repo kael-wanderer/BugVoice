@@ -24,6 +24,8 @@ final class DictationController {
     private var lastInsertionFocus: FocusSnapshot?
     private var hotkey: HotkeyMonitor!
     private var startFocus = FocusSnapshot.unknown
+    private var correctionFocus: FocusSnapshot?
+    private var correctionElement: AXUIElement?
     private var notesCapture: NotesDictationCapture?
     /// The meeting window's notes editor when it had the keyboard at the start.
     private var meetingNotes: MeetingNotesTextView?
@@ -128,6 +130,9 @@ final class DictationController {
 
     private func begin(handsFree: Bool, notesOnly: Bool = false) {
         guard !recorder.isRunning, model.command?.isActive != true else { return }
+        model.correctionWatcher.stop()
+        correctionFocus = nil
+        correctionElement = nil
         replacementGuard.clear()
         lastFocusedElement = nil
         lastInsertionFocus = nil
@@ -323,6 +328,14 @@ final class DictationController {
                 }
             }
             stagedRun = nil
+            if result.outcome == .inserted, !intoNotes, result.style != .terminal,
+               !focus.isSecure, model.settings.speech.learnFromCorrections,
+               let captured = correctionFocus,
+               FocusInspector.isSameElement(correctionElement, FocusInspector.focusedElement()) {
+                model.correctionWatcher.start(pasted: result.finalText, focus: captured, app: captured.appName)
+            }
+            correctionFocus = nil
+            correctionElement = nil
             model.recordProjectMatch(result.projectName, app: focus.appName)
             Log.dictation.info("\(Diagnostics.dictationSummary(result), privacy: .public)")
             if let message = result.errorMessage { Log.dictation.error("\(message, privacy: .public)") }
@@ -353,6 +366,7 @@ final class DictationController {
     // MARK: Menu actions
 
     func retryLast() {
+        model.correctionWatcher.cancel()
         guard model.command?.isActive != true, model.lastResult?.command == nil else { return }
         guard !isBusy, !recorder.isRunning else { return }
         if let notReady = speechNotReadyState() {
@@ -370,6 +384,7 @@ final class DictationController {
     }
 
     func pasteRaw() {
+        model.correctionWatcher.cancel()
         guard model.command?.isActive != true else { return }
         if let previous = model.lastResult, previous.command != nil {
             restoreCommandOriginal(previous)
@@ -397,6 +412,7 @@ final class DictationController {
     }
 
     func redoInOtherLanguage() {
+        model.correctionWatcher.cancel()
         guard model.command?.isActive != true else { return }
         if model.lastResult?.command != nil { showNothingToFix(); return }
         guard !isBusy, !recorder.isRunning, let previous = model.lastResult,
@@ -539,6 +555,10 @@ final class DictationController {
     }
 
     func recordOrdinaryInsertion(_ text: String, focus: FocusSnapshot) {
+        if model.settings.speech.learnFromCorrections, !focus.isSecure {
+            correctionFocus = FocusInspector.read()
+            correctionElement = FocusInspector.focusedElement()
+        }
         guard !focus.isSecure else { clearReplacementRecord(); return }
         let processID = NSWorkspace.shared.frontmostApplication?.processIdentifier ?? 0
         replacementGuard.recordInsertion(LastInsertion(text: text, processID: processID, at: Date()))

@@ -56,6 +56,12 @@ struct AppSidebar: View {
             HStack(spacing: LayoutTokens.spacing[1]) {
                 Image(systemName: page.symbol).frame(width: store.scaled(20))
                 Text(page.title).frame(maxWidth: .infinity, alignment: .leading)
+                if page == .dictionary, !model.suggestions.pending.isEmpty {
+                    Text("\(model.suggestions.pending.count)")
+                        .bvFont(.caption).foregroundStyle(.bvBackground)
+                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .background(Capsule().fill(.bvAccent))
+                }
                 if page == .upload, let job = model.uploads?.active { UploadRing(progress: job.progress) }
             }
             .bvFont(model.page == page ? .bodyStrong : .body)

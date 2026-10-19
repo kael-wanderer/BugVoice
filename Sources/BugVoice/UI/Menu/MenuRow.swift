@@ -25,17 +25,22 @@ struct MenuRow: View {
     var icon: String?
     let title: String
     var hint: String?
+    var badge: Int?
     let highlight: MenuHighlight
 
     var body: some View {
         Button(action: highlight.action(id)) {
             HStack(spacing: LayoutTokens.spacing[1]) {
                 Group {
-                    if let icon { Image(systemName: icon) } else { Color.clear }
+                    if let badge {
+                        Text("\(badge)").bvFont(.caption).foregroundStyle(.bvBackground)
+                            .padding(.horizontal, 5).padding(.vertical, 2)
+                            .background(Capsule().fill(.bvAccent))
+                    } else if let icon { Image(systemName: icon) } else { Color.clear }
                 }
                 .foregroundStyle(.bvSecondary)
-                .frame(width: store.scaled(16))
-                .accessibilityHidden(true)
+                .frame(width: store.scaled(badge == nil ? 16 : 24))
+                .accessibilityHidden(badge == nil)
                 Text(title).bvFont(.body)
                 Spacer(minLength: LayoutTokens.spacing[1])
                 if let hint { Text(hint).bvFont(.footnote).foregroundStyle(.bvSecondary).accessibilityHidden(true) }

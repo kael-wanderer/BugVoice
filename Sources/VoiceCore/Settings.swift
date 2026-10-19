@@ -136,6 +136,7 @@ public struct SpeechSettings: Codable, Equatable, Sendable {
     public var languageKey: LanguageKey = .shift
     public var keepEnglishWords = true
     public var useVocabularyHints = true
+    public var learnFromCorrections = true
     public var projectWordsScope: ProjectWordsScope = .codingApps
     public var serverBaseURL = "http://localhost:8000"
     public var serverModel = "whisper-1"
@@ -370,6 +371,7 @@ extension SpeechSettings {
         languageKey = c.value(.languageKey, default: languageKey)
         keepEnglishWords = c.value(.keepEnglishWords, default: keepEnglishWords)
         useVocabularyHints = c.value(.useVocabularyHints, default: useVocabularyHints)
+        learnFromCorrections = c.value(.learnFromCorrections, default: learnFromCorrections)
         projectWordsScope = c.value(.projectWordsScope, default: projectWordsScope)
         serverBaseURL = c.value(.serverBaseURL, default: serverBaseURL)
         serverModel = c.value(.serverModel, default: serverModel)

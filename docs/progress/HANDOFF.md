@@ -4,6 +4,15 @@ Last updated: 2026-10-19
 
 ## Current state
 
+**Learn from corrections:** merged on `main` (2026-10-19), not pushed. Ordinary
+non-terminal pastes are watched locally for 60 s; word fixes become Dictionary
+suggestions with Add / Dismiss and Replace every time (off when both words are
+real words); counts in the popover and sidebar; Settings › Speech switch;
+`suggestions.json` in backups. Paste raw, Redo and Retry cancel the watch.
+Tests: **1,132 VoiceCore, 30 MCPKit, 114 BugVoiceMac**. Device checks K1–K10
+not run yet (owner merged before trying them); list in
+`docs/progress/corrections-log.md`.
+
 **Project words:** merged on `main` and pushed (2026-10-19). Repo file names
 and code identifiers feed the Whisper prompt and the cleanup and command
 prompts in coding apps; names the repo declares rank first, and words the

@@ -83,6 +83,7 @@ final class CommandController {
 
     private func begin() {
         guard !isActive, model.dictation?.isBusy != true, model.dictation?.isRecording != true else { return }
+        model.correctionWatcher.stop()
         startFocus = FocusInspector.read()
         guard !startFocus.isSecure else {
             detector.reset()
