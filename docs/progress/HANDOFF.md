@@ -1,38 +1,29 @@
 # BugVoice — Handoff
 
-Last updated: 2026-10-18
+Last updated: 2026-10-19
 
 ## Current state
 
-**Menu bar popover: merged on `main` (2026-10-18), not pushed; owner checks pending.** See `docs/progress/menu-popover-log.md`.
+**All work is merged on `main` and pushed (2026-10-19, `d54202e`); no feature branch is open.**
+Merged 2026-10-18, each with its own log and pending owner checks:
 
-**App shell: Tasks 1–10 implemented on `feat/app-shell` (2026-10-18), not merged or pushed.**
-Phase B adds the grouped sidebar, right-panel title bar and actions, round pills,
-centered columns, vertical Settings/Style sections, Meetings/Scratchpad list panes,
-read-only note preview, and local keyword search. See
-`docs/superpowers/specs/2026-10-18-app-shell-design.md`,
-`docs/superpowers/plans/2026-10-18-app-shell.md`, and
-`docs/progress/app-shell-log.md` for choices, commits and the eight owner checks.
-`swift build`, 1,034 tests (910 VoiceCore + 30 MCPKit + 94 BugVoiceMac), token check,
-and signed app builds pass. **Runtime/visual gates remain open:** the UI tool denied
-BugVoice access, and dev launch did not expose a visible window. No screenshots or
-left/right gap measurements could be collected. Do not infer 160% fit, action,
-keyboard, VoiceOver, preview-update, or playback passes from builds. Settings were
-backed up before launches and restored byte-for-byte after the work.
+| Project | Merge | Log |
+|---|---|---|
+| Appearance foundation (21 themes, text/font, icons, HUD size) | `fb6d092` | `docs/progress/appearance-log.md` |
+| App shell (grouped sidebar, title bar, list panes, search) | `f21a909` | `docs/progress/app-shell-log.md` |
+| Shell polish (resizable panes, section pills, time saved) | `6629e52` | `docs/progress/app-shell-log.md` |
+| Menu bar popover | `0d36389` | `docs/progress/menu-popover-log.md` |
+| Scratchpad list selects on first click | `89ef610` | — |
+| Note editor (tool row, AI bar on request, list right-click menu) | `69ad3f0` | `docs/progress/note-editor-log.md` |
+| Folders and tags management (tag colours, rename/merge/delete, Manage library sheet) | `d54202e` | `docs/progress/library-management-log.md` |
 
+`swift test`: 1,060 tests pass. Owner checks still open from these rounds: light theme
+and 160% text in the note editor; Mic, History and Trash buttons in the editor; the
+colour dot on meeting rows, renaming a tag used by notes and meetings together, and
+the page filter after a rename.
 
-**Appearance foundation: implemented on `feat/appearance-foundation` (2026-10-18), not merged or pushed.**
-Tasks 6–9 and 11–16 extend the reviewed Tasks 0–5 and 10: shared appearance store,
-21 themes, text/font controls, app/menu icon pickers, shortcut letters, token migration,
-and independent HUD size. Atkinson Hyperlegible Next 2.001 failed the Vietnamese gate
-(98 missing code points in all six checked faces), so no font is bundled and saved
-Atkinson selections fall back to System. Token check passes with empty `PENDING`;
-1,016 tests pass. See `docs/progress/appearance-log.md` for commits, run evidence,
-160% clipping, deviations, HUD readability limits and **10 pending owner manual checks**.
-Existing horizontal Settings/Style tabs and some main-page content do not fit cleanly
-at 160%; layouts were preserved as required. Detection-popup and full shortcut/HUD
-matrices still need device checks. Continue from this branch; no merge/push was performed.
-
+**Next roadmap item: 7, Calendar + export** (EventKit calendar, export to Apple Notes
+and Notion). Not started; begins with a spec and mockup.
 
 **MCP server (roadmap item 6, second half): merged and pushed (2026-10-17, `378fc2d`).**
 `bugvoice-mcp` in `Contents/MacOS` speaks MCP over stdio and forwards tool calls
@@ -49,7 +40,7 @@ tab, MCP off message, reads, search, ask (one meeting), create/append note,
 upload → job → transcript → summary. Not confirmed on device: agent edit refused
 while the owner types in that note. An all-scope Vietnamese `ask` returned
 nothing found. `/Applications/BugVoice.app` is an older build; rebuild and install
-to get MCP. Next roadmap item is 7 (Calendar + export), not started.
+to get MCP.
 
 **Ask AI (roadmap item 6, Ask part): merged and pushed (2026-10-17).** Tasks 1–8 provide the reviewed
 VoiceCore retrieval/pipeline; Tasks 9–13 add local embedding indexing and Search
@@ -184,7 +175,8 @@ recovery and playback are **UNVERIFIED on device**.
 
 ## Next steps
 
-Insights built on `feat/insights`; run checklist 73–80 after review.
+Roadmap item 7 (Calendar + export) is next; see Current state. The items below
+are the original maintainer gates, still open.
 
 1. **Maintainer: benchmark gate.** Record six clips in `bench/clips/` per its
    README, run `Scripts/stt-bench.sh > docs/bench/$(date +%F)-stt-bench.md`,

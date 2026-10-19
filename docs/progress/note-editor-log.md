@@ -1,6 +1,6 @@
 # Note editor execution log
 
-Branch: `feat/note-editor`, merged to `main` 2026-10-18 (69ad3f0). Not pushed.
+Branch: `feat/note-editor`, merged to `main` 2026-10-18 (69ad3f0), pushed 2026-10-19.
 Spec: `docs/superpowers/specs/2026-10-18-note-editor-design.md`. Mockup: `docs/design/proposal-editor.html`.
 Plan: `docs/superpowers/plans/2026-10-18-note-editor.md`. Tasks 1–3 built by Codex (Sol), reviewed and checked by Claude.
 

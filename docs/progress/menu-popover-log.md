@@ -1,6 +1,6 @@
 # Menu popover execution log
 
-Branch: `feat/menu-popover`, merged to `main` 2026-10-18 (0d36389). Not pushed.
+Branch: `feat/menu-popover`, merged to `main` 2026-10-18 (0d36389), pushed 2026-10-19.
 Spec: `docs/superpowers/specs/2026-10-18-menu-popover-design.md`. Mockup: `docs/design/proposal-menu.html`.
 
 ## Tasks

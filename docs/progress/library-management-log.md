@@ -1,6 +1,6 @@
 # Folders and tags management execution log
 
-Branch: `feat/library-management`. Not merged, not pushed.
+Branch: `feat/library-management`, merged to `main` 2026-10-18 (d54202e), pushed 2026-10-19.
 Spec: `docs/superpowers/specs/2026-10-18-library-management-design.md`. Mockup: `docs/design/proposal-library.html`.
 Plan: `docs/superpowers/plans/2026-10-18-library-management.md`. Tasks 1–4 built by Codex (Sol), reviewed and checked by Claude.
 

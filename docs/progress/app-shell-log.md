@@ -1,6 +1,6 @@
 # App shell execution log
 
-Branch: `feat/app-shell`. Phase B is implemented directly, as authorized by the owner; no merge or push.
+Branch: `feat/app-shell`, merged to `main` 2026-10-18 (f21a909); shell polish merged as 6629e52. Pushed 2026-10-19. Phase B was implemented directly, as authorized by the owner.
 
 ## Phase A (already present)
 
