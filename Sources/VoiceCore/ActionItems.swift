@@ -140,3 +140,77 @@ public actor ActionItemStore {
         if let revision { lastRevision = revision }
     }
 }
+
+public enum ActionItemStatus: String, CaseIterable, Sendable { case open, done, all }
+public enum ActionItemOwnerFilter: Hashable, Sendable { case anyone, owner(String), none }
+public enum ActionItemRange: CaseIterable, Sendable { case week, month, all }
+public struct ActionItemRow: Equatable, Sendable, Identifiable {
+    public var item: ActionItem
+    public var doneAt: Date?
+    public var id: String { item.id }
+    public init(item: ActionItem, doneAt: Date?) { self.item = item; self.doneAt = doneAt }
+}
+public struct ActionItemGroup: Equatable, Sendable, Identifiable {
+    public var meetingID: MeetingID
+    public var title: String
+    public var date: Date
+    public var rows: [ActionItemRow]
+    public var openCount: Int
+    public var doneCount: Int
+    public var id: MeetingID { meetingID }
+}
+public struct ActionItemBoard: Equatable, Sendable {
+    public var groups: [ActionItemGroup]
+    public var openTotal: Int
+    public var doneTotal: Int
+    public var owners: [String]
+
+    public init(meetings: [MeetingManifest], done: ActionItemFile, status: ActionItemStatus,
+                owner: ActionItemOwnerFilter, range: ActionItemRange, query: String, now: Date,
+                keepVisible: Set<String> = []) {
+        groups = []; openTotal = 0; doneTotal = 0
+        var names: Set<String> = []
+        let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let locale = Locale(identifier: "en_US_POSIX")
+        func matches(_ text: String) -> Bool {
+            text.range(of: query, options: [.caseInsensitive, .diacriticInsensitive], locale: locale) != nil
+        }
+        let days: Int? = switch range { case .week: 7; case .month: 30; case .all: nil }
+        for meeting in meetings.sorted(by: { $0.startedAt == $1.startedAt ? $0.id.rawValue < $1.id.rawValue : $0.startedAt > $1.startedAt }) {
+            // Repeated generated bullets share one identity and one checkmark.
+            var seen: Set<String> = []
+            let rows = ActionItemParser.parse(meeting.actionItems, meetingID: meeting.id).items
+                .filter { seen.insert($0.id).inserted }.map { ActionItemRow(item: $0, doneAt: done.doneAt($0)) }
+            let openCount = rows.filter { $0.doneAt == nil }.count
+            let doneCount = rows.count - openCount
+            openTotal += openCount; doneTotal += doneCount
+            names.formUnion(rows.compactMap(\.item.owner))
+            if let days, meeting.startedAt < now.addingTimeInterval(-Double(days) * 86400) { continue }
+            let filtered = rows.filter { row in
+                let statusMatches = status == .all || (status == .done ? row.doneAt != nil : row.doneAt == nil || keepVisible.contains(row.id))
+                let ownerMatches: Bool = switch owner {
+                case .anyone: true
+                case .none: row.item.owner == nil
+                case .owner(let name): row.item.owner == name
+                }
+                return statusMatches && ownerMatches && (query.isEmpty || matches(row.item.text) || matches(meeting.title))
+            }
+            if !filtered.isEmpty {
+                groups.append(ActionItemGroup(meetingID: meeting.id, title: meeting.title, date: meeting.startedAt,
+                                              rows: filtered, openCount: openCount, doneCount: doneCount))
+            }
+        }
+        owners = names.sorted()
+    }
+
+    public func copyMarkdown() -> String {
+        let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.dateFormat = "d MMM"
+        return groups.compactMap { group -> String? in
+            let rows = group.rows.filter { $0.doneAt == nil }
+            guard !rows.isEmpty else { return nil }
+            return (["## \(group.title) — \(formatter.string(from: group.date))"] + rows.map {
+                "- [ ] " + $0.item.text + ($0.item.owner.map { " (\($0))" } ?? "")
+            }).joined(separator: "\n")
+        }.joined(separator: "\n\n")
+    }
+}
