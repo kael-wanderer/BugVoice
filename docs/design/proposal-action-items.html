@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BugVoice Action Items</title>
+<meta name="description" content="Action items across meetings: one checkable list built from every meeting's action items.">
+<style>
+:root{
+  --bg:#f7f0d2;--panel:#fbf5df;--hover:#efe6c6;--line:#d9cfa8;--text:#2b2a26;--muted:#77705d;--accent:#9a7a2a;--soft:#e9dcae;--on:#fff;--rec:#d8443f;--ok:#3f9a5e;
+  --desk:linear-gradient(160deg,#c9b98a,#8f7f56);
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#2b2f37;--panel:#323741;--hover:#3a404b;--line:#454b57;--text:#eceff4;--muted:#a3abb8;--accent:#88c0d0;--soft:#3d4a5a;--on:#0b0d12;--rec:#e06c66;--ok:#8fc79f;
+  --desk:linear-gradient(160deg,#5a6b8c,#2b3346)}}
+:root[data-theme="dark"]{
+  --bg:#2b2f37;--panel:#323741;--hover:#3a404b;--line:#454b57;--text:#eceff4;--muted:#a3abb8;--accent:#88c0d0;--soft:#3d4a5a;--on:#0b0d12;--rec:#e06c66;--ok:#8fc79f;
+  --desk:linear-gradient(160deg,#5a6b8c,#2b3346)}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font:13px/1.45 -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+.review{max-width:1300px;margin:0 auto;padding:20px 16px 48px}
+header.top{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:flex-end;margin-bottom:12px}
+header.top h1{font-size:22px;margin:0}
+header.top p{margin:4px 0 0;color:var(--muted);max-width:860px}
+.toggle{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:6px 14px}
+h2.sec{font-size:15px;margin:28px 0 6px}
+p.why{margin:0 0 12px;color:var(--muted);max-width:900px}
+.stage{background:var(--desk);border-radius:12px;padding:16px}
+.pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,400px),1fr));gap:16px;align-items:start}
+.label{color:#fff;font-weight:600;margin:0 0 8px;text-shadow:0 1px 2px #0006}
+.notes{color:#fff;font-size:12px;margin:8px 0 0;text-shadow:0 1px 2px #0008}
+.win{background:var(--bg);border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 50px #0006;overflow:hidden}
+.wbar{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.wbar b{font-size:15px}
+.cols{display:flex}
+.side{width:150px;flex:none;border-right:1px solid var(--line);padding:8px}
+.side div{padding:4px 8px;border-radius:6px;color:var(--muted)}
+.side div.on{background:var(--soft);color:var(--text);font-weight:600}
+.body{flex:1;min-width:0;padding:12px;display:flex;flex-direction:column;gap:10px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.card h3{margin:0;font-size:13px}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.row .grow{flex:1;min-width:120px}
+hr{border:0;border-top:1px solid var(--line);margin:0}
+.btn{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:3px 9px;white-space:nowrap}
+.btn.prim{background:var(--accent);color:var(--on);border-color:var(--accent);font-weight:600}
+.btn.danger{color:var(--rec)}
+.pop{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:3px 8px}
+.foot{color:var(--muted);font-size:12px}
+.ok{color:var(--ok)}
+.err{color:var(--rec)}
+.bar{height:6px;border-radius:3px;background:var(--hover);overflow:hidden}
+.bar i{display:block;height:100%;width:34%;background:var(--accent)}
+.path{font:12px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sheet{background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 50px #0006;overflow:hidden;max-width:460px}
+.shead{padding:14px 16px 6px}
+.shead b{font-size:15px}
+.sbody{padding:0 16px 12px;display:flex;flex-direction:column;gap:10px}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:3px 14px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.facts span{color:var(--muted)}
+.callout{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12px}
+.callout.warn{border-color:var(--rec)}
+.sfoot{display:flex;justify-content:flex-end;gap:8px;padding:10px 16px;border-top:1px solid var(--line)}
+code{font-size:12px;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:0 4px}
+</style>
+<style>
+.pills{display:inline-flex;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:3px}
+.pills span{padding:3px 12px;border-radius:999px;color:var(--muted)}
+.pills span.on{background:var(--accent);color:var(--on);font-weight:600}
+.side div{display:flex;align-items:center;gap:6px}
+.grp{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.ghead{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.ghead b{color:var(--accent);cursor:pointer}
+.ghead .foot{margin-left:auto}
+.item{display:flex;align-items:flex-start;gap:10px;padding:7px 12px;border-bottom:1px solid var(--line)}
+.item:last-child{border-bottom:0}
+.cb{width:15px;height:15px;border:1.5px solid var(--muted);border-radius:4px;flex:none;margin-top:2px;display:grid;place-items:center;font-size:11px;line-height:1}
+.cb.on{background:var(--accent);border-color:var(--accent);color:var(--on)}
+.item .t{flex:1;min-width:0}
+.item.done .t{color:var(--muted);text-decoration:line-through}
+.own{font-size:11px;font-weight:600;border:1px solid var(--line);border-radius:5px;padding:0 6px;color:var(--accent);white-space:nowrap}
+.undo{color:var(--accent);font-size:12px;white-space:nowrap}
+.search{border:1px solid var(--line);background:var(--bg);border-radius:7px;padding:3px 10px;color:var(--muted);min-width:180px}
+.term{background:#1d1f24;color:#d8dee9;font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;border-radius:10px;box-shadow:0 18px 50px #0006;overflow:hidden}
+.term .tb{background:#2a2d34;color:#aab;padding:6px 12px;font:12px -apple-system,sans-serif;text-align:center}
+.term pre{margin:0;padding:12px 14px;white-space:pre-wrap}
+.term .p{color:#88c0d0}
+table.m{border-collapse:collapse;width:100%;font-size:12px}
+table.m td,table.m th{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+table.m th{color:var(--muted);font-weight:600}
+.tw{overflow-x:auto}
+</style>
+</head>
+<body>
+<div class="review">
+<header class="top">
+  <div>
+    <h1>Action items across meetings</h1>
+    <p>Spec: <code>docs/superpowers/specs/2026-10-19-action-items-design.md</code>. Every meeting's action items on one page, with a checkbox each. Done state survives Regenerate when the text is the same.</p>
+  </div>
+  <button class="toggle" id="t">Light / dark</button>
+</header>
+
+<h2 class="sec">1. Action items page</h2>
+<p class="why">A new sidebar page after Meetings. Grouped by meeting, newest first. The meeting title opens that meeting on its Action items tab.</p>
+<div class="stage">
+<div class="win"><div class="wbar"><b>Action items</b><span class="foot">12 open · 30 done</span><span style="margin-left:auto" class="search">Search action items</span></div>
+<div class="cols">
+  <div class="side"><div>Dictation</div><div>Insights</div><div>Meetings</div><div class="on">Action items</div><div>Scratchpad</div><div>Upload</div><div>Dictionary</div></div>
+  <div class="body">
+    <div class="row">
+      <div class="pills"><span class="on">Open</span><span>Done</span><span>All</span></div>
+      <span class="pop">Owner: Anyone ▾</span>
+      <span class="pop">Meetings from: All time ▾</span>
+      <span class="grow"></span>
+      <button class="btn">Copy open items</button>
+    </div>
+
+    <div class="grp">
+      <div class="ghead"><b>Weekly mobile sync</b><span class="foot">Mon 13 Oct · 3 open</span></div>
+      <div class="item"><span class="cb"></span><span class="t">Send the 2.4 build to QA before Wednesday</span><span class="own">Kael</span></div>
+      <div class="item"><span class="cb on">✓</span><span class="t" style="color:var(--muted)">Update the release notes with the crash fix</span><span class="undo">Done · Undo</span></div>
+      <div class="item"><span class="cb"></span><span class="t">Check the Android crash rate after rollout</span><span class="own">Tuấn</span></div>
+      <div class="item"><span class="cb"></span><span class="t">Book a design review for the new onboarding</span></div>
+    </div>
+
+    <div class="grp">
+      <div class="ghead"><b>Helpdesk SLA review</b><span class="foot">Fri 10 Oct · 2 open</span></div>
+      <div class="item"><span class="cb"></span><span class="t">Draft the escalation rule for P1 tickets</span><span class="own">Kael</span></div>
+      <div class="item"><span class="cb"></span><span class="t">Share last month's breach report with the team</span><span class="own">Linh</span></div>
+    </div>
+
+    <div class="grp">
+      <div class="ghead"><b>1:1 with Minh</b><span class="foot">Tue 7 Oct · 1 open</span></div>
+      <div class="item"><span class="cb"></span><span class="t">Read the WhisperKit streaming notes</span></div>
+    </div>
+  </div>
+</div></div>
+<p class="notes">The checked row stays for 2 seconds with Undo, then leaves the Open view.</p>
+</div>
+
+<h2 class="sec">2. Done view, and the meeting's own tab</h2>
+<div class="stage"><div class="pair">
+  <div>
+    <p class="label">Done</p>
+    <div class="grp">
+      <div class="ghead"><b>Weekly mobile sync</b><span class="foot">Mon 13 Oct · 1 done</span></div>
+      <div class="item done"><span class="cb on">✓</span><span class="t">Update the release notes with the crash fix</span><span class="foot">Done 14 Oct</span></div>
+    </div>
+    <div class="grp" style="margin-top:10px">
+      <div class="ghead"><b>Sprint planning</b><span class="foot">Mon 6 Oct · 2 done</span></div>
+      <div class="item done"><span class="cb on">✓</span><span class="t">Split the upload epic into three stories</span><span class="own">Kael</span><span class="foot">Done 8 Oct</span></div>
+      <div class="item done"><span class="cb on">✓</span><span class="t">Ask finance about the GPU budget</span><span class="foot">Done 7 Oct</span></div>
+    </div>
+  </div>
+  <div>
+    <p class="label">Meeting › Action items tab</p>
+    <div class="win"><div class="body">
+      <div class="pills"><span>Transcript</span><span>Summary</span><span class="on">Action items</span><span>My notes</span></div>
+      <div class="grp">
+        <div class="item"><span class="cb"></span><span class="t">Send the 2.4 build to QA before Wednesday</span><span class="own">Kael</span></div>
+        <div class="item done"><span class="cb on">✓</span><span class="t">Update the release notes with the crash fix</span><span class="foot">Done 14 Oct</span></div>
+        <div class="item"><span class="cb"></span><span class="t">Check the Android crash rate after rollout</span><span class="own">Tuấn</span></div>
+        <div class="item"><span class="cb"></span><span class="t">Book a design review for the new onboarding</span></div>
+      </div>
+      <div class="row"><button class="btn prim">Regenerate</button><button class="btn">Send to Scratchpad</button></div>
+      <div class="foot">Checkmarks are shared with the Action items page and kept after Regenerate when an item's text is the same.</div>
+    </div></div>
+  </div>
+</div></div>
+
+<h2 class="sec">3. Empty states</h2>
+<div class="stage"><div class="pair">
+  <div class="card"><h3>No action items yet</h3><div class="foot">Generate them on a meeting's Action items tab.</div></div>
+  <div class="card"><h3>Nothing open</h3><div class="foot">Good work.</div></div>
+</div></div>
+
+<h2 class="sec">4. How a line becomes an item</h2>
+<div class="stage"><div class="card tw">
+<table class="m">
+<tr><th>Line the model wrote</th><th>Item</th><th>Owner</th></tr>
+<tr><td>- Kael: send the build to QA</td><td>send the build to QA</td><td>Kael</td></tr>
+<tr><td>* **Tuấn** — check the crash rate</td><td>check the crash rate</td><td>Tuấn</td></tr>
+<tr><td>1. Share the report (owner: Linh)</td><td>Share the report</td><td>Linh</td></tr>
+<tr><td>- [ ] Book a design review — Minh Anh</td><td>Book a design review</td><td>Minh Anh</td></tr>
+<tr><td>- Read the streaming notes</td><td>Read the streaming notes</td><td>none</td></tr>
+<tr><td>## Next steps</td><td colspan="2">Not an item (shown as plain text under the list on the meeting tab)</td></tr>
+</table>
+</div></div>
+
+<h2 class="sec">5. Copy open items, and MCP</h2>
+<div class="stage"><div class="pair">
+  <div class="term"><div class="tb">Clipboard</div>
+<pre>## Weekly mobile sync — 13 Oct
+- [ ] Send the 2.4 build to QA before Wednesday (Kael)
+- [ ] Check the Android crash rate after rollout (Tuấn)
+- [ ] Book a design review for the new onboarding
+
+## Helpdesk SLA review — 10 Oct
+- [ ] Draft the escalation rule for P1 tickets (Kael)</pre></div>
+  <div class="term"><div class="tb">Claude Code — BugVoice MCP</div>
+<pre><span class="p">&gt;</span> what's still open from my meetings this week?
+  list_action_items(status: "open", limit: 50)
+  5 open items in 2 meetings: Weekly mobile sync (3),
+  Helpdesk SLA review (2) …</pre></div>
+</div></div>
+</div>
+<script>
+document.getElementById('t').onclick=()=>{const r=document.documentElement;const dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme: dark)').matches;r.dataset.theme=dark?'light':'dark'};
+</script>
+</body>
+</html>
