@@ -44,6 +44,19 @@ struct BackupWriterTests {
         #expect(manifest.problems(in: extracted.appendingPathComponent("data")).isEmpty)
     }
 
+    @Test func archiveHoldsOnlyManifestAndData() async throws {
+        let parent = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: parent) }
+        let root = parent.appendingPathComponent("library")
+        try write("Notes/a.md", "a", in: root)
+        let note = root.appendingPathComponent("Notes/a.md").path
+        #expect(setxattr(note, "com.apple.test", "x", 1, 0, 0) == 0)
+        let destination = parent.appendingPathComponent("x.bugvoicebackup")
+        _ = try await archive(root: root, to: destination)
+        let listing = try await FoundationProcessRunner().run(executable: "/usr/bin/unzip", arguments: ["-Z1", destination.path], stdin: "", workingDirectory: nil, timeout: 60)
+        #expect(listing.stdout.split(separator: "\n").sorted() == ["backup.json", "data/", "data/Notes/", "data/Notes/a.md"])
+    }
+
     @Test func writerRefusesDestinationInsideLibrary() async throws {
         let root = try temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: root) }

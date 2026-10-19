@@ -39,7 +39,7 @@ public struct BackupWriter: Sendable {
                                       build: build, counts: counts, files: files)
         try manifest.encoded().write(to: staging.appendingPathComponent("backup.json"))
         let result = try await runner.run(executable: "/usr/bin/ditto",
-                                          arguments: ["-c", "-k", "--sequesterRsrc", staging.path, partial.path],
+                                          arguments: ["-c", "-k", "--norsrc", "--noextattr", "--noacl", staging.path, partial.path],
                                           stdin: "", workingDirectory: nil, timeout: 3600)
         guard result.exitCode == 0 else {
             let firstLine = result.stderr.components(separatedBy: .newlines).first ?? ""
