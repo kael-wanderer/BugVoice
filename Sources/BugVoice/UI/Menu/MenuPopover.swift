@@ -206,6 +206,23 @@ struct MenuPopover: View {
             MenuMeetingStrip(meetings: meetings, highlight: highlight)
         }
         MenuActionGrid(model: model, highlight: highlight)
+        if model.settings.speech.showLanguageSwitch {
+            HStack {
+                Text("Language").bvFont(.body)
+                Spacer()
+                Picker("Language", selection: Binding(
+                    get: { model.settings.speech.language },
+                    set: { model.settings.speech.language = $0 }
+                )) {
+                    Text("Auto").tag(SpeechLanguage.auto)
+                    Text("EN").tag(SpeechLanguage.en)
+                    Text("VI").tag(SpeechLanguage.vi)
+                }
+                .pickerStyle(.segmented).labelsHidden().fixedSize()
+            }
+            .padding(.horizontal, LayoutTokens.spacing[1])
+            .padding(.bottom, LayoutTokens.spacing[0])
+        }
         MenuSeparator()
         if let last = model.lastResult, !last.finalText.isEmpty {
             MenuLastDictation(result: last, highlight: highlight)

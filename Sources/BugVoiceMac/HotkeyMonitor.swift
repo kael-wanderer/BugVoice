@@ -10,6 +10,8 @@ import VoiceCore
 @MainActor
 public final class HotkeyMonitor {
     public var key: HotkeyKey
+    public var languageKey: LanguageKey = .off
+    public var onKeyDown: (@MainActor (Int64, UInt64, Int64) -> Void)?
     /// Called once the tap is disabled by the system and three re-enables in a
     /// row have failed. The monitor is stopped by then.
     public var onTapLost: (@MainActor () -> Void)?
@@ -68,7 +70,7 @@ public final class HotkeyMonitor {
 
     /// Plain values read from the event inside the tap callback; the
     /// `CGEvent` itself never crosses into main-actor code.
-    func handle(type: CGEventType, keyCode: Int64, flags: UInt64, isAutorepeat: Bool) {
+    func handle(type: CGEventType, keyCode: Int64, flags: UInt64, isAutorepeat: Bool, userData: Int64 = 0) {
         let kind: KeyEventKind
         switch type {
         case .tapDisabledByTimeout, .tapDisabledByUserInput:
@@ -79,13 +81,15 @@ public final class HotkeyMonitor {
         case .flagsChanged: kind = .flagsChanged
         default: return
         }
+        if kind == .keyDown { onKeyDown?(keyCode, flags, userData) }
         let input = KeyEventMapper.map(
             kind: kind,
             keyCode: keyCode,
             flags: flags,
             isAutorepeat: isAutorepeat,
             hotkey: key,
-            timestamp: ProcessInfo.processInfo.systemUptime
+            timestamp: ProcessInfo.processInfo.systemUptime,
+            languageKey: languageKey
         )
         if let input { onInput(input) }
     }
@@ -126,9 +130,10 @@ private func hotkeyTapCallback(
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
         let flags = event.flags.rawValue
         let isAutorepeat = event.getIntegerValueField(.keyboardEventAutorepeat) != 0
+        let userData = event.getIntegerValueField(.eventSourceUserData)
         let monitor = Unmanaged<HotkeyMonitor>.fromOpaque(refcon).takeUnretainedValue()
         MainActor.assumeIsolated {
-            monitor.handle(type: type, keyCode: keyCode, flags: flags, isAutorepeat: isAutorepeat)
+            monitor.handle(type: type, keyCode: keyCode, flags: flags, isAutorepeat: isAutorepeat, userData: userData)
         }
     }
     return Unmanaged.passUnretained(event)

@@ -15,6 +15,9 @@ final class DictationController {
     private lazy var hud = HUDController(appearance: model.appearance)
     private let inserter = PasteboardInserter()
     private var detector = HoldGestureDetector()
+    private var languageCycler: LanguageKeyCycler?
+    private var languageFlashTask: Task<Void, Never>?
+    private var handsFreeRecording = false
     private var hotkey: HotkeyMonitor!
     private var startFocus = FocusSnapshot.unknown
     private var notesCapture: NotesDictationCapture?
@@ -46,6 +49,7 @@ final class DictationController {
 
     func applySettings() {
         detector.handsFreeEnabled = model.settings.handsFreeEnabled
+        hotkey.languageKey = model.settings.speech.languageKey
         inserter.restoreClipboard = model.settings.restoreClipboard
         if hotkey.key != model.settings.hotkey {
             hotkey.key = model.settings.hotkey
@@ -104,7 +108,7 @@ final class DictationController {
 
     private func perform(_ action: GestureAction) {
         switch action {
-        case .languageTap: break
+        case .languageTap: cycleLanguage()
         case .startHold: begin(handsFree: false)
         case .startHandsFree: begin(handsFree: true)
         case .stop: finish()
@@ -125,6 +129,8 @@ final class DictationController {
             return
         }
         startFocus = FocusInspector.read()
+        languageCycler = LanguageKeyCycler(start: LanguageResolver(settings: model.settings.speech).language(for: startFocus))
+        handsFreeRecording = handsFree
         meetingNotes = notesOnly ? nil : model.meetingNotesEditorWithKeyboard()
         notesCapture = notesOnly ? micCapture : meetingNotes == nil ? model.captureNotesDictation(startFocus: startFocus) : nil
         startedAt = Date()
@@ -134,6 +140,7 @@ final class DictationController {
             releaseNotesCapture()
             meetingNotes = nil
             detector.reset()
+            languageCycler = nil
             let detail: String
             switch error {
             case RecorderError.deviceNotFound, RecorderError.deviceSelectionFailed:
@@ -151,12 +158,46 @@ final class DictationController {
         // The cap applies to holds too, so no recording runs unbounded even
         // if a key-up never arrives. The HUD shows it only in hands-free.
         let limit = TimeInterval(model.settings.handsFreeLimitMinutes * 60)
-        hud.show(.listening(handsFree: handsFree, app: startFocus.appName, startedAt: startedAt, limit: handsFree ? limit : nil))
+        showListening(languageChanged: false)
         limitTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(limit))
             guard !Task.isCancelled, let self else { return }
             self.detector.reset()
             self.finish()
+        }
+    }
+
+    private func cycleLanguage() {
+        guard recorder.isRunning, var cycler = languageCycler else { return }
+        cycler.tap()
+        languageCycler = cycler
+        showListening(languageChanged: true)
+        languageFlashTask?.cancel()
+        languageFlashTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(400))
+            guard !Task.isCancelled, let self, self.recorder.isRunning else { return }
+            self.showListening(languageChanged: false)
+        }
+    }
+
+    private func showListening(languageChanged: Bool) {
+        guard let languageCycler else { return }
+        hud.show(.listening(
+            handsFree: handsFreeRecording,
+            app: startFocus.appName,
+            startedAt: startedAt,
+            limit: handsFreeRecording ? TimeInterval(model.settings.handsFreeLimitMinutes * 60) : nil,
+            language: Self.hudLanguage(languageCycler.current),
+            languageChanged: languageChanged
+        ))
+    }
+
+    private static func hudLanguage(_ language: SpeechLanguage) -> String {
+        switch language {
+        case .auto: "Auto"
+        case .en: "EN"
+        case .vi: "VI"
+        case .es: language.displayName
         }
     }
 
@@ -181,6 +222,8 @@ final class DictationController {
     private func cancel() {
         limitTask?.cancel()
         detector.reset()
+        languageFlashTask?.cancel()
+        languageCycler = nil
         _ = recorder.stop()
         model.isListening = false
         releaseNotesCapture()
@@ -197,6 +240,7 @@ final class DictationController {
         let clip = recorder.stop()
         model.isListening = false
         detector.reset()
+        languageFlashTask?.cancel()
         if model.settings.soundsEnabled { NSSound(named: "Pop")?.play() }
         let capturedNotesRun = notesCapture
         notesCapture = nil
@@ -217,7 +261,8 @@ final class DictationController {
                 }
             }
         }
-        process(clip, focus: startFocus, startedAt: startedAt, notesCapture: capturedNotesRun, meetingNotes: capturedMeetingNotes)
+        let languageChoice = languageCycler?.changed == true ? languageCycler?.current : nil
+        process(clip, focus: startFocus, startedAt: startedAt, notesCapture: capturedNotesRun, meetingNotes: capturedMeetingNotes, languageChoice: languageChoice)
     }
 
     private func releaseNotesCapture() {
@@ -232,7 +277,8 @@ final class DictationController {
         focus: FocusSnapshot,
         startedAt: Date,
         notesCapture: NotesDictationCapture? = nil,
-        meetingNotes: MeetingNotesTextView? = nil
+        meetingNotes: MeetingNotesTextView? = nil,
+        languageChoice: SpeechLanguage? = nil
     ) {
         isBusy = true
         runCounter += 1
@@ -249,14 +295,15 @@ final class DictationController {
         let intoNotes = notesCapture != nil || meetingNotes != nil
         let feature: ModelFeature = intoNotes ? .notes : .dictation
         let pipeline = model.makePipeline(insertion: insertion, feature: feature)
-        let language = model.settings.speech.language.displayName
+        let language = LanguageResolver(settings: model.settings.speech).language(for: focus, keyChoice: languageChoice).displayName
         let modelName = model.plan(for: feature).shortName
         Task { [self] in
             let result = await pipeline.run(
                 clip: clip,
                 startFocus: focus,
                 startedAt: startedAt,
-                mode: intoNotes ? .notes : .ordinary
+                mode: intoNotes ? .notes : .ordinary,
+                languageChoice: languageChoice
             ) { stage in
                 Task { @MainActor in
                     self.showStage(stage, run: run, language: language, modelName: modelName, app: focus.appName)
@@ -275,6 +322,7 @@ final class DictationController {
                 if !intoNotes { await model.record(result) }
             }
             isBusy = false
+            languageCycler = nil
         }
     }
 

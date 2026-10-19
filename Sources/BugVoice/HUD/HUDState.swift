@@ -2,7 +2,7 @@ import Foundation
 import VoiceCore
 
 enum HUDState: Equatable {
-    case listening(handsFree: Bool, app: String?, startedAt: Date, limit: TimeInterval?)
+    case listening(handsFree: Bool, app: String?, startedAt: Date, limit: TimeInterval?, language: String, languageChanged: Bool)
     case transcribing(language: String)
     case cleaning(model: String?, app: String?)
     case done(style: String, words: Int, seconds: Double)
