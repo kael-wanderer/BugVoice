@@ -10,10 +10,11 @@ struct ActionItemBoardTests {
     func board(_ meetings: [MeetingManifest], done: ActionItemFile = ActionItemFile(), status: ActionItemStatus = .open, owner: ActionItemOwnerFilter = .anyone, range: ActionItemRange = .all, query: String = "", keep: Set<String> = []) -> ActionItemBoard {
         ActionItemBoard(meetings: meetings, done: done, status: status, owner: owner, range: range, query: query, now: now, keepVisible: keep)
     }
-    @Test func repeatedBulletsCountEveryItem() {
+    @Test func repeatedBulletsShowOnce() {
+        // Same text twice would share one id and one checkmark; show it once.
         let b = board([meeting(items: "- Send X\n- Send X")])
-        #expect(b.openTotal == 2)
-        #expect(b.groups[0].rows.count == 2)
+        #expect(b.openTotal == 1)
+        #expect(b.groups[0].rows.count == 1)
     }
     @Test func groupsNewestFirst() {
         #expect(board([meeting("old", age: 3), meeting("new")]).groups.map(\.meetingID.rawValue) == ["new", "old"])

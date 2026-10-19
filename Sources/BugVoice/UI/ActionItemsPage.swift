@@ -93,7 +93,7 @@ struct ActionItemsPage: View {
                     .bvFont(.footnote).foregroundStyle(.bvSecondary)
             }.padding(LayoutTokens.spacing[2])
             Rectangle().fill(.bvSeparator).frame(height: 1)
-            ForEach(Array(group.rows.enumerated()), id: \.offset) { index, row in
+            ForEach(Array(group.rows.enumerated()), id: \.element.id) { index, row in
                 ActionItemRowView(row: row, showsUndo: status == .open && keepVisible.contains(row.id)) {
                     toggle(row.item, done: $0)
                 }

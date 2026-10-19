@@ -39,4 +39,8 @@ struct ActionItemParserTests {
             #expect(parsed.items.isEmpty && parsed.otherLines.isEmpty)
         }
     }
+    @Test func duplicateKeysDropped() {
+        let parsed = ActionItemParser.parse("- **Send** the build\n* Send the build\n- Other", meetingID: MeetingID(rawValue: "m"))
+        #expect(parsed.items.map(\.text) == ["Send the build", "Other"])
+    }
 }

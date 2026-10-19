@@ -415,7 +415,8 @@ final class AppModel {
         await applyMeetingRetention()
         actionItemsDone = await actionItemStore.load()
         let beforePruning = actionItemsDone
-        actionItemsDone.prune(keeping: Set(meetingManifests.map(\.id)))
+        // An empty list may mean meetings failed to load; never erase checkmarks then.
+        if !meetingManifests.isEmpty { actionItemsDone.prune(keeping: Set(meetingManifests.map(\.id))) }
         if actionItemsDone != beforePruning { saveActionItemsDone() }
         // Only now are notes, meetings and history all loaded; no index file is pruned before this.
         searchIndexer.librariesDidLoad()

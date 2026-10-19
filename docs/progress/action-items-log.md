@@ -87,3 +87,14 @@ restored the backup. Verified the complete relative-file set and SHA-256 hashes:
 all 190 files match. Deleted the temporary backup after verification. No dev app
 remains running. Temporary test/build logs and inspection screenshots are
 removed at completion.
+
+## Review fixes (2026-10-19)
+
+- The parser keeps the first of items with the same key (the same text with
+  different markup, `**Send** X` and `Send X`). Two rows with one key shared an
+  id and a checkmark. Test `duplicateKeysDropped`; Codex's
+  `repeatedBulletsCountEveryItem` became `repeatedBulletsShowOnce`.
+- Launch pruning is skipped when no meetings loaded, so a failed meeting load
+  cannot erase every checkmark.
+- Rows are identified by item id instead of position, so a checked row
+  leaving the Open view does not shift the state of the rows after it.

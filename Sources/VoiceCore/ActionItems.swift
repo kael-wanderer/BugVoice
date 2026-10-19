@@ -29,6 +29,7 @@ public enum ActionItemParser {
 
     public static func parse(_ markdown: String?, meetingID: MeetingID) -> ParsedActionItems {
         var result = ParsedActionItems(items: [], otherLines: [])
+        var seenKeys = Set<String>()
         for raw in (markdown ?? "").components(separatedBy: .newlines) {
             guard raw.range(of: marker, options: .regularExpression) != nil else {
                 let line = raw.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -36,7 +37,8 @@ public enum ActionItemParser {
                 continue
             }
             let full = cleaned(raw)
-            guard !full.isEmpty else { continue }
+            // Same item twice (different markup) would share an id and a checkmark.
+            guard !full.isEmpty, seenKeys.insert(key(full)).inserted else { continue }
             var text = full
             var owner: String?
             let patterns = ["^(\(name))\\s*(?::| — | - )\\s*(.+)$", "^(.+?)\\s*\\((?:owner: )?(\(name))\\)$", "^(.+?) — (\(name))$"]

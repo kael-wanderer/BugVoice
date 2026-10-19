@@ -500,7 +500,7 @@ private struct MeetingDetails: View {
                 if kind == .actionItems {
                     let parsed = ActionItemParser.parse(value, meetingID: meeting.id)
                     VStack(spacing: 0) {
-                        ForEach(Array(parsed.items.enumerated()), id: \.offset) { _, item in
+                        ForEach(parsed.items) { item in
                             ActionItemRowView(row: ActionItemRow(item: item, doneAt: model.actionItemsDone.doneAt(item))) {
                                 model.setActionItemDone(item, $0)
                             }
