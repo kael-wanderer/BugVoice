@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BugVoice Command Mode</title>
+<meta name="description" content="Command mode: select text, hold Right Option, say what to change; the selection is replaced. Also writing new text, errors, putting the original back, settings and history.">
+<style>
+:root{
+  --bg:#f7f0d2;--panel:#fbf5df;--hover:#efe6c6;--line:#d9cfa8;--text:#2b2a26;--muted:#77705d;--accent:#9a7a2a;--soft:#e9dcae;--on:#fff;--rec:#d8443f;--ok:#3f9a5e;
+  --desk:linear-gradient(160deg,#c9b98a,#8f7f56);
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#2b2f37;--panel:#323741;--hover:#3a404b;--line:#454b57;--text:#eceff4;--muted:#a3abb8;--accent:#88c0d0;--soft:#3d4a5a;--on:#0b0d12;--rec:#e06c66;--ok:#8fc79f;
+  --desk:linear-gradient(160deg,#5a6b8c,#2b3346)}}
+:root[data-theme="dark"]{
+  --bg:#2b2f37;--panel:#323741;--hover:#3a404b;--line:#454b57;--text:#eceff4;--muted:#a3abb8;--accent:#88c0d0;--soft:#3d4a5a;--on:#0b0d12;--rec:#e06c66;--ok:#8fc79f;
+  --desk:linear-gradient(160deg,#5a6b8c,#2b3346)}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font:13px/1.45 -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+.review{max-width:1300px;margin:0 auto;padding:20px 16px 48px}
+header.top{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:flex-end;margin-bottom:12px}
+header.top h1{font-size:22px;margin:0}
+header.top p{margin:4px 0 0;color:var(--muted);max-width:860px}
+.toggle{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:6px 14px}
+h2.sec{font-size:15px;margin:28px 0 6px}
+p.why{margin:0 0 12px;color:var(--muted);max-width:900px}
+.stage{background:var(--desk);border-radius:12px;padding:16px}
+.pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,400px),1fr));gap:16px;align-items:start}
+.label{color:#fff;font-weight:600;margin:0 0 8px;text-shadow:0 1px 2px #0006}
+.notes{color:#fff;font-size:12px;margin:8px 0 0;text-shadow:0 1px 2px #0008}
+.win{background:var(--bg);border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 50px #0006;overflow:hidden}
+.wbar{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.wbar b{font-size:15px}
+.cols{display:flex}
+.side{width:150px;flex:none;border-right:1px solid var(--line);padding:8px}
+.side div{padding:4px 8px;border-radius:6px;color:var(--muted)}
+.side div.on{background:var(--soft);color:var(--text);font-weight:600}
+.body{flex:1;min-width:0;padding:12px;display:flex;flex-direction:column;gap:10px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.card h3{margin:0;font-size:13px}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.row .grow{flex:1;min-width:120px}
+hr{border:0;border-top:1px solid var(--line);margin:0}
+.btn{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:3px 9px;white-space:nowrap}
+.btn.prim{background:var(--accent);color:var(--on);border-color:var(--accent);font-weight:600}
+.btn.danger{color:var(--rec)}
+.pop{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:3px 8px}
+.foot{color:var(--muted);font-size:12px}
+.ok{color:var(--ok)}
+.err{color:var(--rec)}
+.bar{height:6px;border-radius:3px;background:var(--hover);overflow:hidden}
+.bar i{display:block;height:100%;width:34%;background:var(--accent)}
+.path{font:12px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sheet{background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 50px #0006;overflow:hidden;max-width:460px}
+.shead{padding:14px 16px 6px}
+.shead b{font-size:15px}
+.sbody{padding:0 16px 12px;display:flex;flex-direction:column;gap:10px}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:3px 14px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.facts span{color:var(--muted)}
+.callout{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12px}
+.callout.warn{border-color:var(--rec)}
+.sfoot{display:flex;justify-content:flex-end;gap:8px;padding:10px 16px;border-top:1px solid var(--line)}
+code{font-size:12px;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:0 4px}
+</style>
+<style>
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.seg span{padding:3px 10px;border-right:1px solid var(--line)}.seg span:last-child{border-right:0}
+.seg span.on{background:var(--accent);color:var(--on);font-weight:600}
+.ico{width:18px;height:18px;border-radius:5px;background:var(--soft);display:inline-grid;place-items:center;font-size:10px;font-weight:700;flex:none}
+.x{color:var(--muted);border:0;background:none;padding:0 4px}
+.popover{background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 50px #0006;width:300px;overflow:hidden}
+.prow{display:flex;align-items:center;gap:8px;padding:6px 12px}
+.prow .k{margin-left:auto;color:var(--muted);font-size:12px}
+.psec{padding:6px 12px 2px;color:var(--muted);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.menubar{display:flex;justify-content:flex-end;gap:10px;align-items:center;background:#0005;color:#fff;border-radius:6px;padding:4px 10px;margin-bottom:10px;font-size:12px}
+.badge{font-size:9px;font-weight:700;background:#fff;color:#000;border-radius:3px;padding:0 3px;margin-left:2px}
+.hud{display:inline-flex;align-items:center;gap:10px;background:#111c;color:#fff;border-radius:999px;padding:8px 14px;box-shadow:0 8px 24px #0006}
+.hud .dot{width:8px;height:8px;border-radius:50%;background:var(--rec)}
+.hud .lang{font-size:11px;font-weight:700;border:1px solid #fff8;border-radius:5px;padding:0 5px}
+.hud .lang.flash{background:#fff;color:#000}
+.hud .sub{color:#fffa;font-size:12px}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:4px 12px 8px}.tiles .btn{justify-content:center;padding:6px}.last{padding:8px 12px}
+.huds{display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+</style>
+<style>
+.app{background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 18px 50px #0006;overflow:hidden}
+.app .tb{padding:8px 12px;border-bottom:1px solid var(--line);color:var(--muted);font-size:12px}
+.doc{padding:14px 16px;line-height:1.6}
+.sel{background:#3b6fd4;color:#fff;border-radius:2px}
+.new{background:color-mix(in srgb,var(--ok) 25%,transparent);border-radius:2px}
+.cursor{display:inline-block;width:1px;height:1em;background:var(--text);vertical-align:-2px}
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:14px}
+.step .n{color:#fff;font-weight:700;margin:0 0 6px;text-shadow:0 1px 2px #0008}
+.hud .cmd{font-size:11px;font-weight:700;background:var(--accent);color:var(--on);border-radius:5px;padding:0 6px}
+.tag{font-size:11px;font-weight:600;border:1px solid var(--line);border-radius:5px;padding:0 5px;color:var(--accent)}
+.hrow{display:flex;flex-direction:column;gap:4px;padding:10px 12px;border-bottom:1px solid var(--line)}
+.hrow .meta{display:flex;gap:8px;align-items:center;color:var(--muted);font-size:12px}
+.instr{color:var(--muted);font-style:italic}
+</style>
+</head>
+<body>
+<div class="review">
+<header class="top">
+  <div>
+    <h1>Command mode</h1>
+    <p>Spec: <code>docs/superpowers/specs/2026-10-19-command-mode-design.md</code>. Select text, hold Right Option, say what to change, release. The selection is replaced. With nothing selected, say what to write.</p>
+  </div>
+  <button class="toggle" id="t">Light / dark</button>
+</header>
+
+<h2 class="sec">1. Rewrite a selection (Notion)</h2>
+<p class="why">Three moments of one command. The HUD pill is the dictation pill with a Command tag; the selection size tells the user BugVoice read the selection.</p>
+<div class="stage"><div class="steps">
+  <div class="step">
+    <p class="n">1 · Select and hold Right Option</p>
+    <div class="app"><div class="tb">Notion — Daily log</div>
+      <div class="doc">Thứ hai. <span class="sel">hôm nay team họp về cái module mới, mọi người thấy ok nhưng cần thêm test cho API trước khi release</span></div></div>
+    <div style="margin-top:10px"><div class="hud"><span class="dot"></span><span class="cmd">Command</span>142 characters · Notion <span class="lang">Auto</span></div></div>
+    <p class="notes">Said: "translate to English and make it a short status update"</p>
+  </div>
+  <div class="step">
+    <p class="n">2 · Release</p>
+    <div class="app"><div class="tb">Notion — Daily log</div>
+      <div class="doc">Thứ hai. <span class="sel">hôm nay team họp về cái module mới, mọi người thấy ok nhưng cần thêm test cho API trước khi release</span></div></div>
+    <div style="margin-top:10px"><div class="hud">Rewriting (Qwen)<span class="sub">Notion · Esc to cancel</span></div></div>
+    <p class="notes">The selection stays as it is while the model works. Escape cancels.</p>
+  </div>
+  <div class="step">
+    <p class="n">3 · Replaced</p>
+    <div class="app"><div class="tb">Notion — Daily log</div>
+      <div class="doc">Thứ hai. <span class="new">Status: the team reviewed the new module. Everyone is on board; we need more API tests before release.</span><span class="cursor"></span></div></div>
+    <div style="margin-top:10px"><div class="hud">Rewritten · ⌘Z to undo<span class="sub">18 words</span></div></div>
+    <p class="notes">Pasted over the selection; one ⌘Z in Notion brings the original back.</p>
+  </div>
+</div></div>
+
+<h2 class="sec">2. Write new text (nothing selected)</h2>
+<p class="why">The instruction becomes a request. The text before the cursor is sent as context so the reply fits.</p>
+<div class="stage"><div class="steps">
+  <div class="step">
+    <p class="n">Hold with no selection</p>
+    <div class="app"><div class="tb">Slack — #team</div>
+      <div class="doc"><span class="instr">Lan: can you join the review at 3?</span><br><span class="cursor"></span></div></div>
+    <div style="margin-top:10px"><div class="hud"><span class="dot"></span><span class="cmd">Command</span>New text · Slack <span class="lang">Auto</span></div></div>
+    <p class="notes">Said: "reply that I'll join but ten minutes late"</p>
+  </div>
+  <div class="step">
+    <p class="n">Written</p>
+    <div class="app"><div class="tb">Slack — #team</div>
+      <div class="doc"><span class="instr">Lan: can you join the review at 3?</span><br><span class="new">Yes, I'll join, but I'll be about ten minutes late.</span><span class="cursor"></span></div></div>
+    <div style="margin-top:10px"><div class="hud">Written<span class="sub">11 words</span></div></div>
+    <p class="notes">Nothing is sent: BugVoice never presses Return.</p>
+  </div>
+</div></div>
+
+<h2 class="sec">3. When it does not paste</h2>
+<p class="why">One line each in the HUD. Nothing is replaced in any of these.</p>
+<div class="stage"><div class="huds">
+  <div class="hud">Copied — press ⌘V<span class="sub">the selection changed while rewriting</span></div>
+  <div class="hud">Copied — press ⌘V<span class="sub">terminals do not replace a selection</span></div>
+  <div class="hud">Secure field — command not run</div>
+  <div class="hud">Selection too long<span class="sub">8,000 characters at most</span></div>
+  <div class="hud">Command failed<span class="sub">model unavailable</span></div>
+  <div class="hud">Command mode needs a text model<span class="sub">choose one in Settings › Models</span></div>
+  <div class="hud">The model's answer was too long<span class="sub">nothing was changed</span></div>
+</div></div>
+
+<h2 class="sec">4. Menu popover and history</h2>
+<p class="why">A command is the last dictation. Original puts the selection back (same as ⌃⌥R after a command). History shows the instruction above the result.</p>
+<div class="stage"><div class="pair">
+  <div>
+    <p class="label">Popover after a command</p>
+    <div class="menubar"><span><span class="ico" style="width:14px;height:14px;background:#fff8"></span></span><span>14:52</span></div>
+    <div class="popover">
+      <div class="prow"><b>BugVoice</b><span class="k">Ready · hold Right Control</span></div>
+      <div class="tiles"><span class="btn">New note</span><span class="btn">Record meeting</span><span class="btn">Upload</span><span class="btn">Paste last</span></div>
+      <div class="prow"><span>Language</span><span class="seg" style="margin-left:auto"><span class="on">Auto</span><span>EN</span><span>VI</span></span></div>
+      <hr>
+      <div class="last"><div class="foot">Last command · Notion · 14:51</div>
+        <div class="instr">“translate to English and make it a short status update”</div>
+        <div>Status: the team reviewed the new module. Everyone is on board; we need more API tests before release.</div>
+        <div class="row" style="margin-top:6px"><span class="btn">Copy</span><span class="btn">Original</span></div></div>
+      <hr>
+      <div class="prow">Library ›</div><div class="prow">Dictation options ›</div><div class="prow">Settings…<span class="k">⌘,</span></div>
+    </div>
+  </div>
+  <div>
+    <p class="label">Dictation history</p>
+    <div class="win"><div class="wbar"><b>Dictation</b></div>
+      <div class="hrow"><div class="meta">14:51 · Notion <span class="tag">Command</span></div>
+        <div class="instr">“translate to English and make it a short status update”</div>
+        <div>Status: the team reviewed the new module. Everyone is on board; we need more API tests before release.</div></div>
+      <div class="hrow"><div class="meta">14:40 · Slack <span class="tag">Command</span></div>
+        <div class="instr">“reply that I'll join but ten minutes late”</div>
+        <div>Yes, I'll join, but I'll be about ten minutes late.</div></div>
+      <div class="hrow"><div class="meta">14:32 · Orca</div><div>Please check the module and run the tests again.</div></div>
+    </div>
+    <p class="notes">Commands are left out of Insights word counts.</p>
+  </div>
+</div></div>
+
+<h2 class="sec">5. Settings</h2>
+<p class="why">General gains the command key under Hotkey; Shortcuts lists it as a fixed row.</p>
+<div class="stage"><div class="pair">
+  <div class="win"><div class="wbar"><b>Settings</b></div><div class="cols">
+    <div class="side"><div class="on">General</div><div>Shortcuts</div><div>Speech</div><div>Models</div></div>
+    <div class="body"><div class="card">
+      <div class="row"><span class="grow">Hotkey</span><span class="pop">Right ⌃ ▾</span></div>
+      <div class="foot">Hold to talk. Pressing another key cancels.</div>
+      <hr>
+      <div class="row"><span class="grow">Command key</span><span class="pop">Right ⌥ ▾</span></div>
+      <div class="foot">Select text, hold the command key and say what to change. With nothing selected, say what to write.</div>
+    </div></div></div></div>
+  <div class="card">
+    <div class="row"><span class="grow">Dictation</span><span class="foot">Hold Right Control</span></div>
+    <div class="row"><span class="grow">Hands-free</span><span class="foot">Double-tap Right Control</span></div>
+    <div class="row"><span class="grow">Command</span><span class="foot">Hold Right Option</span></div>
+    <div class="row"><span class="grow">Paste last dictation</span><span class="pop">⌃⌥ V ▾</span></div>
+    <div class="row"><span class="grow">Paste raw</span><span class="pop">⌃⌥ R ▾</span></div>
+  </div>
+</div></div>
+</div>
+<script>
+document.getElementById('t').onclick=()=>{const r=document.documentElement;const dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme: dark)').matches;r.dataset.theme=dark?'light':'dark'};
+</script>
+</body>
+</html>
