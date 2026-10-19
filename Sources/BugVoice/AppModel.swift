@@ -296,6 +296,7 @@ final class AppModel {
     @ObservationIgnored var presentPermissionsWindow: (() -> Void)?
     /// Created by `bootstrap()` once settings are loaded.
     @ObservationIgnored private(set) var dictation: DictationController?
+    @ObservationIgnored private(set) var command: CommandController?
     @ObservationIgnored private(set) var meetings: MeetingController?
     @ObservationIgnored private(set) var meetingDetection: MeetingDetectionController?
     private(set) var uploads: UploadController?
@@ -388,7 +389,13 @@ final class AppModel {
         let controller = DictationController(model: self)
         dictation = controller
         controller.start()
-        onSettingsChanged = { [weak controller] in controller?.applySettings() }
+        let commandController = CommandController(model: self)
+        command = commandController
+        commandController.start()
+        onSettingsChanged = { [weak controller, weak commandController] in
+            controller?.applySettings()
+            commandController?.applySettings()
+        }
     }
 
     func openMainWindow(_ page: Page? = nil) {
@@ -526,6 +533,29 @@ final class AppModel {
             focus: FocusInspector(),
             settings: settings,
             vocabulary: vocabulary
+        )
+    }
+
+    func makeCommandPipeline() -> CommandPipeline {
+        // The transport must allow the full command timeout too, rather than
+        // inheriting the shorter dictation cleanup timeout.
+        let commandPlan: ModelPlan
+        switch plan(for: .dictation) {
+        case .connection(let connection, let url, let modelID, let thinking, _):
+            commandPlan = .connection(connection, baseURL: url, modelID: modelID,
+                disableThinking: thinking, timeout: CommandPipeline.timeoutSeconds)
+        case .appleIntelligence:
+            commandPlan = .appleIntelligence(timeout: CommandPipeline.timeoutSeconds)
+        case .cli(let tool, let path, let model, let effort, _):
+            commandPlan = .cli(tool, path: path, model: model, effort: effort, timeout: CommandPipeline.timeoutSeconds)
+        case .none: commandPlan = .none
+        case .unavailable(let reason): commandPlan = .unavailable(reason)
+        }
+        return CommandPipeline(
+            transcriber: transcriptionRouter,
+            model: ProviderFactory.cleanupModel(commandPlan, credentials: credentials,
+                fallbackTimeout: CommandPipeline.timeoutSeconds),
+            settings: settings, vocabulary: vocabulary
         )
     }
 

@@ -63,3 +63,14 @@ private actor CommandOptionsTranscriber: Transcriber {
         return Transcript(text: "make it formal", language: "en")
     }
 }
+
+extension CommandPipelineTests {
+    @Test func commandsExcludedFromInsightsAndBackfill() async {
+        guard case .ready(var r) = await run(pipeline()) else { Issue.record("Not ready"); return }
+        r.outcome = .inserted
+        #expect(InsightsDelta.dictation(r, noteID: nil) == nil)
+        guard let entry = r.historyEntry else { Issue.record("No history"); return }
+        #expect(entry.command == r.command)
+        #expect(InsightsDelta.history(entry) == nil)
+    }
+}

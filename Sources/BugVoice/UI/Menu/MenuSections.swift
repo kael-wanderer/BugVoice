@@ -138,22 +138,29 @@ struct MenuLastDictation: View {
         let time = result.startedAt.formatted(date: .omitted, time: .shortened)
         VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
             VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
-                Text("Last dictation · \(app) · \(time)")
+                Text("\(result.command == nil ? "Last dictation" : "Last command") · \(app) · \(time)")
                     .bvFont(.footnote).foregroundStyle(.bvSecondary)
+                if let command = result.command {
+                    Text("“\(command)”").italic().bvFont(.body).foregroundStyle(.bvSecondary)
+                }
                 Text(result.finalText).bvFont(.reading).lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Last dictation, \(app), \(time), \(result.finalText)")
+            .accessibilityLabel("\(result.command == nil ? "Last dictation" : "Last command"), \(app), \(time), \(result.command ?? ""), \(result.finalText)")
             HStack(spacing: LayoutTokens.spacing[1]) {
                 MenuButton(id: .copyLast, small: true, highlight: highlight) { Text("Copy") }
-                MenuButton(id: .retryLast, small: true, highlight: highlight) { Text("Retry") }
-                MenuButton(id: .rawLast, small: true, highlight: highlight) { Text("Raw") }
-                    .help("Paste raw (⌃⌥\(shortcuts.letter(for: .pasteRaw)))")
-                MenuButton(id: .redoLast, small: true, highlight: highlight) {
-                    Text(FixLast.otherLanguage(of: result.language).displayName)
+                if result.command != nil {
+                    MenuButton(id: .rawLast, small: true, highlight: highlight) { Text("Original") }
+                } else {
+                    MenuButton(id: .retryLast, small: true, highlight: highlight) { Text("Retry") }
+                    MenuButton(id: .rawLast, small: true, highlight: highlight) { Text("Raw") }
+                        .help("Paste raw (⌃⌥\(shortcuts.letter(for: .pasteRaw)))")
+                    MenuButton(id: .redoLast, small: true, highlight: highlight) {
+                        Text(FixLast.otherLanguage(of: result.language).displayName)
+                    }
+                    .help("Redo in other language (⌃⌥\(shortcuts.letter(for: .redoOtherLanguage)))")
                 }
-                .help("Redo in other language (⌃⌥\(shortcuts.letter(for: .redoOtherLanguage)))")
             }
             .padding(.top, LayoutTokens.spacing[0])
         }

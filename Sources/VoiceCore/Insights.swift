@@ -102,11 +102,13 @@ public struct InsightsDelta: Equatable, Sendable {
 
     /// Nil when nothing counts: secure fields, failures, empty text.
     public static func dictation(_ result: DictationResult, noteID: NoteID?) -> InsightsDelta? {
-        spoken(outcome: result.outcome, appName: result.appName, style: result.style, raw: result.raw,
+        guard result.command == nil else { return nil }
+        return spoken(outcome: result.outcome, appName: result.appName, style: result.style, raw: result.raw,
                cleaned: result.cleaned, text: result.finalText, seconds: result.timings.recording, noteID: noteID)
     }
 
     public static func history(_ entry: HistoryEntry) -> InsightsDelta? {
+        guard entry.command == nil else { return nil }
         guard let outcome = DictationOutcome(rawValue: entry.outcome) else { return nil }
         return spoken(outcome: outcome, appName: entry.appName, style: entry.style, raw: entry.raw,
                       cleaned: entry.cleaned, text: entry.text, seconds: entry.timings.recording, noteID: nil)

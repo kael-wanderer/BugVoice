@@ -82,6 +82,7 @@ public final class HotkeyMonitor {
         default: return
         }
         if kind == .keyDown { onKeyDown?(keyCode, flags, userData) }
+        guard userData != FixLast.syntheticEventMarker else { return }
         let input = KeyEventMapper.map(
             kind: kind,
             keyCode: keyCode,
