@@ -81,7 +81,7 @@ enum SidebarGroup: CaseIterable {
         case .capture: [.dictation, .insights]
         case .library: [.meetings, .notes, .upload]
         case .personalize: [.style, .dictionary]
-        case .bottom: [.settings, .help]
+        case .bottom: [.settings]
         }
     }
 }
