@@ -6,8 +6,7 @@ import VoiceCore
 struct BackupCard: View {
     @Bindable var model: AppModel
     @State private var lastFolder: URL?
-    @State private var restoreFile: URL?
-    @State private var showingRestore = false
+    @State private var restoreRequest: RestoreRequest?
     @State private var confirmDelete = false
     @State private var panel: NSSavePanel?
 
@@ -76,9 +75,9 @@ struct BackupCard: View {
                 }
             }
         }
-        .sheet(isPresented: $showingRestore) {
-            if let restoreFile { RestoreSheet(model: model, archive: restoreFile) }
-        }
+        // `item:` hands the file to the sheet; with `isPresented:` the sheet could
+        // be built before the file was set and opened empty.
+        .sheet(item: $restoreRequest) { RestoreSheet(model: model, archive: $0.url) }
         .confirmationDialog("Delete the safety copy?", isPresented: $confirmDelete) {
             Button("Delete", role: .destructive) { controller.deleteSafetyCopy() }
             Button("Cancel", role: .cancel) {}
@@ -118,8 +117,7 @@ struct BackupCard: View {
             defer { panel = nil }
             guard response == .OK, let url = open.url else { return }
             lastFolder = url.deletingLastPathComponent()
-            restoreFile = url
-            showingRestore = true
+            restoreRequest = RestoreRequest(url: url)
         }
     }
 
@@ -150,4 +148,9 @@ struct BackupCard: View {
     }
     private func size(_ bytes: Int64) -> String { ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file) }
     private func reveal(_ url: URL) { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+}
+
+private struct RestoreRequest: Identifiable {
+    let id = UUID()
+    let url: URL
 }
