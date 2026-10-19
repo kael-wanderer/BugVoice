@@ -26,6 +26,19 @@ public final class AudioRecorder: @unchecked Sendable {
     /// 0…1, smoothed enough for a meter.
     public var level: Float { levelValue.withLock { $0 } }
 
+    /// Sample-based time, independent of timer scheduling.
+    public var recordedDuration: TimeInterval {
+        samples.withLock { Double($0.count) / AudioClip.sampleRate }
+    }
+
+    /// Copies only the requested tail while the audio callback holds the same mutex.
+    public func recentSamples(seconds: TimeInterval) -> AudioClip {
+        samples.withLock { values in
+            let duration = max(0, min(seconds.isFinite ? seconds : 0, Double(values.count) / AudioClip.sampleRate))
+            return AudioClip(samples: Array(values.suffix(Int(duration * AudioClip.sampleRate))))
+        }
+    }
+
     public func start(deviceUID: String? = nil) throws {
         guard !isRunning else { throw RecorderError.alreadyRunning }
         // A fresh engine each time picks up device changes since the last run.

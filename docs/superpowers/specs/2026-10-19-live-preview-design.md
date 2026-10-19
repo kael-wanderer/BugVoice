@@ -77,13 +77,16 @@ Mockup screens 1–4.
    later pass starts 0.6 s after the previous one returned. A pass uses the
    last 15 s of audio (shorter recordings: all of it). Only one pass at a
    time; a pass that returns after the key is released is discarded.
-3. **Engine.** Passes go through the shared `PriorityTranscriber` with a new
-   lowest priority, `.preview`: dictation first, then meeting chunks, then
-   preview. At most one preview request waits in the queue (a newer one
-   replaces it). When the final dictation request arrives, any queued
-   preview request is dropped and a running one is cancelled; if WhisperKit
-   cannot stop it mid-decode, the final waits for that one pass only (the
-   reason for the 15 s window).
+3. **Engine.** Passes run on a separate small Whisper model,
+   `openai_whisper-base` (about 150 MB, downloaded once into the models
+   folder, loaded at launch when Live preview is on), never on the main
+   model. Revised 2026-10-19 after a benchmark on the branch: sharing the
+   main model added 0.7 s to release-to-text (median 2.12 s vs 1.41 s,
+   because a running pass cannot be stopped mid-inference), while the
+   separate model added none (1.38 s) and each pass takes about 0.2 s. The
+   preview text is rougher, mostly in Vietnamese; the pasted text is
+   unchanged. At release the running preview pass is cancelled. Until the
+   preview model is ready, no card shows.
 4. **Options.** Same language as the run (the language shown in the pill;
    a language key change applies from the next pass), same vocabulary
    prompt as the final pass.
@@ -95,14 +98,16 @@ Mockup screens 1–4.
 ## Settings
 
 Settings › Speech, after Use vocabulary hints: **Live preview** switch, on by
-default. Footnote: "Shows the words under the HUD while you speak. The pasted
-text still comes from the whole recording after you release. Off with the
-OpenAI-compatible engine." (mockup screen 5).
+default. Footnote: "Shows the words under the HUD while you speak, using a small extra
+speech model (downloaded once, about 150 MB). The pasted text still comes
+from the whole recording after you release. Off with the OpenAI-compatible
+engine." (mockup screen 5).
 
 ## Where the logic lives
 
 VoiceCore (test first):
 
+- `LivePreviewModel.name` (the preview model).
 - `TranscriptionPriority.preview` and `TranscriptionPriorityQueue` order
   (dictation, meeting, preview), single preview slot, drop previews when a
   dictation request is enqueued.

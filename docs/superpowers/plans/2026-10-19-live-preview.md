@@ -20,7 +20,7 @@
 - Priority order: dictation, then meeting, then preview. At most one queued preview request.
 - Cadence: first pass at 1.0 s recorded, next pass 0.6 s after the previous returned, window = last 15 s, one pass at a time, a pass returning after release is discarded.
 - Card: at most 2 lines, last 140 characters cut at a word boundary with "…", width up to 460 pt × HUD size factor, 0.15 s crossfade, secondary color after release.
-- Setting `speech.livePreview`, default `true`. Footnote text exactly: "Shows the words under the HUD while you speak. The pasted text still comes from the whole recording after you release. Off with the OpenAI-compatible engine."
+- Setting `speech.livePreview`, default `true`. Footnote text exactly: "Shows the words under the HUD while you speak, using a small extra speech model (downloaded once, about 150 MB). The pasted text still comes from the whole recording after you release. Off with the OpenAI-compatible engine."
 - UI copy: plain English, no hedging, no emoji.
 - Commit after each task; the pre-commit hook raises the build, never edit CFBundleVersion.
 

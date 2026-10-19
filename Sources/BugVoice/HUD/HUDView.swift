@@ -6,6 +6,7 @@ import VoiceCore
 final class HUDModel {
     var state: HUDState?
     var level: Float = 0
+    var preview: String?
 }
 
 struct HUDView: View {
@@ -17,8 +18,41 @@ struct HUDView: View {
         return BVTypography(settings: settings)
     }
     let model: HUDModel
+    var onPillHeightChange: (CGFloat) -> Void = { _ in }
 
     var body: some View {
+        VStack(spacing: 6 * factor) {
+            pill
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { onPillHeightChange($0) }
+            if let preview = model.preview {
+                Text(preview)
+                    .font(type.font(TextToken.body))
+                    .foregroundStyle(listening ? AnyShapeStyle(.bvText) : AnyShapeStyle(.bvSecondary))
+                    .lineLimit(2)
+                    .truncationMode(.head)
+                    .padding(.horizontal, 14 * factor)
+                    .padding(.vertical, 8 * factor)
+                    .frame(maxWidth: 460 * factor)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .background(.bvCard, in: RoundedRectangle(cornerRadius: 12 * factor))
+                    .overlay(RoundedRectangle(cornerRadius: 12 * factor).strokeBorder(.bvSeparator, lineWidth: 1))
+                    .shadow(color: .black.opacity(0.25), radius: 8, y: 2)
+                    .contentTransition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: 0.15), value: model.preview)
+        .padding(LayoutTokens.spacing[1])
+        .fixedSize()
+    }
+
+    private var listening: Bool {
+        switch model.state {
+        case .listening, .commandListening: true
+        default: false
+        }
+    }
+
+    private var pill: some View {
         HStack(spacing: LayoutTokens.spacing[2] * factor) {
             content
         }
@@ -30,7 +64,6 @@ struct HUDView: View {
         .background(.bvCard, in: Capsule())
         .overlay(Capsule().strokeBorder(.bvSeparator, lineWidth: 1))
         .shadow(color: .black.opacity(0.25), radius: 8, y: 2)
-        .padding(LayoutTokens.spacing[1])
         .fixedSize()
     }
 

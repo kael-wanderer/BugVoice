@@ -23,6 +23,7 @@ final class HUDController {
     private let hosting: SizingHostingView<AnyView>
     private var hideTask: Task<Void, Never>?
     private var meterTimer: Timer?
+    private var pillHeight: CGFloat = 0
 
     init(appearance: AppearanceStore) {
         self.appearance = appearance
@@ -39,7 +40,12 @@ final class HUDController {
         panel.hasShadow = false
         panel.ignoresMouseEvents = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
-        hosting = SizingHostingView(rootView: AnyView(HUDView(model: model).bvTheme(appearance, fillsBackground: false)))
+        hosting = SizingHostingView(rootView: AnyView(EmptyView()))
+        hosting.rootView = AnyView(HUDView(model: model, onPillHeightChange: { [weak self] height in
+            guard let self, self.pillHeight != height else { return }
+            self.pillHeight = height
+            self.layout()
+        }).bvTheme(appearance, fillsBackground: false))
         hosting.sizingOptions = [.intrinsicContentSize]
         appearance.attach(panel)
         panel.contentView = hosting
@@ -65,8 +71,15 @@ final class HUDController {
 
     func show(_ state: HUDState) {
         hideTask?.cancel()
+        switch state {
+        case .done, .warning, .failure, .message, .nothingHeard: model.preview = nil
+        default: break
+        }
         model.state = state
-        if case .listening = state { startMeter() } else { stopMeter() }
+        switch state {
+        case .listening, .commandListening: startMeter()
+        default: stopMeter()
+        }
         hosting.layoutSubtreeIfNeeded()
         layout()
         panel.orderFrontRegardless()
@@ -79,9 +92,16 @@ final class HUDController {
         }
     }
 
+    func setPreview(_ text: String?) {
+        model.preview = text
+        hosting.layoutSubtreeIfNeeded()
+        layout()
+    }
+
     func hide() {
         hideTask?.cancel()
         stopMeter()
+        model.preview = nil
         model.state = nil
         panel.orderOut(nil)
     }
@@ -93,7 +113,13 @@ final class HUDController {
         let mouse = NSEvent.mouseLocation
         let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main
         guard let frame = screen?.visibleFrame else { return }
-        panel.setFrame(NSRect(x: frame.midX - size.width / 2, y: frame.minY + 40, width: size.width, height: size.height), display: true)
+        // The original pill had 8 pt of outer padding on both sides. Grow
+        // downward by the card and gap to keep the pill in place. With an
+        // auto-hidden Dock, lift only enough to keep the card on the display.
+        let extra = model.preview == nil ? 0 : max(0, size.height - pillHeight - 16)
+        let bottom = max(screen?.frame.minY ?? frame.minY, frame.minY + 40 - extra)
+        panel.setFrame(NSRect(x: frame.midX - size.width / 2, y: bottom,
+            width: size.width, height: size.height), display: true)
     }
 
     private func startMeter() {
