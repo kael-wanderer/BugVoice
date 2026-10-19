@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 import VoiceCore
 import WhisperKit
 
@@ -78,7 +79,9 @@ public actor WhisperKitTranscriber: Transcriber {
     }
 
     public func transcribe(_ clip: AudioClip, options: TranscriptionOptions) async throws -> Transcript {
+        try Task.checkCancellation()
         let kit = try await loadedKit()
+        try Task.checkCancellation()
         var decode = DecodingOptions()
         decode.verbose = false
         decode.task = .transcribe
@@ -104,7 +107,18 @@ public actor WhisperKitTranscriber: Transcriber {
                 .filter { $0 < tokenizer.specialTokens.specialTokenBegin }
             decode.promptTokens = Array(tokens.suffix(Self.maxPromptTokens))
         }
-        let results = try await kit.transcribe(audioArray: clip.samples, decodeOptions: decode)
+        // WhisperKit invokes the decoding callback in a detached task, whose
+        // Task.isCancelled does not reflect our caller's cancellation.
+        let cancelled = Mutex(false)
+        let results = try await withTaskCancellationHandler {
+            try Task.checkCancellation()
+            return try await kit.transcribe(audioArray: clip.samples, decodeOptions: decode, callback: { _ in
+                cancelled.withLock { $0 } ? false : nil
+            })
+        } onCancel: {
+            cancelled.withLock { $0 = true }
+        }
+        try Task.checkCancellation()
         let segments = results.flatMap(\.segments).map {
             TranscriptSegment(start: Double($0.start), end: Double($0.end), text: Self.strip($0.text))
         }
@@ -114,6 +128,7 @@ public actor WhisperKitTranscriber: Transcriber {
            !options.expectedLanguages.map(\.rawValue).contains(language) {
             languageScores = (try? await kit.detectLangauge(audioArray: clip.samples).langProbs) ?? [:]
         }
+        try Task.checkCancellation()
         return Transcript(
             text: Self.strip(results.map(\.text).joined(separator: " ")),
             segments: segments,
