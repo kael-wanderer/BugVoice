@@ -26,6 +26,7 @@ final class CommandController {
     private var startedAt = Date()
     private var cycler: LanguageKeyCycler?
     private var hud: HUDController? { model.dictation?.hud }
+    private var preview: LivePreviewController?
 
     init(model: AppModel) { self.model = model }
     func start() { applySettings() }
@@ -138,6 +139,16 @@ final class CommandController {
             hud?.levelSource = { [recorder] in recorder.level }
             if model.settings.soundsEnabled { NSSound(named: "Tink")?.play() }
             showListening(changed: false)
+            if let hud {
+                if preview == nil {
+                    preview = LivePreviewController(recorder: recorder, transcriber: model.transcriptionRouter, hud: hud)
+                }
+                preview?.start(enabled: LivePreviewPolicy.isEnabled(settings: model.settings,
+                    secureField: startFocus.isSecure, meetingRecording: model.meetings?.isRecording == true,
+                    speechReady: model.speechState == .ready),
+                    language: { [weak self] in self?.cycler?.current ?? .auto },
+                    prompt: model.settings.speech.useVocabularyHints ? model.vocabulary.whisperPrompt() : "")
+            }
             limitTask = Task { [weak self] in
                 guard let self else { return }
                 try? await Task.sleep(for: .seconds(self.model.settings.handsFreeLimitMinutes * 60))
@@ -174,6 +185,7 @@ final class CommandController {
     }
 
     private func finish() {
+        preview?.stop()
         guard phase == .recording else { return }
         let clip = recorder.stop()
         model.isListening = false
@@ -268,6 +280,7 @@ final class CommandController {
     }
 
     private func cancel() {
+        preview?.stop()
         let wasActive = isActive
         if wasActive { log(outcome: "cancelled") }
         runID = UUID()

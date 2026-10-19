@@ -14,6 +14,7 @@ final class DictationController {
     private unowned let model: AppModel
     private let recorder = AudioRecorder()
     lazy var hud = HUDController(appearance: model.appearance)
+    private lazy var preview = LivePreviewController(recorder: recorder, transcriber: model.transcriptionRouter, hud: hud)
     let inserter = PasteboardInserter()
     private var detector = HoldGestureDetector()
     private var languageCycler: LanguageKeyCycler?
@@ -175,6 +176,11 @@ final class DictationController {
         // if a key-up never arrives. The HUD shows it only in hands-free.
         let limit = TimeInterval(model.settings.handsFreeLimitMinutes * 60)
         showListening(languageChanged: false)
+        preview.start(enabled: LivePreviewPolicy.isEnabled(settings: model.settings,
+            secureField: startFocus.isSecure, meetingRecording: model.meetings?.isRecording == true,
+            speechReady: model.speechState == .ready),
+            language: { [weak self] in self?.languageCycler?.current ?? .auto },
+            prompt: model.settings.speech.useVocabularyHints ? model.vocabulary.whisperPrompt() : "")
         limitTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(limit))
             guard !Task.isCancelled, let self else { return }
@@ -236,6 +242,7 @@ final class DictationController {
 
     /// Option used as a modifier (e.g. ⌥E): nothing is pasted or logged.
     private func cancel() {
+        preview.stop()
         limitTask?.cancel()
         detector.reset()
         languageFlashTask?.cancel()
@@ -250,6 +257,7 @@ final class DictationController {
     }
 
     private func finish() {
+        preview.stop()
         limitTask?.cancel()
         model.isListening = recorder.isRunning
         guard recorder.isRunning else { return }
