@@ -201,9 +201,9 @@ app's process, the focused element, and the time. A replacement:
    the paste".
 4. After a replacement the remembered insertion becomes the new text, so
    ⌃⌥R then ⌃⌥L, or ⌃⌥L twice, each replace the previous result.
-5. A note insertion (dictation into the BugVoice editor) is replaced inside
-   the note through the editor, under the same "no typing since" rule (my
-   call: same behavior, no keystrokes needed there).
+5. Dictation into a BugVoice note or the meeting notes editor is not a
+   "last dictation" today (it is not recorded as `lastResult`), so the
+   shortcuts do nothing for it (changed 2026-10-19 while planning).
 
 **When there is nothing to fix:** no last dictation, `last.wav` missing
 (⌃⌥L), or a dictation is running: the HUD shows "Nothing to fix" for 1.2 s.
