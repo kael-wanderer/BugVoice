@@ -62,3 +62,26 @@
   and every error description, including singular/plural damage counts.
 - `git diff --check` passed. Foundation-only implementation; synthetic temporary
   fixtures only, with cleanup. No owner data accessed and no scope deviations.
+
+## Task 4 — Backup file plan (2026-10-19)
+
+- Added the public backup plan and allowlists, sorted relative file paths,
+  included byte totals, recursive Notes selection, and ready/failed Meeting
+  selection with sorted skipped IDs. Hidden descendants, meeting PCM files,
+  checkpoints, cancelled/incomplete/invalid meetings, and other root entries
+  are excluded.
+- Test-first evidence: wrote five tests, then
+  `swift test --filter BackupPlanTests` failed before implementation because
+  `BackupPlan` did not exist (`/tmp/bugvoice-task4-red.log`).
+- Focused check passed: 5 tests / 1 suite
+  (`/tmp/bugvoice-task4-green.log`). Full `swift test` passed: 959 VoiceCore
+  tests / 107 suites, 30 MCPKit tests / 2 suites, and 94 BugVoiceMac tests /
+  16 suites (1,083 total; `/tmp/bugvoice-task4-full.log`).
+- Focused tests caught relative path slicing differences between temporary
+  `/var` URLs and enumerator `/private/var` URLs. Resolving both URLs and using
+  path components fixes the paths; the same tests now pass.
+- Public memberwise initializer supports the following writer task. Minimal
+  state-only decoding accepts existing meeting manifests without requiring
+  unrelated fields. `git diff --check` passed. Foundation only; fixtures use
+  temporary synthetic files with cleanup, and no owner data was accessed.
+- No scope deviations.
