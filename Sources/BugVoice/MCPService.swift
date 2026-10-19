@@ -95,7 +95,7 @@ final class MCPService {
         case .getNote(let id):
             return await getNote(NoteID(rawValue: id))
         case .listActionItems(let status, let meeting, let limit):
-            let done = await ActionItemStore(url: model.paths.actionItems).load()
+            let done = model.actionItemsDone
             let board = ActionItemBoard(meetings: model.meetingManifests.filter { meeting == nil || $0.id.rawValue == meeting },
                                         done: done, status: status, owner: .anyone, range: .all, query: "", now: Date())
             let rows = board.groups.flatMap { group in

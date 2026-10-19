@@ -61,6 +61,7 @@ struct MainWindow: View {
             case .dictionary: DictionaryPage(model: model)
             case .style: StylePage(model: model)
             case .meetings: MeetingsPage(model: model)
+            case .actions: ActionItemsPage(model: model)
             case .upload: UploadPage(model: model)
             case .notes: NotesPage(model: model)
             case .integrations: ComingSoonPage(page: .integrations, model: model)

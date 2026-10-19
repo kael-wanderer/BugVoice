@@ -27,13 +27,14 @@ enum LibrarySheetTab: String, Identifiable {
 
 /// Main-window pages.
 enum Page: String, CaseIterable, Identifiable {
-    case dictation, insights, meetings, notes, upload, style, dictionary, integrations, settings, help
+    case dictation, insights, meetings, actions, notes, upload, style, dictionary, integrations, settings, help
     var id: String { rawValue }
     var title: String {
         switch self {
         case .dictation: "Dictation"
         case .insights: "Insights"
         case .meetings: "Meetings"
+        case .actions: "Action items"
         case .notes: "Scratchpad"
         case .upload: "Upload"
         case .style: "Style"
@@ -48,6 +49,7 @@ enum Page: String, CaseIterable, Identifiable {
         case .dictation: "mic"
         case .insights: "chart.bar"
         case .meetings: "waveform.path"
+        case .actions: "checklist"
         case .notes: "note.text"
         case .upload: "square.and.arrow.up"
         case .style: "paintbrush.pointed"
@@ -74,7 +76,7 @@ enum SidebarGroup: CaseIterable {
     var pages: [Page] {
         switch self {
         case .capture: [.dictation, .insights]
-        case .library: [.meetings, .notes, .upload]
+        case .library: [.meetings, .actions, .notes, .upload]
         case .personalize: [.style, .dictionary]
         case .bottom: [.settings]
         }
@@ -95,6 +97,32 @@ final class AppModel {
     @ObservationIgnored let insightsStore = InsightsStore(url: AppPaths.standard().insights)
     @ObservationIgnored let dictionaryStore = DictionaryStore(url: AppPaths.standard().dictionary)
     @ObservationIgnored let libraryStore = LibraryStore(url: AppPaths.standard().library)
+    @ObservationIgnored let actionItemStore = ActionItemStore(url: AppPaths.standard().actionItems)
+    @ObservationIgnored private var actionItemRevision = 0
+    var actionItemsDone = ActionItemFile()
+    var actionItemsSearchQuery = ""
+
+    func setActionItemDone(_ item: ActionItem, _ done: Bool) {
+        actionItemsDone.setDone(item, done, at: Date())
+        saveActionItemsDone()
+    }
+
+    private func saveActionItemsDone() {
+        actionItemRevision += 1
+        let revision = actionItemRevision
+        let file = actionItemsDone
+        Task {
+            do { try await actionItemStore.save(file, revision: revision) }
+            catch { saveError = "Could not save action items: \(error.localizedDescription)" }
+        }
+    }
+
+    func openMeetingActionItems(_ id: MeetingID) {
+        searchIsPresented = false
+        searchQuery = ""
+        openMeetingSearchHit(id, part: .actionItems, lineID: nil)
+    }
+
     @ObservationIgnored let projectStore = ProjectStore(url: AppPaths.standard().projects)
     @ObservationIgnored private var dictionaryRevision = 0
     @ObservationIgnored var meetingStore: MeetingStore { MeetingStore(root: paths.meetings) }
@@ -199,6 +227,7 @@ final class AppModel {
         didSet {
             switch page {
             case .meetings: meetingSearchQuery = searchQuery
+            case .actions: actionItemsSearchQuery = searchQuery
             case .notes: notesSearchQuery = searchQuery
             case .dictation: dictationSearchQuery = searchQuery
             default: break
@@ -211,31 +240,35 @@ final class AppModel {
     var searchResultsFrame: CGRect = .zero
     var dictationHighlight: UUID?
 
+    private func openMeetingSearchHit(_ id: MeetingID, part: AskPart?, lineID: String?) {
+        guard let meeting = meetingManifests.first(where: { $0.id == id }) else { return }
+        meetingsFolderFilter = .all
+        meetingTagFilter = []
+        meetingSearchQuery = ""
+        switch part {
+        case .summary: meetingDetailTab = .summary
+        case .actionItems: meetingDetailTab = .actionItems
+        case .myNotes: meetingDetailTab = .notes
+        case .transcript: meetingDetailTab = .transcript
+        default: break
+        }
+        if part == nil {
+            pendingMeetingJump = nil
+            meetingSelectionRequest &+= 1
+            selectedMeetingID = id
+            openMainWindow(.meetings)
+        } else {
+            let start = meeting.segments.first(where: { $0.id == lineID })?.start ?? 0
+            openMeeting(MeetingJump(id: id, start: start, lineIDs: lineID.map { [$0] } ?? [], play: false))
+        }
+    }
+
     func open(_ hit: SearchHit) {
         searchIsPresented = false
         searchQuery = ""
         switch hit.target {
         case .meeting(let id, let part, let lineID):
-            guard let meeting = meetingManifests.first(where: { $0.id == id }) else { return }
-            meetingsFolderFilter = .all
-            meetingTagFilter = []
-            meetingSearchQuery = ""
-            switch part {
-            case .summary: meetingDetailTab = .summary
-            case .actionItems: meetingDetailTab = .actionItems
-            case .myNotes: meetingDetailTab = .notes
-            case .transcript: meetingDetailTab = .transcript
-            default: break
-            }
-            if part == nil {
-                pendingMeetingJump = nil
-                meetingSelectionRequest &+= 1
-                selectedMeetingID = id
-                openMainWindow(.meetings)
-            } else {
-                let start = meeting.segments.first(where: { $0.id == lineID })?.start ?? 0
-                openMeeting(MeetingJump(id: id, start: start, lineIDs: lineID.map { [$0] } ?? [], play: false))
-            }
+            openMeetingSearchHit(id, part: part, lineID: lineID)
         case .note(let id):
             guard notesController.notes.contains(where: { $0.id == id }) else { return }
             notesFolderFilter = .all
@@ -260,6 +293,7 @@ final class AppModel {
             searchQuery = ""
             meetingSearchQuery = ""
             notesSearchQuery = ""
+            actionItemsSearchQuery = ""
             dictationSearchQuery = ""
         }
     }
@@ -379,6 +413,10 @@ final class AppModel {
         await applyRetention()
         await recoverUnfinishedMeetings()
         await applyMeetingRetention()
+        actionItemsDone = await actionItemStore.load()
+        let beforePruning = actionItemsDone
+        actionItemsDone.prune(keeping: Set(meetingManifests.map(\.id)))
+        if actionItemsDone != beforePruning { saveActionItemsDone() }
         // Only now are notes, meetings and history all loaded; no index file is pruned before this.
         searchIndexer.librariesDidLoad()
         Task { await prepareSpeech() }

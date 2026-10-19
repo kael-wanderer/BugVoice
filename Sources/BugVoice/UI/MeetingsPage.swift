@@ -497,9 +497,27 @@ private struct MeetingDetails: View {
     private func generatedText(_ value: String?, kind: MeetingTextKind, emptyMessage: String) -> some View {
         VStack(alignment: .leading, spacing: LayoutTokens.spacing[2]) {
             if let value, !value.isEmpty {
-                Text(value).bvFont(.reading).frame(maxWidth: .infinity, alignment: .leading).textSelection(.enabled)
+                if kind == .actionItems {
+                    let parsed = ActionItemParser.parse(value, meetingID: meeting.id)
+                    VStack(spacing: 0) {
+                        ForEach(Array(parsed.items.enumerated()), id: \.offset) { _, item in
+                            ActionItemRowView(row: ActionItemRow(item: item, doneAt: model.actionItemsDone.doneAt(item))) {
+                                model.setActionItemDone(item, $0)
+                            }
+                        }
+                    }
+                    ForEach(Array(parsed.otherLines.enumerated()), id: \.offset) { _, line in
+                        Text(line).bvFont(.reading).textSelection(.enabled)
+                    }
+                } else {
+                    Text(value).bvFont(.reading).frame(maxWidth: .infinity, alignment: .leading).textSelection(.enabled)
+                }
             } else {
                 EmptyState(kind == .summary ? "No summary" : "No action items", systemImage: kind == .summary ? "text.alignleft" : "checklist", message: emptyMessage)
+            }
+            if kind == .actionItems {
+                Text("Checkmarks are shared with the Action items page and kept after Regenerate when an item's text is the same.")
+                    .bvFont(.footnote).foregroundStyle(.bvSecondary)
             }
             if let generationProgress {
                 ProgressView(value: generationProgress.fraction) {

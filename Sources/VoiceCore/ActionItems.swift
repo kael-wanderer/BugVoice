@@ -177,10 +177,8 @@ public struct ActionItemBoard: Equatable, Sendable {
         }
         let days: Int? = switch range { case .week: 7; case .month: 30; case .all: nil }
         for meeting in meetings.sorted(by: { $0.startedAt == $1.startedAt ? $0.id.rawValue < $1.id.rawValue : $0.startedAt > $1.startedAt }) {
-            // Repeated generated bullets share one identity and one checkmark.
-            var seen: Set<String> = []
             let rows = ActionItemParser.parse(meeting.actionItems, meetingID: meeting.id).items
-                .filter { seen.insert($0.id).inserted }.map { ActionItemRow(item: $0, doneAt: done.doneAt($0)) }
+                .map { ActionItemRow(item: $0, doneAt: done.doneAt($0)) }
             let openCount = rows.filter { $0.doneAt == nil }.count
             let doneCount = rows.count - openCount
             openTotal += openCount; doneTotal += doneCount
