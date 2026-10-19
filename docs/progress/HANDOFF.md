@@ -4,6 +4,18 @@ Last updated: 2026-10-19
 
 ## Current state
 
+**Learn from corrections:** implemented Tasks 1–6 on
+`feat/learn-from-corrections` (2026-10-19), not merged or pushed. Ordinary
+non-terminal pastes are watched locally for 60 s; word fixes become explicit
+Dictionary suggestions, with Add/Dismiss, replacement control, counts and a
+Speech setting. `suggestions.json` is included in backups. Full tests:
+**1,132 VoiceCore, 30 MCPKit, 114 BugVoiceMac**. Signed build passes;
+read-only Dictionary empty state and Speech setting verified on display 2.
+K1–K10 **not run**: their full workflows require dictation/paste, edits,
+mutations or secure-field inspection outside the permitted read-only checks.
+Owner data restored and temporary copies deleted. Deviations, evidence and
+individual reasons: `docs/progress/corrections-log.md`.
+
 **Project words:** merged on `main` and pushed (2026-10-19). Repo file names
 and code identifiers feed the Whisper prompt and the cleanup and command
 prompts in coding apps; names the repo declares rank first, and words the
