@@ -9,6 +9,14 @@ struct SettingsTests {
         return url
     }
 
+    @Test func livePreviewDecodesDefaultOn() throws {
+        let missing = try JSONDecoder().decode(AppSettings.self, from: Data(#"{"speech":{}}"#.utf8))
+        #expect(missing.speech.livePreview)
+        let disabled = try JSONDecoder().decode(AppSettings.self, from: Data(#"{"speech":{"livePreview":false}}"#.utf8))
+        #expect(!disabled.speech.livePreview)
+        #expect(try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(disabled)) == disabled)
+    }
+
     @Test func defaultsMatchSpec() {
         let s = AppSettings()
         #expect(s.hotkey == .rightControl)
