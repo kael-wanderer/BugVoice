@@ -16,7 +16,7 @@ struct BackupPlanTests {
 
     @Test func includesLibraryFilesAndLeavesOutTheRest() throws {
         try fixture { root, write in
-            let allowed = ["settings.json", "dictionary.json", "history.jsonl", "insights.json", "library.json"]
+            let allowed = ["settings.json", "dictionary.json", "history.jsonl", "insights.json", "library.json", "projects.json"]
             for path in allowed + ["credentials.json", "last.wav", "vocabulary.migrated.txt", "settings.json.corrupt-1", "models/m.bin", "SearchIndex/i", "MCP/agent-uploads.json", "Restore safety copy 2026-10-19/settings.json"] {
                 try write(path, "x")
             }

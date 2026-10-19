@@ -20,6 +20,61 @@ public struct ProjectSourceFile: Sendable {
     }
 }
 
+public enum ProjectWordsScope: String, Codable, Sendable, CaseIterable {
+    case codingApps, allApps, off
+}
+
+public struct Project: Codable, Equatable, Sendable, Identifiable {
+    public var id: UUID
+    public var path: String
+    public var name: String
+    public var enabled: Bool
+    public var hidden: [String]
+    public var scannedAt: Date?
+    public var fileCount: Int
+    public var words: [ProjectWord]
+    public var missing: Bool
+
+    public init(id: UUID = UUID(), path: String, name: String, enabled: Bool = true, hidden: [String] = [], scannedAt: Date? = nil, fileCount: Int = 0, words: [ProjectWord] = [], missing: Bool = false) {
+        self.id = id
+        self.path = path
+        self.name = name
+        self.enabled = enabled
+        self.hidden = hidden
+        self.scannedAt = scannedAt
+        self.fileCount = fileCount
+        self.words = words
+        self.missing = missing
+    }
+
+    private enum CodingKeys: String, CodingKey { case id, path, name, enabled, hidden, scannedAt, fileCount, words }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = c.value(.id, default: UUID())
+        path = try c.decode(String.self, forKey: .path)
+        name = try c.decode(String.self, forKey: .name)
+        enabled = c.value(.enabled, default: true)
+        hidden = c.value(.hidden, default: [])
+        scannedAt = c.value(.scannedAt, default: nil)
+        fileCount = c.value(.fileCount, default: 0)
+        words = c.value(.words, default: [])
+        missing = false
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(path, forKey: .path)
+        try c.encode(name, forKey: .name)
+        try c.encode(enabled, forKey: .enabled)
+        try c.encode(hidden, forKey: .hidden)
+        try c.encodeIfPresent(scannedAt, forKey: .scannedAt)
+        try c.encode(fileCount, forKey: .fileCount)
+        try c.encode(words, forKey: .words)
+    }
+}
+
 public enum ProjectWordExtractor {
     public static let maxWords = 1_000
     public static let sourceExtensions: Set<String> = [
