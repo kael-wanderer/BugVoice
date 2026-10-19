@@ -17,6 +17,21 @@ public struct FocusInspector: FocusProvider {
         return element(AXUIElementCreateSystemWide(), kAXFocusedUIElementAttribute)
     }
 
+    /// Read only after the element passes the secure-focus policy.
+    @MainActor
+    public static func value(of element: AXUIElement) -> String? {
+        guard AXIsProcessTrusted() else { return nil }
+        AXUIElementSetMessagingTimeout(element, 0.25)
+        let secure = SecureFocusPolicy.isSecure(
+            axTrusted: true, focusedElementReadable: true,
+            role: read(element, kAXRoleAttribute), subrole: read(element, kAXSubroleAttribute),
+            secureInput: SecureInputMonitor.state,
+            frontmostPID: NSWorkspace.shared.frontmostApplication?.processIdentifier)
+        guard !secure, let value = string(element, kAXValueAttribute),
+              value.count <= CorrectionRegion.maxValueLength else { return nil }
+        return value
+    }
+
     public static func isSameElement(_ a: AXUIElement?, _ b: AXUIElement?) -> Bool {
         guard let a, let b else { return false }
         return CFEqual(a, b)
