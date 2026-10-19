@@ -113,6 +113,10 @@ public struct SpeechSettings: Codable, Equatable, Sendable {
     public var engine: SpeechEngine = .whisperKit
     public var whisperModel = "large-v3-v20240930_turbo"
     public var language: SpeechLanguage = .auto
+    public var appLanguages: [AppLanguageRule] = AppLanguageRule.defaults
+    public var showLanguageSwitch = true
+    public var languageKey: LanguageKey = .shift
+    public var keepEnglishWords = true
     public var useVocabularyHints = true
     public var serverBaseURL = "http://localhost:8000"
     public var serverModel = "whisper-1"
@@ -330,6 +334,18 @@ extension SpeechSettings {
         engine = c.value(.engine, default: engine)
         whisperModel = c.value(.whisperModel, default: whisperModel)
         language = c.value(.language, default: language)
+        if let rawRules = try? c.decode([[String: String]].self, forKey: .appLanguages) {
+            appLanguages = rawRules.compactMap { raw in
+                guard let kindRaw = raw["kind"], let kind = AppLanguageRule.Kind(rawValue: kindRaw),
+                      let id = raw["id"], !id.isEmpty,
+                      let languageRaw = raw["language"], let language = SpeechLanguage(rawValue: languageRaw),
+                      language == .en || language == .vi else { return nil }
+                return AppLanguageRule(kind: kind, id: id, language: language)
+            }
+        }
+        showLanguageSwitch = c.value(.showLanguageSwitch, default: showLanguageSwitch)
+        languageKey = c.value(.languageKey, default: languageKey)
+        keepEnglishWords = c.value(.keepEnglishWords, default: keepEnglishWords)
         useVocabularyHints = c.value(.useVocabularyHints, default: useVocabularyHints)
         serverBaseURL = c.value(.serverBaseURL, default: serverBaseURL)
         serverModel = c.value(.serverModel, default: serverModel)

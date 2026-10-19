@@ -40,9 +40,13 @@ public struct DictationResult: Sendable, Equatable {
     public var bundleID: String?
     public var style: Style
     public var language: String?
+    public var requestedLanguage: SpeechLanguage = .auto
     public var raw: String
     public var cleaned: String?
     public var finalText: String
+    /// What would have been pasted with cleanup off: Dictionary
+    /// replacements and snippets applied, no text model. *Paste raw* uses it.
+    public var uncleanedText = ""
     public var outcome: DictationOutcome
     public var rawReason: RawReason?
     public var errorMessage: String?
@@ -116,14 +120,16 @@ public struct DictationPipeline: Sendable {
         startFocus: FocusSnapshot,
         startedAt: Date,
         mode: DictationMode = .ordinary,
+        languageChoice: SpeechLanguage? = nil,
         onStage: @escaping @Sendable (PipelineStage) -> Void
     ) async -> DictationResult {
         let style = mode == .notes
             ? Style.document
             : StyleRouter(overrides: settings.styles.appOverrides).style(for: startFocus)
+        let requestedLanguage = LanguageResolver(settings: settings.speech).language(for: startFocus, keyChoice: languageChoice)
         var result = DictationResult(
             startedAt: startedAt, appName: startFocus.appName, bundleID: startFocus.bundleID,
-            style: style, language: nil, raw: "", cleaned: nil, finalText: "",
+            style: style, language: nil, requestedLanguage: requestedLanguage, raw: "", cleaned: nil, finalText: "",
             outcome: .nothingHeard, rawReason: nil, errorMessage: nil,
             timings: StageTimings(recording: clip.duration)
         )
@@ -141,8 +147,10 @@ public struct DictationPipeline: Sendable {
         onStage(.transcribing)
         var mark = Date()
         let options = TranscriptionOptions(
-            language: settings.speech.language,
-            prompt: settings.speech.useVocabularyHints ? vocabulary.whisperPrompt() : ""
+            language: requestedLanguage,
+            prompt: settings.speech.useVocabularyHints
+                ? vocabulary.whisperPrompt(example: requestedLanguage == .vi && settings.speech.keepEnglishWords ? Vocabulary.mixedExample : nil)
+                : ""
         )
         let transcript: Transcript
         do {
@@ -178,7 +186,8 @@ public struct DictationPipeline: Sendable {
             mark = Date()
             var built = PromptBuilder(customRules: settings.styles.customRules).request(
                 raw: protected.text, style: style, focus: startFocus, vocabulary: vocabulary,
-                modelID: cleanup.modelID, disableThinking: cleanup.disableThinking
+                modelID: cleanup.modelID, disableThinking: cleanup.disableThinking,
+                language: requestedLanguage, keepEnglishWords: settings.speech.keepEnglishWords
             )
             built.maxTokens = min(1024, 2 * protected.text.count + 50)
             let request = built
@@ -208,10 +217,9 @@ public struct DictationPipeline: Sendable {
 
         text = protected.fill(vocabulary.applyReplacements(to: text))
         if cleanedAccepted { result.cleaned = text }
-        if style == .terminal, text.hasSuffix("."), !text.hasSuffix("..") {
-            text.removeLast()
-        }
-        result.finalText = text
+        result.finalText = Self.trimmed(text, style: style)
+        result.uncleanedText = Self.trimmed(protected.fill(vocabulary.applyReplacements(to: protected.text)), style: style)
+        text = result.finalText
 
         // Insert
         onStage(.inserting)
@@ -237,6 +245,12 @@ public struct DictationPipeline: Sendable {
         }
         result.timings.insert = Date().timeIntervalSince(mark)
         return result
+    }
+
+    /// Terminal text drops a single trailing period.
+    static func trimmed(_ text: String, style: Style) -> String {
+        guard style == .terminal, text.hasSuffix("."), !text.hasSuffix("..") else { return text }
+        return String(text.dropLast())
     }
 
     /// Cancellation by type, never by error text: Swift's `CancellationError`,

@@ -9,7 +9,7 @@ enum MenuSubmenu: Hashable { case library, dictationOptions, tools }
 /// Every highlightable control in the popover.
 enum MenuControl: Hashable, Sendable {
     case statusAction, meetingPause, meetingMark, meetingStop
-    case newNote, meeting, upload, pasteLast, copyLast, retryLast
+    case newNote, meeting, upload, pasteLast, copyLast, retryLast, rawLast, redoLast
     case submenu(MenuSubmenu), openApp, settings, quit
     case back, item(String)
 }
@@ -94,7 +94,7 @@ struct MenuPopover: View {
         ids.append(.newNote)
         if meetingRunning || model.meetings?.isTranscribing != true { ids.append(.meeting) }
         ids.append(.upload)
-        if hasLast { ids += [.pasteLast, .copyLast, .retryLast] }
+        if hasLast { ids += [.pasteLast, .copyLast, .retryLast, .rawLast, .redoLast] }
         ids += [.submenu(.library), .submenu(.dictationOptions), .openApp, .settings, .submenu(.tools), .quit]
         return ids
     }
@@ -139,6 +139,12 @@ struct MenuPopover: View {
         case .retryLast:
             close()
             model.dictation?.retryLast()
+        case .rawLast:
+            close()
+            model.dictation?.pasteRaw()
+        case .redoLast:
+            close()
+            model.dictation?.redoInOtherLanguage()
         case .submenu(let target):
             submenu = target
             nav.clear()
@@ -206,9 +212,26 @@ struct MenuPopover: View {
             MenuMeetingStrip(meetings: meetings, highlight: highlight)
         }
         MenuActionGrid(model: model, highlight: highlight)
+        if model.settings.speech.showLanguageSwitch {
+            HStack {
+                Text("Language").bvFont(.body)
+                Spacer()
+                Picker("Language", selection: Binding(
+                    get: { model.settings.speech.language },
+                    set: { model.settings.speech.language = $0 }
+                )) {
+                    Text("Auto").tag(SpeechLanguage.auto)
+                    Text("EN").tag(SpeechLanguage.en)
+                    Text("VI").tag(SpeechLanguage.vi)
+                }
+                .pickerStyle(.segmented).labelsHidden().fixedSize()
+            }
+            .padding(.horizontal, LayoutTokens.spacing[1])
+            .padding(.bottom, LayoutTokens.spacing[0])
+        }
         MenuSeparator()
         if let last = model.lastResult, !last.finalText.isEmpty {
-            MenuLastDictation(result: last, highlight: highlight)
+            MenuLastDictation(result: last, shortcuts: model.settings.shortcuts, highlight: highlight)
             MenuSeparator()
         }
         MenuSubmenuRow(submenu: .library, icon: "books.vertical", title: "Library", highlight: highlight)

@@ -1,11 +1,13 @@
 import Foundation
 
 public enum ShortcutAction: String, CaseIterable, Codable, Sendable {
-    case pasteLast, toggleMeeting, openApp, newNote
+    case pasteLast, pasteRaw, redoOtherLanguage, toggleMeeting, openApp, newNote
 
     public var title: String {
         switch self {
         case .pasteLast: "Paste last dictation"
+        case .pasteRaw: "Paste raw"
+        case .redoOtherLanguage: "Redo in other language"
         case .toggleMeeting: "Start or stop a meeting"
         case .openApp: "Open BugVoice"
         case .newNote: "Floating scratchpad"
@@ -15,6 +17,8 @@ public enum ShortcutAction: String, CaseIterable, Codable, Sendable {
 
 public struct ShortcutSettings: Codable, Equatable, Sendable {
     private var pasteLast = "V"
+    private var pasteRaw = "R"
+    private var redoOtherLanguage = "L"
     private var toggleMeeting = "M"
     private var openApp = "B"
     private var newNote = "N"
@@ -24,6 +28,8 @@ public struct ShortcutSettings: Codable, Equatable, Sendable {
     public func letter(for action: ShortcutAction) -> String {
         switch action {
         case .pasteLast: pasteLast
+        case .pasteRaw: pasteRaw
+        case .redoOtherLanguage: redoOtherLanguage
         case .toggleMeeting: toggleMeeting
         case .openApp: openApp
         case .newNote: newNote
@@ -39,6 +45,8 @@ public struct ShortcutSettings: Codable, Equatable, Sendable {
 
         switch action {
         case .pasteLast: pasteLast = normalized
+        case .pasteRaw: pasteRaw = normalized
+        case .redoOtherLanguage: redoOtherLanguage = normalized
         case .toggleMeeting: toggleMeeting = normalized
         case .openApp: openApp = normalized
         case .newNote: newNote = normalized
@@ -53,6 +61,8 @@ public struct ShortcutSettings: Codable, Equatable, Sendable {
     private static func defaultLetter(for action: ShortcutAction) -> String {
         switch action {
         case .pasteLast: "V"
+        case .pasteRaw: "R"
+        case .redoOtherLanguage: "L"
         case .toggleMeeting: "M"
         case .openApp: "B"
         case .newNote: "N"
@@ -60,7 +70,7 @@ public struct ShortcutSettings: Codable, Equatable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case pasteLast, toggleMeeting, openApp, newNote
+        case pasteLast, pasteRaw, redoOtherLanguage, toggleMeeting, openApp, newNote
     }
 
     public init(from decoder: Decoder) throws {
@@ -82,6 +92,8 @@ public struct ShortcutSettings: Codable, Equatable, Sendable {
         }
 
         pasteLast = values[.pasteLast] ?? Self.defaultLetter(for: .pasteLast)
+        pasteRaw = values[.pasteRaw] ?? Self.defaultLetter(for: .pasteRaw)
+        redoOtherLanguage = values[.redoOtherLanguage] ?? Self.defaultLetter(for: .redoOtherLanguage)
         toggleMeeting = values[.toggleMeeting] ?? Self.defaultLetter(for: .toggleMeeting)
         openApp = values[.openApp] ?? Self.defaultLetter(for: .openApp)
         newNote = values[.newNote] ?? Self.defaultLetter(for: .newNote)

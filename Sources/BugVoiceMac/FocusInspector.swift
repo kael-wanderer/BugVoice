@@ -12,6 +12,17 @@ public struct FocusInspector: FocusProvider {
     static let contextLimit = 2_000
 
     @MainActor
+    public static func focusedElement() -> AXUIElement? {
+        guard AXIsProcessTrusted() else { return nil }
+        return element(AXUIElementCreateSystemWide(), kAXFocusedUIElementAttribute)
+    }
+
+    public static func isSameElement(_ a: AXUIElement?, _ b: AXUIElement?) -> Bool {
+        guard let a, let b else { return false }
+        return CFEqual(a, b)
+    }
+
+    @MainActor
     public static func read() -> FocusSnapshot {
         let app = NSWorkspace.shared.frontmostApplication
         var snap = FocusSnapshot(appName: app?.localizedName, bundleID: app?.bundleIdentifier)

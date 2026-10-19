@@ -57,6 +57,25 @@ struct SpeechTab: View {
                     }
                     .pickerStyle(.segmented).labelsHidden().fixedSize()
                 }
+                Text("Auto uses the per-app list below, then detects the language. English or Vietnamese applies everywhere.")
+                    .bvFont(.footnote).foregroundStyle(.bvSecondary)
+                Divider()
+                SettingsToggle(title: "Show language switch in menu", isOn: $model.settings.speech.showLanguageSwitch)
+                Divider()
+                SettingsRow(title: "Language key while recording") {
+                    Picker("Language key while recording", selection: $model.settings.speech.languageKey) {
+                        Text("Off").tag(LanguageKey.off)
+                        Text("Shift").tag(LanguageKey.shift)
+                        Text("Option").tag(LanguageKey.option)
+                    }
+                    .labelsHidden().fixedSize()
+                }
+                Text("Tap the key while speaking to change the language for that dictation: Auto, English, Vietnamese.")
+                    .bvFont(.footnote).foregroundStyle(.bvSecondary)
+                Divider()
+                SettingsToggle(title: "Keep English words in Vietnamese", isOn: $model.settings.speech.keepEnglishWords)
+                Text("Words like module, API and neuron stay in English. Add words you always say in English to the Dictionary.")
+                    .bvFont(.footnote).foregroundStyle(.bvSecondary)
                 Divider()
                 SettingsToggle(title: "Use Dictionary words as hints", isOn: $model.settings.speech.useVocabularyHints)
                 Divider()
@@ -68,6 +87,7 @@ struct SpeechTab: View {
                     .labelsHidden().fixedSize()
                 }
             }
+            AppLanguagesCard(model: model)
         }
         .task {
             devices = AudioDevices.inputs()

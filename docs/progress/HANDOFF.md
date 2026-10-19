@@ -4,6 +4,15 @@ Last updated: 2026-10-19
 
 ## Current state
 
+**Language per app and fix last paste:** implemented on `feat/language-fix-last`
+from `main` (2026-10-19), not merged or pushed. Per-app language rules,
+popover switch, language key while recording, English-word preservation, and
+Raw / other-language replacement are complete. The final suite passes
+(1,025 VoiceCore, 30 MCPKit, 95 BugVoiceMac); `Scripts/build-app.sh` succeeds
+and signs with `Bugler Local Dev`. L1–L12 were not run because the computer-use
+provider rejected access to BugVoice before inspection. Full evidence and
+device-check results: `docs/progress/language-log.md`.
+
 **Backup and restore merged on `main` (2026-10-19, not pushed).** Settings › Storage ›
 Backup: Back up now, Restore (applied at the next launch, current library kept as a
 safety copy), automatic Daily/Weekly into a chosen folder keeping 5. Spec:

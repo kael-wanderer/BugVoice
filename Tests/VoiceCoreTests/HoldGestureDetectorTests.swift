@@ -2,6 +2,39 @@ import Testing
 @testable import VoiceCore
 
 struct HoldGestureDetectorTests {
+    @Test func shiftTapDuringHoldDoesNotCancel() {
+        var d = HoldGestureDetector()
+        _ = d.handle(.hotkeyDown(0))
+        #expect(d.tick(now: 0.2) == [.startHold])
+        #expect(d.handle(.languageKeyDown(0.5)) == [])
+        #expect(d.handle(.languageKeyUp(0.6)) == [.languageTap])
+        #expect(d.handle(.hotkeyUp(1.0)) == [.stop])
+    }
+
+    @Test func shiftDuringPressTaints() {
+        var d = HoldGestureDetector()
+        _ = d.handle(.hotkeyDown(0))
+        #expect(d.handle(.languageKeyDown(0.05)) == [])
+        #expect(d.tick(now: 0.2) == [])
+        #expect(d.handle(.hotkeyUp(0.3)) == [])
+    }
+
+    @Test func letterAfterShiftDownStillCancels() {
+        var d = HoldGestureDetector()
+        _ = d.handle(.hotkeyDown(0)); _ = d.tick(now: 0.2)
+        #expect(d.handle(.languageKeyDown(0.3)) == [])
+        #expect(d.handle(.otherKeyDown(0.4)) == [.cancel])
+    }
+
+    @Test func shiftTapInHandsFree() {
+        var d = HoldGestureDetector()
+        _ = d.handle(.hotkeyDown(0)); _ = d.handle(.hotkeyUp(0.05))
+        _ = d.handle(.hotkeyDown(0.2)); #expect(d.handle(.hotkeyUp(0.25)) == [.startHandsFree])
+        _ = d.handle(.languageKeyDown(0.3))
+        #expect(d.handle(.languageKeyUp(0.4)) == [.languageTap])
+        #expect(d.isRecording)
+    }
+
     @Test func holdStartsAfterThresholdAndStopsOnRelease() {
         var d = HoldGestureDetector()
         #expect(d.handle(.hotkeyDown(0)) == [])

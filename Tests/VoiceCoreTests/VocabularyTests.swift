@@ -65,6 +65,16 @@ struct VocabularyTests {
         #expect(v.whisperPrompt(maxCharacters: 14) == "gamma, beta")
     }
 
+    @Test func exampleComesFirst() {
+        let v = Vocabulary(terms: ["Orca"])
+        #expect(v.whisperPrompt(example: "E") == "E, Orca")
+    }
+
+    @Test func exampleNeverCut() {
+        let v = Vocabulary(terms: ["LongTerm"])
+        #expect(v.whisperPrompt(maxCharacters: 10, example: "123456789") == "123456789")
+    }
+
     @Test func builtFromDictionary() throws {
         var f = DictionaryFile()
         f.addWords("Kael")

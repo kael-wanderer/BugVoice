@@ -36,7 +36,7 @@ struct HUDView: View {
 
     @ViewBuilder var content: some View {
         switch model.state {
-        case .listening(let handsFree, let app, let startedAt, let limit):
+        case .listening(let handsFree, let app, let startedAt, let limit, let language, let languageChanged):
             Circle().fill(.bvRecording).frame(width: 9 * factor, height: 9 * factor)
             if handsFree { Text("Hands-free").fontWeight(.semibold) }
             LevelBars(level: model.level, factor: factor)
@@ -45,6 +45,9 @@ struct HUDView: View {
                     .monospacedDigit().foregroundStyle(.bvSecondary)
             }
             if let app { Text(app).padding(.horizontal, LayoutTokens.spacing[1] * factor).background(.bvHover, in: Capsule()) }
+            Text(language).fontWeight(.semibold)
+                .padding(.horizontal, LayoutTokens.spacing[1] * factor)
+                .background(languageChanged ? AnyShapeStyle(.bvAccent) : AnyShapeStyle(.bvHover), in: RoundedRectangle(cornerRadius: LayoutTokens.controlRadius))
         case .transcribing(let language):
             ProgressView().controlSize(.small).tint(store.theme.text)
             Text("Transcribing").fontWeight(.semibold)
@@ -65,6 +68,9 @@ struct HUDView: View {
             RoundedRectangle(cornerRadius: 2 * factor).fill(.bvRecording).frame(width: 8 * factor, height: 8 * factor)
             Text(title).fontWeight(.semibold)
             Text(detail).foregroundStyle(.bvSecondary)
+        case .message(let title, let detail):
+            Text(title).fontWeight(.semibold)
+            if let detail { Text(detail).foregroundStyle(.bvSecondary) }
         case .nothingHeard:
             Text("Nothing heard").foregroundStyle(.bvSecondary)
         case nil:

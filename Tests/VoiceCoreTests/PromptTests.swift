@@ -4,6 +4,29 @@ import Testing
 struct PromptTests {
     let vocab = Vocabulary(terms: ["BugVoice", "WhisperKit"])
 
+    @Test func englishLine() {
+        let p = PromptBuilder().systemPrompt(style: .work, vocabulary: Vocabulary(), focus: .unknown, language: .en, keepEnglishWords: true)
+        #expect(p.contains("The speaker spoke English."))
+        #expect(!p.contains(PromptBuilder.keepEnglishRule))
+    }
+
+    @Test func vietnameseKeepsEnglish() {
+        let p = PromptBuilder().systemPrompt(style: .work, vocabulary: Vocabulary(), focus: .unknown, language: .vi, keepEnglishWords: true)
+        #expect(p.contains("The speaker spoke Vietnamese."))
+        #expect(p.contains(PromptBuilder.keepEnglishRule))
+    }
+
+    @Test func autoKeepsEnglishNoLine() {
+        let p = PromptBuilder().systemPrompt(style: .work, vocabulary: Vocabulary(), focus: .unknown, language: .auto, keepEnglishWords: true)
+        #expect(p.contains(PromptBuilder.keepEnglishRule))
+        #expect(!p.contains("The speaker spoke"))
+    }
+
+    @Test func keepOffNoRule() {
+        let p = PromptBuilder().systemPrompt(style: .work, vocabulary: Vocabulary(), focus: .unknown, language: .vi, keepEnglishWords: false)
+        #expect(!p.contains(PromptBuilder.keepEnglishRule))
+    }
+
     @Test func systemPromptCarriesSharedRulesStyleAndVocabulary() {
         let p = PromptBuilder().systemPrompt(style: .document, vocabulary: vocab, focus: .unknown)
         #expect(p.contains("Never translate"))

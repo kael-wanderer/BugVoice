@@ -130,6 +130,7 @@ struct MenuActionGrid: View {
 /// App, time, up to three lines of the last dictation, Copy and Retry.
 struct MenuLastDictation: View {
     let result: DictationResult
+    let shortcuts: ShortcutSettings
     let highlight: MenuHighlight
 
     var body: some View {
@@ -147,6 +148,12 @@ struct MenuLastDictation: View {
             HStack(spacing: LayoutTokens.spacing[1]) {
                 MenuButton(id: .copyLast, small: true, highlight: highlight) { Text("Copy") }
                 MenuButton(id: .retryLast, small: true, highlight: highlight) { Text("Retry") }
+                MenuButton(id: .rawLast, small: true, highlight: highlight) { Text("Raw") }
+                    .help("Paste raw (⌃⌥\(shortcuts.letter(for: .pasteRaw)))")
+                MenuButton(id: .redoLast, small: true, highlight: highlight) {
+                    Text(FixLast.otherLanguage(of: result.language).displayName)
+                }
+                .help("Redo in other language (⌃⌥\(shortcuts.letter(for: .redoOtherLanguage)))")
             }
             .padding(.top, LayoutTokens.spacing[0])
         }

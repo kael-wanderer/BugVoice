@@ -10,6 +10,7 @@ public struct PromptBuilder: Sendable {
     """
 
     static let placeholderRule = "Tokens like ⟦S1⟧ are placeholders. Keep every one exactly once, unchanged, where it belongs."
+    public static let keepEnglishRule = "Keep words the speaker said in English in English. Never rewrite them in Vietnamese spelling (nơ-ron, mô-đun)."
 
     public static func defaultRules(for style: Style) -> String {
         switch style {
@@ -34,11 +35,17 @@ public struct PromptBuilder: Sendable {
         self.customRules = customRules
     }
 
-    public func systemPrompt(style: Style, vocabulary: Vocabulary, focus: FocusSnapshot, hasPlaceholders: Bool = false) -> String {
+    public func systemPrompt(
+        style: Style, vocabulary: Vocabulary, focus: FocusSnapshot, hasPlaceholders: Bool = false,
+        language: SpeechLanguage = .auto, keepEnglishWords: Bool = false
+    ) -> String {
         var parts = [Self.sharedRules]
         let rules = customRules[style.rawValue].flatMap { $0.isEmpty ? nil : $0 } ?? Self.defaultRules(for: style)
         parts.append("Style: \(rules)")
         if hasPlaceholders { parts.append(Self.placeholderRule) }
+        if language == .en { parts.append("The speaker spoke English.") }
+        if language == .vi { parts.append("The speaker spoke Vietnamese.") }
+        if keepEnglishWords && (language == .vi || language == .auto) { parts.append(Self.keepEnglishRule) }
         if !vocabulary.terms.isEmpty {
             parts.append("Spell these terms exactly: \(vocabulary.terms.joined(separator: ", "))")
         }
@@ -57,7 +64,9 @@ public struct PromptBuilder: Sendable {
         focus: FocusSnapshot,
         vocabulary: Vocabulary,
         modelID: String,
-        disableThinking: Bool
+        disableThinking: Bool,
+        language: SpeechLanguage = .auto,
+        keepEnglishWords: Bool = false
     ) -> CleanupRequest {
         var user = "<dictation>\n\(raw)\n</dictation>"
         let suppressThinking = disableThinking && modelID.lowercased().contains("qwen")
@@ -67,7 +76,8 @@ public struct PromptBuilder: Sendable {
         return CleanupRequest(
             system: systemPrompt(
                 style: style, vocabulary: vocabulary, focus: focus,
-                hasPlaceholders: !SnippetExpander.placeholders(in: raw).isEmpty
+                hasPlaceholders: !SnippetExpander.placeholders(in: raw).isEmpty,
+                language: language, keepEnglishWords: keepEnglishWords
             ),
             user: user,
             disableThinking: suppressThinking
