@@ -25,6 +25,8 @@ struct ShortcutsSettingsView: View {
                     shortcut(.redoOtherLanguage)
                     shortcut(.toggleMeeting)
                 }
+                Text("BugVoice actions are also in the Shortcuts app: start and stop meetings, transcribe files, rewrite text, new notes and open action items.")
+                    .bvFont(.footnote).foregroundStyle(.bvSecondary)
                 AppearanceCard(title: "Windows") {
                     shortcut(.openApp)
                     shortcut(.newNote)
