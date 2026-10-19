@@ -8,7 +8,7 @@ struct ActionItemRowView: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: LayoutTokens.spacing[2]) {
-            Toggle(isOn: Binding(get: { row.doneAt != nil }, set: setDone)) { Text(row.item.text) }
+            Toggle(isOn: Binding(get: { row.doneAt != nil }, set: { setDone($0) })) { Text(row.item.text) }
                 .labelsHidden().toggleStyle(.checkbox)
                 .accessibilityLabel(row.item.text)
             Text(row.item.text)
