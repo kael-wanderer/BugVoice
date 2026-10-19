@@ -43,3 +43,22 @@
 - No interface or scope deviations. Added assertions for `newest`, zero retention,
   invalid calendar dates/times, noncanonical suffixes, and trailing newlines.
   Negative retention counts are treated as zero; equal-minute names sort by name.
+
+## Task 3 — Manifest and errors (2026-10-19)
+
+- Added the public versioned manifest, counts and file entries, ISO 8601 JSON
+  encoding with sorted keys and indentation, decode error mapping, byte totals,
+  ordered missing/wrong-size file checks, and all backup error messages.
+- Test-first evidence: wrote four tests, then
+  `swift test --filter BackupManifestTests` failed (exit 1, zero tests executed)
+  because `BackupManifest` and `BackupError` did not exist
+  (`/tmp/bugvoice-task3-red.log`).
+- Focused check passed: 4 tests / 1 suite
+  (`/tmp/bugvoice-task3-green.log`). Full `swift test` passed: 954 VoiceCore
+  tests / 106 suites, 30 MCPKit tests / 2 suites, and 94 BugVoiceMac tests /
+  16 suites (1,078 total; `/tmp/bugvoice-task3-full.log`).
+- Tests cover complete round-trip equality, total bytes, JSON date formatting,
+  malformed/missing-field/newer-format rejection, ordered size/missing failures,
+  and every error description, including singular/plural damage counts.
+- `git diff --check` passed. Foundation-only implementation; synthetic temporary
+  fixtures only, with cleanup. No owner data accessed and no scope deviations.
