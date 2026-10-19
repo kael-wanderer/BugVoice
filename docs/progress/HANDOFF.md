@@ -4,7 +4,19 @@ Last updated: 2026-10-19
 
 ## Current state
 
-**All work is merged on `main` and pushed (2026-10-19, `d54202e`); no feature branch is open.**
+**Branch `fix/review-findings` (2026-10-19, not merged):** fixes from the app review.
+`06121c5` adds one unified-log subsystem (`com.kael.bugvoice`, `Log` in BugVoiceMac;
+read with `/usr/bin/log show --last 1h --predicate 'subsystem == "com.kael.bugvoice"'`)
+and Settings › Storage › Copy diagnostics (versions, engine and model names, this
+launch's log; never dictated text). Checked in the dev app: the report copies and holds the
+launch line. Not checked on device: the per-dictation log line (dictate once, then copy).
+`961670d` splits `AppModel.swift` (1,415 → 697 lines) into `AppModel+Meetings`,
+`+Library`, `+Models`. Thread Sanitizer over all 1,064 tests found no races (tests do not
+drive real Core Audio callbacks). History timings (12 dictations): speech-to-text
+1.25–2.0 s, cleanup 0.3–0.8 s, so release to text is about 2 s; the old 6.2 s
+cleanup benchmark figure is stale.
+
+**`main` was last pushed 2026-10-19 at `0478cdd`.**
 Merged 2026-10-18, each with its own log and pending owner checks:
 
 | Project | Merge | Log |
