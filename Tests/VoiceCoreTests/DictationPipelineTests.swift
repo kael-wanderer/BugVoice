@@ -24,6 +24,50 @@ struct DictationPipelineTests {
         )
     }
 
+    @Test func ruleLanguageReachesTranscriber() async {
+        var settings = AppSettings()
+        settings.speech.appLanguages = [AppLanguageRule(kind: .app, id: "com.stablyai.orca", language: .en)]
+        let transcriber = OptionsTranscriber()
+        let model = RecordingModel()
+        let focus = FocusSnapshot(bundleID: "com.stablyai.orca")
+        _ = await pipeline(transcriber: transcriber, model: model, focusAtInsert: focus, settings: settings)
+            .run(clip: speechClip, startFocus: focus, startedAt: Date(), onStage: { _ in })
+        #expect(await transcriber.options?.language == .en)
+        #expect(await model.requests.first?.system.contains(Vocabulary.mixedExample) == false)
+    }
+
+    @Test func vietnameseGetsExample() async {
+        let transcriber = OptionsTranscriber()
+        let model = RecordingModel()
+        let focus = FocusSnapshot(bundleID: "com.anthropic.claudefordesktop")
+        _ = await pipeline(transcriber: transcriber, model: model, focusAtInsert: focus)
+            .run(clip: speechClip, startFocus: focus, startedAt: Date(), onStage: { _ in })
+        #expect(await transcriber.options?.language == .vi)
+        #expect(await transcriber.options?.prompt.hasPrefix(Vocabulary.mixedExample) == true)
+        #expect(await model.requests.first?.system.contains(PromptBuilder.keepEnglishRule) == true)
+    }
+
+    @Test func autoGetsNoExample() async {
+        let transcriber = OptionsTranscriber()
+        let focus = notionFocus
+        let result = await pipeline(transcriber: transcriber, focusAtInsert: focus)
+            .run(clip: speechClip, startFocus: focus, startedAt: Date(), onStage: { _ in })
+        #expect(await transcriber.options?.language == .auto)
+        #expect(await transcriber.options?.prompt.contains(Vocabulary.mixedExample) == false)
+        #expect(result.requestedLanguage == .auto)
+    }
+
+    @Test func choiceOverridesRule() async {
+        var settings = AppSettings()
+        settings.speech.appLanguages = [AppLanguageRule(kind: .app, id: "com.stablyai.orca", language: .en)]
+        let transcriber = OptionsTranscriber()
+        let focus = FocusSnapshot(bundleID: "com.stablyai.orca")
+        let result = await pipeline(transcriber: transcriber, focusAtInsert: focus, settings: settings)
+            .run(clip: speechClip, startFocus: focus, startedAt: Date(), languageChoice: .vi, onStage: { _ in })
+        #expect(await transcriber.options?.language == .vi)
+        #expect(result.requestedLanguage == .vi)
+    }
+
     @Test func documentHappyPathCleansAndPastes() async {
         let insertion = RecordingInsertion()
         let r = await pipeline(insertion: insertion).run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })
@@ -442,6 +486,14 @@ struct DictationPipelineTests {
         #expect(r.historyEntry == nil)
         #expect(await insertion.inserted.isEmpty)
         #expect(await insertion.copied == ["here is linkedin.com/in/kael"])
+    }
+}
+
+private actor OptionsTranscriber: Transcriber {
+    private(set) var options: TranscriptionOptions?
+    func transcribe(_ clip: AudioClip, options: TranscriptionOptions) async throws -> Transcript {
+        self.options = options
+        return Transcript(text: "hello world", language: options.language == .auto ? "en" : options.language.rawValue)
     }
 }
 

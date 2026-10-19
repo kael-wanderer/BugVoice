@@ -3,6 +3,7 @@ import Foundation
 /// Words, heard-as replacements and snippets used by a dictation. Built from
 /// the Dictionary; `parse` reads the old `vocabulary.txt` format.
 public struct Vocabulary: Sendable, Equatable {
+    public static let mixedExample = "Mình đang sửa cái module này, check lại API với neuron layer nhé."
     public struct Replacement: Sendable, Equatable {
         public var spoken: String
         public var written: String
@@ -85,9 +86,13 @@ public struct Vocabulary: Sendable, Equatable {
     }
 
     /// Terms for Whisper's initial prompt, most recently added first.
-    public func whisperPrompt(maxCharacters: Int = 600) -> String {
+    public func whisperPrompt(maxCharacters: Int = 600, example: String? = nil) -> String {
         var parts: [String] = []
         var length = 0
+        if let example, !example.isEmpty {
+            parts.append(example)
+            length = example.count
+        }
         for term in terms.reversed() {
             let added = parts.isEmpty ? term.count : term.count + 2
             if length + added > maxCharacters { break }
