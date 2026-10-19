@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BugVoice Language</title>
+<meta name="description" content="Language per app, the menu language switch, the language key in the HUD, and fix last paste (paste raw, redo in the other language).">
+<style>
+:root{
+  --bg:#f7f0d2;--panel:#fbf5df;--hover:#efe6c6;--line:#d9cfa8;--text:#2b2a26;--muted:#77705d;--accent:#9a7a2a;--soft:#e9dcae;--on:#fff;--rec:#d8443f;--ok:#3f9a5e;
+  --desk:linear-gradient(160deg,#c9b98a,#8f7f56);
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#2b2f37;--panel:#323741;--hover:#3a404b;--line:#454b57;--text:#eceff4;--muted:#a3abb8;--accent:#88c0d0;--soft:#3d4a5a;--on:#0b0d12;--rec:#e06c66;--ok:#8fc79f;
+  --desk:linear-gradient(160deg,#5a6b8c,#2b3346)}}
+:root[data-theme="dark"]{
+  --bg:#2b2f37;--panel:#323741;--hover:#3a404b;--line:#454b57;--text:#eceff4;--muted:#a3abb8;--accent:#88c0d0;--soft:#3d4a5a;--on:#0b0d12;--rec:#e06c66;--ok:#8fc79f;
+  --desk:linear-gradient(160deg,#5a6b8c,#2b3346)}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font:13px/1.45 -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+.review{max-width:1300px;margin:0 auto;padding:20px 16px 48px}
+header.top{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:flex-end;margin-bottom:12px}
+header.top h1{font-size:22px;margin:0}
+header.top p{margin:4px 0 0;color:var(--muted);max-width:860px}
+.toggle{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:6px 14px}
+h2.sec{font-size:15px;margin:28px 0 6px}
+p.why{margin:0 0 12px;color:var(--muted);max-width:900px}
+.stage{background:var(--desk);border-radius:12px;padding:16px}
+.pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,400px),1fr));gap:16px;align-items:start}
+.label{color:#fff;font-weight:600;margin:0 0 8px;text-shadow:0 1px 2px #0006}
+.notes{color:#fff;font-size:12px;margin:8px 0 0;text-shadow:0 1px 2px #0008}
+.win{background:var(--bg);border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 50px #0006;overflow:hidden}
+.wbar{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.wbar b{font-size:15px}
+.cols{display:flex}
+.side{width:150px;flex:none;border-right:1px solid var(--line);padding:8px}
+.side div{padding:4px 8px;border-radius:6px;color:var(--muted)}
+.side div.on{background:var(--soft);color:var(--text);font-weight:600}
+.body{flex:1;min-width:0;padding:12px;display:flex;flex-direction:column;gap:10px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.card h3{margin:0;font-size:13px}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.row .grow{flex:1;min-width:120px}
+hr{border:0;border-top:1px solid var(--line);margin:0}
+.btn{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:3px 9px;white-space:nowrap}
+.btn.prim{background:var(--accent);color:var(--on);border-color:var(--accent);font-weight:600}
+.btn.danger{color:var(--rec)}
+.pop{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:3px 8px}
+.foot{color:var(--muted);font-size:12px}
+.ok{color:var(--ok)}
+.err{color:var(--rec)}
+.bar{height:6px;border-radius:3px;background:var(--hover);overflow:hidden}
+.bar i{display:block;height:100%;width:34%;background:var(--accent)}
+.path{font:12px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sheet{background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 50px #0006;overflow:hidden;max-width:460px}
+.shead{padding:14px 16px 6px}
+.shead b{font-size:15px}
+.sbody{padding:0 16px 12px;display:flex;flex-direction:column;gap:10px}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:3px 14px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.facts span{color:var(--muted)}
+.callout{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12px}
+.callout.warn{border-color:var(--rec)}
+.sfoot{display:flex;justify-content:flex-end;gap:8px;padding:10px 16px;border-top:1px solid var(--line)}
+code{font-size:12px;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:0 4px}
+</style>
+<style>
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.seg span{padding:3px 10px;border-right:1px solid var(--line)}.seg span:last-child{border-right:0}
+.seg span.on{background:var(--accent);color:var(--on);font-weight:600}
+.ico{width:18px;height:18px;border-radius:5px;background:var(--soft);display:inline-grid;place-items:center;font-size:10px;font-weight:700;flex:none}
+.x{color:var(--muted);border:0;background:none;padding:0 4px}
+.popover{background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 50px #0006;width:300px;overflow:hidden}
+.prow{display:flex;align-items:center;gap:8px;padding:6px 12px}
+.prow .k{margin-left:auto;color:var(--muted);font-size:12px}
+.psec{padding:6px 12px 2px;color:var(--muted);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.menubar{display:flex;justify-content:flex-end;gap:10px;align-items:center;background:#0005;color:#fff;border-radius:6px;padding:4px 10px;margin-bottom:10px;font-size:12px}
+.badge{font-size:9px;font-weight:700;background:#fff;color:#000;border-radius:3px;padding:0 3px;margin-left:2px}
+.hud{display:inline-flex;align-items:center;gap:10px;background:#111c;color:#fff;border-radius:999px;padding:8px 14px;box-shadow:0 8px 24px #0006}
+.hud .dot{width:8px;height:8px;border-radius:50%;background:var(--rec)}
+.hud .lang{font-size:11px;font-weight:700;border:1px solid #fff8;border-radius:5px;padding:0 5px}
+.hud .lang.flash{background:#fff;color:#000}
+.hud .sub{color:#fffa;font-size:12px}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:4px 12px 8px}.tiles .btn{justify-content:center;padding:6px}.last{padding:8px 12px}
+.huds{display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+</style>
+</head>
+<body>
+<div class="review">
+<header class="top">
+  <div>
+    <h1>Language per app and fix last paste</h1>
+    <p>Spec: <code>docs/superpowers/specs/2026-10-19-language-and-fix-last-design.md</code>. Set the dictation language per app, with a switch in the menu, or with a key while speaking; fix the last paste with the raw text or the other language.</p>
+  </div>
+  <button class="toggle" id="t">Light / dark</button>
+</header>
+
+<h2 class="sec">1. Settings › Speech</h2>
+<p class="why">The existing Language picker becomes the switch's other home. New: the language key, the menu switch toggle, English words in Vietnamese, and the per-app list with the first-launch defaults.</p>
+<div class="stage"><div class="pair">
+  <div>
+    <p class="label">Language</p>
+    <div class="win">
+      <div class="wbar"><b>Settings</b></div>
+      <div class="cols">
+        <div class="side"><div>General</div><div class="on">Speech</div><div>Models</div><div>Shortcuts</div><div>Storage</div></div>
+        <div class="body">
+          <div class="card">
+            <h3>Language</h3>
+            <div class="row"><span class="grow">Language</span><span class="seg"><span class="on">Auto</span><span>English</span><span>Vietnamese</span></span></div>
+            <div class="foot">Auto uses the per-app list below, then detects the language. English or Vietnamese applies everywhere.</div>
+            <hr>
+            <div class="row"><span class="grow">Show language switch in menu</span><span class="pop">On</span></div>
+            <div class="row"><span class="grow">Language key while recording</span><span class="pop">Shift ▾</span></div>
+            <div class="foot">Tap the key while speaking to change the language for that dictation: Auto, English, Vietnamese.</div>
+            <hr>
+            <div class="row"><span class="grow">Keep English words in Vietnamese</span><span class="pop">On</span></div>
+            <div class="foot">Words like module, API and neuron stay in English. Add words you always say in English to the Dictionary.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div>
+    <p class="label">Language per app</p>
+    <div class="win">
+      <div class="wbar"><b>Settings</b></div>
+      <div class="cols">
+        <div class="side"><div>General</div><div class="on">Speech</div><div>Models</div><div>Shortcuts</div><div>Storage</div></div>
+        <div class="body">
+          <div class="card">
+            <h3>Language per app</h3>
+            <div class="row"><span class="ico">O</span><span class="grow">Orca</span><span class="pop">English ▾</span><button class="x">✕</button></div>
+            <div class="row"><span class="ico">G</span><span class="grow">Ghostty</span><span class="pop">English ▾</span><button class="x">✕</button></div>
+            <div class="row"><span class="ico">T</span><span class="grow">Terminal</span><span class="pop">English ▾</span><button class="x">✕</button></div>
+            <div class="row"><span class="ico">C</span><span class="grow">VS Code terminal</span><span class="pop">English ▾</span><button class="x">✕</button></div>
+            <div class="row"><span class="ico">C</span><span class="grow">Claude</span><span class="pop">Vietnamese ▾</span><button class="x">✕</button></div>
+            <div class="row"><span class="ico">W</span><span class="grow">chatgpt.com</span><span class="pop">Vietnamese ▾</span><button class="x">✕</button></div>
+            <div class="row"><button class="btn">Add app…</button><button class="btn">Add website…</button></div>
+            <div class="foot">Apps not listed use Auto. The language switch overrides this list.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="notes">Also in the defaults: iTerm2, Warp, Cursor terminal (English). Notion and Obsidian are not listed, so they use Auto.</p>
+  </div>
+</div></div>
+
+<h2 class="sec">2. Menu bar popover</h2>
+<p class="why">The language switch sits under the tiles, one click instead of Dictation options › Language (which stays). The Last dictation card gains Raw and the other-language button next to Copy and Retry. While the switch is EN or VI, the menu bar icon carries a badge.</p>
+<div class="stage"><div class="pair">
+  <div>
+    <p class="label">Switch on Auto</p>
+    <div class="menubar"><span><span class="ico" style="width:14px;height:14px;background:#fff8"></span></span><span>12:58</span></div>
+    <div class="popover">
+      <div class="prow"><b>BugVoice</b><span class="k">Ready · hold Right Control</span></div>
+      <div class="tiles"><span class="btn">New note</span><span class="btn">Record meeting</span><span class="btn">Upload</span><span class="btn">Paste last</span></div>
+      <div class="prow"><span>Language</span><span class="seg" style="margin-left:auto"><span class="on">Auto</span><span>EN</span><span>VI</span></span></div>
+      <hr>
+      <div class="last"><div class="foot">Last dictation · Notion · 12:57</div><div>Can you check lại cái module này giúp mình?</div>
+        <div class="row" style="margin-top:6px"><span class="btn">Copy</span><span class="btn">Retry</span><span class="btn">Raw</span><span class="btn">Vietnamese</span></div></div>
+      <hr>
+      <div class="prow">Library ›</div><div class="prow">Dictation options ›</div><div class="prow">Settings…<span class="k">⌘,</span></div>
+    </div>
+    <p class="notes">Raw = Paste raw (⌃⌥R). The last button names the other language of the last dictation (⌃⌥L); here it came out English, so it reads Vietnamese.</p>
+  </div>
+  <div>
+    <p class="label">Switch on VI</p>
+    <div class="menubar"><span><span class="ico" style="width:14px;height:14px;background:#fff8"></span><span class="badge">VI</span></span><span>12:58</span></div>
+    <div class="popover">
+      <div class="prow"><b>BugVoice</b><span class="k">Ready · hold Right Control</span></div>
+      <div class="tiles"><span class="btn">New note</span><span class="btn">Record meeting</span><span class="btn">Upload</span><span class="btn">Paste last</span></div>
+      <div class="prow"><span>Language</span><span class="seg" style="margin-left:auto"><span>Auto</span><span>EN</span><span class="on">VI</span></span></div>
+      <hr>
+      <div class="last"><div class="foot">Last dictation · Notion · 12:57</div><div>Can you check lại cái module này giúp mình?</div>
+        <div class="row" style="margin-top:6px"><span class="btn">Copy</span><span class="btn">Retry</span><span class="btn">Raw</span><span class="btn">English</span></div></div>
+      <hr>
+      <div class="prow">Library ›</div><div class="prow">Dictation options ›</div><div class="prow">Settings…<span class="k">⌘,</span></div>
+    </div>
+    <p class="notes">Hover hints on Raw and the language button show their shortcuts.</p>
+  </div>
+</div></div>
+
+<h2 class="sec">3. HUD</h2>
+<p class="why">The listening pill always shows the language. A tap on the language key flashes the new one. After a fix, one line for 1.2 s.</p>
+<div class="stage"><div class="pair">
+  <div class="huds">
+    <p class="label">Listening</p>
+    <div class="hud"><span class="dot"></span>Listening · Orca <span class="lang">EN</span><span class="sub">0:03</span></div>
+    <div class="hud"><span class="dot"></span>Listening · Orca <span class="lang flash">VI</span><span class="sub">Shift tapped</span></div>
+    <div class="hud"><span class="dot"></span>Listening · Notion <span class="lang">Auto</span><span class="sub">0:07</span></div>
+  </div>
+  <div class="huds">
+    <p class="label">Fix last paste</p>
+    <div class="hud">Replaced with raw text<span class="sub">14 words</span></div>
+    <div class="hud">Replaced — Vietnamese<span class="sub">12 words</span></div>
+    <div class="hud">Copied — press ⌘V<span class="sub">text changed since the paste</span></div>
+    <div class="hud">Nothing to fix</div>
+    <div class="hud">Already raw<span class="sub">cleanup is off for Terminal</span></div>
+  </div>
+</div></div>
+
+<h2 class="sec">4. Settings › Shortcuts</h2>
+<p class="why">Two new rows under Paste last dictation, same letter picker as the others.</p>
+<div class="stage"><div class="pair">
+  <div class="card">
+    <div class="row"><span class="grow">Paste last dictation</span><span class="pop">⌃⌥ V ▾</span></div>
+    <div class="row"><span class="grow">Paste raw</span><span class="pop">⌃⌥ R ▾</span></div>
+    <div class="row"><span class="grow">Redo in other language</span><span class="pop">⌃⌥ L ▾</span></div>
+    <div class="row"><span class="grow">Start or stop a meeting</span><span class="pop">⌃⌥ M ▾</span></div>
+  </div>
+</div></div>
+</div>
+<script>
+document.getElementById('t').onclick=()=>{const r=document.documentElement;const dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme: dark)').matches;r.dataset.theme=dark?'light':'dark'};
+</script>
+</body>
+</html>
