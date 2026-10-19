@@ -65,14 +65,13 @@ enum Page: String, CaseIterable, Identifiable {
 }
 
 enum SidebarGroup: CaseIterable {
-    case capture, library, personalize, connect, bottom
+    case capture, library, personalize, bottom
 
     var title: String? {
         switch self {
         case .capture: "Capture"
         case .library: "Library"
         case .personalize: "Personalize"
-        case .connect: "Connect"
         case .bottom: nil
         }
     }
@@ -82,7 +81,6 @@ enum SidebarGroup: CaseIterable {
         case .capture: [.dictation, .insights]
         case .library: [.meetings, .notes, .upload]
         case .personalize: [.style, .dictionary]
-        case .connect: [.integrations]
         case .bottom: [.settings, .help]
         }
     }
