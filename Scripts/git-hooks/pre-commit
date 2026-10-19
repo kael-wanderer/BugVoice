@@ -3,7 +3,8 @@
 # Every commit raises the build number (CFBundleVersion in App/Info.plist)
 # by one and adds it to the commit. Enabled per clone with:
 #   git config core.hooksPath Scripts/git-hooks
-# Skip once with `git commit --no-verify`.
+# Skip once with `git commit --no-verify`. A merge commit does not run this
+# hook: after `git merge`, run `git commit --amend --no-edit` to bump it.
 
 set -euo pipefail
 plist="$(git rev-parse --show-toplevel)/App/Info.plist"
