@@ -4,6 +4,19 @@ Last updated: 2026-10-19
 
 ## Current state
 
+**Live preview:** built on `feat/live-preview` (2026-10-19), not merged.
+Settings › Speech › Live preview (default on), WhisperKit only: display-only
+passes show the last words under the dictation and Command HUD, kept dimmed
+through Transcribing / Cleaning / Rewriting. Secure fields, meetings, unloaded
+models and the server engine suppress preview. Final transcription and
+persistence paths are unchanged. Tests: **1,194 VoiceCore, 30 MCPKit,
+114 BugVoiceMac**. Cancellation probe of generated 20 s speech (debug, cached
+turbo model): **0.916 / 1.801 / 1.068 s** to CancellationError after cancelling
+at 100 ms; Core ML cannot stop immediately, so the 0.3 s target is unproven.
+Owner checks P1–P10 remain open, especially release-to-text comparison.
+`Scripts/build-app.sh` succeeds, signed with Bugler Local Dev.
+See `docs/progress/live-preview-log.md`. No app launch or synthetic input.
+
 **Shortcuts support:** built on `feat/shortcuts` (2026-10-19), not merged.
 Six App Intents: start/stop meeting recording, transcribe audio file, rewrite text,
 new note and get open action items. Three App Shortcuts, four phrases; bundle
