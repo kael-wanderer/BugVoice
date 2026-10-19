@@ -139,3 +139,33 @@ The owner runs these checks. No app launch or input automation was performed.
   dictation).
 - [ ] P10 HUD size Large: card scales with the pill. Also check an auto-hidden
   Dock, a one-line/two-line card, and light/dark appearance.
+
+## Review: separate preview model (2026-10-19)
+
+The 1 s cancellation measured above made the final transcription wait for a
+running preview pass. A release-build benchmark (throwaway, not committed)
+ran the real `PriorityTranscriber` and `large-v3-v20240930_turbo` on locally
+generated speech: a 6 s final clip, previews of a 13.6 s clip every 0.6 s,
+release at 2.0–4.9 s, 10 runs per case.
+
+| Case | Final transcription, median | Max |
+|---|---|---|
+| Preview off | 1.41 s | 1.46 s |
+| Preview on the main model (queue) | 2.12 s | 2.32 s |
+| Preview on separate `openai_whisper-base` | 1.38 s | 1.43 s |
+
+Preview pass, 13.6 s clip: main model 1.63 s, base 0.21 s, small 0.55 s.
+Vietnamese sample ("Sáng nay mình họp với team mobile về bản build mới…"):
+base heard "hợp với tim mua bay", small "họp với tim mô bay", main "họp với
+team mobile". English was exact on base.
+
+Change: the preview uses its own `WhisperKitTranscriber` with
+`LivePreviewModel.name = "openai_whisper-base"`, downloaded once into the
+models folder and loaded at launch (and when Live preview or the engine
+setting changes). No card until it is ready. The footnote says so. The
+queue priority work from Task 1 stays: it is tested and harmless, and caller
+cancellation now also stops running work.
+
+Device check P1 still applies; P11: first launch with Live preview on
+downloads the base model (about 143 MB) and the card appears once it is
+loaded.

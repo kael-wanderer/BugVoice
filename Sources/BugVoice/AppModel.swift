@@ -298,6 +298,11 @@ final class AppModel {
         }
     }
     var speechState: WhisperKitTranscriber.LoadState = .notLoaded
+    /// Live preview's own small model; see `LivePreviewModel`.
+    @ObservationIgnored let previewWhisper = WhisperKitTranscriber(
+        modelName: LivePreviewModel.name, downloadBase: AppPaths.standard().models)
+    @ObservationIgnored private(set) var previewModelReady = false
+    @ObservationIgnored private var previewModelLoading = false
     /// Coding CLIs found on this Mac, looked up at launch and when Settings → Models opens.
     var cliInfo: [CLITool: CLIInfo] = [:]
     var connectionStatus: [String: ConnectionStatus] = [:]
@@ -432,6 +437,7 @@ final class AppModel {
             self.restoreMessage = nil
         }
         ShortcutsBridge.model = self
+        preparePreviewModel()
     }
 
     /// Configured from the settings just loaded (loading does not fire
@@ -503,7 +509,25 @@ final class AppModel {
             scratchpadWindow?.applyLayout()
         }
         if settings.backup != old.backup { backup.settingsChanged() }
+        if settings.speech.livePreview != old.speech.livePreview || settings.speech.engine != old.speech.engine {
+            preparePreviewModel()
+        }
         onSettingsChanged?()
+    }
+
+    /// Downloads (once) and loads the preview model when Live preview can run.
+    /// Until it is ready, dictation shows no card.
+    func preparePreviewModel() {
+        guard settings.speech.livePreview, settings.speech.engine == .whisperKit,
+              !previewModelReady, !previewModelLoading else { return }
+        previewModelLoading = true
+        Task { [weak self, previewWhisper] in
+            try? await previewWhisper.prepare()
+            let ready = await previewWhisper.state == .ready
+            guard let self else { return }
+            self.previewModelReady = ready
+            self.previewModelLoading = false
+        }
     }
 
     private func rebuildSpeechTranscriber() {

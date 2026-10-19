@@ -84,7 +84,7 @@ struct SpeechTab: View {
                 SettingsToggle(title: "Use Dictionary words as hints", isOn: $model.settings.speech.useVocabularyHints)
                 Divider()
                 SettingsToggle(title: "Live preview", isOn: $model.settings.speech.livePreview)
-                Text("Shows the words under the HUD while you speak. The pasted text still comes from the whole recording after you release. Off with the OpenAI-compatible engine.")
+                Text("Shows the words under the HUD while you speak, using a small extra speech model (downloaded once, about 150 MB). The pasted text still comes from the whole recording after you release. Off with the OpenAI-compatible engine.")
                     .bvFont(.footnote).foregroundStyle(.bvSecondary)
                 Divider()
                 SettingsRow(title: "Use project words in") {

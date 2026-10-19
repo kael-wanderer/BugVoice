@@ -141,11 +141,11 @@ final class CommandController {
             showListening(changed: false)
             if let hud {
                 if preview == nil {
-                    preview = LivePreviewController(recorder: recorder, transcriber: model.transcriptionRouter, hud: hud)
+                    preview = LivePreviewController(recorder: recorder, transcriber: model.previewWhisper, hud: hud)
                 }
                 preview?.start(enabled: LivePreviewPolicy.isEnabled(settings: model.settings,
                     secureField: startFocus.isSecure, meetingRecording: model.meetings?.isRecording == true,
-                    speechReady: model.speechState == .ready),
+                    modelReady: model.previewModelReady),
                     language: { [weak self] in self?.cycler?.current ?? .auto },
                     prompt: model.settings.speech.useVocabularyHints ? model.vocabulary.whisperPrompt() : "")
             }

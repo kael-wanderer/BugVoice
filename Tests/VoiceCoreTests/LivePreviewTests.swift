@@ -6,7 +6,7 @@ struct LivePreviewTests {
     @Test func policy() {
         let settings = AppSettings()
         func enabled(_ s: AppSettings = AppSettings(), secure: Bool = false, meeting: Bool = false, ready: Bool = true) -> Bool {
-            LivePreviewPolicy.isEnabled(settings: s, secureField: secure, meetingRecording: meeting, speechReady: ready)
+            LivePreviewPolicy.isEnabled(settings: s, secureField: secure, meetingRecording: meeting, modelReady: ready)
         }
         #expect(enabled(settings))
         var off = settings
@@ -71,4 +71,8 @@ struct LivePreviewTests {
         let text = String(repeating: "ắ", count: 300)
         #expect(LivePreviewText.display(text) == "…" + String(text.suffix(140)))
     }
+}
+
+@Test func previewUsesSmallSeparateModel() {
+    #expect(LivePreviewModel.name == "openai_whisper-base")
 }

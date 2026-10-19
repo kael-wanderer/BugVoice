@@ -14,7 +14,7 @@ final class DictationController {
     private unowned let model: AppModel
     private let recorder = AudioRecorder()
     lazy var hud = HUDController(appearance: model.appearance)
-    private lazy var preview = LivePreviewController(recorder: recorder, transcriber: model.transcriptionRouter, hud: hud)
+    private lazy var preview = LivePreviewController(recorder: recorder, transcriber: model.previewWhisper, hud: hud)
     let inserter = PasteboardInserter()
     private var detector = HoldGestureDetector()
     private var languageCycler: LanguageKeyCycler?
@@ -178,7 +178,7 @@ final class DictationController {
         showListening(languageChanged: false)
         preview.start(enabled: LivePreviewPolicy.isEnabled(settings: model.settings,
             secureField: startFocus.isSecure, meetingRecording: model.meetings?.isRecording == true,
-            speechReady: model.speechState == .ready),
+            modelReady: model.previewModelReady),
             language: { [weak self] in self?.languageCycler?.current ?? .auto },
             prompt: model.settings.speech.useVocabularyHints ? model.vocabulary.whisperPrompt() : "")
         limitTask = Task { [weak self] in
