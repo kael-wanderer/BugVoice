@@ -65,3 +65,15 @@ public struct ReplacementGuard: Sendable {
         return .replace(backspaces: last.text.count)
     }
 }
+
+extension ReplacementGuard {
+    public static let maxSelectBackCharacters = 2_000
+    public enum SelectBackDecision: Equatable, Sendable { case selectBack(characters: Int), copyOnly }
+    public func decideSelectBack(now: Date, frontProcessID: Int32, sameFocus: Bool) -> SelectBackDecision? {
+        guard let last else { return nil }
+        guard sameFocus, frontProcessID == last.processID, !typedSince,
+              now.timeIntervalSince(last.at) < Self.maxAge,
+              last.text.count <= Self.maxSelectBackCharacters else { return .copyOnly }
+        return .selectBack(characters: last.text.count)
+    }
+}

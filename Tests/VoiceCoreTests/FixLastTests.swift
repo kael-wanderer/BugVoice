@@ -74,3 +74,18 @@ struct FixLastTests {
         return guarder
     }
 }
+
+extension FixLastTests {
+    @Test func selectBackAllowsNewlines() {
+        #expect(makeGuard("a\nb").decideSelectBack(now: Date(), frontProcessID: 1, sameFocus: true) == .selectBack(characters: 3))
+    }
+    @Test func selectBackLimit() {
+        #expect(makeGuard(String(repeating: "a", count: 2001)).decideSelectBack(now: Date(), frontProcessID: 1, sameFocus: true) == .copyOnly)
+        #expect(makeGuard(String(repeating: "a", count: 2000)).decideSelectBack(now: Date(), frontProcessID: 1, sameFocus: true) == .selectBack(characters: 2000))
+    }
+    @Test func selectBackTypingBlocks() {
+        var g = makeGuard("hello")
+        g.keyTyped()
+        #expect(g.decideSelectBack(now: Date(), frontProcessID: 1, sameFocus: true) == .copyOnly)
+    }
+}

@@ -30,11 +30,12 @@ public struct HistoryEntry: Codable, Equatable, Sendable, Identifiable {
     public var outcome: String
     public var rawReason: RawReason?
     public var timings: StageTimings
+    public var command: String?
     public var replacedBy: FixKind?
 
     /// On disk, `appName` is `app` and `text` is `inserted` (spec history.jsonl keys).
     enum CodingKeys: String, CodingKey {
-        case id, startedAt, bundleID, style, language, raw, cleaned, outcome, rawReason, timings, replacedBy
+        case id, startedAt, bundleID, style, language, raw, cleaned, outcome, rawReason, timings, replacedBy, command
         case appName = "app"
         case text = "inserted"
     }
@@ -42,7 +43,7 @@ public struct HistoryEntry: Codable, Equatable, Sendable, Identifiable {
     public init(
         id: UUID, startedAt: Date, appName: String?, bundleID: String?, style: Style,
         language: String?, raw: String, cleaned: String?, text: String, outcome: String,
-        rawReason: RawReason?, timings: StageTimings
+        rawReason: RawReason?, timings: StageTimings, command: String? = nil
     ) {
         self.id = id
         self.startedAt = startedAt
@@ -57,6 +58,7 @@ public struct HistoryEntry: Codable, Equatable, Sendable, Identifiable {
         self.rawReason = rawReason
         self.timings = timings
         self.replacedBy = nil
+        self.command = command
     }
 
     public var wordCount: Int {
