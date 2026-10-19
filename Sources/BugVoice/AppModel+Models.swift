@@ -108,7 +108,8 @@ extension AppModel {
                 guard let self else { return }
                 switch action {
                 case .pasteLast: dictation?.pasteLast()
-                case .pasteRaw, .redoOtherLanguage: break
+                case .pasteRaw: dictation?.pasteRaw()
+                case .redoOtherLanguage: dictation?.redoInOtherLanguage()
                 case .toggleMeeting: meetings?.toggleRecording()
                 case .openApp: openMainWindow(.dictation)
                 case .newNote: Task { @MainActor in await openScratchpadWindow(newNote: true) }
@@ -137,5 +138,27 @@ extension AppModel {
         await reloadHistory()
         // One batch: a later dictation does not push back the pending deadline.
         searchIndexer.schedule(.dictations, after: .seconds(600), extend: false)
+    }
+
+    func replaceLast(_ result: DictationResult, kind: FixKind) async {
+        guard var previous = lastResult else { return }
+        previous.language = result.language
+        previous.requestedLanguage = result.requestedLanguage
+        previous.raw = result.raw
+        previous.cleaned = result.cleaned
+        previous.finalText = result.finalText
+        previous.outcome = .inserted
+        previous.rawReason = result.rawReason
+        previous.errorMessage = nil
+        previous.timings = result.timings
+        lastResult = previous.recallable
+        guard settings.historyRetention != .off, var entry = previous.historyEntry else { return }
+        entry.replacedBy = kind
+        do {
+            try await historyLog.replace(entry)
+            await reloadHistory()
+        } catch {
+            saveError = "Could not update history: \(error.localizedDescription)"
+        }
     }
 }

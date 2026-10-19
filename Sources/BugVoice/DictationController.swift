@@ -1,4 +1,5 @@
 import AppKit
+import ApplicationServices
 import BugVoiceMac
 import Foundation
 import VoiceCore
@@ -18,6 +19,9 @@ final class DictationController {
     private var languageCycler: LanguageKeyCycler?
     private var languageFlashTask: Task<Void, Never>?
     private var handsFreeRecording = false
+    private var replacementGuard = ReplacementGuard()
+    private var lastFocusedElement: AXUIElement?
+    private var lastInsertionFocus: FocusSnapshot?
     private var hotkey: HotkeyMonitor!
     private var startFocus = FocusSnapshot.unknown
     private var notesCapture: NotesDictationCapture?
@@ -37,6 +41,9 @@ final class DictationController {
         hud.levelSource = { [recorder] in recorder.level }
         hotkey = HotkeyMonitor(key: model.settings.hotkey) { [weak self] input in
             self?.receive(input)
+        }
+        hotkey.onKeyDown = { [weak self] keyCode, flags, userData in
+            self?.keyDownObserved(keyCode: keyCode, flags: flags, userData: userData)
         }
         hotkey.onTapLost = { [weak self] in self?.tapLost() }
     }
@@ -120,6 +127,9 @@ final class DictationController {
 
     private func begin(handsFree: Bool, notesOnly: Bool = false) {
         guard !recorder.isRunning else { return }
+        replacementGuard.clear()
+        lastFocusedElement = nil
+        lastInsertionFocus = nil
         let micCapture = notesOnly ? model.captureSelectedNoteForMic() : nil
         guard !notesOnly || micCapture != nil else { return }
         if let notReady = speechNotReadyState() {
@@ -290,7 +300,9 @@ final class DictationController {
         } else if let meetingNotes {
             insertion = MeetingNotesInsertion(editor: meetingNotes)
         } else {
-            insertion = inserter
+            insertion = RecordingPasteInsertionTarget(inserter: inserter) { [weak self] text in
+                self?.recordOrdinaryInsertion(text, focus: focus)
+            } onFailure: { [weak self] in self?.clearReplacementRecord() }
         }
         let intoNotes = notesCapture != nil || meetingNotes != nil
         let feature: ModelFeature = intoNotes ? .notes : .dictation
@@ -314,6 +326,7 @@ final class DictationController {
             if let message = result.errorMessage { Log.dictation.error("\(message, privacy: .public)") }
             // Agents may edit the note again once this dictation is in.
             if let notesCapture { model.notesController.releaseCapture(notesCapture) }
+            if intoNotes || result.outcome != .inserted { clearReplacementRecord() }
             if result.outcome == .cancelled {
                 hud.hide()
             } else {
@@ -351,6 +364,164 @@ final class DictationController {
     func pasteLast() {
         guard let text = model.lastResult?.finalText else { return }
         paste(text)
+    }
+
+    func pasteRaw() {
+        guard !isBusy, !recorder.isRunning,
+              let previous = model.lastResult, !previous.finalText.isEmpty, !previous.raw.isEmpty else {
+            showNothingToFix()
+            return
+        }
+        if previous.raw == previous.finalText {
+            let detail = previous.rawReason == .cleanupOff ? "cleanup is off for \(previous.style.title)" : nil
+            hud.show(.message(title: "Already raw", detail: detail))
+            return
+        }
+        guard let decision = replacementDecision() else {
+            showNothingToFix()
+            return
+        }
+        var replacement = previous
+        replacement.finalText = previous.raw
+        replacement.cleaned = nil
+        replacement.rawReason = nil
+        performDirectReplacement(replacement, kind: .raw, decision: decision, title: "Replaced with raw text")
+    }
+
+    func redoInOtherLanguage() {
+        guard !isBusy, !recorder.isRunning, let previous = model.lastResult,
+              let focus = lastInsertionFocus,
+              let data = try? Data(contentsOf: model.paths.lastRecording),
+              let clip = try? WAVDecoder.decode(data) else {
+            showNothingToFix()
+            return
+        }
+        if let notReady = speechNotReadyState() {
+            hud.show(notReady)
+            return
+        }
+        guard let decision = replacementDecision() else {
+            showNothingToFix()
+            return
+        }
+        let language = FixLast.otherLanguage(of: previous.language)
+        let adapter = ReplacementInsertionTarget(controller: self, initialDecision: decision)
+        let pipeline = model.makePipeline(insertion: adapter, feature: .dictation)
+        let modelName = model.plan(for: .dictation).shortName
+        isBusy = true
+        runCounter += 1
+        let run = runCounter
+        stagedRun = run
+        Task { [self] in
+            let result = await pipeline.run(
+                clip: clip,
+                startFocus: focus,
+                startedAt: Date(),
+                languageChoice: language
+            ) { stage in
+                Task { @MainActor in
+                    self.showStage(stage, run: run, language: language.displayName, modelName: modelName, app: focus.appName)
+                }
+            }
+            stagedRun = nil
+            if result.outcome == .inserted {
+                await model.replaceLast(result, kind: .otherLanguage)
+                rememberReplacement(text: result.finalText)
+                hud.show(.message(
+                    title: "Replaced — \(language.displayName)",
+                    detail: "\(InsightsDelta.wordCount(result.finalText)) words"
+                ))
+            } else if result.outcome == .copiedSecureField || result.outcome == .copiedNotConsumed {
+                clearReplacementRecord()
+                hud.show(.message(title: "Copied — press ⌘V", detail: "text changed since the paste"))
+            } else if let state = HUDState.from(result) {
+                hud.show(state)
+            } else {
+                showNothingToFix()
+            }
+            isBusy = false
+        }
+    }
+
+    private func performDirectReplacement(_ replacement: DictationResult, kind: FixKind, decision: ReplacementDecision, title: String) {
+        isBusy = true
+        Task { [self] in
+            guard case .replace(let count) = decision,
+                  case .replace? = replacementDecision(),
+                  !FocusInspector.read().isSecure else {
+                await inserter.copy(replacement.finalText)
+                hud.show(.message(title: "Copied — press ⌘V", detail: "text changed since the paste"))
+                isBusy = false
+                return
+            }
+            await inserter.deleteBackward(count)
+            let outcome = await inserter.insert(replacement.finalText)
+            if outcome == .pasted {
+                await model.replaceLast(replacement, kind: kind)
+                rememberReplacement(text: replacement.finalText)
+                hud.show(.message(title: title, detail: "\(InsightsDelta.wordCount(replacement.finalText)) words"))
+            } else {
+                clearReplacementRecord()
+                hud.show(.message(title: "Copied — press ⌘V", detail: "text changed since the paste"))
+            }
+            isBusy = false
+        }
+    }
+
+    private func keyDownObserved(keyCode: Int64, flags: UInt64, userData: Int64) {
+        let keyCodes = Set([
+            ShortcutAction.pasteLast, .pasteRaw, .redoOtherLanguage,
+        ].compactMap { ShortcutKeys.keyCode(forLetter: model.settings.shortcuts.letter(for: $0)) }.map(Int64.init))
+        if FixLast.countsAsTyping(keyCode: keyCode, flags: flags, userData: userData, shortcutKeyCodes: keyCodes) {
+            replacementGuard.keyTyped()
+        }
+    }
+
+    private func recordOrdinaryInsertion(_ text: String, focus: FocusSnapshot) {
+        guard !focus.isSecure else { clearReplacementRecord(); return }
+        let processID = NSWorkspace.shared.frontmostApplication?.processIdentifier ?? 0
+        replacementGuard.recordInsertion(LastInsertion(text: text, processID: processID, at: Date()))
+        lastFocusedElement = FocusInspector.focusedElement()
+        lastInsertionFocus = focus
+    }
+
+    private func rememberReplacement(text: String) {
+        let focus = FocusInspector.read()
+        guard !focus.isSecure else { clearReplacementRecord(); return }
+        let processID = NSWorkspace.shared.frontmostApplication?.processIdentifier ?? 0
+        replacementGuard.recordInsertion(LastInsertion(text: text, processID: processID, at: Date()))
+        lastFocusedElement = FocusInspector.focusedElement()
+        lastInsertionFocus = focus
+    }
+
+    private func clearReplacementRecord() {
+        replacementGuard.clear()
+        lastFocusedElement = nil
+        lastInsertionFocus = nil
+    }
+
+    private func replacementDecision() -> ReplacementDecision? {
+        let processID = NSWorkspace.shared.frontmostApplication?.processIdentifier ?? 0
+        let sameFocus = FocusInspector.isSameElement(lastFocusedElement, FocusInspector.focusedElement())
+        return replacementGuard.decide(now: Date(), frontProcessID: processID, sameFocus: sameFocus)
+    }
+
+    private func showNothingToFix() {
+        hud.show(.message(title: "Nothing to fix", detail: nil))
+    }
+
+    fileprivate func insertReplacement(_ text: String, initialDecision: ReplacementDecision?) async -> InsertOutcome {
+        guard case .replace(let count)? = initialDecision,
+              case .replace? = replacementDecision(), !FocusInspector.read().isSecure else {
+            await inserter.copy(text)
+            return .notConsumed
+        }
+        await inserter.deleteBackward(count)
+        return await inserter.insert(text)
+    }
+
+    fileprivate func copyReplacement(_ text: String) async {
+        await inserter.copy(text)
     }
 
     /// Pastes `text` at the cursor of the app that had focus before BugVoice,
@@ -391,4 +562,44 @@ final class DictationController {
     func copy(_ text: String) {
         Task { await inserter.copy(text) }
     }
+}
+
+@MainActor
+private final class RecordingPasteInsertionTarget: InsertionTarget {
+    private let inserter: PasteboardInserter
+    private let onInserted: @MainActor @Sendable (String) -> Void
+    private let onInsertedFailure: @MainActor @Sendable () -> Void
+
+    init(inserter: PasteboardInserter, onInserted: @escaping @MainActor @Sendable (String) -> Void, onFailure: @escaping @MainActor @Sendable () -> Void) {
+        self.inserter = inserter
+        self.onInserted = onInserted
+        onInsertedFailure = onFailure
+    }
+
+    func insert(_ text: String) async -> InsertOutcome {
+        inserter.onWillPostPaste = onInserted
+        let outcome = await inserter.insert(text)
+        inserter.onWillPostPaste = nil
+        if outcome != .pasted { onInsertedFailure() }
+        return outcome
+    }
+
+    func copy(_ text: String) async { await inserter.copy(text) }
+}
+
+@MainActor
+private final class ReplacementInsertionTarget: InsertionTarget {
+    private unowned let controller: DictationController
+    private let initialDecision: ReplacementDecision?
+
+    init(controller: DictationController, initialDecision: ReplacementDecision?) {
+        self.controller = controller
+        self.initialDecision = initialDecision
+    }
+
+    func insert(_ text: String) async -> InsertOutcome {
+        await controller.insertReplacement(text, initialDecision: initialDecision)
+    }
+
+    func copy(_ text: String) async { await controller.copyReplacement(text) }
 }

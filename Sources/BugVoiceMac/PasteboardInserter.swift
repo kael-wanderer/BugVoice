@@ -13,6 +13,7 @@ public final class PasteboardInserter: InsertionTarget {
     public var restoreClipboard = true
     public var consumeTimeout: Double = 1.0
     public var restoreDelay: Double = 0.3
+    public var onWillPostPaste: (@MainActor @Sendable (String) -> Void)?
 
     public init(pasteboard: NSPasteboard = .general) {
         self.pasteboard = pasteboard
@@ -27,6 +28,7 @@ public final class PasteboardInserter: InsertionTarget {
         pasteboard.writeObjects([item])
         let pasteChangeCount = pasteboard.changeCount
 
+        onWillPostPaste?(text)
         Self.postCommandV()
 
         let deadline = Date().addingTimeInterval(consumeTimeout)
@@ -52,15 +54,30 @@ public final class PasteboardInserter: InsertionTarget {
     }
 
     /// ⌘V with explicit flags, so a still-held hotkey modifier is not added.
+    public func deleteBackward(_ count: Int) async {
+        var sent = 0
+        let total = max(0, count)
+        while sent < total {
+            let batch = min(50, total - sent)
+            for _ in 0..<batch {
+                Self.makeKeyEvent(keyCode: 51, keyDown: true, flags: [])?.post(tap: .cghidEventTap)
+                Self.makeKeyEvent(keyCode: 51, keyDown: false, flags: [])?.post(tap: .cghidEventTap)
+            }
+            sent += batch
+            if sent < total { try? await Task.sleep(for: .milliseconds(10)) }
+        }
+    }
+
+    public static func makeKeyEvent(keyCode: CGKeyCode, keyDown: Bool, flags: CGEventFlags) -> CGEvent? {
+        let event = CGEvent(keyboardEventSource: CGEventSource(stateID: .hidSystemState), virtualKey: keyCode, keyDown: keyDown)
+        event?.flags = flags
+        event?.setIntegerValueField(.eventSourceUserData, value: FixLast.syntheticEventMarker)
+        return event
+    }
+
     static func postCommandV() {
-        let source = CGEventSource(stateID: .hidSystemState)
-        let keyV: CGKeyCode = 9
-        let down = CGEvent(keyboardEventSource: source, virtualKey: keyV, keyDown: true)
-        let up = CGEvent(keyboardEventSource: source, virtualKey: keyV, keyDown: false)
-        down?.flags = .maskCommand
-        up?.flags = .maskCommand
-        down?.post(tap: .cghidEventTap)
-        up?.post(tap: .cghidEventTap)
+        makeKeyEvent(keyCode: 9, keyDown: true, flags: .maskCommand)?.post(tap: .cghidEventTap)
+        makeKeyEvent(keyCode: 9, keyDown: false, flags: .maskCommand)?.post(tap: .cghidEventTap)
     }
 }
 

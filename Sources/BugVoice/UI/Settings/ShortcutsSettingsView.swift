@@ -18,6 +18,8 @@ struct ShortcutsSettingsView: View {
                     }
                     fixed("Hands-free", "Double-tap \(model.settings.hotkey.spokenName)")
                     shortcut(.pasteLast)
+                    shortcut(.pasteRaw)
+                    shortcut(.redoOtherLanguage)
                     shortcut(.toggleMeeting)
                 }
                 AppearanceCard(title: "Windows") {

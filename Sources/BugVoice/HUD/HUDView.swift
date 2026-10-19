@@ -68,6 +68,9 @@ struct HUDView: View {
             RoundedRectangle(cornerRadius: 2 * factor).fill(.bvRecording).frame(width: 8 * factor, height: 8 * factor)
             Text(title).fontWeight(.semibold)
             Text(detail).foregroundStyle(.bvSecondary)
+        case .message(let title, let detail):
+            Text(title).fontWeight(.semibold)
+            if let detail { Text(detail).foregroundStyle(.bvSecondary) }
         case .nothingHeard:
             Text("Nothing heard").foregroundStyle(.bvSecondary)
         case nil:

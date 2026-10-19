@@ -8,6 +8,7 @@ enum HUDState: Equatable {
     case done(style: String, words: Int, seconds: Double)
     case warning(title: String, detail: String)
     case failure(title: String, detail: String)
+    case message(title: String, detail: String?)
     case nothingHeard
 
     static let secureFieldCopied = HUDState.failure(title: "Secure field — copied", detail: "text copied, not pasted")
@@ -56,7 +57,7 @@ enum HUDState: Equatable {
     var autoHideAfter: TimeInterval? {
         switch self {
         case .listening, .transcribing, .cleaning: nil
-        case .done, .nothingHeard: 1.2
+        case .done, .nothingHeard, .message: 1.2
         case .warning, .failure: 4
         }
     }
