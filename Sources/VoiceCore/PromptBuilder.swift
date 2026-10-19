@@ -11,6 +11,9 @@ public struct PromptBuilder: Sendable {
 
     static let placeholderRule = "Tokens like ⟦S1⟧ are placeholders. Keep every one exactly once, unchanged, where it belongs."
     public static let keepEnglishRule = "Keep words the speaker said in English in English. Never rewrite them in Vietnamese spelling (nơ-ron, mô-đun)."
+    public static func projectWordsLine(_ words: [String]) -> String {
+        "Code names from the current project. When the speaker says one as plain words, write the name exactly (for example \"app model\" is AppModel): " + words.joined(separator: ", ")
+    }
 
     public static func defaultRules(for style: Style) -> String {
         switch style {
@@ -49,6 +52,7 @@ public struct PromptBuilder: Sendable {
         if !vocabulary.terms.isEmpty {
             parts.append("Spell these terms exactly: \(vocabulary.terms.joined(separator: ", "))")
         }
+        if !vocabulary.projectWords.isEmpty { parts.append(Self.projectWordsLine(vocabulary.projectWords)) }
         if let before = focus.beforeText?.trimmingCharacters(in: .whitespacesAndNewlines), !before.isEmpty {
             parts.append("Text already before the cursor, for context only. Do not repeat it:\n<before>\(String(before.suffix(500)))</before>")
         }

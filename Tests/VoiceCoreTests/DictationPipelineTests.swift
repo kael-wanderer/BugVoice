@@ -36,6 +36,23 @@ struct DictationPipelineTests {
         #expect(await model.requests.first?.system.contains(Vocabulary.mixedExample) == false)
     }
 
+    @Test func projectWordsReachPrompts() async {
+        var settings = AppSettings()
+        settings.styles.cleanupEnabled[Style.terminal.rawValue] = true
+        settings.speech.projectWordsScope = .codingApps
+        let focus = FocusSnapshot(appName: "Ghostty", bundleID: "com.mitchellh.ghostty", windowTitle: "BugVoice")
+        let project = Project(path: "/tmp/BugVoice", name: "BugVoice", words: [ProjectWord(word: "AppModel", rank: 10)])
+        let transcriber = OptionsTranscriber()
+        let model = RecordingModel()
+        let pipeline = DictationPipeline(transcriber: transcriber,
+            cleanup: CleanupModel(model: model, modelID: "test", shortName: "Test", disableThinking: false, timeoutSeconds: 3),
+            insertion: RecordingInsertion(), focus: FixedFocus(focus: focus), settings: settings, vocabulary: Vocabulary(), projects: [project])
+        let result = await pipeline.run(clip: speechClip, startFocus: focus, startedAt: Date(), onStage: { _ in })
+        #expect(await transcriber.options?.prompt.contains("AppModel") == true)
+        #expect(await model.requests.first?.system.contains("Code names from the current project.") == true)
+        #expect(result.projectName == "BugVoice")
+    }
+
     @Test func vietnameseGetsExample() async {
         let transcriber = OptionsTranscriber()
         let model = RecordingModel()

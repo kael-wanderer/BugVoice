@@ -17,11 +17,18 @@ public struct Vocabulary: Sendable, Equatable {
     public var terms: [String]
     public var replacements: [Replacement]
     public var snippets: [Snippet]
+    public var projectWords: [String] = []
 
     public init(terms: [String] = [], replacements: [Replacement] = [], snippets: [Snippet] = []) {
         self.terms = terms
         self.replacements = replacements
         self.snippets = snippets
+    }
+
+    public func with(projectWords: [String]) -> Vocabulary {
+        var copy = self
+        copy.projectWords = projectWords
+        return copy
     }
 
     public init(dictionary: DictionaryFile) {
@@ -97,6 +104,12 @@ public struct Vocabulary: Sendable, Equatable {
             let added = parts.isEmpty ? term.count : term.count + 2
             if length + added > maxCharacters { break }
             parts.append(term)
+            length += added
+        }
+        for word in projectWords {
+            let added = parts.isEmpty ? word.count : word.count + 2
+            if length + added > maxCharacters { break }
+            parts.append(word)
             length += added
         }
         return parts.joined(separator: ", ")

@@ -14,6 +14,7 @@ public enum CommandPrompt {
         var parts = [rewriting ? rewriteRules : writeRules, "App style, for tone: " + PromptBuilder.defaultRules(for: style)]
         if keepEnglishWords && (language == .vi || language == .auto) { parts.append(PromptBuilder.keepEnglishRule) }
         if !vocabulary.terms.isEmpty { parts.append("Spell these terms exactly: " + vocabulary.terms.joined(separator: ", ")) }
+        if !vocabulary.projectWords.isEmpty { parts.append(PromptBuilder.projectWordsLine(vocabulary.projectWords)) }
         if !rewriting, let before = focus.beforeText, !before.isEmpty {
             parts.append("Text already before the cursor, for context only. Do not repeat it:\n<before>\(String(before.suffix(500)))</before>")
         }

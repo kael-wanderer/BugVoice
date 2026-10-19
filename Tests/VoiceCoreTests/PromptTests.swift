@@ -35,6 +35,14 @@ struct PromptTests {
         #expect(p.contains("BugVoice, WhisperKit"))
     }
 
+    @Test func projectWordsLine() {
+        var vocabulary = Vocabulary()
+        vocabulary.projectWords = ["AppModel", "HistoryEntry"]
+        let line = "Code names from the current project. When the speaker says one as plain words, write the name exactly (for example \"app model\" is AppModel): AppModel, HistoryEntry"
+        #expect(PromptBuilder().systemPrompt(style: .work, vocabulary: vocabulary, focus: .unknown).contains(line))
+        #expect(!PromptBuilder().systemPrompt(style: .work, vocabulary: Vocabulary(), focus: .unknown).contains("Code names"))
+    }
+
     @Test func terminalRulesAreLiteral() {
         let p = PromptBuilder().systemPrompt(style: .terminal, vocabulary: Vocabulary(), focus: .unknown)
         #expect(p.contains("Do not reword"))
