@@ -16,17 +16,6 @@
   (1,068 tests total).
 - Fixtures are inline JSON and synthetic bookmark bytes; no owner data was read.
 
-## Deviations
-
-- Task 8 adds the observed `BackupController.relaunchError` interface so a quit
-  veto can unlock the restore sheet and show its dedicated handoff failure. This
-  minimal app-layer coordination is required because staging can succeed before
-  quitting is subsequently cancelled. No VoiceCore contract changes.
-
-- `AppSettings` already uses synthesized `CodingKeys`; adding its stored
-  `backup` property supplies the coding key automatically, rather than adding
-  an explicit coding-key enum. The public API and encoded key remain as planned.
-
 ## Task 2 — File names and schedule (2026-10-19)
 
 - Added minute-resolution, time-zone-aware backup and restore safety-copy names,
@@ -111,7 +100,7 @@
   `/tmp/bugvoice-task5-full.log`). `git diff --check` passed.
 - Foundation only, no new dependencies, and no scope deviations.
 
-### Task 5 review correction and Deviations
+### Task 5 review correction
 
 - The plan's literal descendant-prefix guard did not reject a destination
   equal to the library root. Such a destination could replace the library
@@ -233,3 +222,123 @@
   Evidence: `/private/tmp/bv-device-process-smoke.json` and matching `.log`;
   test-run copy retained at `/private/tmp/bv-device-run-after`. No GUI layout,
   light/dark or backup/restore device behavior is inferred from this process check.
+
+## Task 9 — Device checks and handoff (2026-10-19)
+
+Tasks 1–8 are committed in order: `44f45e2`, `d3378cf`, `fc679fd`,
+`b7ac2d8`, `497b20d`, `d3327b3`, `a32a92f`, `f878a4b`.
+Implementation is on `feat/backup-restore`, not merged or pushed.
+
+### Device checklist
+
+All ten checks are **not run**: 0 passed, 0 failed, 10 not run. The full-path
+`cua.getApp` request returned **"Computer Use was not approved to use BugVoice"**.
+GUI access denied prevented opening Storage, using panels or driving the app.
+No light/dark screenshots were captured; no window position or non-primary-display
+UI behavior was verified. Unit tests and the process smoke below do not satisfy
+these device checks.
+
+| Check | Planned observation | Status and evidence |
+|---|---|---|
+| B1 | Desktop backup, default filename, Finder ZIP contents and no credentials | **Not run** — GUI access denied: "Computer Use was not approved to use BugVoice"; no backup was created through the UI. |
+| B2 | Save inside library shows the destination error | **Not run** — GUI access denied: "Computer Use was not approved to use BugVoice"; save panel not driven. |
+| B3 | Newly typed note word is flushed into the backup | **Not run** — GUI access denied: "Computer Use was not approved to use BugVoice"; note editor and Back up now not driven. |
+| B4 | Cancel removes archive and partial output | **Not run** — GUI access denied: "Computer Use was not approved to use BugVoice"; backup cancellation not driven. |
+| B5 | Renamed text file shows invalid-backup error | **Not run** — GUI access denied: "Computer Use was not approved to use BugVoice"; Restore panel not driven. |
+| B6 | Restore relaunch, removed new note, notice and safety copy | **Not run** — GUI access denied: "Computer Use was not approved to use BugVoice"; no restore/relaunch UI flow was driven. |
+| B7 | Daily backup appears within a minute with Last/Next | **Not run** — GUI access denied: "Computer Use was not approved to use BugVoice"; automatic backup settings not driven. |
+| B8 | Retention leaves five named backups and unrelated file | **Not run** — GUI access denied: "Computer Use was not approved to use BugVoice"; automatic retention not driven. |
+| B9 | Missing automatic folder line without repeated banner | **Not run** — GUI access denied: "Computer Use was not approved to use BugVoice"; no disconnected-volume or renamed-folder scenario was driven. |
+| B10 | Restore during recording shows meeting-active error | **Not run** — GUI access denied: "Computer Use was not approved to use BugVoice"; no active meeting was driven. |
+
+### Supplementary build and process evidence
+
+- `swift build` exited 0 without warnings. `swift test` passed all 1,102 tests:
+  978 VoiceCore / 109 suites, 30 MCPKit / 2 suites, 94 BugVoiceMac / 16 suites.
+- `Scripts/build-app.sh` exited 0, signed with `Bugler Local Dev`.
+- Process smoke passed: stopped app instances, copied the real library with
+  `cp -R` to `/private/tmp/bv-before` (exit 0), and verified the copy against a
+  286-entry inventory of regular files, symlinks and directories, including
+  hashes, modes and symlink targets. `Scripts/run-dev-app.sh` exited 0 and the
+  dev process remained running after five seconds. Then stopped the dev app,
+  moved its run folder to `/private/tmp/bv-device-run-after`, restored the
+  original with `cp -R`, and verified all 286 inventory entries matched.
+- Evidence: `/private/tmp/bv-device-process-smoke.json` and
+  `/private/tmp/bv-device-process-smoke.log`. This demonstrates process startup
+  and original-library restoration only; it establishes no device-check pass.
+
+## Deviations and resolved review findings
+
+### Deliberate plan/API adaptations
+
+- Synthesized `AppSettings.CodingKeys` automatically includes the stored `backup`
+  property; no explicit enum was needed. The encoded key is unchanged.
+- Destination protection also rejects equality with the library root, beyond
+  the plan's descendant-only prefix guard, so writing cannot replace the root.
+- Same-minute restores choose an unused numeric suffix for the safety folder.
+- A failed rollback persists `rollback-failed` and preserves recovery data;
+  both later apply and stage refuse to delete it until recovery is resolved.
+- `AppModel.backup` is lazy because its controller requires the initialized
+  model. The controller uses the existing `frequency` API rather than adding
+  the plan's differently named `schedule` property.
+- Relaunch carries the source PID; the new process waits for its exit before
+  applying the restore or loading stores, with activation/reopen gates during
+  that wait. Quit veto disarms the handoff; launch errors remove pending data.
+  The new-instance Workspace mechanism is retained.
+- `restoreMessage` uses the existing notice and opens Settings › Storage so the
+  result and safety copy are reachable after a menu-bar-only launch.
+- Observed `relaunchError` lets the restore sheet leave Preparing after a quit
+  veto and show the specific error without reacting to unrelated save errors.
+
+### Resolved implementation bugs
+
+- Normalized enumerator/root paths and compared safety-copy names to handle
+  equivalent `/var` and `/private/var` paths.
+- Consumed `ready` inside the move transaction before fallible cleanup, preventing
+  a later launch from replaying an already applied restore after cleanup fails.
+- Regression tests cover root-equality rejection, same-minute safety copies,
+  rollback-failure protection at both entry points, and cleanup failure replay.
+  These automated checks do not establish runtime relaunch or UI correctness.
+
+## Review and device checks (Claude, 2026-10-19)
+
+Branch review of Tasks 1–8, then B1–B10 on the dev build with one display
+(the second display was disconnected, so windows opened on the primary one).
+The library was copied to `/private/tmp/bv-before-claude` first (96 files with
+checksums) and put back at the end; the checksums matched afterwards. Test
+backups in `~/Documents` were deleted.
+
+### Fixes
+
+| Commit | Finding | Fix |
+|---|---|---|
+| `70ff083` | `ditto` keeps symlinks, so a crafted backup could move a `Notes` symlink into the library and point it at another folder. | Staging refuses a backup with any symlink (`stageRejectsSymlinks`). |
+| `70ff083` | A failed cleanup after the restore was committed (SearchIndex, older safety copy, pending folder) reported the finished restore as an error at launch. | Cleanup is best effort; the restore still reports success (`cleanupFailureCannotReplayAnEmptyRestore` now expects the outcome). |
+| `70ff083` | A busy upload refused restore with "A meeting is recording." | New `BackupError.uploadActive`: "An upload is transcribing. Wait for it to finish first." |
+| `70ff083` | Failing to delete old automatic backups replaced the success line with an error. | Pruning failure is logged only. |
+| `d626521` | `--sequesterRsrc` added a `__MACOSX/` entry for every file's extended attributes. | `ditto -c -k --norsrc --noextattr --noacl`; archive holds only `backup.json` and `data/` (`archiveHoldsOnlyManifestAndData`). |
+| `0f6ee6a` | Found by B5: the restore sheet opened as an empty box (`.sheet(isPresented:)` built before the chosen file reached it). | `.sheet(item:)` carries the file. |
+| `7cbcb33` | Found by B6: restore hung on Preparing forever. Workspace calls `openApplication`'s completion only after the new instance finishes launching, which waits for the old one to exit; and AppKit ignores `terminate` while a sheet is attached. | The old instance quits once the new process exists (15 s limit, then the pending restore is removed and the sheet says so); the sheet dismisses itself first. Handoff and quit requests are logged. |
+
+1,106 tests pass (982 VoiceCore / 109 suites, 30 MCPKit / 2, 94 BugVoiceMac / 16).
+
+### Device checklist
+
+| # | Result | Evidence |
+|---|---|---|
+| B1 | Pass | `BugVoice Backup 2026-10-19 1041.bugvoicebackup` in Documents, 8.1 MB; `unzip -Z1`: 83 entries, no `__MACOSX`, no `credentials.json`; manifest format 1, build 215, counts 13 notes / 13 meetings / 12 dictations / 1 folder / 2 tags, 66 files. Card: "Backed up 8,1 MB to Documents." |
+| B2 | Not run in the app | The save panel's folder could not be driven to the data folder. Covered by `writerRefusesDestinationInsideLibrary` and `writerRefusesDestinationEqualToLibrary`. |
+| B3 | Not run | Typing into a note was not driven. `flushAll()` runs before planning (code read). |
+| B4 | Not run | An 8 MB backup finishes before Cancel can be pressed. Covered by the writer's cancellation path and `failedZipLeavesNoFile`. |
+| B5 | Pass (after `0f6ee6a`) | Sheet: "Restore this backup?" and "This file is not a BugVoice backup." with OK only. |
+| B6 | Pass (after `7cbcb33`) | Sheet facts matched the manifest. Log: "restore: new instance started, quitting" → "quit requested" 0.3 s later → "Restored the backup from 19 Oct 2026 at 10:41 AM." 0.1 s after that. A marker note added after the backup was gone from `Notes/` and present in `Restore safety copy …`; the 66 restored files matched the original checksums; `credentials.json` and `models/` untouched. A second restore kept only the newest safety copy. Storage showed "Safety copy from before the restore on 19 Oct 2026 at 10:47 AM · 9 MB". |
+| B7 | Pass, picker not driven | The Off / Daily / Weekly menu does not take synthetic input, so `settings.json` was set to Daily with a bookmark to `~/Documents/BugVoice Backups`. At launch a backup was written (format 1, 66 files); card: "Last backup: 1 minute ago · 8,1 MB · Next: in 23 hours. Keeps the newest 5." The owner should choose Daily in the picker once. |
+| B8 | Pass | Seeded 7 named files (1–7 Oct) and `keep-me.bugvoicebackup`; after the run: 4–7 Oct plus the new backup, and `keep-me.bugvoicebackup`. |
+| B9 | Pass | Renaming the folder is followed by the bookmark (card showed `~/Documents/BugVoice Backups-moved`). After deleting it: "The backup folder is missing. Connect the drive or choose another folder."; no banner, no log error. |
+| B10 | Not run | Needs a recording meeting. |
+
+Light theme screenshot not taken; dark theme matched mockup screen 1.
+
+Note for testing: `bugvoice-mcp` opens `/Applications/BugVoice.app` when an agent
+calls a tool and no BugVoice is running, so killing the dev app can start the
+installed copy against the same library. Quit it before restoring a test copy.

@@ -69,6 +69,7 @@ version and build live in `App/Info.plist`. Every commit raises the build by one
 - Proposed new features (unscheduled, from the 2026-10-19 review): `docs/propose-new-features.md`
 - Backup and restore spec: `docs/superpowers/specs/2026-10-19-backup-restore-design.md` (mockup: `docs/design/proposal-backup.html`)
 - Backup and restore plan: `docs/superpowers/plans/2026-10-19-backup-restore.md`
+- Backup and restore execution log and device checks: `docs/progress/backup-log.md`
 
 ## Rules
 

@@ -4,6 +4,16 @@ Last updated: 2026-10-19
 
 ## Current state
 
+**Backup and restore merged on `main` (2026-10-19, not pushed).** Settings › Storage ›
+Backup: Back up now, Restore (applied at the next launch, current library kept as a
+safety copy), automatic Daily/Weekly into a chosen folder keeping 5. Spec:
+`docs/superpowers/specs/2026-10-19-backup-restore-design.md`; plan:
+`docs/superpowers/plans/2026-10-19-backup-restore.md`; evidence, review fixes and
+device checks: `docs/progress/backup-log.md`. Codex built Tasks 1–8; review and device
+checks found and fixed an empty restore sheet and a relaunch hang, plus four smaller
+issues. Device: B1, B5–B9 pass; B2–B4, B10 not run. Owner to try: choose Daily in
+the picker, Restore while a meeting records (B10), light theme. 1,106 tests pass.
+
 **Branch `fix/review-findings` (2026-10-19, not merged):** fixes from the app review.
 `06121c5` adds one unified-log subsystem (`com.kael.bugvoice`, `Log` in BugVoiceMac;
 read with `/usr/bin/log show --last 1h --predicate 'subsystem == "com.kael.bugvoice"'`)
@@ -23,7 +33,7 @@ sections below and in the per-project logs is history.
 `Scripts/git-hooks/pre-commit` (`git config core.hooksPath Scripts/git-hooks`); it
 started at 200 on 2026-10-19.
 
-**Next: Backup and restore spec** (export the library to a file, restore from it).
+**Backup and restore:** merged; see the top of this file.
 
 **`main` was last pushed 2026-10-19 at `0478cdd`.**
 Merged 2026-10-18, each with its own log and pending owner checks:
