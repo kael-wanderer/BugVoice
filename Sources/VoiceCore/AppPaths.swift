@@ -19,6 +19,7 @@ public struct AppPaths: Sendable {
     public var voices: URL { root.appendingPathComponent("voices.json") }
     /// Dictionary words and snippets.
     public var dictionary: URL { root.appendingPathComponent("dictionary.json") }
+    public var suggestions: URL { root.appendingPathComponent("suggestions.json") }
     public var projects: URL { root.appendingPathComponent("projects.json") }
     /// The old word list. Read once to migrate into `dictionary.json`.
     public var vocabulary: URL { root.appendingPathComponent("vocabulary.txt") }
