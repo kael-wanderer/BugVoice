@@ -2,10 +2,7 @@ import BugVoiceMac
 import Foundation
 import MCPKit
 import Observation
-import OSLog
 import VoiceCore
-
-private let mcpLog = Logger(subsystem: "com.kael.bugvoice", category: "mcp")
 
 /// The app's side of the MCP server: listens on the local socket and runs each
 /// agent tool call through the same code paths as the app's own buttons.
@@ -48,7 +45,7 @@ final class MCPService {
             status = "Listening"
         } catch {
             status = "Could not start: \(Self.reason(error))"
-            mcpLog.error("mcp start failed: \(Self.reason(error), privacy: .public)")
+            Log.mcp.error("mcp start failed: \(Self.reason(error), privacy: .public)")
         }
     }
 
@@ -79,7 +76,7 @@ final class MCPService {
         }
         let error: String? = if case .failure(let failure) = result { failure.message } else { nil }
         activity.record(MCPActivityEntry(time: started, client: r.client, tool: r.tool, error: error))
-        mcpLog.notice("""
+        Log.mcp.notice("""
             mcp tool=\(r.tool, privacy: .public) client=\(r.client, privacy: .public) \
             seconds=\(Int(Date().timeIntervalSince(started)), privacy: .public) ok=\(error == nil, privacy: .public)
             """)

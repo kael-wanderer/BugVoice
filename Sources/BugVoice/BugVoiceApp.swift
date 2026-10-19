@@ -1,4 +1,5 @@
 import AppKit
+import BugVoiceMac
 import SwiftUI
 
 @main
@@ -28,6 +29,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var textSizeAlternateMonitor: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        Log.app.notice("launch \(Log.appVersion, privacy: .public) on \(Log.systemVersion, privacy: .public)")
         FontRegistry.registerBundledFonts()
         menuPanel = MenuPanelController(model: model)
         model.presentMainWindow = { [weak self] in

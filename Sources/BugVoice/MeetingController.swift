@@ -12,7 +12,9 @@ final class MeetingController {
     private(set) var isRecording = false
     private(set) var isPaused = false
     private(set) var isTranscribing = false
-    private(set) var statusMessage: String?
+    private(set) var statusMessage: String? {
+        didSet { if let statusMessage { Log.meeting.error("\(statusMessage, privacy: .public)") } }
+    }
     private(set) var latestLine = ""
     private(set) var youLevel: Float = 0
     private(set) var othersLevel: Float = 0

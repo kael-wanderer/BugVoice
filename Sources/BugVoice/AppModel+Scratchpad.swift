@@ -2,11 +2,7 @@ import AppKit
 import BugVoiceMac
 import Foundation
 import NaturalLanguage
-import os
 import VoiceCore
-
-/// Ask logs counts only, never question, passage or answer text.
-private let askLog = Logger(subsystem: "com.kael.bugvoice", category: "ask")
 
 enum ScratchpadAIError: LocalizedError {
     case noModel, tooLong, empty
@@ -271,7 +267,7 @@ extension AppModel {
             embedder: ProviderFactory.embedder(settings: settings.models, credentials: credentials),
             contextTokens: settings.models.search.askContextTokens, now: { Date() },
             trace: { t in
-                askLog.notice("""
+                Log.ask.notice("""
                     ask terms=\(t.terms, privacy: .public) dates=\(t.hasDateRange, privacy: .public) \
                     fromDaysAgo=\(t.fromDaysAgo.map(String.init) ?? "-", privacy: .public) \
                     toDaysAgo=\(t.toDaysAgo.map(String.init) ?? "-", privacy: .public) \
@@ -293,7 +289,7 @@ extension AppModel {
         case .nothingFound: "nothingFound"
         case .failed(let failure): "failed.\(failure)"
         }
-        askLog.notice("""
+        Log.ask.notice("""
             ask outcome=\(kind, privacy: .public) passages=\(corpus.passages.count, privacy: .public) \
             vectors=\(corpus.vectors.count, privacy: .public) seconds=\(Int(Date().timeIntervalSince(started)), privacy: .public)
             """)

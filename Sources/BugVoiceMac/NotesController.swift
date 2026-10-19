@@ -830,7 +830,9 @@ private final class LoadedNote {
     var externalVersion: NoteFileVersion?
     var titleDraft: String
     var isTitleEditing = false
-    var saveError: String?
+    var saveError: String? {
+        didSet { if let saveError { Log.notes.error("\(saveError, privacy: .public)") } }
+    }
     var lastPersistedRevision: UInt64
 
     init(note: NoteDocument) {

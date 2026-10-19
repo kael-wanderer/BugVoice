@@ -16,18 +16,19 @@ OpenAI-compatible or Anthropic-compatible API (LM Studio, Ollama, MLX…) or
 Apple Intelligence.
 
 Status: all three sub-projects (dictation, Meetings, Notes) are merged on
-`main`. Pending maintainer gates: manual checklist (dictation 1–44, Meetings
-45–62, Notes 63–72), benchmark, and system-audio spike. See `docs/progress/HANDOFF.md`, `docs/progress/meetings-log.md`, and
-`docs/progress/notes-log.md`.
+`main`. The owner marked every device check done on 2026-10-19; the per-project
+logs keep the original checklists as history. See `docs/progress/HANDOFF.md`.
 
 Built in three sub-projects, each with its own spec → plan → implementation:
 
-1. **Dictation core + app shell** — merged on `main`; maintainer gates remain.
-2. **Meetings** — merged on `main`; device checks pending.
-3. **Notes** — speak into an in-app note editor; merged on `main`; device checks pending.
+1. **Dictation core + app shell** — merged on `main`.
+2. **Meetings** — merged on `main`.
+3. **Notes** — speak into an in-app note editor; merged on `main`.
 
 Release packaging: `Scripts/build-dmg.sh` builds `build/BugVoice-<version>-<build>.dmg`;
-version and build live in `App/Info.plist`. App icon source is `App/Icon/AppIcon.svg`
+version and build live in `App/Info.plist`. Every commit raises the build by one
+(`Scripts/git-hooks/pre-commit`; enable it in a new clone with
+`git config core.hooksPath Scripts/git-hooks`). App icon source is `App/Icon/AppIcon.svg`
 (`Scripts/make-app-icon.sh` regenerates `App/AppIcon.icns`).
 
 ## Key documents
@@ -65,6 +66,7 @@ version and build live in `App/Info.plist`. App icon source is `App/Icon/AppIcon
 - Folders and tags management plan: `docs/superpowers/plans/2026-10-18-library-management.md`
 - Folders and tags execution log and manual checks: `docs/progress/library-management-log.md`
 - Roadmap (next sub-projects, dropped ideas): `docs/ROADMAP.md`
+- Proposed new features (unscheduled, from the 2026-10-19 review): `docs/propose-new-features.md`
 
 ## Rules
 

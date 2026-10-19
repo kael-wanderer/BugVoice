@@ -1,4 +1,5 @@
 import AppKit
+import BugVoiceMac
 import SwiftUI
 import VoiceCore
 
@@ -9,6 +10,7 @@ struct StorageTab: View {
     @State private var confirmClear = false
     @State private var confirmDontSave = false
     @State private var confirmResetInsights = false
+    @State private var diagnosticsCopied = false
 
     var body: some View {
         SettingsScroll {
@@ -61,6 +63,13 @@ struct StorageTab: View {
                     }
                     .labelsHidden().fixedSize()
                 }
+            }
+            SettingsCard {
+                SettingsRow(title: "Diagnostics") {
+                    Button(diagnosticsCopied ? "Copied" : "Copy diagnostics") { copyDiagnostics() }
+                }
+                Text("Copies the app version, engine and model names, and this launch's log. Dictated text is never logged.")
+                    .bvFont(.footnote).foregroundStyle(.bvSecondary)
             }
         }
         .task { await measure() }
@@ -120,6 +129,16 @@ struct StorageTab: View {
                 Button("Reveal") { NSWorkspace.shared.activateFileViewerSelecting([path]) }
             }
         }
+    }
+
+    func copyDiagnostics() {
+        let report = Diagnostics.report(
+            appVersion: Log.appVersion, system: Log.systemVersion, hardware: Log.hardware,
+            facts: Diagnostics.facts(model.settings), entries: Log.entriesThisLaunch()
+        )
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(report, forType: .string)
+        diagnosticsCopied = true
     }
 
     func format(_ bytes: Int64) -> String {
