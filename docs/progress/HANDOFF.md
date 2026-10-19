@@ -4,6 +4,17 @@ Last updated: 2026-10-19
 
 ## Current state
 
+**Project words:** implemented on `feat/project-words` (2026-10-19; not merged
+or pushed). Repo file names and code identifiers feed Whisper and cleanup
+prompts; project data lives in `projects.json`, included in backups. Dictionary
+› Projects manages folder scans, hidden words, and dictionary additions;
+Settings › Speech selects Coding apps / All apps / Off. Automated tests:
+**1,095 VoiceCore, 30 MCPKit, 109 BugVoiceMac** pass, and
+`Scripts/build-app.sh` succeeds. The read-only UI smoke was not run because
+computer-use access to BugVoice was denied. P1–P8 are not run; see
+`docs/progress/project-words-log.md` for evidence and the implementation
+deviation.
+
 **Command mode:** merged on `main` and pushed (2026-10-19). Hold Right Option
 to rewrite the selection or write new text; Settings › General chooses Right
 Option / Right Command / Off. Selection capture with clipboard restore,
