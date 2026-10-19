@@ -147,6 +147,7 @@ extension AppModel {
         previous.raw = result.raw
         previous.cleaned = result.cleaned
         previous.finalText = result.finalText
+        previous.uncleanedText = result.uncleanedText
         previous.outcome = .inserted
         previous.rawReason = result.rawReason
         previous.errorMessage = nil

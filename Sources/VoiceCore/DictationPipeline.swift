@@ -44,6 +44,9 @@ public struct DictationResult: Sendable, Equatable {
     public var raw: String
     public var cleaned: String?
     public var finalText: String
+    /// What would have been pasted with cleanup off: Dictionary
+    /// replacements and snippets applied, no text model. *Paste raw* uses it.
+    public var uncleanedText = ""
     public var outcome: DictationOutcome
     public var rawReason: RawReason?
     public var errorMessage: String?
@@ -214,10 +217,9 @@ public struct DictationPipeline: Sendable {
 
         text = protected.fill(vocabulary.applyReplacements(to: text))
         if cleanedAccepted { result.cleaned = text }
-        if style == .terminal, text.hasSuffix("."), !text.hasSuffix("..") {
-            text.removeLast()
-        }
-        result.finalText = text
+        result.finalText = Self.trimmed(text, style: style)
+        result.uncleanedText = Self.trimmed(protected.fill(vocabulary.applyReplacements(to: protected.text)), style: style)
+        text = result.finalText
 
         // Insert
         onStage(.inserting)
@@ -243,6 +245,12 @@ public struct DictationPipeline: Sendable {
         }
         result.timings.insert = Date().timeIntervalSince(mark)
         return result
+    }
+
+    /// Terminal text drops a single trailing period.
+    static func trimmed(_ text: String, style: Style) -> String {
+        guard style == .terminal, text.hasSuffix("."), !text.hasSuffix("..") else { return text }
+        return String(text.dropLast())
     }
 
     /// Cancellation by type, never by error text: Swift's `CancellationError`,

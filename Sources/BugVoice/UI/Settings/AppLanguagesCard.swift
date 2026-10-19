@@ -18,8 +18,7 @@ struct AppLanguagesCard: View {
 
     var body: some View {
         SettingsCard(title: "Language per app") {
-            ForEach(model.settings.speech.appLanguages.indices, id: \.self) { index in
-                let rule = model.settings.speech.appLanguages[index]
+            ForEach(model.settings.speech.appLanguages, id: \.key) { rule in
                 HStack(spacing: LayoutTokens.spacing[1]) {
                     if let icon = icon(for: rule) {
                         Image(nsImage: icon).resizable().frame(width: 20, height: 20)
@@ -27,15 +26,18 @@ struct AppLanguagesCard: View {
                     Text(name(for: rule)).lineLimit(1)
                     Spacer(minLength: LayoutTokens.spacing[1])
                     Picker("Language", selection: Binding(
-                        get: { model.settings.speech.appLanguages[index].language },
-                        set: { model.settings.speech.appLanguages[index].language = $0 }
+                        get: { rule.language },
+                        set: { language in
+                            guard let index = model.settings.speech.appLanguages.firstIndex(where: { $0.key == rule.key }) else { return }
+                            model.settings.speech.appLanguages[index].language = language
+                        }
                     )) {
                         Text("English").tag(SpeechLanguage.en)
                         Text("Vietnamese").tag(SpeechLanguage.vi)
                     }
                     .labelsHidden().fixedSize()
                     Button {
-                        model.settings.speech.appLanguages.remove(at: index)
+                        model.settings.speech.appLanguages.removeAll { $0.key == rule.key }
                     } label: {
                         Image(systemName: "xmark").bvFont(.footnote).foregroundStyle(.bvSecondary)
                     }
@@ -131,4 +133,9 @@ struct AppLanguagesCard: View {
         let trimmed = host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
         return trimmed.isEmpty ? nil : trimmed
     }
+}
+
+private extension AppLanguageRule {
+    /// Rows are keyed by kind and ID; `add` keeps that pair unique.
+    var key: String { "\(kind.rawValue):\(id)" }
 }

@@ -117,6 +117,20 @@ struct DictationPipelineTests {
         #expect(await insertion.inserted == ["run swift test"])
     }
 
+    @Test func uncleanedTextMatchesCleanupOffPaste() async {
+        let r = await pipeline(transcriber: FakeTranscriber(text: "run swift test."), focusAtInsert: terminalFocus)
+            .run(clip: speechClip, startFocus: terminalFocus, startedAt: Date(), onStage: { _ in })
+        #expect(r.uncleanedText == r.finalText)
+    }
+
+    @Test func uncleanedTextKeepsReplacementsWithoutCleanup() async {
+        let v = Vocabulary.parse("hello => Xin chào")
+        let r = await pipeline(model: FakeModel(output: "Greetings, world."), vocabulary: v)
+            .run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })
+        #expect(r.finalText == "Greetings, world.")
+        #expect(r.uncleanedText == "Xin chào world")
+    }
+
     @Test func terminalKeepsEllipsis() async {
         let r = await pipeline(transcriber: FakeTranscriber(text: "wait..."), focusAtInsert: terminalFocus)
             .run(clip: speechClip, startFocus: terminalFocus, startedAt: Date(), onStage: { _ in })

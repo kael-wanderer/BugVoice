@@ -368,11 +368,11 @@ final class DictationController {
 
     func pasteRaw() {
         guard !isBusy, !recorder.isRunning,
-              let previous = model.lastResult, !previous.finalText.isEmpty, !previous.raw.isEmpty else {
+              let previous = model.lastResult, !previous.finalText.isEmpty, !previous.uncleanedText.isEmpty else {
             showNothingToFix()
             return
         }
-        if previous.raw == previous.finalText {
+        if previous.uncleanedText == previous.finalText {
             let detail = previous.rawReason == .cleanupOff ? "cleanup is off for \(previous.style.title)" : nil
             hud.show(.message(title: "Already raw", detail: detail))
             return
@@ -382,7 +382,7 @@ final class DictationController {
             return
         }
         var replacement = previous
-        replacement.finalText = previous.raw
+        replacement.finalText = previous.uncleanedText
         replacement.cleaned = nil
         replacement.rawReason = nil
         performDirectReplacement(replacement, kind: .raw, decision: decision, title: "Replaced with raw text")
