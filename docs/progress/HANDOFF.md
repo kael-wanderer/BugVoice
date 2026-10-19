@@ -4,6 +4,16 @@ Last updated: 2026-10-19
 
 ## Current state
 
+**Action items:** implemented on `feat/action-items` (2026-10-19), not merged or
+pushed. New sidebar page after Meetings, Open / Done / All, owner and meeting-date
+filters, local item/title search, Copy open items, two-second Undo, shared meeting
+tab checkmarks, and read-only MCP `list_action_items`. Done keys live in
+`action-items.json` and are included in backups. Tests: **1,162 VoiceCore,
+30 MCPKit, 114 BugVoiceMac**. Signed app build passes. Device evidence and A1–A10
+limitations: `docs/progress/action-items-log.md`; only read-only checks authorized.
+The real library has 13 meetings with no generated action-items text; MCP is off.
+
+
 **Learn from corrections:** merged on `main` (2026-10-19), not pushed. Ordinary
 non-terminal pastes are watched locally for 60 s; word fixes become Dictionary
 suggestions with Add / Dismiss and Replace every time (off when both words are
