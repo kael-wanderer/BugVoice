@@ -108,6 +108,7 @@ extension AppModel {
                 guard let self else { return }
                 switch action {
                 case .pasteLast: dictation?.pasteLast()
+                case .pasteRaw, .redoOtherLanguage: break
                 case .toggleMeeting: meetings?.toggleRecording()
                 case .openApp: openMainWindow(.dictation)
                 case .newNote: Task { @MainActor in await openScratchpadWindow(newNote: true) }

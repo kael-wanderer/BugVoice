@@ -107,4 +107,28 @@ struct HistoryTests {
         #expect(object["appName"] == nil)
         #expect(object["text"] == nil)
     }
+
+    @Test func replaceRewritesOneLine() async throws {
+        let url = tempURL()
+        let log = HistoryLog(url: url)
+        let a = entry("first", at: Date(timeIntervalSince1970: 100))
+        let b = entry("second", at: Date(timeIntervalSince1970: 200))
+        try await log.append(a)
+        try await log.append(b)
+        var replacement = b
+        replacement.text = "new"
+        replacement.replacedBy = .raw
+        try await log.replace(replacement)
+        #expect(await log.load() == [replacement, a])
+        let lines = try String(contentsOf: url, encoding: .utf8).components(separatedBy: .newlines)
+        #expect(!lines[0].contains("replacedBy"))
+        #expect(lines[1].contains("\"replacedBy\":\"raw\""))
+    }
+
+    @Test func replaceMissingIsNoOp() async throws {
+        let log = HistoryLog(url: tempURL())
+        let missing = entry("missing", at: Date())
+        try await log.replace(missing)
+        #expect(await log.load().isEmpty)
+    }
 }

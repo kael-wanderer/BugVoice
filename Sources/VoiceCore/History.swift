@@ -30,10 +30,11 @@ public struct HistoryEntry: Codable, Equatable, Sendable, Identifiable {
     public var outcome: String
     public var rawReason: RawReason?
     public var timings: StageTimings
+    public var replacedBy: FixKind?
 
     /// On disk, `appName` is `app` and `text` is `inserted` (spec history.jsonl keys).
     enum CodingKeys: String, CodingKey {
-        case id, startedAt, bundleID, style, language, raw, cleaned, outcome, rawReason, timings
+        case id, startedAt, bundleID, style, language, raw, cleaned, outcome, rawReason, timings, replacedBy
         case appName = "app"
         case text = "inserted"
     }
@@ -55,6 +56,7 @@ public struct HistoryEntry: Codable, Equatable, Sendable, Identifiable {
         self.outcome = outcome
         self.rawReason = rawReason
         self.timings = timings
+        self.replacedBy = nil
     }
 
     public var wordCount: Int {
@@ -95,6 +97,13 @@ public actor HistoryLog {
         } else {
             try line.write(to: url, options: .atomic)
         }
+    }
+
+    public func replace(_ entry: HistoryEntry) throws {
+        var entries = load()
+        guard let index = entries.firstIndex(where: { $0.id == entry.id }) else { return }
+        entries[index] = entry
+        try rewrite(entries)
     }
 
     /// Newest first. Lines that do not decode are skipped, not fatal.

@@ -11,6 +11,18 @@ struct ShortcutSettingsTests {
         #expect(settings.letter(for: .newNote) == "N")
     }
 
+    @Test func newDefaults() throws {
+        let defaults = ShortcutSettings()
+        #expect(defaults.letter(for: .pasteRaw) == "R")
+        #expect(defaults.letter(for: .redoOtherLanguage) == "L")
+        let old = try JSONDecoder().decode(ShortcutSettings.self, from: Data(#"{"pasteLast":"V"}"#.utf8))
+        #expect(old.letter(for: .pasteRaw) == "R")
+        #expect(old.letter(for: .redoOtherLanguage) == "L")
+        var edited = defaults
+        let changed = edited.setLetter("V", for: .pasteRaw)
+        #expect(!changed)
+    }
+
     @Test func setLetter() {
         var settings = ShortcutSettings()
         let accepted = settings.setLetter("K", for: .pasteLast)
