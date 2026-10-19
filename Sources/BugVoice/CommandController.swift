@@ -215,6 +215,7 @@ final class CommandController {
                 log(outcome: "failed_\(failure)")
                 showFailure(failure)
             case .ready(var ready):
+                model.recordProjectMatch(ready.projectName, app: focus.appName)
                 guard let dictation = model.dictation else { phase = .idle; return }
                 let now = FocusInspector.read()
                 let sameElement = startPID == NSWorkspace.shared.frontmostApplication?.processIdentifier

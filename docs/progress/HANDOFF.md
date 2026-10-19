@@ -4,6 +4,15 @@ Last updated: 2026-10-19
 
 ## Current state
 
+**Project words:** merged on `main` and pushed (2026-10-19). Repo file names
+and code identifiers feed the Whisper prompt and the cleanup and command
+prompts in coding apps; names the repo declares rank first, and words the
+speaker said go first in the cleanup list. Dictionary › Projects manages
+folders, rescans and hidden words; Settings › Speech selects Coding apps / All
+apps / Off; `projects.json` is in backups. Tests: **1,100 VoiceCore, 30 MCPKit,
+109 BugVoiceMac**. Owner ran P1–P8: all pass. Details:
+`docs/progress/project-words-log.md`.
+
 **Command mode:** merged on `main` and pushed (2026-10-19). Hold Right Option
 to rewrite the selection or write new text; Settings › General chooses Right
 Option / Right Command / Off. Selection capture with clipboard restore,

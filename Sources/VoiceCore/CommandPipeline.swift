@@ -33,13 +33,15 @@ public struct CommandPipeline: Sendable {
     private let model: CleanupModel?
     private let settings: AppSettings
     private let vocabulary: Vocabulary
+    private let projects: [Project]
     private let timeout: Double
     public init(transcriber: any Transcriber, model: CleanupModel?, settings: AppSettings, vocabulary: Vocabulary,
-                timeout: Double = CommandPipeline.timeoutSeconds) {
+                timeout: Double = CommandPipeline.timeoutSeconds, projects: [Project] = []) {
         self.transcriber = transcriber
         self.model = model
         self.settings = settings
         self.vocabulary = vocabulary
+        self.projects = projects
         self.timeout = timeout
     }
     public func run(clip: AudioClip, selection: String?, startFocus: FocusSnapshot, startedAt: Date,
@@ -51,6 +53,9 @@ public struct CommandPipeline: Sendable {
         guard clip.duration >= 0.3, clip.rms >= 0.003 else { return .nothingHeard }
         let language = LanguageResolver(settings: settings.speech).language(for: startFocus, keyChoice: languageChoice)
         let style = StyleRouter(overrides: settings.styles.appOverrides).style(for: startFocus)
+        let projectMatch = ProjectMatcher.match(focus: startFocus, style: style, projects: projects,
+            scope: settings.speech.projectWordsScope, excluding: vocabulary.terms, limit: ProjectWordExtractor.maxWords)
+        let vocabulary = vocabulary.with(projectWords: projectMatch.words)
         var timings = StageTimings(recording: clip.duration)
         onStage(.transcribing)
         var mark = Date()
@@ -66,7 +71,9 @@ public struct CommandPipeline: Sendable {
         let instruction = HallucinationFilter.strip(DictationPipeline.stripPlaceholders(transcript.text))
         guard !instruction.isEmpty, !HallucinationFilter.isHallucination(instruction) else { return .nothingHeard }
         let request = CommandPrompt.request(instruction: instruction, selection: selection, style: style, focus: startFocus,
-            vocabulary: vocabulary, language: language, keepEnglishWords: settings.speech.keepEnglishWords,
+            vocabulary: vocabulary.with(projectWords: ProjectMatcher.prioritized(vocabulary.projectWords,
+                heard: instruction + " " + (selection ?? ""))),
+            language: language, keepEnglishWords: settings.speech.keepEnglishWords,
             modelID: model.modelID, disableThinking: model.disableThinking)
         onStage(.cleaning(model: model.modelID))
         mark = Date()
@@ -85,7 +92,7 @@ public struct CommandPipeline: Sendable {
             return .ready(DictationResult(command: instruction, startedAt: startedAt, appName: startFocus.appName,
                 bundleID: startFocus.bundleID, style: style, language: transcript.language, requestedLanguage: language,
                 raw: selection ?? "", cleaned: text, finalText: text, uncleanedText: selection ?? "",
-                outcome: .nothingHeard, rawReason: nil, errorMessage: nil, timings: timings))
+                outcome: .nothingHeard, rawReason: nil, errorMessage: nil, projectName: projectMatch.projectName, timings: timings))
         }
     }
 }

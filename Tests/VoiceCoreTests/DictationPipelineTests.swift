@@ -36,6 +36,40 @@ struct DictationPipelineTests {
         #expect(await model.requests.first?.system.contains(Vocabulary.mixedExample) == false)
     }
 
+    @Test func projectWordsReachPrompts() async {
+        var settings = AppSettings()
+        settings.styles.cleanupEnabled[Style.terminal.rawValue] = true
+        settings.speech.projectWordsScope = .codingApps
+        let focus = FocusSnapshot(appName: "Ghostty", bundleID: "com.mitchellh.ghostty", windowTitle: "BugVoice")
+        let project = Project(path: "/tmp/BugVoice", name: "BugVoice", words: [ProjectWord(word: "AppModel", rank: 10)])
+        let transcriber = OptionsTranscriber()
+        let model = RecordingModel()
+        let pipeline = DictationPipeline(transcriber: transcriber,
+            cleanup: CleanupModel(model: model, modelID: "test", shortName: "Test", disableThinking: false, timeoutSeconds: 3),
+            insertion: RecordingInsertion(), focus: FixedFocus(focus: focus), settings: settings, vocabulary: Vocabulary(), projects: [project])
+        let result = await pipeline.run(clip: speechClip, startFocus: focus, startedAt: Date(), onStage: { _ in })
+        #expect(await transcriber.options?.prompt.contains("AppModel") == true)
+        #expect(await model.requests.first?.system.contains("Code names from the current project.") == true)
+        #expect(result.projectName == "BugVoice")
+    }
+
+    @Test func heardWordBeyondLimitReachesCleanup() async {
+        var settings = AppSettings()
+        settings.styles.cleanupEnabled[Style.terminal.rawValue] = true
+        let focus = FocusSnapshot(appName: "Ghostty", bundleID: "com.mitchellh.ghostty", windowTitle: "BugVoice")
+        var words = (0..<300).map { ProjectWord(word: "filler\($0)Name", rank: 400 - $0) }
+        words.insert(ProjectWord(word: "replaceLast", rank: 1), at: 250)
+        let model = RecordingModel()
+        let pipeline = DictationPipeline(transcriber: TextTranscriber(text: "check replace last"),
+            cleanup: CleanupModel(model: model, modelID: "test", shortName: "Test", disableThinking: false, timeoutSeconds: 3),
+            insertion: RecordingInsertion(), focus: FixedFocus(focus: focus), settings: settings, vocabulary: Vocabulary(),
+            projects: [Project(path: "/tmp/BugVoice", name: "BugVoice", words: words)])
+        _ = await pipeline.run(clip: speechClip, startFocus: focus, startedAt: Date(), onStage: { _ in })
+        let system = await model.requests.first?.system ?? ""
+        #expect(system.contains("replaceLast"))
+        #expect(!system.contains("filler200Name"))
+    }
+
     @Test func vietnameseGetsExample() async {
         let transcriber = OptionsTranscriber()
         let model = RecordingModel()
@@ -500,6 +534,13 @@ struct DictationPipelineTests {
         #expect(r.historyEntry == nil)
         #expect(await insertion.inserted.isEmpty)
         #expect(await insertion.copied == ["here is linkedin.com/in/kael"])
+    }
+}
+
+private struct TextTranscriber: Transcriber {
+    let text: String
+    func transcribe(_ clip: AudioClip, options: TranscriptionOptions) async throws -> Transcript {
+        Transcript(text: text, language: "en")
     }
 }
 

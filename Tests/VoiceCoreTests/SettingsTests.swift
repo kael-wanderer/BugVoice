@@ -38,6 +38,14 @@ struct SettingsTests {
         #expect(settings.speech.showLanguageSwitch)
     }
 
+    @Test func projectWordsScopeDefaultsToCodingApps() throws {
+        #expect(SpeechSettings().projectWordsScope == .codingApps)
+        let missing = try JSONDecoder().decode(SpeechSettings.self, from: Data("{}".utf8))
+        #expect(missing.projectWordsScope == .codingApps)
+        let unknown = try JSONDecoder().decode(SpeechSettings.self, from: Data(#"{"projectWordsScope":"x"}"#.utf8))
+        #expect(unknown.projectWordsScope == .codingApps)
+    }
+
     @Test func emptyRuleListStaysEmpty() throws {
         let settings = try JSONDecoder().decode(AppSettings.self, from: Data(#"{"speech":{"appLanguages":[]}}"#.utf8))
         #expect(settings.speech.appLanguages.isEmpty)

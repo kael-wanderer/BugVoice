@@ -95,6 +95,7 @@ final class AppModel {
     @ObservationIgnored let insightsStore = InsightsStore(url: AppPaths.standard().insights)
     @ObservationIgnored let dictionaryStore = DictionaryStore(url: AppPaths.standard().dictionary)
     @ObservationIgnored let libraryStore = LibraryStore(url: AppPaths.standard().library)
+    @ObservationIgnored let projectStore = ProjectStore(url: AppPaths.standard().projects)
     @ObservationIgnored private var dictionaryRevision = 0
     @ObservationIgnored var meetingStore: MeetingStore { MeetingStore(root: paths.meetings) }
     @ObservationIgnored private(set) var whisper: WhisperKitTranscriber
@@ -129,6 +130,11 @@ final class AppModel {
     var dictionary = DictionaryFile()
     var dictionaryReadOnly = false
     var vocabulary = Vocabulary()
+    var projects = ProjectFile()
+    var projectScanState: [UUID: ProjectScanStatus] = [:]
+    var selectedProjectID: UUID?
+    var lastProjectMatch: (name: String, app: String, at: Date)?
+    @ObservationIgnored lazy var projectsController = ProjectsController(model: self, store: projectStore)
     var history: [HistoryEntry] = []
     /// Daily usage totals for the Insights page.
     var insights = InsightsFile()
@@ -355,6 +361,7 @@ final class AppModel {
         await loadDictionary()
         await loadInsights()
         await loadLibrary()
+        await projectsController.load()
         startDictation()
         registerGlobalShortcuts()
         meetings = MeetingController(model: self)
@@ -532,7 +539,8 @@ final class AppModel {
             insertion: insertion,
             focus: FocusInspector(),
             settings: settings,
-            vocabulary: vocabulary
+            vocabulary: vocabulary,
+            projects: projects.projects
         )
     }
 
@@ -555,8 +563,13 @@ final class AppModel {
             transcriber: transcriptionRouter,
             model: ProviderFactory.cleanupModel(commandPlan, credentials: credentials,
                 fallbackTimeout: CommandPipeline.timeoutSeconds),
-            settings: settings, vocabulary: vocabulary
+            settings: settings, vocabulary: vocabulary, projects: projects.projects
         )
+    }
+
+    func recordProjectMatch(_ name: String?, app: String?) {
+        guard let name else { return }
+        lastProjectMatch = (name: name, app: app ?? "Unknown", at: Date())
     }
 
     // MARK: History

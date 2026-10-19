@@ -65,6 +65,13 @@ struct VocabularyTests {
         #expect(v.whisperPrompt(maxCharacters: 14) == "gamma, beta")
     }
 
+    @Test func whisperPromptAddsProjectWordsAfterTerms() {
+        var v = Vocabulary(terms: ["Kael"])
+        v.projectWords = ["AppModel", "HistoryEntry"]
+        #expect(v.whisperPrompt() == "Kael, AppModel, HistoryEntry")
+        #expect(v.whisperPrompt(maxCharacters: 20) == "Kael, AppModel")
+    }
+
     @Test func exampleComesFirst() {
         let v = Vocabulary(terms: ["Orca"])
         #expect(v.whisperPrompt(example: "E") == "E, Orca")

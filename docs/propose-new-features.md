@@ -14,7 +14,7 @@ All of them keep BugVoice local-first and reuse code that already exists.
 | 4 | Language per app — merged 2026-10-19; see `docs/progress/language-log.md` | Hint Vietnamese in chat apps and English in Terminal or VS Code. | `StyleRouter` app groups |
 | 5 | Action items across meetings | One checkable list built from every meeting's action items, each linking back to its meeting. | Meeting summaries and action items |
 | 6 | Shortcuts support (App Intents) | "Start meeting recording", "Transcribe file", "New note from text". Native, offline, no new dependency. | Meetings, Upload, Notes |
-| 7 | Project words for coding agents | Pick repo folders; their file and symbol names become dictionary words, so names like `AppModel` come out right in the terminal. | Dictionary |
+| 7 | Project words for coding agents — merged 2026-10-19; see `docs/progress/project-words-log.md` | Pick repo folders; their file and symbol names become dictionary words, so names like `AppModel` come out right in the terminal. | Dictionary |
 | 8 | Paste raw instead — merged 2026-10-19; see `docs/progress/language-log.md` | One key replaces the last cleaned paste with the raw transcript, for when cleanup changed the meaning. | Paste last (⌃⌥V), history raw text |
 
 ## Speed note

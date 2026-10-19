@@ -25,6 +25,13 @@ struct CommandPromptTests {
         for l in [SpeechLanguage.vi, .auto] { #expect(request(language: l).system.contains(PromptBuilder.keepEnglishRule)) }
         #expect(!request(language: .en).system.contains(PromptBuilder.keepEnglishRule))
     }
+    @Test func includesProjectWords() {
+        var vocabulary = Vocabulary()
+        vocabulary.projectWords = ["AppModel", "HistoryEntry"]
+        let r = CommandPrompt.request(instruction: "rewrite", selection: nil, style: .work, focus: .unknown,
+            vocabulary: vocabulary, language: .en, keepEnglishWords: false, modelID: "m", disableThinking: false)
+        #expect(r.system.contains("Code names from the current project. When the speaker says one as plain words, write the name exactly (for example \"app model\" is AppModel): AppModel, HistoryEntry"))
+    }
     @Test func maxTokensScales() {
         #expect(request(String(repeating: "a", count: 10)).maxTokens == 1034)
         #expect(request(nil).maxTokens == 1024)

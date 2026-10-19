@@ -9,6 +9,7 @@ public struct FocusSnapshot: Sendable, Equatable {
     /// Heuristic: the focused element describes itself as a terminal
     /// (VS Code / Cursor integrated terminal).
     public var isTerminalPanel: Bool
+    public var windowTitle: String?
     /// Browser page URL when one could be read.
     public var url: String?
     public var beforeText: String?
@@ -21,6 +22,7 @@ public struct FocusSnapshot: Sendable, Equatable {
         role: String? = nil,
         isSecure: Bool = false,
         isTerminalPanel: Bool = false,
+        windowTitle: String? = nil,
         url: String? = nil,
         beforeText: String? = nil,
         selectedText: String? = nil,
@@ -31,6 +33,7 @@ public struct FocusSnapshot: Sendable, Equatable {
         self.role = role
         self.isSecure = isSecure
         self.isTerminalPanel = isTerminalPanel
+        self.windowTitle = windowTitle
         self.url = url
         self.beforeText = beforeText
         self.selectedText = selectedText

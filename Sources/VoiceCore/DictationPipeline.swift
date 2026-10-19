@@ -51,6 +51,7 @@ public struct DictationResult: Sendable, Equatable {
     public var outcome: DictationOutcome
     public var rawReason: RawReason?
     public var errorMessage: String?
+    public var projectName: String? = nil
     public var timings: StageTimings
 
     /// What the app may keep in memory for the menu preview and *Paste last*.
@@ -90,6 +91,7 @@ public struct DictationPipeline: Sendable {
     public var focus: any FocusProvider
     public var settings: AppSettings
     public var vocabulary: Vocabulary
+    public var projects: [Project]
     public var minimumDuration: TimeInterval = 0.3
     /// Below this RMS the clip is treated as silence and never transcribed.
     public var silenceRMS: Float = 0.003
@@ -100,7 +102,8 @@ public struct DictationPipeline: Sendable {
         insertion: any InsertionTarget,
         focus: any FocusProvider,
         settings: AppSettings,
-        vocabulary: Vocabulary
+        vocabulary: Vocabulary,
+        projects: [Project] = []
     ) {
         self.transcriber = transcriber
         self.cleanup = cleanup
@@ -108,6 +111,7 @@ public struct DictationPipeline: Sendable {
         self.focus = focus
         self.settings = settings
         self.vocabulary = vocabulary
+        self.projects = projects
     }
 
     /// Removes Whisper annotations such as `[BLANK_AUDIO]` or `[Music]`.
@@ -129,6 +133,9 @@ public struct DictationPipeline: Sendable {
         let style = mode == .notes
             ? Style.document
             : StyleRouter(overrides: settings.styles.appOverrides).style(for: startFocus)
+        let projectMatch = ProjectMatcher.match(focus: startFocus, style: style, projects: projects,
+            scope: settings.speech.projectWordsScope, excluding: vocabulary.terms, limit: ProjectWordExtractor.maxWords)
+        let vocabulary = vocabulary.with(projectWords: projectMatch.words)
         let requestedLanguage = LanguageResolver(settings: settings.speech).language(for: startFocus, keyChoice: languageChoice)
         var result = DictationResult(
             startedAt: startedAt, appName: startFocus.appName, bundleID: startFocus.bundleID,
@@ -136,6 +143,7 @@ public struct DictationPipeline: Sendable {
             outcome: .nothingHeard, rawReason: nil, errorMessage: nil,
             timings: StageTimings(recording: clip.duration)
         )
+        result.projectName = projectMatch.projectName
 
         guard clip.duration >= minimumDuration else {
             result.outcome = .discardedTooShort
@@ -188,7 +196,8 @@ public struct DictationPipeline: Sendable {
             onStage(.cleaning(model: cleanup.modelID))
             mark = Date()
             var built = PromptBuilder(customRules: settings.styles.customRules).request(
-                raw: protected.text, style: style, focus: startFocus, vocabulary: vocabulary,
+                raw: protected.text, style: style, focus: startFocus,
+                vocabulary: vocabulary.with(projectWords: ProjectMatcher.prioritized(vocabulary.projectWords, heard: raw)),
                 modelID: cleanup.modelID, disableThinking: cleanup.disableThinking,
                 language: requestedLanguage, keepEnglishWords: settings.speech.keepEnglishWords
             )
