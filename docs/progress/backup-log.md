@@ -120,3 +120,35 @@
   (`/tmp/bugvoice-task5-equality-green.log`). Full `swift test` passed:
   966 VoiceCore / 108 suites, 30 MCPKit / 2, 94 BugVoiceMac / 16 (1,090 total;
   `/tmp/bugvoice-task5-equality-full.log`). `git diff --check` passed.
+
+## Task 6 — Stage a restore and apply it at launch (2026-10-19)
+
+- Added Foundation-only `RestoreApplier`, `FileMoving`, and `SystemFileMoving`.
+  Staging refuses active meetings and insufficient space, validates extracted
+  bytes, and writes the empty `ready` marker last. Launch application replaces
+  only the library allowlist, keeps the previous library as a safety copy,
+  preserves credentials/models, removes SearchIndex, and retains one safety copy.
+- TDD: nine planned tests first failed on missing APIs (`/tmp/task6-red.log`).
+  Focused green now passes 11 tests / 1 suite (`/tmp/task6-green.log`). Tests
+  use real archive tools with synthetic temporary parent/BugVoice directories;
+  no owner library was accessed.
+- Deviations: reverse-move failure keeps both recovery directories and writes
+  `rollback-failed`; subsequent launch and staging attempts refuse with a
+  recovery message instead of deleting the remaining data. Added regression
+  first: launch initially deleted pending (`/tmp/task6-regression-red.log`),
+  then staging initially deleted it (`/tmp/task6-stage-recovery-red.log`).
+  Normal successful rollback still removes empty safety/pending directories.
+- Deviations: same-minute restores choose an unused numeric suffix instead of
+  colliding with the existing safety folder; regression verifies the second
+  original library survives. Safety retention compares names to handle macOS
+  `/var` versus `/private/var` URL representations of the same directory.
+- Review correction: consume `ready` inside the move transaction before any
+  fallible cleanup. A real SearchIndex permission failure initially left it
+  replayable; the second launch emptied the restored library (RED:
+  `/tmp/task6-cleanup-red.log`). The twelfth test pins successful restored
+  content across a cleanup failure and another launch. Focused final green:
+  12 tests / 1 suite (`/tmp/task6-green.log`).
+- Final full `swift test`: 978 VoiceCore / 109 suites, 30 MCPKit / 2 suites,
+  94 BugVoiceMac / 16 suites, all pass (1,102 total;
+  `/tmp/task6-full.log`). `git diff --check` passed. No app launch or device
+  checks were performed; no dependency was added.
