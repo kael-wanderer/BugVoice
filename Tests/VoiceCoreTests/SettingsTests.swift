@@ -163,4 +163,17 @@ struct SettingsTests {
         let bad = try JSONDecoder().decode(AppSettings.self, from: Data(#"{"agents":{"mcpEnabled":"yes","allowUploads":false}}"#.utf8))
         #expect(bad.agents == AgentSettings(mcpEnabled: false, allowNoteEdits: true, allowUploads: false))
     }
+
+    @Test func backupSettingsDefaultsAndTolerantDecode() throws {
+        #expect(AppSettings().backup == BackupSettings(frequency: .off, folderBookmark: nil, keep: 5))
+        let s = try JSONDecoder().decode(AppSettings.self, from: Data(#"{"backup":{"frequency":"weekly"}}"#.utf8))
+        #expect(s.backup == BackupSettings(frequency: .weekly, folderBookmark: nil, keep: 5))
+        let bad = try JSONDecoder().decode(AppSettings.self, from: Data(#"{"backup":{"frequency":"hourly","keep":3}}"#.utf8))
+        #expect(bad.backup == BackupSettings(frequency: .off, folderBookmark: nil, keep: 3))
+
+        var settings = AppSettings()
+        settings.backup = BackupSettings(frequency: .daily, folderBookmark: Data([1, 2]), keep: 3)
+        let encoded = try JSONEncoder().encode(settings)
+        #expect(try JSONDecoder().decode(AppSettings.self, from: encoded) == settings)
+    }
 }
