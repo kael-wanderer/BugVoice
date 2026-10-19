@@ -40,8 +40,8 @@ the field back a moment later.
 
 ## Anti-goals
 
-- Adding a real word as a "heard as" replacement by itself, so that every
-  future "cell" becomes "sell".
+- Adding a real word as a "heard as" replacement for another real word by
+  default, so that every future "cell" becomes "sell".
 - Keeping the owner's text. Only the changed words are stored.
 - Reading a secure field, or slowing typing down.
 
@@ -81,10 +81,13 @@ the field back a moment later.
 - **Add** puts the written side into Dictionary › Words (or finds the
   existing word) and, when **Replace every time** is on, adds the heard side
   as one of its "heard as" entries.
-- **Replace every time** is on by default, except when the heard side is a
-  real word in English or Vietnamese (`NSSpellChecker` finds no misspelling
-  for it in either language); then it is off and the row says "“cell” is a
-  real word — added as a spelling hint only". The owner can turn it on.
+- **Replace every time** is on by default, except when **both** sides are
+  real words in English or Vietnamese (`NSSpellChecker` finds no misspelling
+  in either language), as in "cell" to "sell" or "ban" to "bạn": replacing
+  those everywhere would break other sentences. Then it is off and the row
+  says "“cell” and “sell” are both real words — added as a spelling hint
+  only". The owner can turn it on. "Kale" to "Kael" stays on: "Kael" is not
+  a dictionary word.
 - **Dismiss** removes the suggestion and remembers the pair.
 - **Add all** adds every pending suggestion with its current switch.
 
@@ -166,6 +169,6 @@ My calls; say if any is wrong:
 1. Suggestions only, never added by themselves.
 2. No popup; a count in the popover, sidebar and Dictionary.
 3. Terminals are not watched.
-4. Real words are added as spelling hints unless the owner turns on
-   Replace every time.
+4. When both sides are real words, the fix is added as a spelling hint
+   unless the owner turns on Replace every time.
 5. One minute of watching, ending early when the field is left or cleared.
