@@ -18,6 +18,11 @@
 
 ## Deviations
 
+- Task 8 adds the observed `BackupController.relaunchError` interface so a quit
+  veto can unlock the restore sheet and show its dedicated handoff failure. This
+  minimal app-layer coordination is required because staging can succeed before
+  quitting is subsequently cancelled. No VoiceCore contract changes.
+
 - `AppSettings` already uses synthesized `CodingKeys`; adding its stored
   `backup` property supplies the coding key automatically, rather than adding
   an explicit coding-key enum. The public API and encoded key remain as planned.
@@ -190,3 +195,41 @@
   full `swift test` passed: 978 VoiceCore / 109 suites, 30 MCPKit / 2 suites,
   94 BugVoiceMac / 16 suites (1,102 total; `/tmp/task7-full.log`).
   `git diff --check` passed. No dependencies were added.
+
+## Task 8 — Backup card and restore sheet (2026-10-19)
+
+- Added the Backup card above Diagnostics in Settings › Storage, using existing
+  settings cards, rows, fonts and wrapping action layouts. Save/open panels use
+  the backup extension, generated filename and last-used folder; automatic
+  backup folder selection creates the proposed Documents folder first and
+  commits its bookmark before enabling the schedule. Cancelling first selection
+  returns the frequency to Off; cancelling Change preserves the existing folder.
+- Added backup progress/cancellation, success/error result, automatic schedule
+  dates and sizes, missing-folder message, and safety-copy reveal/delete controls.
+  Restore asynchronously inspects the manifest, displays its counts and the two
+  replacement/credentials callouts, and disables dismissal/actions while preparing.
+  Errors preserve known facts and offer OK; damaged/failed staging uses the
+  "Restore did not finish" title.
+- Quality-review correction / interface deviation: the controller now exposes a
+  dedicated observed relaunchError. A quit veto reports through that signal so a
+  restore sheet can leave Preparing and show the failure with OK, rather than
+  remaining disabled after an unsuccessful handoff. Unrelated save errors cannot
+  trigger this transition. Primary backup/restore actions use prominent buttons.
+- `swift build` passed on final sources (`/tmp/bugvoice-task8-build.log`).
+- Step 3 light/dark window checks: **not run**. Parent CUA app access was explicitly
+  denied; no Task 8 GUI launch, click, screenshot or owner-library access occurred.
+  Build/unit-test results do not establish panel, layout or relaunch device passes.
+- Final `swift test` passed: 978 VoiceCore / 109 suites, 30 MCPKit / 2 suites,
+  94 BugVoiceMac / 16 suites (1,102 total; `/tmp/bugvoice-task8-test.log`).
+  `Scripts/build-app.sh` exited 0 and reported `Signed with: Bugler Local Dev`
+  (`/tmp/bugvoice-task8-app.log`). `git diff --check` passed. No dependencies added.
+- Spec and quality reviews approved the final sources, including the dedicated
+  quit-veto signal and prominent primary actions.
+- Parent process smoke passed with a protective library copy: stopped the old
+  instances, copied the library to `/private/tmp/bv-before`, ran
+  `Scripts/run-dev-app.sh` (exit 0), and confirmed the dev process remained running
+  after five seconds. Stopped the dev app and restored the original library;
+  all 286 inventory entries matched original hashes, modes and symlink targets.
+  Evidence: `/private/tmp/bv-device-process-smoke.json` and matching `.log`;
+  test-run copy retained at `/private/tmp/bv-device-run-after`. No GUI layout,
+  light/dark or backup/restore device behavior is inferred from this process check.

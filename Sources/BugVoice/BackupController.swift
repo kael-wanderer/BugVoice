@@ -17,6 +17,7 @@ final class BackupController {
     var activity: Activity = .idle
     var lastBackup: (date: Date, bytes: Int64)?
     var nextBackup: Date?
+    var relaunchError: BackupError?
     var folderMissing = false
     var safetyCopy: (url: URL, date: Date, bytes: Int64)?
     @ObservationIgnored private unowned let model: AppModel
@@ -128,6 +129,7 @@ final class BackupController {
     func restoreAndRelaunch(_ archive: URL) async -> BackupError? {
         guard !writing, !restoring else { return .failed("A backup or restore is already running.") }
         guard model.meetings?.isActive != true, model.uploads?.isBusy != true else { return .meetingActive }
+        relaunchError = nil
         restoring = true
         defer { restoring = false }
         do {
@@ -188,9 +190,13 @@ final class BackupController {
                 try FileManager.default.removeItem(at: ready)
             }
             try? FileManager.default.removeItem(at: pending)
-            model.saveError = "Restore was cancelled because BugVoice could not quit. Try restoring again."
+            let message = "Restore was cancelled because BugVoice could not quit. Try restoring again."
+            relaunchError = .failed(message)
+            model.saveError = message
         } catch {
-            model.saveError = "Could not cancel the pending restore: \(error.localizedDescription)"
+            let message = "Could not cancel the pending restore: \(error.localizedDescription)"
+            relaunchError = .failed(message)
+            model.saveError = message
         }
     }
 
