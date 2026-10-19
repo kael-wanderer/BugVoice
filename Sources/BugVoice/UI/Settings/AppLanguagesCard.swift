@@ -56,6 +56,7 @@ struct AppLanguagesCard: View {
                 } label: {
                     Text("Add app…")
                 }
+                .fixedSize()
                 Button("Add website…") { showingWebsite = true }
             }
             Text("Apps not listed use Auto. The language switch overrides this list.")
@@ -115,9 +116,18 @@ struct AppLanguagesCard: View {
                let name = running.localizedName { return name }
             if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: rule.id),
                let name = Bundle(url: url)?.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String { return name }
-            return rule.id
+            return Self.knownNames[rule.id] ?? rule.id
         }
     }
+
+    /// Names for default entries whose app is not installed.
+    private static let knownNames = [
+        "com.googlecode.iterm2": "iTerm2",
+        "dev.warp.Warp-Stable": "Warp",
+        "com.stablyai.orca": "Orca",
+        "com.mitchellh.ghostty": "Ghostty",
+        "com.anthropic.claudefordesktop": "Claude",
+    ]
 
     private func icon(for rule: AppLanguageRule) -> NSImage? {
         guard rule.kind != .website,
