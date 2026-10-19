@@ -9,8 +9,12 @@ struct ShortcutsSettingsView: View {
         VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) {
             VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) {
                 AppearanceCard(title: "Dictation") {
-                    Picker("Hold to talk", selection: $model.settings.hotkey) {
-                        ForEach(HotkeyKey.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                    HStack {
+                        Text("Hold to talk")
+                        Spacer()
+                        Picker("Hold to talk", selection: $model.settings.hotkey) {
+                            ForEach(HotkeyKey.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                        }.labelsHidden().fixedSize()
                     }
                     fixed("Hands-free", "Double-tap \(model.settings.hotkey.spokenName)")
                     shortcut(.pasteLast)

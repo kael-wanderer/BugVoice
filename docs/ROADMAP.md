@@ -59,6 +59,7 @@ Agreed with the owner 2026-10-19. Not built now; decisions so far are kept here.
 | Idea | Decisions so far |
 |---|---|
 | Integrations page (was item 7, Calendar + export) | The Connect group and Integrations page are hidden from the sidebar. When resumed, the page holds: **Calendars** with three rows as in OpenWhispr — Apple Calendar (EventKit, built first), Google Calendar and Microsoft Calendar (shown greyed out until the owner registers OAuth clients and confirms the company allows the sign-in). Calendar is read-only: event title becomes the meeting title, agenda from the event notes, attendees as speaker-name suggestions, join link the owner clicks. BugVoice never joins a meeting (bots stay dropped). **MCP server** moves here from Settings › Agents. **Export** to Apple Notes and Notion stays in scope; existing Markdown, SubRip and audio exports stay where they are. |
+| Help page | In-app guides (getting started, shortcuts, styles, meetings, coding agents), readable offline. Hidden from the sidebar 2026-10-19; the page code stays. |
 | Home page | A start page like OpenWhispr's Home ("Welcome back", today's items, Connect calendar card). Frozen: nothing useful to show until Calendars exists. |
 
 ## Dropped
