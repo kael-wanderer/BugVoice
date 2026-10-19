@@ -108,3 +108,25 @@ public enum CorrectionFilter {
         }
     }
 }
+
+public struct CorrectionWatch: Sendable {
+    private let pasted: String
+    private let before: String
+    private let after: String
+    public private(set) var lastRegion: String?
+    public init(pasted: String, before: String, after: String) {
+        self.pasted = pasted
+        self.before = String(before.suffix(CorrectionRegion.anchorLength))
+        self.after = String(after.prefix(CorrectionRegion.anchorLength))
+    }
+    public mutating func observe(value: String?) -> Bool {
+        guard let value, !value.isEmpty,
+              let region = CorrectionRegion.find(value: value, before: before, after: after) else { return false }
+        lastRegion = region
+        return true
+    }
+    public func result() -> [CorrectionCandidate] {
+        guard let lastRegion else { return [] }
+        return CorrectionFilter.keep(CorrectionDiff.candidates(pasted: pasted, edited: lastRegion), pasted: pasted)
+    }
+}

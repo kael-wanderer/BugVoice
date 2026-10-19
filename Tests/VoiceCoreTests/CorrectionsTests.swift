@@ -22,3 +22,26 @@ struct CorrectionsTests {
     @Test func fourWordRunSkipped() { #expect(CorrectionDiff.candidates(pasted: "cat dog bat hat end", edited: "cats dogs bats hats end").isEmpty) }
     @Test func foldHandlesD() { #expect(CorrectionFilter.fold("Đường") == "duong") }
 }
+
+struct CorrectionWatchTests {
+    @Test func watchUsesLatestRegion() {
+        var w = CorrectionWatch(pasted: "Thanks Kale for the build", before: "Hi ", after: " Bye")
+        let observed1 = w.observe(value: "Hi Thanks Kale for the build Bye"); #expect(observed1)
+        let observed2 = w.observe(value: "Hi Thanks Kael for the build Bye"); #expect(observed2)
+        #expect(w.result() == [CorrectionCandidate(heard: "Kale", written: "Kael")])
+    }
+    @Test func clearedFieldUsesLastSeenRegion() {
+        var w = CorrectionWatch(pasted: "Thanks Kale for the build", before: "Hi ", after: " Bye")
+        let observed3 = w.observe(value: "Hi Thanks Kael for the build Bye"); #expect(observed3)
+        let observed4 = w.observe(value: ""); #expect(!observed4)
+        #expect(w.result() == [CorrectionCandidate(heard: "Kale", written: "Kael")])
+    }
+    @Test func unchangedGivesNothing() {
+        var w = CorrectionWatch(pasted: "Thanks Kale for the build", before: "", after: "")
+        let observed5 = w.observe(value: "Thanks Kale for the build"); #expect(observed5); #expect(w.result().isEmpty)
+    }
+    @Test func nilValueEnds() {
+        var w = CorrectionWatch(pasted: "Thanks Kale", before: "", after: "")
+        let observed6 = w.observe(value: nil); #expect(!observed6); #expect(w.result().isEmpty)
+    }
+}

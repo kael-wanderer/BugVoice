@@ -130,6 +130,10 @@ final class AppModel {
     var dictionary = DictionaryFile()
     var dictionaryReadOnly = false
     var vocabulary = Vocabulary()
+    var suggestions = SuggestionFile()
+    @ObservationIgnored let suggestionStore = SuggestionStore(url: AppPaths.standard().suggestions)
+    @ObservationIgnored private var suggestionRevision = 0
+    @ObservationIgnored lazy var correctionWatcher = CorrectionWatcher(model: self)
     var projects = ProjectFile()
     var projectScanState: [UUID: ProjectScanStatus] = [:]
     var selectedProjectID: UUID?
@@ -361,6 +365,7 @@ final class AppModel {
         await loadDictionary()
         await loadInsights()
         await loadLibrary()
+        suggestions = await suggestionStore.load()
         await projectsController.load()
         startDictation()
         registerGlobalShortcuts()
@@ -428,6 +433,7 @@ final class AppModel {
     // MARK: Settings
 
     private func settingsDidChange(from old: AppSettings) {
+        if !settings.speech.learnFromCorrections { correctionWatcher.stop() }
         appearance.apply(settings.appearance)
         if settings.appearance.appIcon != old.appearance.appIcon { applyAppIcon() }
         if settings.shortcuts != old.shortcuts { registerGlobalShortcuts() }
@@ -683,6 +689,55 @@ final class AppModel {
             try await dictionaryStore.save(next, revision: dictionaryRevision)
         } catch {
             saveError = "Could not save the Dictionary: \(error.localizedDescription)"
+        }
+    }
+
+    func recordCorrections(_ candidates: [CorrectionCandidate], app: String?) {
+        guard !candidates.isEmpty else { return }
+        for candidate in candidates {
+            suggestions.record(candidate, app: app, at: Date(), dictionary: dictionary,
+                               isRealWord: { RealWords.isRealWord($0) })
+        }
+        persistSuggestions()
+    }
+
+    func acceptSuggestion(_ suggestion: Suggestion) async {
+        guard !dictionaryReadOnly, let current = suggestions.pending.first(where: { $0.id == suggestion.id }) else { return }
+        var next = dictionary
+        next.accept(current)
+        dictionary = next
+        vocabulary = Vocabulary(dictionary: next)
+        dictionaryRevision += 1
+        do {
+            try await dictionaryStore.save(next, revision: dictionaryRevision)
+        } catch {
+            saveError = "Could not save the Dictionary: \(error.localizedDescription)"
+            return
+        }
+        suggestions.remove(id: current.id)
+        persistSuggestions()
+    }
+
+    func dismissSuggestion(_ suggestion: Suggestion) {
+        suggestions.dismiss(id: suggestion.id)
+        persistSuggestions()
+    }
+
+    func setSuggestionReplace(_ suggestion: Suggestion, _ on: Bool) {
+        suggestions.setReplace(id: suggestion.id, on)
+        persistSuggestions()
+    }
+
+    func acceptAllSuggestions() async {
+        for suggestion in suggestions.pending { await acceptSuggestion(suggestion) }
+    }
+
+    private func persistSuggestions() {
+        suggestionRevision += 1
+        let revision = suggestionRevision, file = suggestions
+        Task {
+            do { try await suggestionStore.save(file, revision: revision) }
+            catch { saveError = "Could not save Dictionary suggestions: \(error.localizedDescription)" }
         }
     }
 
