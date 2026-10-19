@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BugVoice Corrections</title>
+<meta name="description" content="Learn from corrections: words fixed after a paste become Dictionary suggestions.">
+<style>
+:root{
+  --bg:#f7f0d2;--panel:#fbf5df;--hover:#efe6c6;--line:#d9cfa8;--text:#2b2a26;--muted:#77705d;--accent:#9a7a2a;--soft:#e9dcae;--on:#fff;--rec:#d8443f;--ok:#3f9a5e;
+  --desk:linear-gradient(160deg,#c9b98a,#8f7f56);
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#2b2f37;--panel:#323741;--hover:#3a404b;--line:#454b57;--text:#eceff4;--muted:#a3abb8;--accent:#88c0d0;--soft:#3d4a5a;--on:#0b0d12;--rec:#e06c66;--ok:#8fc79f;
+  --desk:linear-gradient(160deg,#5a6b8c,#2b3346)}}
+:root[data-theme="dark"]{
+  --bg:#2b2f37;--panel:#323741;--hover:#3a404b;--line:#454b57;--text:#eceff4;--muted:#a3abb8;--accent:#88c0d0;--soft:#3d4a5a;--on:#0b0d12;--rec:#e06c66;--ok:#8fc79f;
+  --desk:linear-gradient(160deg,#5a6b8c,#2b3346)}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font:13px/1.45 -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+.review{max-width:1300px;margin:0 auto;padding:20px 16px 48px}
+header.top{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:flex-end;margin-bottom:12px}
+header.top h1{font-size:22px;margin:0}
+header.top p{margin:4px 0 0;color:var(--muted);max-width:860px}
+.toggle{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:6px 14px}
+h2.sec{font-size:15px;margin:28px 0 6px}
+p.why{margin:0 0 12px;color:var(--muted);max-width:900px}
+.stage{background:var(--desk);border-radius:12px;padding:16px}
+.pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,400px),1fr));gap:16px;align-items:start}
+.label{color:#fff;font-weight:600;margin:0 0 8px;text-shadow:0 1px 2px #0006}
+.notes{color:#fff;font-size:12px;margin:8px 0 0;text-shadow:0 1px 2px #0008}
+.win{background:var(--bg);border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 50px #0006;overflow:hidden}
+.wbar{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.wbar b{font-size:15px}
+.cols{display:flex}
+.side{width:150px;flex:none;border-right:1px solid var(--line);padding:8px}
+.side div{padding:4px 8px;border-radius:6px;color:var(--muted)}
+.side div.on{background:var(--soft);color:var(--text);font-weight:600}
+.body{flex:1;min-width:0;padding:12px;display:flex;flex-direction:column;gap:10px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.card h3{margin:0;font-size:13px}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.row .grow{flex:1;min-width:120px}
+hr{border:0;border-top:1px solid var(--line);margin:0}
+.btn{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:3px 9px;white-space:nowrap}
+.btn.prim{background:var(--accent);color:var(--on);border-color:var(--accent);font-weight:600}
+.btn.danger{color:var(--rec)}
+.pop{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:3px 8px}
+.foot{color:var(--muted);font-size:12px}
+.ok{color:var(--ok)}
+.err{color:var(--rec)}
+.bar{height:6px;border-radius:3px;background:var(--hover);overflow:hidden}
+.bar i{display:block;height:100%;width:34%;background:var(--accent)}
+.path{font:12px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sheet{background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 50px #0006;overflow:hidden;max-width:460px}
+.shead{padding:14px 16px 6px}
+.shead b{font-size:15px}
+.sbody{padding:0 16px 12px;display:flex;flex-direction:column;gap:10px}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:3px 14px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.facts span{color:var(--muted)}
+.callout{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12px}
+.callout.warn{border-color:var(--rec)}
+.sfoot{display:flex;justify-content:flex-end;gap:8px;padding:10px 16px;border-top:1px solid var(--line)}
+code{font-size:12px;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:0 4px}
+</style>
+<style>
+.pills{display:inline-flex;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:3px}
+.pills span{padding:3px 12px;border-radius:999px;color:var(--muted)}
+.pills span.on{background:var(--accent);color:var(--on);font-weight:600}
+.sw{width:30px;height:18px;border-radius:9px;background:var(--accent);position:relative;flex:none;display:inline-block}
+.sw::after{content:"";position:absolute;right:2px;top:2px;width:14px;height:14px;border-radius:50%;background:#fff}
+.sw.off{background:var(--hover)}.sw.off::after{right:auto;left:2px}
+.app{background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 18px 50px #0006;overflow:hidden}
+.app .tb{padding:8px 12px;border-bottom:1px solid var(--line);color:var(--muted);font-size:12px}
+.doc{padding:14px 16px;line-height:1.6}
+.new{background:color-mix(in srgb,var(--ok) 25%,transparent);border-radius:2px}
+.fix{background:color-mix(in srgb,var(--accent) 35%,transparent);border-radius:2px;font-weight:600}
+.cursor{display:inline-block;width:1px;height:1em;background:var(--text);vertical-align:-2px}
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:14px}
+.step .n{color:#fff;font-weight:700;margin:0 0 6px;text-shadow:0 1px 2px #0008}
+.popover{background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 50px #0006;max-width:300px;overflow:hidden}
+.prow{display:flex;align-items:center;gap:8px;padding:6px 12px}
+.prow .k{margin-left:auto;color:var(--muted);font-size:12px}
+.psec{padding:6px 12px 2px;color:var(--muted);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.count{display:inline-grid;place-items:center;min-width:18px;height:18px;border-radius:9px;background:var(--accent);color:var(--on);font-size:11px;font-weight:700;padding:0 5px}
+.side div{display:flex;align-items:center;justify-content:space-between}
+.srow{display:grid;grid-template-columns:1fr auto;gap:4px 12px;padding:8px 0;border-bottom:1px solid var(--line)}
+.srow:last-child{border-bottom:0}
+.srow .w{font-weight:600}
+.srow .meta{color:var(--muted);font-size:12px}
+.srow .acts{display:flex;gap:6px;align-items:center;grid-row:span 2;flex-wrap:wrap;justify-content:flex-end}
+.wordrow{display:flex;gap:8px;align-items:center;padding:4px 0;border-bottom:1px solid var(--line)}
+table.m{border-collapse:collapse;width:100%;font-size:12px}
+table.m td,table.m th{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+table.m th{color:var(--muted);font-weight:600}
+.tw{overflow-x:auto}
+</style>
+</head>
+<body>
+<div class="review">
+<header class="top">
+  <div>
+    <h1>Learn from corrections</h1>
+    <p>Spec: <code>docs/superpowers/specs/2026-10-19-learn-from-corrections-design.md</code>. After a paste, BugVoice reads the field back for a minute. When you fix a word it got wrong, it suggests adding that word to the Dictionary. Nothing is added until you click Add.</p>
+  </div>
+  <button class="toggle" id="t">Light / dark</button>
+</header>
+
+<h2 class="sec">1. A fix in Slack becomes a suggestion</h2>
+<p class="why">No popup while writing. The only signal is a count in the menu bar popover, on the sidebar and in Dictionary.</p>
+<div class="stage"><div class="steps">
+  <div class="step">
+    <p class="n">1 · Dictation pasted</p>
+    <div class="app"><div class="tb">Slack — #mobile</div>
+      <div class="doc"><span class="new">Thanks Kale, I'll review the build after lunch.</span><span class="cursor"></span></div></div>
+    <p class="notes">Said "Thanks Kael…". BugVoice starts watching this field for 60 seconds.</p>
+  </div>
+  <div class="step">
+    <p class="n">2 · You fix the name and send</p>
+    <div class="app"><div class="tb">Slack — #mobile</div>
+      <div class="doc">Thanks <span class="fix">Kael</span>, I'll review the build after lunch.<span class="cursor"></span></div></div>
+    <p class="notes">The last read before the field cleared has "Kael". One word changed, and it looks like the pasted one: a misheard word.</p>
+  </div>
+  <div class="step">
+    <p class="n">3 · Waiting in the popover</p>
+    <div class="popover">
+      <div class="psec">Last dictation</div>
+      <div class="prow" style="flex-direction:column;align-items:flex-start;gap:2px"><span class="foot">Slack · 10:42</span><span>Thanks Kale, I'll review the build after lunch.</span></div>
+      <hr>
+      <div class="prow"><span class="count">2</span>Dictionary suggestions<span class="k">›</span></div>
+    </div>
+    <p class="notes">Click opens Dictionary › Words. Hidden when there are none.</p>
+  </div>
+</div></div>
+
+<h2 class="sec">2. Dictionary › Words: Suggestions</h2>
+<p class="why">Above the word list, newest first. Replace every time adds the heard word as "heard as", so it is fixed on the next dictation. For a real word it starts off, so "cell" is not turned into "sell" everywhere.</p>
+<div class="stage">
+<div class="win"><div class="wbar"><b>Dictionary</b></div>
+<div class="cols">
+  <div class="side"><div>Home</div><div>Dictation</div><div class="on">Dictionary <span class="count">3</span></div><div>Style</div><div>Notes</div></div>
+  <div class="body">
+    <div class="row"><div class="pills"><span class="on">Words</span><span>Snippets</span><span>Projects</span></div></div>
+    <div class="card">
+      <div class="row"><h3 class="grow">Suggestions</h3><button class="btn">Add all</button></div>
+      <div class="foot">Words you fixed after a paste.</div>
+      <div class="srow">
+        <div><span class="w">Kael</span> <span class="meta">heard as “Kale” · Slack · 2 times</span></div>
+        <div class="acts"><span class="foot">Replace every time</span><span class="sw"></span><button class="btn prim">Add</button><button class="btn">Dismiss</button></div>
+        <div class="meta">Last seen 10:42</div>
+      </div>
+      <div class="srow">
+        <div><span class="w">bún chả</span> <span class="meta">heard as “bun cha” · Notion · 1 time</span></div>
+        <div class="acts"><span class="foot">Replace every time</span><span class="sw"></span><button class="btn prim">Add</button><button class="btn">Dismiss</button></div>
+        <div class="meta">Vietnamese tone fix</div>
+      </div>
+      <div class="srow">
+        <div><span class="w">sell</span> <span class="meta">heard as “cell” · Mail · 1 time</span></div>
+        <div class="acts"><span class="foot">Replace every time</span><span class="sw off"></span><button class="btn prim">Add</button><button class="btn">Dismiss</button></div>
+        <div class="meta">“cell” is a real word — added as a spelling hint only</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="row"><h3 class="grow">Words</h3><span class="foot">24 words</span></div>
+      <div class="wordrow"><span class="grow">WhisperKit</span><span class="foot">heard as “whisper kit”</span></div>
+      <div class="wordrow"><span class="grow">Notion</span><span class="foot"></span></div>
+    </div>
+  </div>
+</div></div>
+</div>
+
+<h2 class="sec">3. What counts as a fix</h2>
+<div class="stage"><div class="card tw">
+<table class="m">
+<tr><th>Pasted</th><th>After your edit</th><th>Result</th></tr>
+<tr><td>Thanks Kale, …</td><td>Thanks Kael, …</td><td class="ok">Suggest Kael, heard as Kale</td></tr>
+<tr><td>đi ăn bun cha</td><td>đi ăn bún chả</td><td class="ok">Suggest bún chả (tone fix)</td></tr>
+<tr><td>ask Tuan about it</td><td>ask Tuấn about it</td><td class="ok">Suggest Tuấn</td></tr>
+<tr><td>That looks good.</td><td>That looks great.</td><td>Ignored: the words do not look alike</td></tr>
+<tr><td>the build is ready</td><td>The build is ready</td><td>Ignored: case at the start of a sentence</td></tr>
+<tr><td>ok, ship it</td><td>ok — ship it</td><td>Ignored: punctuation only</td></tr>
+<tr><td>a whole sentence…</td><td>a different sentence…</td><td>Ignored: more than 40% changed</td></tr>
+<tr><td>fix the bug</td><td>fix the bug in AppModel</td><td>Ignored: words added, nothing replaced</td></tr>
+<tr><td>(Ghostty, any edit)</td><td></td><td>Not watched: terminals</td></tr>
+<tr><td>(a pair you dismissed)</td><td></td><td>Never suggested again</td></tr>
+</table>
+</div></div>
+
+<h2 class="sec">4. Settings › Speech</h2>
+<div class="stage"><div class="win"><div class="cols">
+  <div class="side"><div>General</div><div>Shortcuts</div><div class="on">Speech</div><div>Models</div></div>
+  <div class="body"><div class="card">
+    <div class="row"><span class="grow">Learn from corrections</span><span class="sw"></span></div>
+    <div class="foot">After a paste, BugVoice reads the field back for a minute. When you fix a word, it suggests adding it to the Dictionary. Text stays on this Mac; only the changed words are kept.</div>
+  </div></div>
+</div></div></div>
+</div>
+<script>
+document.getElementById('t').onclick=()=>{const r=document.documentElement;const dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme: dark)').matches;r.dataset.theme=dark?'light':'dark'};
+</script>
+</body>
+</html>

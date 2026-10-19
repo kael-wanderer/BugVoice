@@ -80,6 +80,7 @@ version and build live in `App/Info.plist`. Every commit raises the build by one
 - Project words spec: `docs/superpowers/specs/2026-10-19-project-words-design.md` (mockup: `docs/design/proposal-project-words.html`)
 - Project words plan: `docs/superpowers/plans/2026-10-19-project-words.md`
 - Project words execution log and device checks: `docs/progress/project-words-log.md`
+- Learn from corrections spec: `docs/superpowers/specs/2026-10-19-learn-from-corrections-design.md` (mockup: `docs/design/proposal-corrections.html`)
 
 ## Rules
 
