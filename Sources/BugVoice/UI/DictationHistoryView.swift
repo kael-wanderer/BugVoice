@@ -12,7 +12,7 @@ struct DictationHistoryView: View {
         let query = AskText.fold(model.dictationSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines))
         return model.history.filter {
             (filter == nil || $0.style == filter)
-                && (query.isEmpty || AskText.fold($0.text).contains(query) || AskText.fold($0.appName ?? "").contains(query))
+                && (query.isEmpty || AskText.fold($0.text).contains(query) || AskText.fold($0.appName ?? "").contains(query) || AskText.fold($0.command ?? "").contains(query))
         }
 
     }
@@ -80,13 +80,25 @@ struct DictationHistoryView: View {
                 Text(e.startedAt.formatted(date: .omitted, time: .shortened)).bvFont(.body)
                 HStack(spacing: LayoutTokens.spacing[0]) {
                     Text(e.appName ?? "Unknown").bvFont(.caption).foregroundStyle(.bvSecondary)
+                    if e.command != nil {
+                        Text("Command").bvFont(.caption).foregroundStyle(.bvAccent).fixedSize()
+                            .padding(.horizontal, LayoutTokens.spacing[0])
+                            .overlay(RoundedRectangle(cornerRadius: 4).stroke(.bvSeparator))
+                    }
                     if let reason = e.rawReason, [.modelError, .modelTimeout, .placeholderLost].contains(reason) {
                         Text("raw").bvFont(.caption).foregroundStyle(.bvWarning)
                     }
                 }
             }
-            .frame(width: store.scaled(80), alignment: .leading)
-            Text(e.text).bvFont(.reading).textSelection(.enabled).frame(maxWidth: store.readingWidth, alignment: .leading).frame(maxWidth: .infinity)
+            .frame(width: store.scaled(e.command == nil ? 80 : 160), alignment: .leading)
+            VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
+                if let command = e.command {
+                    Text("“\(command)”").italic().bvFont(.body).foregroundStyle(.bvSecondary)
+                        .textSelection(.enabled)
+                }
+                Text(e.text).bvFont(.reading).textSelection(.enabled)
+            }
+            .frame(maxWidth: store.readingWidth, alignment: .leading).frame(maxWidth: .infinity, alignment: .leading)
             HStack(spacing: LayoutTokens.spacing[1]) {
                 Button { model.dictation?.copy(e.text) } label: { Image(systemName: "doc.on.doc") }.help("Copy")
                 Button { model.dictation?.pasteAgain(e.text) } label: { Image(systemName: "arrow.uturn.right") }.help("Paste again")

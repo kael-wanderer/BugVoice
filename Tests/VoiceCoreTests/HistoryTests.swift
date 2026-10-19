@@ -132,3 +132,15 @@ struct HistoryTests {
         #expect(await log.load().isEmpty)
     }
 }
+
+extension HistoryTests {
+    @Test func commandRoundTrips() throws {
+        var e = entry("Hello team.", at: Date())
+        let encoder = JSONEncoder()
+        #expect(!(try String(decoding: encoder.encode(e), as: UTF8.self)).contains("\"command\""))
+        e.command = "make formal"
+        let data = try encoder.encode(e)
+        #expect(String(decoding: data, as: UTF8.self).contains("\"command\":\"make formal\""))
+        #expect(try JSONDecoder().decode(HistoryEntry.self, from: data) == e)
+    }
+}

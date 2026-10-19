@@ -32,6 +32,24 @@ public enum HotkeyKey: String, Codable, Sendable, CaseIterable {
     case rightControl, rightOption, rightCommand, fn, f13, f14, f15, f16, f17, f18, f19
 }
 
+public enum CommandKey: String, Codable, Sendable, CaseIterable {
+    case rightOption, rightCommand, off
+    public var hotkeyKey: HotkeyKey? {
+        switch self {
+        case .rightOption: .rightOption
+        case .rightCommand: .rightCommand
+        case .off: nil
+        }
+    }
+    public var displayName: String {
+        switch self {
+        case .rightOption: "Right ⌥"
+        case .rightCommand: "Right ⌘"
+        case .off: "Off"
+        }
+    }
+}
+
 public enum SpeechEngine: String, Codable, Sendable, CaseIterable {
     case whisperKit, openAICompatible
 }
@@ -296,6 +314,10 @@ extension BackupSettings {
 
 public struct AppSettings: Codable, Equatable, Sendable {
     public var hotkey: HotkeyKey = .rightControl
+    public var commandKey: CommandKey = .rightOption
+    public var effectiveCommandKey: CommandKey {
+        commandKey.hotkeyKey == hotkey ? .off : commandKey
+    }
     public var handsFreeEnabled = true
     public var handsFreeLimitMinutes = 10
     public var soundsEnabled = true
@@ -401,6 +423,7 @@ extension AppSettings {
         self.init()
         let c = try decoder.container(keyedBy: CodingKeys.self)
         hotkey = c.value(.hotkey, default: hotkey)
+        commandKey = c.value(.commandKey, default: commandKey)
         handsFreeEnabled = c.value(.handsFreeEnabled, default: handsFreeEnabled)
         handsFreeLimitMinutes = c.value(.handsFreeLimitMinutes, default: handsFreeLimitMinutes)
         soundsEnabled = c.value(.soundsEnabled, default: soundsEnabled)

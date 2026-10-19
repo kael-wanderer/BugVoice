@@ -202,3 +202,29 @@ struct SettingsTests {
         #expect(try JSONDecoder().decode(AppSettings.self, from: encoded) == settings)
     }
 }
+
+extension SettingsTests {
+    @Test func commandKeyDefaultsToRightOption() throws {
+        let s = try JSONDecoder().decode(AppSettings.self, from: Data("{}".utf8))
+        #expect(s.commandKey == .rightOption)
+    }
+    @Test func badCommandKeyFallsBack() throws {
+        let s = try JSONDecoder().decode(AppSettings.self, from: Data(#"{"commandKey":"xx","soundsEnabled":false}"#.utf8))
+        #expect(s.commandKey == .rightOption)
+        #expect(!s.soundsEnabled)
+    }
+    @Test func conflictTurnsCommandOff() {
+        var s = AppSettings()
+        s.hotkey = .rightOption
+        #expect(s.effectiveCommandKey == .off)
+        s.hotkey = .rightControl
+        #expect(s.effectiveCommandKey == .rightOption)
+    }
+    @Test func commandKeyRoundTrips() throws {
+        for key in CommandKey.allCases {
+            var s = AppSettings()
+            s.commandKey = key
+            #expect(try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(s)) == s)
+        }
+    }
+}

@@ -17,6 +17,16 @@ struct GeneralTab: View {
                 }
                 Text("Hold to talk. Pressing another key cancels.").bvFont(.footnote).foregroundStyle(.bvSecondary)
                 Divider()
+                SettingsRow(title: "Command key") {
+                    Picker("Command key", selection: Binding(get: { model.settings.effectiveCommandKey }, set: { model.settings.commandKey = $0 })) {
+                        ForEach(CommandKey.allCases.filter { $0.hotkeyKey != model.settings.hotkey }, id: \.self) {
+                            Text($0.displayName).tag($0)
+                        }
+                    }.labelsHidden().fixedSize()
+                }
+                Text("Select text, hold the command key and say what to change. With nothing selected, say what to write.")
+                    .bvFont(.footnote).foregroundStyle(.bvSecondary)
+                Divider()
                 SettingsToggle(title: "Hands-free: double-tap the hotkey to start, tap once to stop", isOn: $model.settings.handsFreeEnabled)
                 Divider()
                 SettingsRow(title: "Hands-free limit") {

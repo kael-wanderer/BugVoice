@@ -13,8 +13,8 @@ import VoiceCore
 final class DictationController {
     private unowned let model: AppModel
     private let recorder = AudioRecorder()
-    private lazy var hud = HUDController(appearance: model.appearance)
-    private let inserter = PasteboardInserter()
+    lazy var hud = HUDController(appearance: model.appearance)
+    let inserter = PasteboardInserter()
     private var detector = HoldGestureDetector()
     private var languageCycler: LanguageKeyCycler?
     private var languageFlashTask: Task<Void, Never>?
@@ -34,6 +34,7 @@ final class DictationController {
     /// final state is shown.
     private var stagedRun: Int?
     private(set) var isBusy = false
+    var isRecording: Bool { recorder.isRunning }
     var recordingLevel: Float { recorder.level }
 
     init(model: AppModel) {
@@ -71,7 +72,7 @@ final class DictationController {
     }
 
     func toggleNotesRecording() {
-        guard !isBusy else { return }
+        guard !isBusy, model.command?.isActive != true else { return }
         if recorder.isRunning {
             guard notesCapture != nil else { return }
             finish()
@@ -92,7 +93,7 @@ final class DictationController {
     // MARK: Gesture
 
     private func receive(_ input: KeyInput) {
-        guard !isBusy else { return }
+        guard !isBusy, model.command?.isActive != true else { return }
         if case .hotkeyDown(let pressedAt) = input {
             // A result, warning or failure stays until the next press.
             if !recorder.isRunning, hud.model.state?.autoHideAfter != nil { hud.hide() }
@@ -108,7 +109,7 @@ final class DictationController {
         Task { [weak self] in
             let wait = max(0, due - ProcessInfo.processInfo.systemUptime) + 0.005
             try? await Task.sleep(for: .seconds(wait))
-            guard let self, !self.isBusy else { return }
+            guard let self, !self.isBusy, self.model.command?.isActive != true else { return }
             for action in self.detector.tick(now: ProcessInfo.processInfo.systemUptime) { self.perform(action) }
         }
     }
@@ -126,7 +127,7 @@ final class DictationController {
     // MARK: Recording
 
     private func begin(handsFree: Bool, notesOnly: Bool = false) {
-        guard !recorder.isRunning else { return }
+        guard !recorder.isRunning, model.command?.isActive != true else { return }
         replacementGuard.clear()
         lastFocusedElement = nil
         lastInsertionFocus = nil
@@ -213,7 +214,7 @@ final class DictationController {
 
     /// The HUD warning to show instead of recording while the on-device
     /// speech model is not ready (spec §7). Nil when dictation can start.
-    private func speechNotReadyState() -> HUDState? {
+    func speechNotReadyState() -> HUDState? {
         guard model.settings.speech.engine == .whisperKit else { return nil }
         switch model.speechState {
         case .ready:
@@ -351,6 +352,7 @@ final class DictationController {
     // MARK: Menu actions
 
     func retryLast() {
+        guard model.command?.isActive != true, model.lastResult?.command == nil else { return }
         guard !isBusy, !recorder.isRunning else { return }
         if let notReady = speechNotReadyState() {
             hud.show(notReady)
@@ -367,6 +369,11 @@ final class DictationController {
     }
 
     func pasteRaw() {
+        guard model.command?.isActive != true else { return }
+        if let previous = model.lastResult, previous.command != nil {
+            restoreCommandOriginal(previous)
+            return
+        }
         guard !isBusy, !recorder.isRunning,
               let previous = model.lastResult, !previous.finalText.isEmpty, !previous.uncleanedText.isEmpty else {
             showNothingToFix()
@@ -389,6 +396,8 @@ final class DictationController {
     }
 
     func redoInOtherLanguage() {
+        guard model.command?.isActive != true else { return }
+        if model.lastResult?.command != nil { showNothingToFix(); return }
         guard !isBusy, !recorder.isRunning, let previous = model.lastResult,
               let focus = lastInsertionFocus,
               let data = try? Data(contentsOf: model.paths.lastRecording),
@@ -443,6 +452,57 @@ final class DictationController {
         }
     }
 
+    private func selectBackDecision() -> ReplacementGuard.SelectBackDecision? {
+        replacementGuard.decideSelectBack(now: Date(),
+            frontProcessID: NSWorkspace.shared.frontmostApplication?.processIdentifier ?? 0,
+            sameFocus: FocusInspector.isSameElement(lastFocusedElement, FocusInspector.focusedElement()))
+    }
+
+    private func restoreCommandOriginal(_ previous: DictationResult) {
+        guard !isBusy, !isRecording else { return }
+        guard !previous.finalText.isEmpty else { showNothingToFix(); return }
+        isBusy = true
+        Task { [self] in
+            defer { isBusy = false }
+            guard case .selectBack(let count)? = selectBackDecision(), !FocusInspector.read().isSecure else {
+                await inserter.copy(previous.uncleanedText)
+                hud.show(.message(title: "Copied — press ⌘V", detail: "text changed since the paste"))
+                return
+            }
+            await inserter.selectBack(count)
+            // A secure field must never receive even the original text.
+            guard case .selectBack? = selectBackDecision(), !FocusInspector.read().isSecure else {
+                await inserter.copy(previous.uncleanedText)
+                clearReplacementRecord()
+                hud.show(.message(title: "Copied — press ⌘V", detail: "text changed since the paste"))
+                return
+            }
+            if previous.uncleanedText.isEmpty {
+                // New text had no original: remove what was written.
+                await inserter.deleteBackward(1)
+                clearReplacementRecord()
+                var replacement = previous
+                replacement.finalText = ""
+                replacement.cleaned = nil
+                await model.replaceLast(replacement, kind: .raw)
+                hud.show(.message(title: "Written text removed", detail: nil))
+                return
+            }
+            let outcome = await inserter.insert(previous.uncleanedText)
+            if outcome == .pasted {
+                var replacement = previous
+                replacement.finalText = previous.uncleanedText
+                replacement.cleaned = nil
+                await model.replaceLast(replacement, kind: .raw)
+                rememberReplacement(text: replacement.finalText)
+                hud.show(.message(title: "Original restored", detail: nil))
+            } else {
+                clearReplacementRecord()
+                hud.show(.message(title: "Copied — press ⌘V", detail: "text changed since the paste"))
+            }
+        }
+    }
+
     private func performDirectReplacement(_ replacement: DictationResult, kind: FixKind, decision: ReplacementDecision, title: String) {
         isBusy = true
         Task { [self] in
@@ -477,7 +537,7 @@ final class DictationController {
         }
     }
 
-    private func recordOrdinaryInsertion(_ text: String, focus: FocusSnapshot) {
+    func recordOrdinaryInsertion(_ text: String, focus: FocusSnapshot) {
         guard !focus.isSecure else { clearReplacementRecord(); return }
         let processID = NSWorkspace.shared.frontmostApplication?.processIdentifier ?? 0
         replacementGuard.recordInsertion(LastInsertion(text: text, processID: processID, at: Date()))
@@ -494,7 +554,7 @@ final class DictationController {
         lastInsertionFocus = focus
     }
 
-    private func clearReplacementRecord() {
+    func clearReplacementRecord() {
         replacementGuard.clear()
         lastFocusedElement = nil
         lastInsertionFocus = nil
@@ -527,7 +587,7 @@ final class DictationController {
     /// Pastes `text` at the cursor of the app that had focus before BugVoice,
     /// or copies it only when that field is secure.
     func paste(_ text: String) {
-        guard !isBusy, !text.isEmpty else { return }
+        guard !isBusy, model.command?.isActive != true, !text.isEmpty else { return }
         if FocusInspector.read().isSecure {
             Task {
                 await inserter.copy(text)

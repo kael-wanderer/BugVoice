@@ -48,6 +48,20 @@ struct HUDView: View {
             Text(language).fontWeight(.semibold)
                 .padding(.horizontal, LayoutTokens.spacing[1] * factor)
                 .background(languageChanged ? AnyShapeStyle(.bvAccent) : AnyShapeStyle(.bvHover), in: RoundedRectangle(cornerRadius: LayoutTokens.controlRadius))
+        case .commandListening(let characters, let app, _, let language, let changed):
+            Circle().fill(.bvRecording).frame(width: 9 * factor, height: 9 * factor)
+            Text("Command").fontWeight(.semibold)
+                .padding(.horizontal, LayoutTokens.spacing[1] * factor)
+                .background(.bvAccentSoft, in: RoundedRectangle(cornerRadius: LayoutTokens.controlRadius))
+            Text(characters.map { "\($0) characters" } ?? "New text")
+            if let app { Text("· " + app).foregroundStyle(.bvSecondary) }
+            Text(language).fontWeight(.semibold)
+                .padding(.horizontal, LayoutTokens.spacing[1] * factor)
+                .background(changed ? AnyShapeStyle(.bvAccent) : AnyShapeStyle(.bvHover), in: RoundedRectangle(cornerRadius: LayoutTokens.controlRadius))
+        case .rewriting(let modelName, let app):
+            ProgressView().controlSize(.small).tint(store.theme.text)
+            Text(modelName.map { "Rewriting (\($0))" } ?? "Rewriting").fontWeight(.semibold)
+            Text(app.map { "\($0) · Esc to cancel" } ?? "Esc to cancel").foregroundStyle(.bvSecondary)
         case .transcribing(let language):
             ProgressView().controlSize(.small).tint(store.theme.text)
             Text("Transcribing").fontWeight(.semibold)

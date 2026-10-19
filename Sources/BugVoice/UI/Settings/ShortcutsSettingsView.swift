@@ -17,6 +17,9 @@ struct ShortcutsSettingsView: View {
                         }.labelsHidden().fixedSize()
                     }
                     fixed("Hands-free", "Double-tap \(model.settings.hotkey.spokenName)")
+                    if let key = model.settings.effectiveCommandKey.hotkeyKey {
+                        fixed("Command", "Hold \(key.spokenName)")
+                    }
                     shortcut(.pasteLast)
                     shortcut(.pasteRaw)
                     shortcut(.redoOtherLanguage)

@@ -51,11 +51,11 @@
   public var effectiveCommandKey: CommandKey
   ```
 
-- [ ] **Step 1: Write failing tests:** `commandKeyDefaultsToRightOption` (old JSON without the key → `.rightOption`); `badCommandKeyFallsBack` (`"commandKey":"xx"` → `.rightOption`, rest of settings kept); `conflictTurnsCommandOff` (hotkey `.rightOption`, commandKey `.rightOption` → `effectiveCommandKey == .off`; hotkey `.rightControl` → `.rightOption`); `commandKeyRoundTrips`.
-- [ ] **Step 2: Run** `swift test --filter SettingsTests`. Expected: compile failure.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** `swift test`. Expected: all pass.
-- [ ] **Step 5: Commit** `feat(core): command key setting`.
+- [x] **Step 1: Write failing tests:** `commandKeyDefaultsToRightOption` (old JSON without the key → `.rightOption`); `badCommandKeyFallsBack` (`"commandKey":"xx"` → `.rightOption`, rest of settings kept); `conflictTurnsCommandOff` (hotkey `.rightOption`, commandKey `.rightOption` → `effectiveCommandKey == .off`; hotkey `.rightControl` → `.rightOption`); `commandKeyRoundTrips`.
+- [x] **Step 2: Run** `swift test --filter SettingsTests`. Expected: compile failure.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** `swift test`. Expected: all pass.
+- [x] **Step 5: Commit** `feat(core): command key setting`.
 
 ### Task 2: Command prompt and output checks
 
@@ -85,7 +85,7 @@
 - `request`: system = rules (rewrite when `selection` is non-empty, else write) + `"App style, for tone: " + defaultRules(for: style)` + `keepEnglishRule` when `keepEnglishWords` and language is `.vi`/`.auto` + `"Spell these terms exactly: …"` when vocabulary has terms + (write only) the last 500 characters of `focus.beforeText` in `<before>…</before>` "for context only". User = `"<instruction>\n\(instruction)\n</instruction>"` plus `"\n<text>\n\(selection)\n</text>"` when rewriting; `/no_think` appended like `PromptBuilder` for qwen models with `disableThinking`. `maxTokens = min(8_192, max(512, (selection?.count ?? 0) + 1_024))`, `temperature = 0.3`.
 - `sanitize`: strip think blocks and `<text>`/`<instruction>` tags (reuse `OutputSanitizer`'s regexes by extracting a shared `static func stripReasoning(_:) -> String` there), trim; drop a first line that ends with ":" and has at most 12 words when more lines follow; drop one pair of wrapping `"…"`, `“…”` or `'…'` when the selection does not itself start with that quote; empty → `.empty`; longer than `4 * (selection?.count ?? 0) + 2_000` → `.tooLong`.
 
-- [ ] **Step 1: Write failing tests:**
+- [x] **Step 1: Write failing tests:**
   - `rewriteHasTextBlock`: selection "abc", instruction "make formal" → user contains `<instruction>\nmake formal\n</instruction>` and `<text>\nabc\n</text>`; system starts with `CommandPrompt.rewriteRules`.
   - `writeHasNoTextBlock`: selection nil, focus beforeText "Lan: join at 3?" → user lacks `<text>`; system starts with `writeRules` and contains `<before>Lan: join at 3?</before>`.
   - `emptySelectionIsWrite`: selection "" → write rules.
@@ -95,10 +95,10 @@
   - `dropsWrappingQuotes`: "\"Hello there.\"" with selection "hello there" → "Hello there."; "“Xin chào”" → "Xin chào".
   - `keepsQuotesFromSelection`: selection "\"quoted\"" and output "\"Quoted\"" → unchanged.
   - `rejectsEmptyAndTooLong`: "<think>x</think>" → `.empty`; selection "a" and output of 2_005 characters → `.tooLong`; selection nil and output of 2_000 → accepted.
-- [ ] **Step 2: Run** `swift test --filter CommandPromptTests`. Expected: compile failure.
-- [ ] **Step 3: Implement.** Existing `OutputSanitizer` tests must still pass after extracting `stripReasoning`.
-- [ ] **Step 4: Run** `swift test`. Expected: all pass.
-- [ ] **Step 5: Commit** `feat(core): command prompt and output checks`.
+- [x] **Step 2: Run** `swift test --filter CommandPromptTests`. Expected: compile failure.
+- [x] **Step 3: Implement.** Existing `OutputSanitizer` tests must still pass after extracting `stripReasoning`.
+- [x] **Step 4: Run** `swift test`. Expected: all pass.
+- [x] **Step 5: Commit** `feat(core): command prompt and output checks`.
 
 ### Task 3: Command pipeline, paste decision, select-back, history
 
@@ -152,7 +152,7 @@
 - `decide`: `now.isSecure` → `.secure`; `style == .terminal` → `.copy(terminal)`; `!sameElement` → `.copy(selectionChanged)`; when `start.selectedText` is non-nil and differs from `now.selectedText` → `.copy(selectionChanged)`; else `.paste`.
 - `decideSelectBack`: same conditions as `decide` except newlines are allowed and the limit is `maxSelectBackCharacters`; returns `.selectBack(characters: last.text.count)`.
 
-- [ ] **Step 1: Write failing tests** (`CommandPipelineTests`, fakes like `DictationPipelineTests`):
+- [x] **Step 1: Write failing tests** (`CommandPipelineTests`, fakes like `DictationPipelineTests`):
   - `rewriteReady`: transcript "make it formal", selection "hi team", model output "Hello team." → `.ready` with `command == "make it formal"`, `raw == "hi team"`, `uncleanedText == "hi team"`, `finalText == "Hello team."`.
   - `writeReady`: selection nil → `.ready`, `raw == ""`.
   - `noModelFails`, `tooLongSelectionFailsBeforeTranscribing` (transcriber not called), `silenceIsNothingHeard`, `modelErrorFails`, `slowModelTimesOut` (timeout injectable for the test: `CommandPipeline.timeoutSeconds` used through an init parameter `timeout: Double = CommandPipeline.timeoutSeconds`), `preambleRemoved`.
@@ -160,10 +160,10 @@
   - `CommandPaste`: `pastesWhenUnchanged`; `changedSelectionCopies` (start selected "a", now "b"); `otherElementCopies`; `terminalCopies`; `secureWins`; `unreadableSelectionTrustsElement` (both selectedText nil, sameElement → `.paste`).
   - FixLast: `selectBackAllowsNewlines` ("a\nb" → `.selectBack(characters: 3)`); `selectBackLimit` (2_001 → `.copyOnly`, 2_000 → select back); `selectBackTypingBlocks`.
   - History: `commandRoundTrips` (entry with `command` encodes key `command`; nil omits it).
-- [ ] **Step 2: Run** `swift test --filter "CommandPipelineTests|FixLastTests|HistoryTests"`. Expected: compile failure.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** `swift test`. Expected: all pass.
-- [ ] **Step 5: Commit** `feat(core): command pipeline, paste decision and history`.
+- [x] **Step 2: Run** `swift test --filter "CommandPipelineTests|FixLastTests|HistoryTests"`. Expected: compile failure.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** `swift test`. Expected: all pass.
+- [x] **Step 5: Commit** `feat(core): command pipeline, paste decision and history`.
 
 ### Task 4: Selection capture
 
@@ -185,16 +185,16 @@
   ```
 - Fallback: take a `PasteboardSnapshot`, remember `changeCount`, call `postCopy`, poll every 20 ms until `changeCount` changes or `timeout`; read `.string`; restore the snapshot (always, also on no change or empty string). An empty or whitespace-only string is nil.
 
-- [ ] **Step 1: Write failing tests** with a uniquely named `NSPasteboard(name:)`:
+- [x] **Step 1: Write failing tests** with a uniquely named `NSPasteboard(name:)`:
   - `axSelectionWins`: `capture(axSelection: "abc")` → "abc", `postCopy` not called.
   - `fallbackReadsCopiedText`: pasteboard holds "old"; `postCopy` writes "picked" → returns "picked"; afterwards the pasteboard string is "old".
   - `fallbackRestoresClipboard`: same, with an image-free multi-type item ("old" string + custom type data) → both types restored.
   - `noChangeMeansNoSelection`: `postCopy` does nothing, timeout 50 ms → nil; pasteboard still "old".
   - `markedEvents`: `PasteboardInserter.makeKeyEvent(keyCode: 123, keyDown: true, flags: .maskShift)` carries the marker.
-- [ ] **Step 2: Run** `swift test --filter BugVoiceMacTests`. Expected: compile failure.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** `swift test`. Expected: all pass.
-- [ ] **Step 5: Commit** `feat(app): selection capture with clipboard restore`.
+- [x] **Step 2: Run** `swift test --filter BugVoiceMacTests`. Expected: compile failure.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** `swift test`. Expected: all pass.
+- [x] **Step 5: Commit** `feat(app): selection capture with clipboard restore`.
 
 ### Task 5: App — command controller, HUD, settings
 
@@ -216,20 +216,20 @@
   - Log one line per command with `Log.dictation`: `command outcome=… app=… chars=… words=… stt=…s model=…s`.
 - `MenuLastDictation`: when `result.command != nil`, header "Last command · \(app) · \(time)", the instruction in quotes on its own line, buttons **Copy** and **Original** (Original calls `pasteRaw()`); no Retry / Raw / language button.
 
-- [ ] **Step 1:** Implement the controller and wiring.
-- [ ] **Step 2:** Implement HUD states, settings rows and the popover card.
-- [ ] **Step 3: Run** `swift test` and `Scripts/build-app.sh`. Expected: pass, build succeeds.
-- [ ] **Step 4: Smoke check** (only when the owner is away from the keyboard, see AGENTS rules on synthetic input): Settings › General shows Command key; the Shortcuts row shows "Hold Right ⌥".
-- [ ] **Step 5: Commit** `feat(app): command mode`.
+- [x] **Step 1:** Implement the controller and wiring.
+- [x] **Step 2:** Implement HUD states, settings rows and the popover card.
+- [x] **Step 3: Run** `swift test` and `Scripts/build-app.sh`. Expected: pass, build succeeds.
+- [x] **Step 4: Smoke check** (only when the owner is away from the keyboard, see AGENTS rules on synthetic input): Settings › General shows Command key; the Shortcuts row shows "Hold Right ⌥".
+- [x] **Step 5: Commit** `feat(app): command mode`.
 
 ### Task 6: History tag
 
 **Files:**
 - Modify: `Sources/BugVoice/UI/DictationHistoryView.swift`
 
-- [ ] **Step 1:** Rows whose entry has `command` show a **Command** tag after the app name and the instruction in quotes (secondary, italic) above the result (mockup screen 4). Search matches the instruction too.
-- [ ] **Step 2: Run** `swift test` and `Scripts/build-app.sh`. Expected: pass.
-- [ ] **Step 3: Commit** `feat(app): command tag in dictation history`.
+- [x] **Step 1:** Rows whose entry has `command` show a **Command** tag after the app name and the instruction in quotes (secondary, italic) above the result (mockup screen 4). Search matches the instruction too.
+- [x] **Step 2: Run** `swift test` and `Scripts/build-app.sh`. Expected: pass.
+- [x] **Step 3: Commit** `feat(app): command tag in dictation history`.
 
 ### Task 7: Docs and device checks
 
@@ -237,7 +237,7 @@
 - Create: `docs/progress/command-log.md`
 - Modify: `AGENTS.md` (key documents: spec, mockup, plan, log), `docs/progress/HANDOFF.md`, `docs/ROADMAP.md`, `docs/propose-new-features.md` (mark 1 as built)
 
-- [ ] **Step 1:** Log per task, test counts, deviations, then device checks (owner runs those that need speech):
+- [x] **Step 1:** Log per task, test counts, deviations, then device checks (owner runs those that need speech):
   - C1 Rewrite in Notion: selection replaced, ⌘Z restores it.
   - C2 Vietnamese instruction "dịch sang tiếng Anh" on Vietnamese text: English result.
   - C3 Write new in Slack or TextEdit with nothing selected.
@@ -250,5 +250,13 @@
   - C10 History shows the Command tag; Insights word count unchanged.
   - C11 Command key Off: Right Option does nothing; setting the hotkey to Right Option turns the command key off.
   - C12 Light and dark match the mockup.
-- [ ] **Step 2: Run** `swift test`. Expected: pass.
-- [ ] **Step 3: Commit** `docs: command mode log and handoff`.
+- [x] **Step 2: Run** `swift test`. Expected: pass.
+- [x] **Step 3: Commit** `docs: command mode log and handoff`.
+
+## Execution record
+
+Executed task by task on `feat/command-mode`; the owner authorized proceeding
+without the unavailable superpowers execution skills. Evidence and deviations:
+`docs/progress/command-log.md`. Task 5's read-only Settings smoke check passed.
+Task 7 logged C1–C11 as not run and C12 as partial inspection, not passed, under
+the owner's read-only device-check restriction.

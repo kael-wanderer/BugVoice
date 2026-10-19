@@ -3,6 +3,8 @@ import VoiceCore
 
 enum HUDState: Equatable {
     case listening(handsFree: Bool, app: String?, startedAt: Date, limit: TimeInterval?, language: String, languageChanged: Bool)
+    case commandListening(selectionCharacters: Int?, app: String?, startedAt: Date, language: String, languageChanged: Bool)
+    case rewriting(model: String?, app: String?)
     case transcribing(language: String)
     case cleaning(model: String?, app: String?)
     case done(style: String, words: Int, seconds: Double)
@@ -56,7 +58,7 @@ enum HUDState: Equatable {
     /// Seconds until the pill hides on its own; nil stays until the next state.
     var autoHideAfter: TimeInterval? {
         switch self {
-        case .listening, .transcribing, .cleaning: nil
+        case .listening, .commandListening, .rewriting, .transcribing, .cleaning: nil
         case .done, .nothingHeard, .message: 1.2
         case .warning, .failure: 4
         }

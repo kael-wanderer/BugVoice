@@ -94,7 +94,11 @@ struct MenuPopover: View {
         ids.append(.newNote)
         if meetingRunning || model.meetings?.isTranscribing != true { ids.append(.meeting) }
         ids.append(.upload)
-        if hasLast { ids += [.pasteLast, .copyLast, .retryLast, .rawLast, .redoLast] }
+        if hasLast {
+            ids += model.lastResult?.command != nil
+                ? [.pasteLast, .copyLast, .rawLast]
+                : [.pasteLast, .copyLast, .retryLast, .rawLast, .redoLast]
+        }
         ids += [.submenu(.library), .submenu(.dictationOptions), .openApp, .settings, .submenu(.tools), .quit]
         return ids
     }

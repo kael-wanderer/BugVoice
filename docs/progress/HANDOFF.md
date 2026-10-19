@@ -4,16 +4,20 @@ Last updated: 2026-10-19
 
 ## Current state
 
-**Language per app and fix last paste:** implemented on `feat/language-fix-last`
-from `main` (2026-10-19), not merged or pushed. Per-app language rules,
-popover switch, language key while recording, English-word preservation, and
-Raw / other-language replacement are complete. The final suite passes
-(1,025 VoiceCore, 30 MCPKit, 95 BugVoiceMac); `Scripts/build-app.sh` succeeds
-and signs with `Bugler Local Dev`. L1–L12 were not run because the computer-use
-provider rejected access to BugVoice before inspection. Full evidence and
-device-check results: `docs/progress/language-log.md`.
+**Command mode:** merged on `main` and pushed (2026-10-19). Hold Right Option
+to rewrite the selection or write new text; Settings › General chooses Right
+Option / Right Command / Off. Selection capture with clipboard restore,
+focus/selection checks, terminal copy-only, Escape cancels, Original via
+select-back, Command tag in history, Insights exclusion. Tests: **1,061
+VoiceCore, 30 MCPKit, 101 BugVoiceMac**. Owner ran the device checks: all pass.
+Details: `docs/progress/command-log.md`.
 
-**Backup and restore merged on `main` (2026-10-19, not pushed).** Settings › Storage ›
+**Language per app and fix last paste:** merged on `main` and pushed
+(2026-10-19, build 231). Per-app language rules, popover switch, language key
+while recording, English-word preservation, Paste raw (⌃⌥R) and Redo in the
+other language (⌃⌥L). Evidence and device checks: `docs/progress/language-log.md`.
+
+**Backup and restore merged on `main` and pushed (2026-10-19).** Settings › Storage ›
 Backup: Back up now, Restore (applied at the next launch, current library kept as a
 safety copy), automatic Daily/Weekly into a chosen folder keeping 5. Spec:
 `docs/superpowers/specs/2026-10-19-backup-restore-design.md`; plan:

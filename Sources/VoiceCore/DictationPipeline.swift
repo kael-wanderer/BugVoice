@@ -34,6 +34,7 @@ public enum DictationOutcome: String, Codable, Sendable {
 }
 
 public struct DictationResult: Sendable, Equatable {
+    public var command: String? = nil
     public var id = UUID()
     public var startedAt: Date
     public var appName: String?
@@ -58,6 +59,8 @@ public struct DictationResult: Sendable, Equatable {
     public var recallable: DictationResult {
         guard outcome == .copiedSecureField else { return self }
         var redacted = self
+        redacted.command = nil
+        redacted.uncleanedText = ""
         redacted.raw = ""
         redacted.cleaned = nil
         redacted.finalText = ""
@@ -74,7 +77,7 @@ public struct DictationResult: Sendable, Equatable {
             return HistoryEntry(
                 id: id, startedAt: startedAt, appName: appName, bundleID: bundleID, style: style,
                 language: language, raw: raw, cleaned: cleaned, text: finalText,
-                outcome: outcome.rawValue, rawReason: rawReason, timings: timings
+                outcome: outcome.rawValue, rawReason: rawReason, timings: timings, command: command
             )
         }
     }
