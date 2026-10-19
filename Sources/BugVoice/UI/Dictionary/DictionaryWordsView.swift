@@ -22,6 +22,7 @@ struct DictionaryWordsView: View {
                     HeroChip { Text("bug voice").strikethrough().foregroundStyle(.bvSecondary); Text("BugVoice").bold() }
                 }
             }
+            SuggestionsCard(model: model)
             VStack(alignment: .leading, spacing: 0) {
                 HStack {
                     Text(model.dictionary.words.count == 1 ? "1 word" : "\(model.dictionary.words.count) words").bvFont(.bodyStrong)

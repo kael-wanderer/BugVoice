@@ -10,6 +10,7 @@ enum MenuSubmenu: Hashable { case library, dictationOptions, tools }
 enum MenuControl: Hashable, Sendable {
     case statusAction, meetingPause, meetingMark, meetingStop
     case newNote, meeting, upload, pasteLast, copyLast, retryLast, rawLast, redoLast
+    case suggestions
     case submenu(MenuSubmenu), openApp, settings, quit
     case back, item(String)
 }
@@ -99,6 +100,7 @@ struct MenuPopover: View {
                 ? [.pasteLast, .copyLast, .rawLast]
                 : [.pasteLast, .copyLast, .retryLast, .rawLast, .redoLast]
         }
+        if !model.suggestions.pending.isEmpty { ids.append(.suggestions) }
         ids += [.submenu(.library), .submenu(.dictationOptions), .openApp, .settings, .submenu(.tools), .quit]
         return ids
     }
@@ -106,6 +108,10 @@ struct MenuPopover: View {
     /// Runs the same action as a click on `control`.
     func activate(_ control: MenuControl) {
         switch control {
+        case .suggestions:
+            close()
+            model.dictionaryTab = .words
+            model.openMainWindow(.dictionary)
         case .statusAction:
             if let action = status.action { runStatusAction(action) }
         case .meetingPause:
@@ -236,6 +242,11 @@ struct MenuPopover: View {
         MenuSeparator()
         if let last = model.lastResult, !last.finalText.isEmpty {
             MenuLastDictation(result: last, shortcuts: model.settings.shortcuts, highlight: highlight)
+            MenuSeparator()
+        }
+        if !model.suggestions.pending.isEmpty {
+            MenuRow(id: .suggestions, title: "Dictionary suggestions", hint: "›",
+                    badge: model.suggestions.pending.count, highlight: highlight)
             MenuSeparator()
         }
         MenuSubmenuRow(submenu: .library, icon: "books.vertical", title: "Library", highlight: highlight)

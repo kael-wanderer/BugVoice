@@ -77,6 +77,10 @@ struct SpeechTab: View {
                 Text("Words like module, API and neuron stay in English. Add words you always say in English to the Dictionary.")
                     .bvFont(.footnote).foregroundStyle(.bvSecondary)
                 Divider()
+                SettingsToggle(title: "Learn from corrections", isOn: $model.settings.speech.learnFromCorrections)
+                Text("After a paste, BugVoice reads the field back for a minute. When you fix a word, it suggests adding it to the Dictionary. Text stays on this Mac; only the changed words are kept.")
+                    .bvFont(.footnote).foregroundStyle(.bvSecondary)
+                Divider()
                 SettingsToggle(title: "Use Dictionary words as hints", isOn: $model.settings.speech.useVocabularyHints)
                 Divider()
                 SettingsRow(title: "Use project words in") {
