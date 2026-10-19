@@ -21,3 +21,25 @@
 - `AppSettings` already uses synthesized `CodingKeys`; adding its stored
   `backup` property supplies the coding key automatically, rather than adding
   an explicit coding-key enum. The public API and encoded key remain as planned.
+
+## Task 2 — File names and schedule (2026-10-19)
+
+- Added minute-resolution, time-zone-aware backup and restore safety-copy names,
+  collision suffixes, strict filename/date parsing, elapsed-time scheduling,
+  newest-backup discovery, and retention restricted to recognized backup names.
+- Test-first evidence: wrote all six planned tests, then
+  `swift test --filter BackupScheduleTests` failed (exit 1, zero tests executed)
+  because `BackupNaming` and `BackupSchedule` did not exist. The expected
+  missing-API diagnostics are in `/tmp/bugvoice-task2-red.log`.
+- Focused check: `swift test --filter BackupScheduleTests` passed, 6 tests /
+  1 suite (`/tmp/bugvoice-task2-green.log`).
+- Full check: `swift test` passed, 950 VoiceCore tests / 105 suites,
+  30 MCPKit tests / 2 suites, and 94 BugVoiceMac tests / 16 suites
+  (1,074 tests total; `/tmp/bugvoice-task2-full.log`).
+- Self-review checked public interfaces, strict full-name/date matching,
+  collision numbering, explicit time zones, deterministic same-minute retention,
+  and Foundation-only imports. `git diff --check` passed. All dates and filenames
+  are synthetic; no owner data was read.
+- No interface or scope deviations. Added assertions for `newest`, zero retention,
+  invalid calendar dates/times, noncanonical suffixes, and trailing newlines.
+  Negative retention counts are treated as zero; equal-minute names sort by name.
