@@ -96,6 +96,10 @@ version and build live in `App/Info.plist`. Every commit raises the build by one
   and capture the BugVoice window itself, not a screen region.
 - Test the menu bar popover on that same non-primary display: click the
   BugVoice icon in the second display's menu bar, never the primary one.
+- Synthetic input that ends in a paste (CGEvent hotkey holds, popover buttons
+  that paste) runs only while the owner is away from the keyboard: the paste
+  lands in whatever app is frontmost, which may be the owner's. Synthetic ⌃⌥
+  chords do not trigger the Carbon global shortcuts; use the popover buttons.
 - Never paste into a secure text field. Never send audio or text off this Mac
   unless the user configured a remote server.
 - UI copy: plain English, no hedging words, no emoji.
