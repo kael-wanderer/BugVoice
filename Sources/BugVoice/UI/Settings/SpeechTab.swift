@@ -79,6 +79,17 @@ struct SpeechTab: View {
                 Divider()
                 SettingsToggle(title: "Use Dictionary words as hints", isOn: $model.settings.speech.useVocabularyHints)
                 Divider()
+                SettingsRow(title: "Use project words in") {
+                    Picker("Use project words in", selection: $model.settings.speech.projectWordsScope) {
+                        Text("Coding apps").tag(ProjectWordsScope.codingApps)
+                        Text("All apps").tag(ProjectWordsScope.allApps)
+                        Text("Off").tag(ProjectWordsScope.off)
+                    }
+                    .pickerStyle(.segmented).labelsHidden().fixedSize()
+                }
+                Text("Coding apps: Terminal-style apps, VS Code, Cursor, Xcode, Zed and Orca. Manage folders in Dictionary › Projects.")
+                    .bvFont(.footnote).foregroundStyle(.bvSecondary)
+                Divider()
                 SettingsRow(title: "Microphone") {
                     Picker("Microphone", selection: $model.settings.speech.microphoneUID) {
                         Text("System default").tag(String?.none)

@@ -323,6 +323,7 @@ final class DictationController {
                 }
             }
             stagedRun = nil
+            model.recordProjectMatch(result.projectName, app: focus.appName)
             Log.dictation.info("\(Diagnostics.dictationSummary(result), privacy: .public)")
             if let message = result.errorMessage { Log.dictation.error("\(message, privacy: .public)") }
             // Agents may edit the note again once this dictation is in.
