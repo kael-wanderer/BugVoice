@@ -403,6 +403,8 @@ final class UploadController {
                     uploadJobID: draft.addedBy == nil ? nil : job.id,
                     addedBy: draft.addedBy
                 )
+                // Kept on the meeting so a relaunch or retranscribe uses the same choice.
+                if let languages = draft.languages { manifest.languages = languages }
                 try await MeetingStore(root: model.paths.meetings).save(manifest)
                 let decoding = Task.detached(priority: .utility) { [controller = self] in
                     try await MediaAudioDecoder.decode(

@@ -51,6 +51,7 @@ struct TranscribeFileIntent: AppIntent, ProgressReportingIntent {
             if let copiedDirectory { try? FileManager.default.removeItem(at: copiedDirectory) }
             throw ShortcutsError.other(error.localizedDescription)
         }
+        if let copiedDirectory { Self.removeWhenDone(copiedDirectory, job: id, uploads: uploads) }
         guard wait else { return .result(value: (name as NSString).deletingPathExtension) }
         progress.totalUnitCount = 100
         let deadline = ContinuousClock.now.advanced(by: .seconds(ShortcutsActions.transcriptWait))
@@ -76,5 +77,17 @@ struct TranscribeFileIntent: AppIntent, ProgressReportingIntent {
             try await Task.sleep(for: .seconds(1))
         } while ContinuousClock.now < deadline
         throw ShortcutsError.transcriptTimeout
+    }
+
+    /// The copy of a file Shortcuts handed over as data is the owner's audio:
+    /// it stays only while the upload may still read it (a relaunch resumes
+    /// from the same path) and is removed once the job ends.
+    @MainActor private static func removeWhenDone(_ directory: URL, job id: UUID, uploads: UploadController) {
+        Task { @MainActor [weak uploads] in
+            while let uploads, let job = uploads.jobStatus(id: id), !job.state.isTerminal {
+                try? await Task.sleep(for: .seconds(5))
+            }
+            try? FileManager.default.removeItem(at: directory)
+        }
     }
 }

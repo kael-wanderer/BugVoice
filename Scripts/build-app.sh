@@ -46,10 +46,10 @@ XCODE_DEVELOPER="${BUGVOICE_XCODE_DEVELOPER:-/Applications/Xcode.app/Contents/De
 if PROCESSOR="$(DEVELOPER_DIR="$XCODE_DEVELOPER" xcrun --find appintentsmetadataprocessor 2>/dev/null)"; then
     METADATA_TEMP="$(mktemp -d "${TMPDIR:-/tmp}/bugvoice-appintents.XXXXXX")"
     trap 'rm -rf "$METADATA_TEMP"' EXIT
-    rg --files "$ROOT/Sources/BugVoice" -g '*.swift' | sort > "$METADATA_TEMP/sources.txt"
+    find "$ROOT/Sources/BugVoice" -name '*.swift' -type f | sort > "$METADATA_TEMP/sources.txt"
     # Match only this product, configuration and architecture, excluding tests
     # and stale sanitizer outputs from other builds.
-    { rg --files --hidden --no-ignore "$ROOT/.build/out/Intermediates.noindex/BugVoice.build" -g '*.swiftconstvalues' || [[ $? == 1 ]]; } |
+    { find "$ROOT/.build/out/Intermediates.noindex/BugVoice.build" -name '*.swiftconstvalues' -type f 2>/dev/null || true; } |
         awk -F/ -v config="$CONFIGURATION" '
             tolower($(NF-4)) == tolower(config) && $(NF-3) == "BugVoice-p.build" &&
             $(NF-2) == "Objects-normal" && $(NF-1) == "arm64" { print }

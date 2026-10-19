@@ -101,3 +101,9 @@ Its three App Shortcuts contain these four phrase templates
 - [ ] S8 Get open action items returns lines “item (owner) — meeting”, newest meeting first.
 - [ ] S9 Quit BugVoice, run a BugVoice shortcut: BugVoice launches and the action runs (or the still-starting error after 10 s).
 - [ ] S10 Settings › Shortcuts shows the footnote.
+
+## Review fixes
+
+- `build-app.sh` lists sources and const values with `find`, not `rg`, so a Mac with Xcode but without ripgrep still builds.
+- Transcribe audio file: the temporary copy made when Shortcuts hands over data is removed once the upload job ends (ready, failed or cancelled).
+- The Language choice is saved on the meeting, so a relaunch mid-upload or a later retranscribe keeps it.
