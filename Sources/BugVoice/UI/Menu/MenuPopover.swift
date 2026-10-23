@@ -241,7 +241,11 @@ struct MenuPopover: View {
         }
         MenuSeparator()
         if let last = model.lastResult, !last.finalText.isEmpty {
-            MenuLastDictation(result: last, shortcuts: model.settings.shortcuts, highlight: highlight)
+            MenuLastDictation(
+                result: last,
+                redoLanguage: RedoChain(original: last.language).peek(languages: model.settings.speech.dictationLanguages),
+                shortcuts: model.settings.shortcuts, highlight: highlight
+            )
             MenuSeparator()
         }
         if !model.suggestions.pending.isEmpty {

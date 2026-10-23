@@ -5,16 +5,41 @@ public enum FixKind: String, Codable, Sendable { case raw, otherLanguage }
 public enum FixLast {
     public static let syntheticEventMarker: Int64 = 0x4256_5043
 
-    public static func otherLanguage(of detected: String?) -> SpeechLanguage {
-        detected?.lowercased() == "en" ? .vi : .en
-    }
-
     public static func countsAsTyping(keyCode: Int64, flags: UInt64, userData: Int64, shortcutKeyCodes: Set<Int64>) -> Bool {
         guard userData != syntheticEventMarker else { return false }
         let control: UInt64 = 0x0004_0000
         let option: UInt64 = 0x0008_0000
         if flags & (control | option) == (control | option), shortcutKeyCodes.contains(keyCode) { return false }
         return true
+    }
+}
+
+/// The languages "Redo in another language" goes through for one dictation.
+/// English and Vietnamese swap first; once every dictation language has
+/// been tried, the next press returns to the language it first came out in.
+public struct RedoChain: Sendable, Equatable {
+    /// Whisper's language code for the first result; any language, or nil.
+    public let original: String?
+    public private(set) var tried: [SpeechLanguage] = []
+
+    public init(original: String?) { self.original = original }
+
+    public mutating func next(languages: [SpeechLanguage]) -> SpeechLanguage {
+        let order = DictationLanguages.normalized(languages)
+        let code = original?.lowercased()
+        if let pick = order.first(where: { $0.rawValue != code && !tried.contains($0) }) {
+            tried.append(pick)
+            return pick
+        }
+        tried = []
+        if let back = SpeechLanguage(rawValue: code ?? ""), back != .auto, order.contains(back) { return back }
+        tried = [order[0]]
+        return order[0]
+    }
+
+    public func peek(languages: [SpeechLanguage]) -> SpeechLanguage {
+        var copy = self
+        return copy.next(languages: languages)
     }
 }
 

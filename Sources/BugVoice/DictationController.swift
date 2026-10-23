@@ -438,7 +438,8 @@ final class DictationController {
             showNothingToFix()
             return
         }
-        let language = FixLast.otherLanguage(of: previous.language)
+        var chain = RedoChain(original: previous.language)
+        let language = chain.next(languages: model.settings.speech.dictationLanguages)
         let adapter = ReplacementInsertionTarget(controller: self, initialDecision: decision)
         let pipeline = model.makePipeline(insertion: adapter, feature: .dictation)
         let modelName = model.plan(for: .dictation).shortName

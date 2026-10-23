@@ -3,11 +3,35 @@ import Testing
 @testable import VoiceCore
 
 struct FixLastTests {
-    @Test func otherLanguage() {
-        #expect(FixLast.otherLanguage(of: "en") == .vi)
-        #expect(FixLast.otherLanguage(of: "vi") == .en)
-        #expect(FixLast.otherLanguage(of: nil) == .en)
-        #expect(FixLast.otherLanguage(of: "zh") == .en)
+    private func chain(_ original: String?, _ languages: [SpeechLanguage], presses: Int) -> [SpeechLanguage] {
+        var c = RedoChain(original: original)
+        return (0..<presses).map { _ in c.next(languages: languages) }
+    }
+
+    @Test func twoLanguageSwapUnchanged() {
+        #expect(chain("en", [.en, .vi], presses: 3) == [.vi, .en, .vi])
+        #expect(chain("vi", [.en, .vi], presses: 2) == [.en, .vi])
+        #expect(chain("zh", [.en, .vi], presses: 1) == [.en])
+    }
+
+    @Test func threeLanguageOrder() {
+        let all: [SpeechLanguage] = [.en, .vi, .es]
+        #expect(chain("en", all, presses: 4) == [.vi, .es, .en, .vi])
+        #expect(chain("vi", all, presses: 3) == [.en, .es, .vi])
+        #expect(chain("es", all, presses: 3) == [.en, .vi, .es])
+    }
+
+    @Test func detectedOutsideTheSet() {
+        let all: [SpeechLanguage] = [.en, .vi, .es]
+        #expect(chain("pt", all, presses: 4) == [.en, .vi, .es, .en])
+        #expect(chain(nil, [.en, .vi], presses: 3) == [.en, .vi, .en])
+        #expect(chain("EN", [.en, .vi], presses: 1) == [.vi])
+    }
+
+    @Test func peekDoesNotAdvance() {
+        let c = RedoChain(original: "en")
+        #expect(c.peek(languages: [.en, .vi, .es]) == .vi)
+        #expect(c.tried.isEmpty)
     }
 
     @Test func replaceCountsGraphemes() {

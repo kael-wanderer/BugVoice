@@ -130,6 +130,8 @@ struct MenuActionGrid: View {
 /// App, time, up to three lines of the last dictation, Copy and Retry.
 struct MenuLastDictation: View {
     let result: DictationResult
+    /// The language the next "Redo in another language" press uses.
+    let redoLanguage: SpeechLanguage
     let shortcuts: ShortcutSettings
     let highlight: MenuHighlight
 
@@ -157,7 +159,7 @@ struct MenuLastDictation: View {
                     MenuButton(id: .rawLast, small: true, highlight: highlight) { Text("Raw") }
                         .help("Paste raw (⌃⌥\(shortcuts.letter(for: .pasteRaw)))")
                     MenuButton(id: .redoLast, small: true, highlight: highlight) {
-                        Text(FixLast.otherLanguage(of: result.language).displayName)
+                        Text(redoLanguage.displayName)
                     }
                     .help("Redo in other language (⌃⌥\(shortcuts.letter(for: .redoOtherLanguage)))")
                 }
