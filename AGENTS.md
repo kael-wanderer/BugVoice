@@ -92,6 +92,9 @@ version and build live in `App/Info.plist`. Every commit raises the build by one
 - Live preview plan: `docs/superpowers/plans/2026-10-19-live-preview.md`
 - Action items execution log and device checks: `docs/progress/action-items-log.md`
 - Learn from corrections execution log and device checks: `docs/progress/corrections-log.md`
+- Spanish dictation spec: `docs/superpowers/specs/2026-10-23-spanish-dictation-design.md` (mockup: `docs/design/proposal-spanish.html`)
+- Spanish dictation plan: `docs/superpowers/plans/2026-10-23-spanish-dictation.md`
+- Spanish dictation execution log and device checks: `docs/progress/spanish-log.md`
 
 ## Rules
 
