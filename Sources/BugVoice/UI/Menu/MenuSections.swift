@@ -161,7 +161,7 @@ struct MenuLastDictation: View {
                     MenuButton(id: .redoLast, small: true, highlight: highlight) {
                         Text(redoLanguage.displayName)
                     }
-                    .help("Redo in other language (⌃⌥\(shortcuts.letter(for: .redoOtherLanguage)))")
+                    .help("Redo in \(redoLanguage.displayName) (⌃⌥\(shortcuts.letter(for: .redoOtherLanguage)))")
                 }
             }
             .padding(.top, LayoutTokens.spacing[0])

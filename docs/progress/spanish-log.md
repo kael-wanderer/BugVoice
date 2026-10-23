@@ -31,7 +31,7 @@ No dependency added.
 
 ## Tests
 
-`swift test`: **1,216 VoiceCore, 30 MCPKit, 114 BugVoiceMac**, all passing.
+`swift test`: **1,217 VoiceCore, 30 MCPKit, 114 BugVoiceMac**, all passing.
 `Scripts/build-app.sh` succeeds, signed with Bugler Local Dev; no new warnings.
 
 ## Spanish speech check
@@ -50,7 +50,7 @@ Synthetic speech, not a human voice. Cleanup with a local model was not run.
 
 - Settings › Speech with Spanish unticked: checkboxes English and Vietnamese ticked, Language
   Auto · Vietnamese · English, footnotes as on `main`.
-- Spanish ticked: Language gains Spanish, "Vietnamese, English or Spanish applies everywhere",
+- Spanish ticked: Language gains Spanish, "English, Vietnamese or Spanish applies everywhere",
   key footnote "Auto, English, Vietnamese, Spanish", title "Keep English words in Vietnamese
   and Spanish".
 - Popover switch: Auto · EN · VI unticked, Auto · EN · VI · ES ticked.
@@ -58,6 +58,38 @@ Synthetic speech, not a human voice. Cleanup with a local model was not run.
 
 The first ticked screenshot showed the key footnote in Settings order (Vietnamese before
 English) while the key cycles English first; fixed in `bba6bb9` and checked again.
+
+## Final review
+
+Fresh reviewer on the whole branch: no Critical or Important. Re-graded and fixed:
+
+- The Auto footnote read "Vietnamese or English applies everywhere" for someone who never
+  ticks Spanish (main: "English or Vietnamese"). Now `DictationLanguages.orList` in cycle
+  order; test `orListReadsInCycleOrder` RED→GREEN.
+- The redo button's tooltip now names the language ("Redo in Spanish (⌃⌥L)"), as the spec says.
+- A Spanish per-app rule with Spanish unticked is now also checked through `LanguageResolver`.
+
+## Rulings
+
+1. Test added: a switch set to an unticked language falls back to Auto. Cost if wrong: none.
+2. `MenuLastDictation` takes a `redoLanguage` parameter so the view stays model-free. Cost: one parameter.
+3. The Spanish keep-English line was reworded; the planned text was a substring of the Vietnamese
+   line. Cost: one sentence of prompt wording.
+4. The language key shows an unticked per-app start language instead of Auto; the first tap goes
+   to Auto. Cost: HUD label in a rare case.
+5. Settings › Speech Language picker and Dictation options keep Vietnamese before English. Cost:
+   those lists read in a different order from the key.
+6. Spanish Whisper credits are filtered. Cost: a real dictation of exactly "Gracias por ver" is dropped.
+7. The key footnote lists languages in cycle order. Cost: one footnote.
+
+## Deferred minors
+
+- New per-app rules start on English (apps) or Vietnamese (websites) even when that language is unticked.
+- A failed redo still moves the redo order to the next language.
+- With one ticked language, the redo button re-runs that same language.
+- An older build reading the new settings drops Spanish per-app rules and `dictationLanguages`.
+- "Keep English words in Vietnamese and Spanish" names Vietnamese even when it is unticked.
+- `LanguageKeyCycler.init(start:languages:)` defaults `languages`; a caller that omits it ignores the ticked set.
 
 ## Device checks (owner)
 

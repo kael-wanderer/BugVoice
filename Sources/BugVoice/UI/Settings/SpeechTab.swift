@@ -70,7 +70,7 @@ struct SpeechTab: View {
                     }
                     .pickerStyle(.segmented).labelsHidden().fixedSize()
                 }
-                Text("Auto uses the per-app list below, then detects the language. \(Self.orList(tickedNames)) applies everywhere.")
+                Text("Auto uses the per-app list below, then detects the language. \(DictationLanguages.orList(model.settings.speech.dictationLanguages)) applies everywhere.")
                     .bvFont(.footnote).foregroundStyle(.bvSecondary)
                 Divider()
                 SettingsToggle(title: "Show language switch in menu", isOn: $model.settings.speech.showLanguageSwitch)
@@ -138,17 +138,6 @@ struct SpeechTab: View {
         case .ready: "Ready"
         case .failed(let message): "Failed: \(message)"
         }
-    }
-
-    /// Ticked dictation languages by name, in the Language picker's order.
-    private var tickedNames: [String] {
-        DictationLanguages.settingsOrder(model.settings.speech.dictationLanguages).map(\.displayName)
-    }
-
-    /// "English", "Vietnamese or English", "Vietnamese, English or Spanish".
-    private static func orList(_ names: [String]) -> String {
-        guard let last = names.last, names.count > 1 else { return names.first ?? "" }
-        return names.dropLast().joined(separator: ", ") + " or " + last
     }
 
     private func dictationLanguageBinding(_ language: SpeechLanguage) -> Binding<Bool> {

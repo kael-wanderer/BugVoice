@@ -9,7 +9,7 @@ Settings › Speech › Dictation languages (English, Vietnamese, Spanish; defau
 Vietnamese, so nothing changes until Spanish is ticked). Ticked languages drive the popover
 switch, Dictation options, the language key, the HUD, redo (English and Vietnamese swap
 first), per-app pickers and Shortcuts; notes and Scratchpad follow dictation. Spanish
-cleanup and keep-English rules; Spanish Whisper credits filtered. Tests: **1,216 VoiceCore,
+cleanup and keep-English rules; Spanish Whisper credits filtered. Tests: **1,217 VoiceCore,
 30 MCPKit, 114 BugVoiceMac**. Bench on synthetic Spanish: WER 0.00 (auto and es). Device
 checks 1–7 open; see `docs/progress/spanish-log.md`.
 

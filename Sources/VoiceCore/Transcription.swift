@@ -36,6 +36,13 @@ public enum DictationLanguages {
         return kept.isEmpty ? defaults : kept
     }
 
+    /// Language names in `choices` order joined for a sentence: "English, Vietnamese or Spanish".
+    public static func orList(_ languages: [SpeechLanguage]) -> String {
+        let names = choices.filter(languages.contains).map(\.displayName)
+        guard let last = names.last, names.count > 1 else { return names.first ?? "" }
+        return names.dropLast().joined(separator: ", ") + " or " + last
+    }
+
     /// The order Settings › Speech and Dictation options have always used: Vietnamese first.
     public static func settingsOrder(_ languages: [SpeechLanguage]) -> [SpeechLanguage] {
         [SpeechLanguage.vi, .en, .es].filter(languages.contains)

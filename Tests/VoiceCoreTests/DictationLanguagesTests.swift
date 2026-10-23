@@ -15,6 +15,13 @@ struct DictationLanguagesTests {
         #expect(DictationLanguages.settingsOrder([.es, .en]) == [.en, .es])
     }
 
+    /// Settings › Speech footnote: someone who never ticks Spanish keeps "English or Vietnamese".
+    @Test func orListReadsInCycleOrder() {
+        #expect(DictationLanguages.orList([.vi, .en]) == "English or Vietnamese")
+        #expect(DictationLanguages.orList([.en, .vi, .es]) == "English, Vietnamese or Spanish")
+        #expect(DictationLanguages.orList([.es]) == "Spanish")
+    }
+
     @Test func shortCodes() {
         #expect(SpeechLanguage.allCases.map(\.shortCode) == ["Auto", "VI", "EN", "ES"])
     }
@@ -57,6 +64,8 @@ struct DictationLanguagesTests {
         let json = #"{"appLanguages":[{"kind":"website","id":"web.whatsapp.com","language":"es"},{"kind":"app","id":"x","language":"auto"}]}"#
         let s = try JSONDecoder().decode(SpeechSettings.self, from: Data(json.utf8))
         #expect(s.appLanguages == [AppLanguageRule(kind: .website, id: "web.whatsapp.com", language: .es)])
+        #expect(s.dictationLanguages == [.en, .vi])
+        #expect(LanguageResolver(settings: s).language(for: FocusSnapshot(url: "https://web.whatsapp.com/")) == .es)
     }
 
     @Test func roundTripsSpanish() throws {
