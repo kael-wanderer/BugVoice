@@ -130,7 +130,18 @@ extension MeetingSettings {
 public struct SpeechSettings: Codable, Equatable, Sendable {
     public var engine: SpeechEngine = .whisperKit
     public var whisperModel = "large-v3-v20240930_turbo"
-    public var language: SpeechLanguage = .auto
+    /// The sticky language switch; a language that is not ticked becomes Auto.
+    public var language: SpeechLanguage = .auto {
+        didSet { if language != Self.switchLanguage(language, in: dictationLanguages) { language = .auto } }
+    }
+    public var dictationLanguages: [SpeechLanguage] = DictationLanguages.defaults {
+        didSet {
+            if dictationLanguages != DictationLanguages.normalized(dictationLanguages) {
+                dictationLanguages = DictationLanguages.normalized(dictationLanguages)
+            }
+            if language != Self.switchLanguage(language, in: dictationLanguages) { language = .auto }
+        }
+    }
     public var appLanguages: [AppLanguageRule] = AppLanguageRule.defaults
     public var showLanguageSwitch = true
     public var languageKey: LanguageKey = .shift
@@ -145,6 +156,10 @@ public struct SpeechSettings: Codable, Equatable, Sendable {
     public var microphoneUID: String?
 
     public init() {}
+
+    static func switchLanguage(_ language: SpeechLanguage, in languages: [SpeechLanguage]) -> SpeechLanguage {
+        language == .auto || languages.contains(language) ? language : .auto
+    }
 }
 
 /// The selected provider settings and credential version that determine the
@@ -358,13 +373,15 @@ extension SpeechSettings {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         engine = c.value(.engine, default: engine)
         whisperModel = c.value(.whisperModel, default: whisperModel)
-        language = c.value(.language, default: language)
+        // Observers do not run in an initializer, so normalise here.
+        dictationLanguages = DictationLanguages.normalized(c.value(.dictationLanguages, default: dictationLanguages))
+        language = Self.switchLanguage(c.value(.language, default: language), in: dictationLanguages)
         if let rawRules = try? c.decode([[String: String]].self, forKey: .appLanguages) {
             appLanguages = rawRules.compactMap { raw in
                 guard let kindRaw = raw["kind"], let kind = AppLanguageRule.Kind(rawValue: kindRaw),
                       let id = raw["id"], !id.isEmpty,
                       let languageRaw = raw["language"], let language = SpeechLanguage(rawValue: languageRaw),
-                      language == .en || language == .vi else { return nil }
+                      language != .auto else { return nil }
                 return AppLanguageRule(kind: kind, id: id, language: language)
             }
         }

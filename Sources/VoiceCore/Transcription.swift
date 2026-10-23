@@ -12,6 +12,29 @@ public enum SpeechLanguage: String, Codable, Sendable, CaseIterable {
         case .es: "Spanish"
         }
     }
+
+    /// The label in the HUD, the menu switch and the menu bar badge.
+    public var shortCode: String {
+        switch self {
+        case .auto: "Auto"
+        case .vi: "VI"
+        case .en: "EN"
+        case .es: "ES"
+        }
+    }
+}
+
+/// The languages the user dictates in. Every dictation language picker,
+/// the language key and redo list these, always in `choices` order.
+public enum DictationLanguages {
+    public static let choices: [SpeechLanguage] = [.en, .vi, .es]
+    public static let defaults: [SpeechLanguage] = [.en, .vi]
+
+    /// Drops Auto and repeats, puts them in `choices` order; an empty result falls back to the defaults.
+    public static func normalized(_ languages: [SpeechLanguage]) -> [SpeechLanguage] {
+        let kept = choices.filter(languages.contains)
+        return kept.isEmpty ? defaults : kept
+    }
 }
 
 /// The languages spoken in a meeting. Whisper's automatic detection is kept
