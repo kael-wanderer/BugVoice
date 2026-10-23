@@ -97,7 +97,9 @@ Vietnamese" are built from the ticked languages.
 
 `LanguageKeyCycler(start:languages:)`: Auto → each ticked language in order
 → Auto. With the default languages this is today's Auto → EN → VI → Auto.
-A start language that is not ticked starts the cycle at Auto.
+A start language that is not ticked (a per-app rule kept
+after unticking) is shown as is, because the dictation uses it; the first
+tap goes to Auto.
 
 ### Cleanup and command prompts
 

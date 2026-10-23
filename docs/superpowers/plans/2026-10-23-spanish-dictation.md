@@ -25,7 +25,7 @@
 2. Settings file with `language: "es"` but no Spanish ticked (hand-edited or after unticking): switch falls back to Auto. Test in Task 1.
 3. Spanish per-app rule while Spanish is unticked: rule survives decoding and still resolves to Spanish. Test in Task 1.
 4. Redo when Whisper detected a language outside the set (`"pt"`, `nil`, upper-case `"EN"`): starts at English and cycles every ticked language. Test in Task 3.
-5. Language key started from a per-app rule language that is unticked: cycle starts at Auto, never shows the unticked language. Test in Task 2.
+5. Language key started from a per-app rule language that is unticked: HUD shows that language (the dictation uses it), the first tap goes to Auto. Test in Task 2 (amended in Task 5).
 
 ---
 

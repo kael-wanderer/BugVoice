@@ -25,11 +25,14 @@ struct LanguageKeyCyclerTests {
         c.tap(); #expect(c.current == .auto)
     }
 
-    @Test func untickedStartBeginsAtAuto() {
+    /// A per-app rule can name a language that is no longer ticked; the
+    /// dictation still uses it, so the HUD shows it until the first tap.
+    @Test func untickedStartShowsUntilFirstTap() {
         var c = LanguageKeyCycler(start: .es, languages: [.en, .vi])
-        #expect(c.current == .auto)
-        c.tap(); c.tap(); c.tap()
-        #expect(c.current == .auto)
+        #expect(c.current == .es)
+        c.tap(); #expect(c.current == .auto)
+        c.tap(); #expect(c.current == .en)
+        c.tap(); c.tap(); #expect(c.current == .auto)
     }
 
     @Test func spanishOnlyCycle() {
