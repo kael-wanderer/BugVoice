@@ -49,15 +49,28 @@ struct SpeechTab: View {
                 }
             }
             SettingsCard {
+                SettingsRow(title: "Dictation languages") {
+                    HStack(spacing: LayoutTokens.spacing[2]) {
+                        ForEach(DictationLanguages.choices, id: \.self) { language in
+                            Toggle(language.displayName, isOn: dictationLanguageBinding(language))
+                                .toggleStyle(.checkbox)
+                                .disabled(model.settings.speech.dictationLanguages == [language])
+                        }
+                    }
+                }
+                Text("Languages you speak when you dictate. Each one appears in the language switch, the language key and the per-app list.")
+                    .bvFont(.footnote).foregroundStyle(.bvSecondary)
+                Divider()
                 SettingsRow(title: "Language") {
                     Picker("Language", selection: $model.settings.speech.language) {
                         Text("Auto").tag(SpeechLanguage.auto)
-                        Text("Vietnamese").tag(SpeechLanguage.vi)
-                        Text("English").tag(SpeechLanguage.en)
+                        ForEach(DictationLanguages.settingsOrder(model.settings.speech.dictationLanguages), id: \.self) { language in
+                            Text(language.displayName).tag(language)
+                        }
                     }
                     .pickerStyle(.segmented).labelsHidden().fixedSize()
                 }
-                Text("Auto uses the per-app list below, then detects the language. English or Vietnamese applies everywhere.")
+                Text("Auto uses the per-app list below, then detects the language. \(Self.orList(tickedNames)) applies everywhere.")
                     .bvFont(.footnote).foregroundStyle(.bvSecondary)
                 Divider()
                 SettingsToggle(title: "Show language switch in menu", isOn: $model.settings.speech.showLanguageSwitch)
@@ -70,10 +83,13 @@ struct SpeechTab: View {
                     }
                     .labelsHidden().fixedSize()
                 }
-                Text("Tap the key while speaking to change the language for that dictation: Auto, English, Vietnamese.")
+                Text("Tap the key while speaking to change the language for that dictation: \((["Auto"] + tickedNames).joined(separator: ", ")).")
                     .bvFont(.footnote).foregroundStyle(.bvSecondary)
                 Divider()
-                SettingsToggle(title: "Keep English words in Vietnamese", isOn: $model.settings.speech.keepEnglishWords)
+                SettingsToggle(
+                    title: model.settings.speech.dictationLanguages.contains(.es) ? "Keep English words in Vietnamese and Spanish" : "Keep English words in Vietnamese",
+                    isOn: $model.settings.speech.keepEnglishWords
+                )
                 Text("Words like module, API and neuron stay in English. Add words you always say in English to the Dictionary.")
                     .bvFont(.footnote).foregroundStyle(.bvSecondary)
                 Divider()
@@ -122,5 +138,28 @@ struct SpeechTab: View {
         case .ready: "Ready"
         case .failed(let message): "Failed: \(message)"
         }
+    }
+
+    /// Ticked dictation languages by name, in the Language picker's order.
+    private var tickedNames: [String] {
+        DictationLanguages.settingsOrder(model.settings.speech.dictationLanguages).map(\.displayName)
+    }
+
+    /// "English", "Vietnamese or English", "Vietnamese, English or Spanish".
+    private static func orList(_ names: [String]) -> String {
+        guard let last = names.last, names.count > 1 else { return names.first ?? "" }
+        return names.dropLast().joined(separator: ", ") + " or " + last
+    }
+
+    private func dictationLanguageBinding(_ language: SpeechLanguage) -> Binding<Bool> {
+        Binding(
+            get: { model.settings.speech.dictationLanguages.contains(language) },
+            set: { isOn in
+                let current = model.settings.speech.dictationLanguages
+                let next = isOn ? current + [language] : current.filter { $0 != language }
+                guard !next.isEmpty else { return }
+                model.settings.speech.dictationLanguages = DictationLanguages.normalized(next)
+            }
+        )
     }
 }

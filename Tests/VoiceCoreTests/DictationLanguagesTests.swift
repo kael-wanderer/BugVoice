@@ -9,6 +9,12 @@ struct DictationLanguagesTests {
         #expect(DictationLanguages.normalized([.auto]) == [.en, .vi])
     }
 
+    /// Settings › Speech and Dictation options have always listed Vietnamese before English.
+    @Test func settingsOrderKeepsVietnameseFirst() {
+        #expect(DictationLanguages.settingsOrder([.en, .vi, .es]) == [.vi, .en, .es])
+        #expect(DictationLanguages.settingsOrder([.es, .en]) == [.en, .es])
+    }
+
     @Test func shortCodes() {
         #expect(SpeechLanguage.allCases.map(\.shortCode) == ["Auto", "VI", "EN", "ES"])
     }

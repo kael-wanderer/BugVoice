@@ -129,6 +129,7 @@ extension AppModel {
 
     func record(_ result: DictationResult) async {
         lastResult = result.recallable
+        redoChain = nil
         guard settings.historyRetention != .off, let entry = result.historyEntry else { return }
         do {
             try await historyLog.append(entry)

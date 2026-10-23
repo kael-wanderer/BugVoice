@@ -124,7 +124,10 @@ final class CommandController {
                 hud?.show(.message(title: "Secure field — command not run", detail: nil))
                 return
             }
-            cycler = LanguageKeyCycler(start: LanguageResolver(settings: model.settings.speech).language(for: startFocus))
+            cycler = LanguageKeyCycler(
+                start: LanguageResolver(settings: model.settings.speech).language(for: startFocus),
+                languages: model.settings.speech.dictationLanguages
+            )
             startedAt = Date()
             do {
                 try recorder.start(deviceUID: model.settings.speech.microphoneUID)
@@ -161,12 +164,7 @@ final class CommandController {
 
     private func showListening(changed: Bool) {
         guard let cycler else { return }
-        let language: String = switch cycler.current {
-        case .auto: "Auto"
-        case .en: "EN"
-        case .vi: "VI"
-        case .es: cycler.current.displayName
-        }
+        let language = cycler.current.shortCode
         hud?.show(.commandListening(selectionCharacters: selection?.count, app: startFocus.appName,
             startedAt: startedAt, language: language, languageChanged: changed))
     }

@@ -223,7 +223,7 @@ final class MenuPanelController: NSObject {
     private func updateIcon() {
         withObservationTracking {
             let language = model.settings.speech.language
-            statusItem.button?.title = language == .auto ? "" : language == .en ? "EN" : "VI"
+            statusItem.button?.title = language == .auto ? "" : language.shortCode
             statusItem.button?.image = BrandImages.menuBar(
                 logo: model.settings.appearance.menuBarIcon, badge: !model.permissionsGranted)
             statusItem.length = language == .auto ? NSStatusItem.squareLength : NSStatusItem.variableLength

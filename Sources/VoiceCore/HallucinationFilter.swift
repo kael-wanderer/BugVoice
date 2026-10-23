@@ -15,6 +15,9 @@ public enum HallucinationFilter {
         "cảm ơn các bạn đã theo dõi",
         "cảm ơn các bạn đã xem video",
         "hẹn gặp lại các bạn trong những video tiếp theo",
+        "gracias por ver",
+        "gracias por ver el video",
+        "subtítulos realizados por la comunidad de amara org",
     ]
 
     /// Credits Whisper sometimes writes in the middle of real speech. Only lines nobody
@@ -23,6 +26,7 @@ public enum HallucinationFilter {
         "hãy subscribe cho kênh ghiền mì gõ để không bỏ lỡ những video hấp dẫn",
         "hẹn gặp lại các bạn trong những video tiếp theo",
         "subtitles by the amara org community",
+        "subtítulos realizados por la comunidad de amara org",
     ]
 
     private static let embeddedPatterns: [NSRegularExpression] = embedded.compactMap { phrase in
@@ -54,7 +58,7 @@ public enum HallucinationFilter {
         return normalized.isEmpty || phrases.contains(normalized) || isMostlyNonLatin(normalized)
     }
 
-    /// BugVoice transcribes English and Vietnamese, both written in Latin
+    /// BugVoice transcribes English, Vietnamese and Spanish, all written in Latin
     /// script. Over music Whisper writes subtitle credits in other scripts
     /// ("Субтитры сделал …", "ご視聴ありがとうございました"), so text whose
     /// letters are mostly non-Latin is not speech from this user.

@@ -146,7 +146,10 @@ final class DictationController {
             return
         }
         startFocus = FocusInspector.read()
-        languageCycler = LanguageKeyCycler(start: LanguageResolver(settings: model.settings.speech).language(for: startFocus))
+        languageCycler = LanguageKeyCycler(
+            start: LanguageResolver(settings: model.settings.speech).language(for: startFocus),
+            languages: model.settings.speech.dictationLanguages
+        )
         handsFreeRecording = handsFree
         meetingNotes = notesOnly ? nil : model.meetingNotesEditorWithKeyboard()
         notesCapture = notesOnly ? micCapture : meetingNotes == nil ? model.captureNotesDictation(startFocus: startFocus) : nil
@@ -209,19 +212,11 @@ final class DictationController {
             app: startFocus.appName,
             startedAt: startedAt,
             limit: handsFreeRecording ? TimeInterval(model.settings.handsFreeLimitMinutes * 60) : nil,
-            language: Self.hudLanguage(languageCycler.current),
+            language: languageCycler.current.shortCode,
             languageChanged: languageChanged
         ))
     }
 
-    private static func hudLanguage(_ language: SpeechLanguage) -> String {
-        switch language {
-        case .auto: "Auto"
-        case .en: "EN"
-        case .vi: "VI"
-        case .es: language.displayName
-        }
-    }
 
     /// The HUD warning to show instead of recording while the on-device
     /// speech model is not ready (spec §7). Nil when dictation can start.
@@ -438,8 +433,9 @@ final class DictationController {
             showNothingToFix()
             return
         }
-        var chain = RedoChain(original: previous.language)
+        var chain = model.redoChain ?? RedoChain(original: previous.language)
         let language = chain.next(languages: model.settings.speech.dictationLanguages)
+        model.redoChain = chain
         let adapter = ReplacementInsertionTarget(controller: self, initialDecision: decision)
         let pipeline = model.makePipeline(insertion: adapter, feature: .dictation)
         let modelName = model.plan(for: .dictation).shortName

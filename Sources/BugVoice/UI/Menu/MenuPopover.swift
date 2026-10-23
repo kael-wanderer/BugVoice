@@ -231,8 +231,9 @@ struct MenuPopover: View {
                     set: { model.settings.speech.language = $0 }
                 )) {
                     Text("Auto").tag(SpeechLanguage.auto)
-                    Text("EN").tag(SpeechLanguage.en)
-                    Text("VI").tag(SpeechLanguage.vi)
+                    ForEach(model.settings.speech.dictationLanguages, id: \.self) { language in
+                        Text(language.shortCode).tag(language)
+                    }
                 }
                 .pickerStyle(.segmented).labelsHidden().fixedSize()
             }
@@ -243,7 +244,7 @@ struct MenuPopover: View {
         if let last = model.lastResult, !last.finalText.isEmpty {
             MenuLastDictation(
                 result: last,
-                redoLanguage: RedoChain(original: last.language).peek(languages: model.settings.speech.dictationLanguages),
+                redoLanguage: (model.redoChain ?? RedoChain(original: last.language)).peek(languages: model.settings.speech.dictationLanguages),
                 shortcuts: model.settings.shortcuts, highlight: highlight
             )
             MenuSeparator()

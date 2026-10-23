@@ -205,6 +205,8 @@ final class AppModel {
     /// The latest dictation, for the menu preview and *Paste last*. A
     /// secure-field result is stored without its text.
     var lastResult: DictationResult?
+    /// Languages "Redo in another language" has gone through for `lastResult`; nil until the first redo.
+    var redoChain: RedoChain?
     var sidebarHidden = UserDefaults.standard.bool(forKey: "BugVoice.sidebarHidden") {
         didSet { UserDefaults.standard.set(sidebarHidden, forKey: "BugVoice.sidebarHidden") }
     }

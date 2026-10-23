@@ -4,10 +4,10 @@ import UniformTypeIdentifiers
 import VoiceCore
 
 enum ShortcutsLanguageEntity: String, AppEnum {
-    case auto, english, vietnamese
+    case auto, english, vietnamese, spanish
     static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Language")
     static let caseDisplayRepresentations: [Self: DisplayRepresentation] = [
-        .auto: "Auto", .english: "English", .vietnamese: "Vietnamese"
+        .auto: "Auto", .english: "English", .vietnamese: "Vietnamese", .spanish: "Spanish"
     ]
     var languages: [SpeechLanguage]? { ShortcutsLanguage(rawValue: rawValue)?.languages }
 }

@@ -1,7 +1,7 @@
 import Foundation
 
 public enum SpeechLanguage: String, Codable, Sendable, CaseIterable {
-    /// Spanish is offered for meetings and uploads only; dictation keeps Auto, Vietnamese and English.
+    /// Spanish is offered for meetings and uploads, and for dictation once ticked in `SpeechSettings.dictationLanguages`.
     case auto, vi, en, es
 
     public var displayName: String {
@@ -34,6 +34,11 @@ public enum DictationLanguages {
     public static func normalized(_ languages: [SpeechLanguage]) -> [SpeechLanguage] {
         let kept = choices.filter(languages.contains)
         return kept.isEmpty ? defaults : kept
+    }
+
+    /// The order Settings › Speech and Dictation options have always used: Vietnamese first.
+    public static func settingsOrder(_ languages: [SpeechLanguage]) -> [SpeechLanguage] {
+        [SpeechLanguage.vi, .en, .es].filter(languages.contains)
     }
 }
 

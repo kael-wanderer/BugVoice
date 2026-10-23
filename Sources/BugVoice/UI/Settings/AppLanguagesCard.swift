@@ -32,8 +32,9 @@ struct AppLanguagesCard: View {
                             model.settings.speech.appLanguages[index].language = language
                         }
                     )) {
-                        Text("English").tag(SpeechLanguage.en)
-                        Text("Vietnamese").tag(SpeechLanguage.vi)
+                        ForEach(pickerLanguages(keeping: rule.language), id: \.self) { language in
+                            Text(language.displayName).tag(language)
+                        }
                     }
                     .labelsHidden().fixedSize()
                     Button {
@@ -68,8 +69,9 @@ struct AppLanguagesCard: View {
                 TextField("chatgpt.com", text: $website)
                     .textFieldStyle(.roundedBorder)
                 Picker("Language", selection: $websiteLanguage) {
-                    Text("English").tag(SpeechLanguage.en)
-                    Text("Vietnamese").tag(SpeechLanguage.vi)
+                    ForEach(pickerLanguages(keeping: websiteLanguage), id: \.self) { language in
+                        Text(language.displayName).tag(language)
+                    }
                 }
                 HStack {
                     Spacer()
@@ -87,6 +89,12 @@ struct AppLanguagesCard: View {
             .padding(LayoutTokens.spacing[3])
             .frame(width: 360)
         }
+    }
+
+    /// The ticked dictation languages, plus `language` when a rule still uses one that is no longer ticked.
+    private func pickerLanguages(keeping language: SpeechLanguage) -> [SpeechLanguage] {
+        let ticked = model.settings.speech.dictationLanguages
+        return ticked.contains(language) ? ticked : DictationLanguages.choices.filter { ticked.contains($0) || $0 == language }
     }
 
     private func add(kind: AppLanguageRule.Kind, id: String, language: SpeechLanguage) {

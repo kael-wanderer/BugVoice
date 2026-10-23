@@ -60,7 +60,7 @@ struct MenuSubmenuView: View {
         MenuSwitchRow(id: .item("handsFree"), title: "Hands-free (double-tap the hotkey)",
                       isOn: model.settings.handsFreeEnabled, highlight: highlight)
         MenuGroupHeader(title: "Language")
-        ForEach(MenuSubmenuItems.languages, id: \.id) { language in
+        ForEach(MenuSubmenuItems.languages(for: model), id: \.id) { language in
             MenuCheckRow(id: .item(language.id), title: language.title,
                          checked: model.settings.speech.language == language.value, highlight: highlight)
         }
@@ -92,9 +92,11 @@ struct MenuSubmenuItems {
     let model: AppModel
     let close: () -> Void
 
-    static let languages: [(id: String, title: String, value: SpeechLanguage)] = [
-        ("lang.auto", "Auto", .auto), ("lang.vi", "Vietnamese", .vi), ("lang.en", "English", .en),
-    ]
+    /// Auto, then the dictation languages in the Settings order (Vietnamese, English, Spanish).
+    static func languages(for model: AppModel) -> [(id: String, title: String, value: SpeechLanguage)] {
+        [("lang.auto", "Auto", .auto)] + DictationLanguages.settingsOrder(model.settings.speech.dictationLanguages)
+            .map { ("lang.\($0.rawValue)", $0.displayName, $0) }
+    }
 
     static func engines(for model: AppModel) -> [(id: String, title: String, value: ModelEngine)] {
         model.settings.models.connections.map { ("engine.\($0.id)", $0.name, .connection($0.id)) }
@@ -107,7 +109,7 @@ struct MenuSubmenuItems {
         switch submenu {
         case .library: ["meetings", "scratchpad", "floating"]
         case .tools: ["permissions", "dataFolder"]
-        case .dictationOptions: ["cleanup", "handsFree"] + Self.languages.map(\.id) + Self.engines(for: model).map(\.id)
+        case .dictationOptions: ["cleanup", "handsFree"] + Self.languages(for: model).map(\.id) + Self.engines(for: model).map(\.id)
         }
     }
 
@@ -133,7 +135,7 @@ struct MenuSubmenuItems {
         case "handsFree":
             model.settings.handsFreeEnabled.toggle()
         default:
-            if let language = Self.languages.first(where: { $0.id == id }) {
+            if let language = Self.languages(for: model).first(where: { $0.id == id }) {
                 model.settings.speech.language = language.value
             } else if let engine = Self.engines(for: model).first(where: { $0.id == id }) {
                 model.settings.models.dictation.engine = engine.value
