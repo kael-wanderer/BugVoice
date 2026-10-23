@@ -83,7 +83,7 @@ struct SpeechTab: View {
                     }
                     .labelsHidden().fixedSize()
                 }
-                Text("Tap the key while speaking to change the language for that dictation: \((["Auto"] + tickedNames).joined(separator: ", ")).")
+                Text("Tap the key while speaking to change the language for that dictation: \((["Auto"] + model.settings.speech.dictationLanguages.map(\.displayName)).joined(separator: ", ")).")
                     .bvFont(.footnote).foregroundStyle(.bvSecondary)
                 Divider()
                 SettingsToggle(
