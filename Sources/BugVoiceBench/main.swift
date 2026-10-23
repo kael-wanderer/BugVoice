@@ -2,7 +2,7 @@ import Foundation
 import VoiceCore
 import WhisperEngine
 
-// bugvoice-bench --clips bench/clips [--languages auto,vi,en]
+// bugvoice-bench --clips bench/clips [--languages auto,vi,en,es]
 //   [--model large-v3-v20240930_turbo] [--llm-base http://localhost:1234]
 //   [--llm-model qwen3.8-27b-mlx] [--vocab path] [--no-llm]
 // Each clip `name.wav` may have a reference transcript `name.txt`.
@@ -27,7 +27,7 @@ let useLLM = !CommandLine.arguments.contains("--no-llm")
 let vocabulary = argument("--vocab").flatMap { try? String(contentsOfFile: $0, encoding: .utf8) }.map(Vocabulary.parse) ?? Vocabulary()
 
 guard !languages.isEmpty else {
-    log("No valid --languages. Use a comma list of auto, vi, en.")
+    log("No valid --languages. Use a comma list of auto, vi, en, es.")
     exit(1)
 }
 // The cleanup section feeds the model the transcript from this language.
