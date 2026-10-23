@@ -86,6 +86,14 @@ struct MenuPopover: View {
 
     private var meetingRunning: Bool { model.meetings?.isRecording == true || model.meetings?.isPaused == true }
 
+    /// The language the redo button uses next; nil when no other ticked language is left.
+    private var redoLanguage: SpeechLanguage? {
+        guard let last = model.lastResult else { return nil }
+        let chain = model.redoChain ?? RedoChain(original: last.language)
+        let languages = model.settings.speech.dictationLanguages
+        return chain.hasOtherLanguage(in: languages) ? chain.peek(languages: languages) : nil
+    }
+
     /// The enabled controls of the visible list, in reading order.
     func controls() -> [MenuControl] {
         if let submenu { return [.back] + items.ids(submenu).map(MenuControl.item) }
@@ -98,7 +106,7 @@ struct MenuPopover: View {
         if hasLast {
             ids += model.lastResult?.command != nil
                 ? [.pasteLast, .copyLast, .rawLast]
-                : [.pasteLast, .copyLast, .retryLast, .rawLast, .redoLast]
+                : [.pasteLast, .copyLast, .retryLast, .rawLast] + (redoLanguage == nil ? [] : [.redoLast])
         }
         if !model.suggestions.pending.isEmpty { ids.append(.suggestions) }
         ids += [.submenu(.library), .submenu(.dictationOptions), .openApp, .settings, .submenu(.tools), .quit]
@@ -244,7 +252,7 @@ struct MenuPopover: View {
         if let last = model.lastResult, !last.finalText.isEmpty {
             MenuLastDictation(
                 result: last,
-                redoLanguage: (model.redoChain ?? RedoChain(original: last.language)).peek(languages: model.settings.speech.dictationLanguages),
+                redoLanguage: redoLanguage,
                 shortcuts: model.settings.shortcuts, highlight: highlight
             )
             MenuSeparator()

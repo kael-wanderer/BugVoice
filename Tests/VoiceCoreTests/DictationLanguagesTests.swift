@@ -22,6 +22,22 @@ struct DictationLanguagesTests {
         #expect(DictationLanguages.orList([.es]) == "Spanish")
     }
 
+    /// A new per-app rule starts on the usual language when it is ticked, else the first ticked one.
+    @Test func newRuleLanguageIsTicked() {
+        #expect(DictationLanguages.newRuleLanguage(preferred: .en, in: [.en, .vi]) == .en)
+        #expect(DictationLanguages.newRuleLanguage(preferred: .vi, in: [.en, .vi]) == .vi)
+        #expect(DictationLanguages.newRuleLanguage(preferred: .en, in: [.vi, .es]) == .vi)
+        #expect(DictationLanguages.newRuleLanguage(preferred: .vi, in: [.es]) == .es)
+    }
+
+    /// The keep-English toggle names only ticked languages that get the rule.
+    @Test func keepEnglishTitleNamesTickedLanguages() {
+        #expect(DictationLanguages.keepEnglishTitle([.en, .vi]) == "Keep English words in Vietnamese")
+        #expect(DictationLanguages.keepEnglishTitle([.en, .vi, .es]) == "Keep English words in Vietnamese and Spanish")
+        #expect(DictationLanguages.keepEnglishTitle([.en, .es]) == "Keep English words in Spanish")
+        #expect(DictationLanguages.keepEnglishTitle([.en]) == "Keep English words")
+    }
+
     @Test func shortCodes() {
         #expect(SpeechLanguage.allCases.map(\.shortCode) == ["Auto", "VI", "EN", "ES"])
     }

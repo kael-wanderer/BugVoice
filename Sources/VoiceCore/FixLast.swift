@@ -37,6 +37,12 @@ public struct RedoChain: Sendable, Equatable {
         return order[0]
     }
 
+    /// False when the only ticked language is the one Whisper already used.
+    public func hasOtherLanguage(in languages: [SpeechLanguage]) -> Bool {
+        let code = original?.lowercased()
+        return DictationLanguages.normalized(languages).contains { $0.rawValue != code }
+    }
+
     public func peek(languages: [SpeechLanguage]) -> SpeechLanguage {
         var copy = self
         return copy.next(languages: languages)

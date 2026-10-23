@@ -3,7 +3,7 @@ import Testing
 
 struct LanguageKeyCyclerTests {
     @Test func cyclesFromEnglish() {
-        var cycler = LanguageKeyCycler(start: .en)
+        var cycler = LanguageKeyCycler(start: .en, languages: DictationLanguages.defaults)
         #expect(!cycler.changed)
         cycler.tap(); #expect(cycler.current == .vi)
         cycler.tap(); #expect(cycler.current == .auto)
@@ -12,7 +12,7 @@ struct LanguageKeyCyclerTests {
     }
 
     @Test func autoStartsAtEnglish() {
-        var cycler = LanguageKeyCycler(start: .auto)
+        var cycler = LanguageKeyCycler(start: .auto, languages: DictationLanguages.defaults)
         cycler.tap()
         #expect(cycler.current == .en)
     }

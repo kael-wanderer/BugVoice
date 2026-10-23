@@ -43,6 +43,18 @@ public enum DictationLanguages {
         return names.dropLast().joined(separator: ", ") + " or " + last
     }
 
+    /// The language a new per-app rule starts on: `preferred` when ticked, else the first ticked one.
+    public static func newRuleLanguage(preferred: SpeechLanguage, in languages: [SpeechLanguage]) -> SpeechLanguage {
+        let ticked = normalized(languages)
+        return ticked.contains(preferred) ? preferred : ticked[0]
+    }
+
+    /// Title of the keep-English toggle, naming the ticked languages it applies to.
+    public static func keepEnglishTitle(_ languages: [SpeechLanguage]) -> String {
+        let names = [SpeechLanguage.vi, .es].filter(languages.contains).map(\.displayName)
+        return names.isEmpty ? "Keep English words" : "Keep English words in " + names.joined(separator: " and ")
+    }
+
     /// The order Settings › Speech and Dictation options have always used: Vietnamese first.
     public static func settingsOrder(_ languages: [SpeechLanguage]) -> [SpeechLanguage] {
         [SpeechLanguage.vi, .en, .es].filter(languages.contains)

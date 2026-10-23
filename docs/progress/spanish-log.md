@@ -31,7 +31,7 @@ No dependency added.
 
 ## Tests
 
-`swift test`: **1,217 VoiceCore, 30 MCPKit, 114 BugVoiceMac**, all passing.
+`swift test`: **1,220 VoiceCore, 30 MCPKit, 114 BugVoiceMac**, all passing.
 `Scripts/build-app.sh` succeeds, signed with Bugler Local Dev; no new warnings.
 
 ## Spanish speech check
@@ -82,14 +82,22 @@ Fresh reviewer on the whole branch: no Critical or Important. Re-graded and fixe
 6. Spanish Whisper credits are filtered. Cost: a real dictation of exactly "Gracias por ver" is dropped.
 7. The key footnote lists languages in cycle order. Cost: one footnote.
 
-## Deferred minors
+## Follow-up fixes (2026-10-23, after merge)
 
-- New per-app rules start on English (apps) or Vietnamese (websites) even when that language is unticked.
-- A failed redo still moves the redo order to the next language.
-- With one ticked language, the redo button re-runs that same language.
-- An older build reading the new settings drops Spanish per-app rules and `dictationLanguages`.
-- "Keep English words in Vietnamese and Spanish" names Vietnamese even when it is unticked.
-- `LanguageKeyCycler.init(start:languages:)` defaults `languages`; a caller that omits it ignores the ticked set.
+The six minors the final review deferred:
+
+- New per-app rules start on a ticked language: English for apps and Vietnamese for websites
+  when ticked, else the first ticked language (`DictationLanguages.newRuleLanguage`).
+- A redo that fails no longer moves the redo order on; the same language is offered again.
+- With only the detected language ticked, the redo button is hidden and ⌃⌥L shows
+  "Nothing to fix" (`RedoChain.hasOtherLanguage`).
+- The keep-English toggle names only ticked languages: "in Vietnamese", "in Spanish",
+  "in Vietnamese and Spanish", or "Keep English words" (`DictationLanguages.keepEnglishTitle`).
+- `LanguageKeyCycler.init(start:languages:)` requires `languages`.
+- Older builds reading the new settings drop Spanish per-app rules and `dictationLanguages`.
+  Not fixable from this build: going back to an older build means re-adding those rules.
+
+Tests: **1,220 VoiceCore, 30 MCPKit, 114 BugVoiceMac**.
 
 ## Device checks (owner)
 

@@ -8,7 +8,7 @@ public struct LanguageKeyCycler: Sendable, Equatable {
     /// Cycles Auto, then each dictation language in order, then Auto again.
     /// A start language outside `languages` (a per-app rule for a language
     /// no longer ticked) is shown as is; the first tap goes to Auto.
-    public init(start: SpeechLanguage, languages: [SpeechLanguage] = DictationLanguages.defaults) {
+    public init(start: SpeechLanguage, languages: [SpeechLanguage]) {
         self.languages = DictationLanguages.normalized(languages)
         current = start
     }

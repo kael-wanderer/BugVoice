@@ -87,7 +87,7 @@ struct SpeechTab: View {
                     .bvFont(.footnote).foregroundStyle(.bvSecondary)
                 Divider()
                 SettingsToggle(
-                    title: model.settings.speech.dictationLanguages.contains(.es) ? "Keep English words in Vietnamese and Spanish" : "Keep English words in Vietnamese",
+                    title: DictationLanguages.keepEnglishTitle(model.settings.speech.dictationLanguages),
                     isOn: $model.settings.speech.keepEnglishWords
                 )
                 Text("Words like module, API and neuron stay in English. Add words you always say in English to the Dictionary.")

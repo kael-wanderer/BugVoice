@@ -34,6 +34,15 @@ struct FixLastTests {
         #expect(c.tried.isEmpty)
     }
 
+    /// With only the detected language ticked there is nothing else to redo in.
+    @Test func hasOtherLanguage() {
+        #expect(RedoChain(original: "es").hasOtherLanguage(in: [.en, .vi, .es]))
+        #expect(!RedoChain(original: "es").hasOtherLanguage(in: [.es]))
+        #expect(!RedoChain(original: "ES").hasOtherLanguage(in: [.es]))
+        #expect(RedoChain(original: "pt").hasOtherLanguage(in: [.es]))
+        #expect(RedoChain(original: nil).hasOtherLanguage(in: [.es]))
+    }
+
     @Test func replaceCountsGraphemes() {
         var guarder = ReplacementGuard()
         let now = Date()

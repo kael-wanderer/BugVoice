@@ -9,6 +9,11 @@ struct AppLanguagesCard: View {
     @State private var website = ""
     @State private var websiteLanguage: SpeechLanguage = .vi
 
+    /// New rules start on a ticked dictation language.
+    private func newRuleLanguage(preferred: SpeechLanguage) -> SpeechLanguage {
+        DictationLanguages.newRuleLanguage(preferred: preferred, in: model.settings.speech.dictationLanguages)
+    }
+
     private var runningApps: [NSRunningApplication] {
         NSWorkspace.shared.runningApplications
             .filter { $0.activationPolicy == .regular && $0.bundleIdentifier != Bundle.main.bundleIdentifier }
@@ -49,7 +54,7 @@ struct AppLanguagesCard: View {
                 Menu {
                     ForEach(runningApps, id: \.processIdentifier) { app in
                         Button(app.localizedName ?? app.bundleIdentifier ?? "App") {
-                            if let id = app.bundleIdentifier { add(kind: .app, id: id, language: .en) }
+                            if let id = app.bundleIdentifier { add(kind: .app, id: id, language: newRuleLanguage(preferred: .en)) }
                         }
                     }
                     Divider()
@@ -58,7 +63,10 @@ struct AppLanguagesCard: View {
                     Text("Add app…")
                 }
                 .fixedSize()
-                Button("Add website…") { showingWebsite = true }
+                Button("Add website…") {
+                    websiteLanguage = newRuleLanguage(preferred: .vi)
+                    showingWebsite = true
+                }
             }
             Text("Apps not listed use Auto. The language switch overrides this list.")
                 .bvFont(.footnote).foregroundStyle(.bvSecondary)
@@ -111,7 +119,7 @@ struct AppLanguagesCard: View {
         panel.canChooseFiles = true
         guard panel.runModal() == .OK, let url = panel.url,
               let bundle = Bundle(url: url), let id = bundle.bundleIdentifier else { return }
-        add(kind: .app, id: id, language: .en)
+        add(kind: .app, id: id, language: newRuleLanguage(preferred: .en))
     }
 
     private func name(for rule: AppLanguageRule) -> String {

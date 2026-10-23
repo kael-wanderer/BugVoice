@@ -434,8 +434,15 @@ final class DictationController {
             return
         }
         var chain = model.redoChain ?? RedoChain(original: previous.language)
-        let language = chain.next(languages: model.settings.speech.dictationLanguages)
-        model.redoChain = chain
+        let languages = model.settings.speech.dictationLanguages
+        guard chain.hasOtherLanguage(in: languages) else {
+            showNothingToFix()
+            return
+        }
+        // The chain advances only when the redo produced text, so a failed
+        // attempt is offered again on the next press.
+        let language = chain.next(languages: languages)
+        let advanced = chain
         let adapter = ReplacementInsertionTarget(controller: self, initialDecision: decision)
         let pipeline = model.makePipeline(insertion: adapter, feature: .dictation)
         let modelName = model.plan(for: .dictation).shortName
@@ -456,6 +463,7 @@ final class DictationController {
             }
             stagedRun = nil
             if result.outcome == .inserted {
+                model.redoChain = advanced
                 await model.replaceLast(result, kind: .otherLanguage)
                 rememberReplacement(text: result.finalText)
                 hud.show(.message(
@@ -463,6 +471,7 @@ final class DictationController {
                     detail: "\(InsightsDelta.wordCount(result.finalText)) words"
                 ))
             } else if result.outcome == .copiedSecureField || result.outcome == .copiedNotConsumed {
+                model.redoChain = advanced
                 clearReplacementRecord()
                 hud.show(.message(title: "Copied — press ⌘V", detail: "text changed since the paste"))
             } else if let state = HUDState.from(result) {
