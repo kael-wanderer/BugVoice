@@ -13,6 +13,7 @@ public enum CommandPrompt {
         let rewriting = !(selection ?? "").isEmpty
         var parts = [rewriting ? rewriteRules : writeRules, "App style, for tone: " + PromptBuilder.defaultRules(for: style)]
         if keepEnglishWords && (language == .vi || language == .auto) { parts.append(PromptBuilder.keepEnglishRule) }
+        if keepEnglishWords && language == .es { parts.append(PromptBuilder.keepEnglishSpanishRule) }
         if !vocabulary.terms.isEmpty { parts.append("Spell these terms exactly: " + vocabulary.terms.joined(separator: ", ")) }
         if !vocabulary.projectWords.isEmpty { parts.append(PromptBuilder.projectWordsLine(vocabulary.projectWords)) }
         if !rewriting, let before = focus.beforeText, !before.isEmpty {

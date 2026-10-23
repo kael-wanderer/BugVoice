@@ -25,6 +25,12 @@ struct CommandPromptTests {
         for l in [SpeechLanguage.vi, .auto] { #expect(request(language: l).system.contains(PromptBuilder.keepEnglishRule)) }
         #expect(!request(language: .en).system.contains(PromptBuilder.keepEnglishRule))
     }
+    @Test func spanishKeepsEnglishWords() {
+        #expect(request(language: .es).system.contains(PromptBuilder.keepEnglishSpanishRule))
+        #expect(!request(language: .es).system.contains(PromptBuilder.keepEnglishRule))
+        #expect(!request(language: .vi).system.contains(PromptBuilder.keepEnglishSpanishRule))
+    }
+
     @Test func includesProjectWords() {
         var vocabulary = Vocabulary()
         vocabulary.projectWords = ["AppModel", "HistoryEntry"]

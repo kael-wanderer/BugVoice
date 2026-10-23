@@ -198,7 +198,7 @@ private func chain(_ original: String?, _ languages: [SpeechLanguage], presses: 
 **Interfaces:**
 - Produces:
   - `PromptBuilder.spanishRule = "The speaker spoke Spanish. Remove Spanish filler words (eh, este, o sea, pues) and apply self-corrections such as \"no, perdón\" or \"quiero decir\" by keeping only the corrected version."`
-  - `PromptBuilder.keepEnglishSpanishRule = "Keep words the speaker said in English in English."`
+  - `PromptBuilder.keepEnglishSpanishRule = "Keep English words the speaker used in English. Never translate them into Spanish."`
   - `systemPrompt` appends `spanishRule` for `.es`, and `keepEnglishSpanishRule` for `.es` when `keepEnglishWords`. `CommandPrompt.request` appends `keepEnglishSpanishRule` for `.es` when `keepEnglishWords`.
   - `ShortcutsLanguage.spanish` → `[.es]`.
 

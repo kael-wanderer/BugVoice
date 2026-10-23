@@ -140,4 +140,22 @@ struct PromptTests {
     func realSpeechIsNotHallucination(text: String) {
         #expect(!HallucinationFilter.isHallucination(text))
     }
+
+    @Test func spanishLines() {
+        let p = PromptBuilder().systemPrompt(style: .work, vocabulary: Vocabulary(), focus: .unknown, language: .es, keepEnglishWords: true)
+        #expect(p.contains(PromptBuilder.spanishRule))
+        #expect(p.contains(PromptBuilder.keepEnglishSpanishRule))
+        #expect(!p.contains(PromptBuilder.keepEnglishRule))
+        let off = PromptBuilder().systemPrompt(style: .work, vocabulary: Vocabulary(), focus: .unknown, language: .es, keepEnglishWords: false)
+        #expect(off.contains(PromptBuilder.spanishRule))
+        #expect(!off.contains(PromptBuilder.keepEnglishSpanishRule))
+    }
+
+    @Test func noSpanishLinesForOtherLanguages() {
+        for language in [SpeechLanguage.auto, .en, .vi] {
+            let p = PromptBuilder().systemPrompt(style: .work, vocabulary: Vocabulary(), focus: .unknown, language: language, keepEnglishWords: true)
+            #expect(!p.contains(PromptBuilder.spanishRule))
+            #expect(!p.contains(PromptBuilder.keepEnglishSpanishRule))
+        }
+    }
 }

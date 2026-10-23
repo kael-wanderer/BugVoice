@@ -1,9 +1,9 @@
 import Foundation
 
 public enum ShortcutsLanguage: String, CaseIterable, Sendable {
-    case auto, english, vietnamese
+    case auto, english, vietnamese, spanish
     public var languages: [SpeechLanguage]? {
-        switch self { case .auto: nil; case .english: [.en]; case .vietnamese: [.vi] }
+        switch self { case .auto: nil; case .english: [.en]; case .vietnamese: [.vi]; case .spanish: [.es] }
     }
 }
 

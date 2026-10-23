@@ -104,8 +104,8 @@ A start language that is not ticked starts the cycle at Auto.
 `PromptBuilder` adds, for `.es`: "The speaker spoke Spanish. Remove Spanish
 filler words (eh, este, o sea, pues) and apply self-corrections such as
 "no, perdón" or "quiero decir" by keeping only the corrected version."
-With "Keep English words" on, Spanish adds "Keep words the speaker said in
-English in English." (the existing rule is about Vietnamese spelling, so
+With "Keep English words" on, Spanish adds "Keep English words the speaker
+used in English. Never translate them into Spanish." (the existing rule is about Vietnamese spelling, so
 Spanish gets its own line). `CommandPrompt` gets the same keep-English
 line for Spanish. The toggle reads "Keep English words in Vietnamese and
 Spanish" while Spanish is ticked, and keeps today's label otherwise. No change for `.en`, `.vi` or `.auto` prompts.

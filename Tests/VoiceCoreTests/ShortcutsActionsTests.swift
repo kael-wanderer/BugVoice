@@ -19,6 +19,7 @@ struct ShortcutsActionsTests {
         #expect(ShortcutsLanguage.auto.languages == nil)
         #expect(ShortcutsLanguage.english.languages == [.en])
         #expect(ShortcutsLanguage.vietnamese.languages == [.vi])
+        #expect(ShortcutsLanguage.spanish.languages == [.es])
     }
     @Test func folderResolution() {
         let folders = [LibraryFolder(id: FolderID(rawValue: "work"), name: "Work", createdAt: Date()), LibraryFolder(id: FolderID(rawValue: "personal"), name: "Cá nhân", createdAt: Date())]

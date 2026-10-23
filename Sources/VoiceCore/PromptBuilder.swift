@@ -11,6 +11,8 @@ public struct PromptBuilder: Sendable {
 
     static let placeholderRule = "Tokens like ⟦S1⟧ are placeholders. Keep every one exactly once, unchanged, where it belongs."
     public static let keepEnglishRule = "Keep words the speaker said in English in English. Never rewrite them in Vietnamese spelling (nơ-ron, mô-đun)."
+    public static let spanishRule = "The speaker spoke Spanish. Remove Spanish filler words (eh, este, o sea, pues) and apply self-corrections such as \"no, perdón\" or \"quiero decir\" by keeping only the corrected version."
+    public static let keepEnglishSpanishRule = "Keep English words the speaker used in English. Never translate them into Spanish."
     public static func projectWordsLine(_ words: [String]) -> String {
         "Code names from the current project. When the speaker says one as plain words, write the name exactly (for example \"app model\" is AppModel): " + words.joined(separator: ", ")
     }
@@ -48,7 +50,9 @@ public struct PromptBuilder: Sendable {
         if hasPlaceholders { parts.append(Self.placeholderRule) }
         if language == .en { parts.append("The speaker spoke English.") }
         if language == .vi { parts.append("The speaker spoke Vietnamese.") }
+        if language == .es { parts.append(Self.spanishRule) }
         if keepEnglishWords && (language == .vi || language == .auto) { parts.append(Self.keepEnglishRule) }
+        if keepEnglishWords && language == .es { parts.append(Self.keepEnglishSpanishRule) }
         if !vocabulary.terms.isEmpty {
             parts.append("Spell these terms exactly: \(vocabulary.terms.joined(separator: ", "))")
         }
