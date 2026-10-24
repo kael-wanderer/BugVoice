@@ -10,16 +10,29 @@
   30 MCPKit, 114 BugVoiceMac (1,432 total).
 - Both tasks first failed to compile because their implementation types were
   absent, then passed targeted tests and the full suite before commit.
-- Task 3 stopped before implementation: `savingThresholds` expects an English
-  `15 s+` failure, but the two qualifying clips save 0.4 s and 1.7 s. Their
-  median is 1.05 s, which passes the 0.5 s gate. Test unchanged, awaiting owner
-  resolution under the instruction to stop on conflicting test values.
+- Task 3: medians, least-squares fit, clip grouping and deterministic gate
+  failures. All 8 specified tests passed after the expected missing-type compile
+  failure. Full suite: 1,296 VoiceCore, 30 MCPKit, 114 BugVoiceMac
+  (1,440 total), all passed on the full rerun.
+- Initial Task 3 full run: VoiceCore and MCPKit passed; existing macOS test
+  `recoveryDropsUncheckpointedJournalTail` failed its 4-byte journal assertion.
+  It passed in isolation and the unchanged full suite then passed. No change
+  made to the journal test or implementation.
 
 ## Decisions
 
+- Owner correction to Task 3: buckets overlap deliberately. Every clip at least
+  30 s is also in the 15 s+ bucket. The corrected `savingThresholds` fixture sets
+  both English long-clip savings to 0.4 s, so both savings thresholds fail while
+  Vietnamese remains passing. Updated the test and plan together; the gate
+  rule and all other Task 3 test values are unchanged.
+- WER comparisons use the plan's 1e-9 tolerance for both group and clip limits.
+- Least-squares fit returns (0, 0) for empty input and (mean y, 0) when all x
+  values match; mismatched input lengths are a programmer precondition failure.
+
 - Owner correction: pause midpoint uses integer division of pause frames;
   0.5 s gives 25 frames, half 12 frames, offset 3,840 samples. Task 1's plan
-  and test updated together; all other supplied test values unchanged.
+  and test updated together.
 - Pause detection uses complete frames. Pause frames are
   `Int(pause * 16_000) / 320`, as directed by the owner.
 - Forced-cut windows are scored by the sum of their ten frame RMS values;

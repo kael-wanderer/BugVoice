@@ -318,8 +318,13 @@ func passingCorpus() -> [ClipRun] {   // one clip per group per bucket, all pass
     #expect(abs(s - 0.1) < 1e-9)
 }
 @Test func savingThresholds() {
-    var c = passingCorpus(); c[1].incrementalSeconds = 1.4   // saving 0.4 at 15 s+
-    #expect(IncrementalGate.failures(c).contains { if case .savingTooSmall("en", "15 s+", _) = $0 { true } else { false } })
+    var c = passingCorpus()
+    c[1].incrementalSeconds = 1.4   // en-2, 16 s: saving 0.4
+    c[2].incrementalSeconds = 2.6   // en-3, 40 s: saving 0.4
+    let f = IncrementalGate.failures(c)
+    #expect(f.contains { if case .savingTooSmall("en", "15 s+", _) = $0 { true } else { false } })  // median 0.4 < 0.5
+    #expect(f.contains { if case .savingTooSmall("en", "30 s+", _) = $0 { true } else { false } })  // 0.4 < 1.0
+    #expect(!f.contains { if case .savingTooSmall("vi", _, _) = $0 { true } else { false } })
 }
 @Test func werChecks() {
     var c = passingCorpus(); c[4].incrementalWER = 0.16      // vi-2: +0.06, vi mean +0.02 (not above the limit)
