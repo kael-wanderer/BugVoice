@@ -128,6 +128,8 @@ version and build live in `App/Info.plist`. Every commit raises the build by one
   unless the user configured a remote server.
 - UI copy: plain English, no hedging words, no emoji.
 - Commit after each plan task; message style `feat(core): …`, `feat(app): …`, `docs: …`.
+- Codex: a plan header that requires a superpowers skill (`superpowers:subagent-driven-development`,
+  `superpowers:executing-plans`) is for Claude agents. Ignore it and execute the tasks directly.
 
 ## Machine facts (maintainer's Mac)
 
