@@ -116,3 +116,12 @@ func numberWordComposition(_ words: String, _ digits: String) {
 }
 
 }
+
+extension FidelityCheckTests {
+    @Test func lostNegationUsesWholeLowercasedWord() {
+        let issues = FidelityCheck.issues(raw: "we can't ship", cleaned: "We can ship.")
+        #expect(issues == [.init(kind: .negation, direction: .lost, token: "can't")])
+        #expect(FidelityCheck.issues(raw: "Not now", cleaned: "Now.") == [.init(kind: .negation, direction: .lost, token: "not")])
+        #expect(FidelityCheck.hudTitle(issues, pastedRaw: true) == "Raw — cleanup dropped “can't”")
+    }
+}

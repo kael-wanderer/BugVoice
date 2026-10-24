@@ -114,13 +114,22 @@ public enum FidelityCheck {
         var previousEnd: String.Index?
         for match in negations.matches(in: text, range: NSRange(text.startIndex..., in: text)) {
             guard let range = Range(match.range, in: text) else { continue }
-            let token = String(text[range])
-            let repeated = previousToken?.lowercased() == token.lowercased() && previousEnd.map { end in
-                text[end..<range.lowerBound].allSatisfy { $0.isWhitespace || $0 == "," }
+            var start = range.lowerBound
+            var end = range.upperBound
+            func isWordCharacter(_ c: Character) -> Bool { c.isLetter || c == "'" || c == "’" }
+            while start > text.startIndex {
+                let before = text.index(before: start)
+                guard isWordCharacter(text[before]) else { break }
+                start = before
+            }
+            while end < text.endIndex, isWordCharacter(text[end]) { end = text.index(after: end) }
+            let token = text[start..<end].lowercased()
+            let repeated = previousToken == token && previousEnd.map { end in
+                text[end..<start].allSatisfy { $0.isWhitespace || $0 == "," }
             } == true
             if !repeated { result.append(token) }
             previousToken = token
-            previousEnd = range.upperBound
+            previousEnd = end
         }
         return result
     }

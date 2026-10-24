@@ -107,3 +107,11 @@ Final full `swift test`: **1,399 passing** (1,255 VoiceCore, 30 MCPKit,
 114 BugVoiceMac); the 76-pair corpus also passes.
 Commit: `feat(core): fidelity check wording` (see branch history).
 No Task 3 departures. No UI or pipeline wiring performed; that begins in Task 4.
+
+## Whole-word negation wording fix
+
+Owner requested whole-word, lowercased negation tokens before Tasks 4–7.
+The exact contraction, capitalized-word and HUD tests first failed with three
+assertion failures, then passed. Full `swift test`: 1,400 passing (1,256
+VoiceCore, 30 MCPKit, 114 BugVoiceMac).
+Commit: `fix(core): negation token is the whole word, lowercased`.
