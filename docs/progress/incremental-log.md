@@ -31,6 +31,11 @@
   contention and automatic-language comparison. Release product build passed.
   Full suite: 1,299 VoiceCore, 30 MCPKit, 114 BugVoiceMac (1,443 total), all passed.
 
+- Task 6: 18 additional corpus filenames and recording instructions, smoke
+  results, owner-run command and key-document link. Full suite: 1,299 VoiceCore,
+  30 MCPKit, 114 BugVoiceMac (1,443 total), all passed before the docs commit.
+  Owner corpus, final gate decision and any Phase 2 plan remain pending.
+
 ## Decisions
 
 - Task 5 extends the planned file list with a cached-folder initializer in
@@ -85,16 +90,46 @@ Sections 4 and 5 each fail 9 checks: 6 missing buckets (under 8 s and 30 s+,
 for all 3 groups) and 3 insufficient 15 s+ savings. This differs from the plan's
 expected missing-buckets-only outcome; the measured failures are retained.
 Only 1 of the 4 clips has a reference. The other 3 are excluded from WER.
-Detailed fit, lever table and savings are recorded with Task 6.
+Best combination: pause 0.3 s, shortest 2 s, longest 25 s, previous text off.
+All 4 clips used 1 pass, so this smoke corpus does not exercise early parts in
+the selected row. No WER increase failures were found; English WER is 1.0
+and the other groups have no references, so this is not accuracy evidence.
+
+fixed 0.783959 s + 0.125581 s per audio second
+
+| Group | VAD | Clips | Median STT s | Mean WER |
+|---|---|---:|---:|---:|
+| en | on | 1 | 1.113377 | 1.000000 |
+| vi | on | 1 | 1.787688 | – |
+| mix | on | 2 | 2.487072 | – |
+| en | off | 1 | 1.114561 | 1.000000 |
+| vi | off | 1 | 1.750791 | – |
+| mix | off | 2 | 2.453965 | – |
+
+Other options tried: none
+
+| Group | Missing buckets (both runs) | 15 s+ saving, no preview s | 15 s+ saving, preview s |
+|---|---|---:|---:|
+| en | under 8 s; 30 s+ | -0.005404 | 0.057033 |
+| vi | under 8 s; 30 s+ | 0.337560 | 0.445211 |
+| mix | under 8 s; 30 s+ | -0.254125 | -0.134836 |
+
+Each saving is below 0.5 s, producing `savingTooSmall` for each group in
+both runs. Automatic language is informational; it would fail 9 checks.
+
+The 1 s slice median was 0.000647 s. WhisperKit's default
+`DecodingOptions.windowClipTime = 1.0` and the strict seek-loop condition skip
+inference for exactly 1 s. The prescribed fit includes these points as measured;
+it is not an estimate of encoder fixed cost alone. No extra decoding option was
+tried or shipped. VAD off saved less than 0.04 s in every group in this smoke.
+
+The complete report remains local at `/tmp/latency-smoke.md`; no transcript
+text was printed, copied into this log, or committed.
 
 ## Owner run
 
-Pending.
+    Scripts/stt-bench.sh --latency > docs/bench/$(date +%F)-incremental-bench.md
 
 ## Gate result
 
-Pending.
-
 ## Decision
-
-Pending Phase 1 results and owner review.
