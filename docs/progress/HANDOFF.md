@@ -4,19 +4,36 @@ Last updated: 2026-10-24
 
 ## Current state
 
-**Incremental transcription, Phase 1 (bench):** merged on `main` (2026-10-24,
-`f891a2c`), not pushed. `Scripts/stt-bench.sh --latency` measures Whisper's fixed
-cost, the VAD-chunking lever and a simulated incremental pipeline (pause
-chunker, 36-combination sweep, preview-load run, auto language), then applies
-the spec's gate. Numbers only on stdout; network blocked for the run. No app
-behavior change. Tests: **1,315 VoiceCore, 30 MCPKit, 114 BugVoiceMac**, all
-pass. Smoke run on the four old clips tests plumbing only (`en-1`, `vi-1`
-unusable): fit 1.73 s fixed + 0.02 s per audio second, so the gate may well
-fail. Synthetic run (macOS `say`, 18 clips, 2026-10-24): gate fails narrowly.
-30 s+ saves 0.85 s (en) and 0.88 s (mix), needs 1.0; vi 1.18 s; 15 s+ saves
-0.59–0.85 s; WER within limits; preview load cut one mixed clip's saving to zero.
-Decision is the owner's: drop, rerun on recorded clips, or lower the threshold.
-See `docs/progress/incremental-log.md`.
+**Next session starts here: incremental transcription, paused at the gate.**
+Phase 1 bench merged and pushed (2026-10-24). `Scripts/stt-bench.sh --latency`
+measures Whisper's fixed cost, a VAD lever and a simulated incremental pipeline
+(pause chunker, 36-combination sweep, preview-load run, auto language), then
+applies the spec gate. No app behavior change. Tests: **1,315 VoiceCore, 30
+MCPKit, 114 BugVoiceMac**, all pass.
+
+Result on 18 synthetic clips (macOS `say`; report
+`docs/bench/2026-10-24-incremental-bench.md`): the gate fails narrowly. 30 s+
+saves 0.85 s (en) and 0.88 s (mix) against a 1.0 s target; vi 1.18 s. 15 s+
+saves 0.59–0.85 s, short dictations are not slower, WER within limits. After
+release about 1.1–1.4 s remains at any length. With the preview model running,
+mixed 30 s+ saved only 0.47 s. VAD off: no gain, worse WER (does not ship).
+Best chunker: pause 0.5 s, shortest 2 s, longest 15 s, no previous text.
+
+Owner chose (2026-10-24): rerun on real voice first, then lower the 30 s+
+target to 0.8 s and plan Phase 2 if the numbers hold. Recording is deferred:
+the owner could not record yet. Next steps:
+1. Owner runs `Scripts/record-bench-clips.sh` in their own terminal (six long
+   clips en-6, en-7, vi-6, vi-7, mix-7, mix-8; texts are the existing
+   references; synthetic copies kept in `bench/clips/synthetic/`).
+2. Claude reruns `Scripts/stt-bench.sh --latency > docs/bench/<date>-incremental-bench.md`
+   (about 32 minutes) and fills `docs/progress/incremental-log.md`.
+3. If en and mix 30 s+ save at least 0.8 s: change the spec's 30 s+ threshold
+   to 0.8 s (`IncrementalGate`, Goal section), then write the Phase 2 plan from
+   the spec, adding a fix for preview contention (pause preview passes while a
+   part pass runs). Otherwise drop the item in `docs/ROADMAP.md` with numbers.
+
+Clips: synthetic set from `Scripts/make-synthetic-clips.py`; the four old
+clips are in `bench/clips/old-2026-10-14/` (unusable, kept). All gitignored.
 Flaky test seen once: `recoveryDropsUncheckpointedJournalTail` (BugVoiceMac)
 failed its 4-byte journal assertion, then passed unchanged.
 

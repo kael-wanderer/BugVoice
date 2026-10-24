@@ -197,7 +197,9 @@ model is uneven (one mixed clip lost its whole saving).
 
 ## Decision
 
-Owner's call. The 1.0 s threshold was Claude's (the owner skipped the design
+Owner (2026-10-24): rerun on recorded clips first; if en and mix 30 s+ save at
+least 0.8 s, lower that threshold to 0.8 s and plan Phase 2. Recording deferred
+(`Scripts/record-bench-clips.sh`). Background: the 1.0 s threshold was Claude's (the owner skipped the design
 questions). Options: drop as the spec says; rerun on owner-recorded clips; or
 lower the 30 s+ threshold, accepting about 0.6–1.2 s saved on 15 s+ dictations
 and a preview-contention risk that Phase 2 would need to handle.
