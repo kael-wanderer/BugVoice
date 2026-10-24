@@ -51,4 +51,15 @@ func passingCorpus() -> [ClipRun] {   // one clip per group per bucket, all pass
     #expect(IncrementalGate.failures(c).isEmpty)
 }
 
+@Test func shortSlowerAtLimitPasses() {
+    var c = passingCorpus(); c[0].baselineSeconds = 1.2; c[0].incrementalSeconds = 1.25
+    #expect(!IncrementalGate.failures(c).contains { if case .shortSlower = $0 { true } else { false } })
+}
+@Test func savingAtLimitPasses() {
+    var c = passingCorpus()
+    c[1].baselineSeconds = 1.7; c[1].incrementalSeconds = 1.2   // 0.5
+    c[2].baselineSeconds = 2.3; c[2].incrementalSeconds = 1.3   // 1.0
+    #expect(!IncrementalGate.failures(c).contains { if case .savingTooSmall = $0 { true } else { false } })
+}
+
 }

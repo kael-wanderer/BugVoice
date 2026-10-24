@@ -19,6 +19,10 @@
   It passed in isolation and the unchanged full suite then passed. No change
   made to the journal test or implementation.
 
+- Time-threshold review fix: the two supplied boundary tests failed first, then
+  all 10 gate tests passed with the same 1e-9 tolerance as WER. Full suite:
+  1,298 VoiceCore, 30 MCPKit, 114 BugVoiceMac (1,442 total), all passed.
+
 ## Decisions
 
 - Owner correction to Task 3: buckets overlap deliberately. Every clip at least
@@ -26,7 +30,7 @@
   both English long-clip savings to 0.4 s, so both savings thresholds fail while
   Vietnamese remains passing. Updated the test and plan together; the gate
   rule and all other Task 3 test values are unchanged.
-- WER comparisons use the plan's 1e-9 tolerance for both group and clip limits.
+- WER and time comparisons use the owner-approved 1e-9 tolerance at limits.
 - Least-squares fit returns (0, 0) for empty input and (mean y, 0) when all x
   values match; mismatched input lengths are a programmer precondition failure.
 

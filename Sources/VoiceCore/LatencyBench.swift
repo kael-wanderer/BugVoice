@@ -76,12 +76,12 @@ public enum IncrementalGate {
             }
             if !short.isEmpty {
                 let slower = LatencyStats.median(short.map { $0.incrementalSeconds - $0.baselineSeconds })
-                if slower > 0.05 { failures.append(.shortSlower(group: group, seconds: slower)) }
+                if slower > 0.05 + 1e-9 { failures.append(.shortSlower(group: group, seconds: slower)) }
             }
             for (bucket, clips, threshold) in [("15 s+", long, 0.5), ("30 s+", longest, 1.0)] {
                 guard !clips.isEmpty else { continue }
                 let saving = LatencyStats.median(clips.map { $0.baselineSeconds - $0.incrementalSeconds })
-                if saving < threshold {
+                if saving < threshold - 1e-9 {
                     failures.append(.savingTooSmall(group: group, bucket: bucket, seconds: saving))
                 }
             }
