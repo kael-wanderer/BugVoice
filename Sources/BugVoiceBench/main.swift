@@ -5,6 +5,8 @@ import WhisperEngine
 // bugvoice-bench --clips bench/clips [--languages auto,vi,en,es]
 //   [--model large-v3-v20240930_turbo] [--llm-base http://localhost:1234]
 //   [--llm-model qwen3.8-27b-mlx] [--vocab path] [--no-llm]
+// bugvoice-bench --latency --clips bench/clips [--model large-v3-v20240930_turbo] [--show-text]
+//   Cached models only; stdout contains metrics, text only on stderr with --show-text.
 // bugvoice-bench --fidelity-history <history.jsonl>
 //   Prints counts and flagged raw/cleaned pairs to the terminal only, then exits.
 // Each clip `name.wav` may have a reference transcript `name.txt`.
@@ -58,6 +60,21 @@ if CommandLine.arguments.contains("--fidelity-history") {
         for issue in item.issues { print("\(issue.kind.rawValue) \(issue.direction.rawValue): \(issue.token)") }
     }
     exit(0)
+}
+
+if CommandLine.arguments.contains("--latency") {
+    do {
+        try await runLatencyBench(
+            clipsDir: URL(fileURLWithPath: argument("--clips") ?? "bench/clips"),
+            modelName: argument("--model") ?? "large-v3-v20240930_turbo",
+            showText: CommandLine.arguments.contains("--show-text")
+        )
+        exit(0)
+    } catch {
+        // Decode errors may contain model output. Keep the failure path text-free.
+        log("Latency bench failed. Check local clips, model and tokenizer caches.")
+        exit(1)
+    }
 }
 
 let clipsDir = URL(fileURLWithPath: argument("--clips") ?? "bench/clips")

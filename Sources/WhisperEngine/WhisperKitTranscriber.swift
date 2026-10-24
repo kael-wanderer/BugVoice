@@ -26,6 +26,7 @@ public actor WhisperKitTranscriber: Transcriber {
 
     public let modelName: String
     private let downloadBase: URL
+    private let cachedFolders: (model: URL, tokenizer: URL)?
     private var kit: WhisperKit?
     private var loading: Task<LoadedKit, Error>?
     public private(set) var state: LoadState = .notLoaded
@@ -33,6 +34,15 @@ public actor WhisperKitTranscriber: Transcriber {
     public init(modelName: String, downloadBase: URL) {
         self.modelName = modelName
         self.downloadBase = downloadBase
+        self.cachedFolders = nil
+    }
+
+    /// Offline bench path: use existing compiled models and validate the local
+    /// tokenizer before WhisperKit can fall back to its Hub loader.
+    public init(modelName: String, cachedModelFolder: URL, cachedTokenizerFolder: URL) {
+        self.modelName = modelName
+        self.downloadBase = cachedModelFolder
+        self.cachedFolders = (cachedModelFolder, cachedTokenizerFolder)
     }
 
     public func prepare(progress: (@Sendable (Double) -> Void)? = nil) async throws {
@@ -48,15 +58,25 @@ public actor WhisperKitTranscriber: Transcriber {
         if let loading { return try await loading.value.kit }
         let name = modelName
         let base = downloadBase
+        let cached = cachedFolders
         let task = Task<LoadedKit, Error> {
-            self.setState(.downloading(0))
-            let folder = try await WhisperKit.download(variant: name, downloadBase: base) { p in
-                progress?(p.fractionCompleted)
-                Task { await self.setState(.downloading(p.fractionCompleted)) }
+            let folder: URL
+            if let cached {
+                // This overload parses local files only; errors propagate rather
+                // than falling through to a download.
+                _ = try await AutoTokenizerWrapper.from(modelFolder: cached.tokenizer)
+                folder = cached.model
+            } else {
+                self.setState(.downloading(0))
+                folder = try await WhisperKit.download(variant: name, downloadBase: base) { p in
+                    progress?(p.fractionCompleted)
+                    Task { await self.setState(.downloading(p.fractionCompleted)) }
+                }
             }
             self.setState(.loading)
             let config = WhisperKitConfig(
                 modelFolder: folder.path,
+                tokenizerFolder: cached?.tokenizer,
                 verbose: false,
                 prewarm: true,
                 load: true,
