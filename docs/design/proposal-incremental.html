@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BugVoice Incremental Transcription</title>
+<meta name="description" content="Incremental transcription: finished phrases become text while the owner speaks, so long dictations paste sooner.">
+<style>
+:root{
+  --bg:#f7f0d2;--panel:#fbf5df;--hover:#efe6c6;--line:#d9cfa8;--text:#2b2a26;--muted:#77705d;--accent:#9a7a2a;--soft:#e9dcae;--on:#fff;--rec:#d8443f;--ok:#3f9a5e;
+  --desk:linear-gradient(160deg,#c9b98a,#8f7f56);
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#2b2f37;--panel:#323741;--hover:#3a404b;--line:#454b57;--text:#eceff4;--muted:#a3abb8;--accent:#88c0d0;--soft:#3d4a5a;--on:#0b0d12;--rec:#e06c66;--ok:#8fc79f;
+  --desk:linear-gradient(160deg,#5a6b8c,#2b3346)}}
+:root[data-theme="dark"]{
+  --bg:#2b2f37;--panel:#323741;--hover:#3a404b;--line:#454b57;--text:#eceff4;--muted:#a3abb8;--accent:#88c0d0;--soft:#3d4a5a;--on:#0b0d12;--rec:#e06c66;--ok:#8fc79f;
+  --desk:linear-gradient(160deg,#5a6b8c,#2b3346)}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font:13px/1.45 -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+.review{max-width:1300px;margin:0 auto;padding:20px 16px 48px}
+header.top{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:flex-end;margin-bottom:12px}
+header.top h1{font-size:22px;margin:0}
+header.top p{margin:4px 0 0;color:var(--muted);max-width:860px}
+.toggle{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:6px 14px}
+h2.sec{font-size:15px;margin:28px 0 6px}
+p.why{margin:0 0 12px;color:var(--muted);max-width:900px}
+.stage{background:var(--desk);border-radius:12px;padding:16px}
+.pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,400px),1fr));gap:16px;align-items:start}
+.label{color:#fff;font-weight:600;margin:0 0 8px;text-shadow:0 1px 2px #0006}
+.notes{color:#fff;font-size:12px;margin:8px 0 0;text-shadow:0 1px 2px #0008}
+.win{background:var(--bg);border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 50px #0006;overflow:hidden}
+.wbar{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.wbar b{font-size:15px}
+.cols{display:flex}
+.side{width:150px;flex:none;border-right:1px solid var(--line);padding:8px}
+.side div{padding:4px 8px;border-radius:6px;color:var(--muted)}
+.side div.on{background:var(--soft);color:var(--text);font-weight:600}
+.body{flex:1;min-width:0;padding:12px;display:flex;flex-direction:column;gap:10px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.card h3{margin:0;font-size:13px}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.row .grow{flex:1;min-width:120px}
+hr{border:0;border-top:1px solid var(--line);margin:0}
+.btn{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:3px 9px;white-space:nowrap}
+.btn.prim{background:var(--accent);color:var(--on);border-color:var(--accent);font-weight:600}
+.btn.danger{color:var(--rec)}
+.pop{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:3px 8px}
+.foot{color:var(--muted);font-size:12px}
+.ok{color:var(--ok)}
+.err{color:var(--rec)}
+.bar{height:6px;border-radius:3px;background:var(--hover);overflow:hidden}
+.bar i{display:block;height:100%;width:34%;background:var(--accent)}
+.path{font:12px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sheet{background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 50px #0006;overflow:hidden;max-width:460px}
+.shead{padding:14px 16px 6px}
+.shead b{font-size:15px}
+.sbody{padding:0 16px 12px;display:flex;flex-direction:column;gap:10px}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:3px 14px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.facts span{color:var(--muted)}
+.callout{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12px}
+.callout.warn{border-color:var(--rec)}
+.sfoot{display:flex;justify-content:flex-end;gap:8px;padding:10px 16px;border-top:1px solid var(--line)}
+code{font-size:12px;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:0 4px}
+</style>
+<style>
+.hud{display:inline-flex;align-items:center;gap:10px;background:#111c;color:#fff;border-radius:999px;padding:8px 14px;box-shadow:0 8px 24px #0006}
+.hud .sub{color:#fffa;font-size:12px}
+.ok{color:var(--ok);font-weight:700}
+.moments{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:14px}
+.moment .n{color:#fff;font-weight:700;margin:0 0 8px;text-shadow:0 1px 2px #0008;font-size:13px}
+.note{color:#fff;font-size:12px;margin-top:8px;text-shadow:0 1px 2px #0008}
+.sw{width:34px;height:20px;border-radius:999px;background:var(--accent);position:relative;flex:none}
+.sw::after{content:"";position:absolute;right:2px;top:2px;width:16px;height:16px;border-radius:50%;background:#fff}
+.new{outline:2px dashed var(--accent);outline-offset:4px;border-radius:6px}
+.tl{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:6px}
+.tl h3{margin:0 0 4px;font-size:13px}
+.lane{display:grid;grid-template-columns:110px 1fr;align-items:center;gap:8px}
+.lane>span{color:var(--muted);font-size:12px}
+.track{position:relative;height:22px;background:var(--bg);border:1px solid var(--line);border-radius:5px}
+.track b{position:absolute;top:2px;bottom:2px;border-radius:3px;font-size:11px;font-weight:600;color:var(--on);display:flex;align-items:center;justify-content:center;overflow:hidden;white-space:nowrap}
+.speech{background:var(--muted)}
+.pass{background:var(--accent)}
+.wait{background:var(--rec)}
+.rel{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--rec)}
+.axis{display:flex;justify-content:space-between;color:var(--muted);font-size:11px;margin-left:118px}
+.tl .foot b{color:var(--text)}
+table{border-collapse:collapse;width:100%;font-size:12px}
+th,td{border-bottom:1px solid var(--line);padding:4px 8px;text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--muted);font-weight:600}
+.scroll{overflow-x:auto}
+pre{margin:0;font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;white-space:pre-wrap;word-break:break-word}
+.tag{display:inline-block;font-size:11px;font-weight:700;border:1px solid var(--line);border-radius:5px;padding:0 6px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="review">
+<header class="top">
+  <div>
+    <h1>Incremental transcription</h1>
+    <p>Spec: <code>docs/superpowers/specs/2026-10-24-incremental-transcription-design.md</code>. While you hold the key, BugVoice cuts the recording at natural pauses and turns each finished phrase into text on the main model. On release only the last phrase is left. Phase 2 only: it is built if the Phase 1 bench passes the gate. Times on this page are examples, not measurements.</p>
+  </div>
+  <button class="toggle" id="t">Light / dark</button>
+</header>
+
+<h2 class="sec">1. A 40 s dictation, today and while speaking</h2>
+<p class="why">Today the whole 40 s goes through the main model after release (the owner's history: about 3 s for a dictation this long). With incremental transcription, four phrases are already text when the key comes up. Only the last 6.5 s are transcribed after release.</p>
+<div class="tl">
+  <h3>Today</h3>
+  <div class="lane"><span>Speech</span><div class="track"><b class="speech" style="left:0;width:90.9%">holding the key</b><i class="rel" style="left:90.9%"></i></div></div>
+  <div class="lane"><span>Main model</span><div class="track"><b class="wait" style="left:90.9%;width:6.8%">3.0 s</b><i class="rel" style="left:90.9%"></i></div></div>
+  <h3 style="margin-top:10px">Transcribe while speaking</h3>
+  <div class="lane"><span>Speech</span><div class="track">
+    <b class="speech" style="left:0;width:15.7%">1</b>
+    <b class="speech" style="left:17.0%;width:18.2%">2</b>
+    <b class="speech" style="left:36.6%;width:17.5%">3</b>
+    <b class="speech" style="left:55.5%;width:19.9%">4</b>
+    <b class="speech" style="left:76.8%;width:14.1%">5</b>
+    <i class="rel" style="left:90.9%"></i></div></div>
+  <div class="lane"><span>Main model</span><div class="track">
+    <b class="pass" style="left:16.4%;width:2.9%"></b>
+    <b class="pass" style="left:35.9%;width:2.9%"></b>
+    <b class="pass" style="left:54.8%;width:2.9%"></b>
+    <b class="pass" style="left:76.1%;width:2.9%"></b>
+    <b class="wait" style="left:90.9%;width:2.9%">1.3</b>
+    <i class="rel" style="left:90.9%"></i></div></div>
+  <div class="axis"><span>0 s</span><span>10</span><span>20</span><span>30</span><span>40 release</span><span>44</span></div>
+  <p class="foot">Gaps in the speech lane are pauses of at least <b>0.5 s</b> after at least <b>4 s</b> of speech (values come from the Phase 1 sweep). Each blue pass starts when its phrase ends. Red is what you wait for. The tail pass still pays Whisper's fixed cost, about 1.2 s, so the saving grows with length.</p>
+</div>
+
+<h2 class="sec">2. What you see</h2>
+<p class="why">No new HUD state. The done pill already shows release-to-text seconds; it gets smaller on long dictations and stays the same on short ones.</p>
+<div class="stage"><div class="moments">
+  <div class="moment"><p class="n">40 s into Notion, setting off</p><div class="hud"><span class="ok">✓</span><b>Done (Document)</b><span class="sub">96 words · 3.7 s</span></div></div>
+  <div class="moment"><p class="n">Same, setting on</p><div class="hud"><span class="ok">✓</span><b>Done (Document)</b><span class="sub">96 words · 2.0 s</span></div></div>
+  <div class="moment"><p class="n">3 s into Ghostty, either way</p><div class="hud"><span class="ok">✓</span><b>Done (Terminal)</b><span class="sub">7 words · 1.6 s</span></div><p class="note">No pause long enough to cut: the normal full-clip pass, at no extra cost.</p></div>
+</div></div>
+
+<h2 class="sec">3. Settings › Speech</h2>
+<p class="why">One new toggle below Live preview, on by default. Off with the OpenAI-compatible engine.</p>
+<div class="stage"><div class="win"><div class="cols">
+  <div class="side"><div>General</div><div>Shortcuts</div><div class="on">Speech</div></div>
+  <div class="body"><div class="card">
+    <div class="row"><span class="grow">Use Dictionary words as hints</span><span class="sw"></span></div>
+    <hr>
+    <div class="row"><span class="grow">Live preview</span><span class="sw"></span></div>
+    <div class="foot">Shows the words under the HUD while you speak, using a small extra speech model (downloaded once, about 150 MB). The pasted text still comes from the whole recording after you release. Off with the OpenAI-compatible engine.</div>
+    <hr>
+    <div class="new">
+      <div class="row"><span class="grow">Transcribe while speaking</span><span class="sw"></span></div>
+      <div class="foot">Turns each finished phrase into text while you talk, so long dictations paste sooner. Uses the main speech model while you hold the key. Off with the OpenAI-compatible engine.</div>
+    </div>
+  </div></div>
+</div></div></div>
+
+<h2 class="sec">4. Phase 1 bench report</h2>
+<p class="why"><code>swift run -c release bugvoice-bench --latency --clips bench/clips</code>. Committed report has numbers only; text appears on stderr with <code>--show-text</code>. Example rows with made-up numbers, showing the layout.</p>
+<div class="card scroll">
+  <h3>Fixed cost (Measurement 1)</h3>
+  <table><tr><th>Slice</th><th>1 s</th><th>2 s</th><th>4 s</th><th>8 s</th><th>15 s</th><th>25 s</th><th>Fit</th></tr>
+  <tr><td>Median STT</td><td>1.14</td><td>1.17</td><td>1.21</td><td>1.27</td><td>1.40</td><td>1.58</td><td>1.12 s + 0.018 s/s</td></tr></table>
+</div>
+<div class="card scroll" style="margin-top:10px">
+  <h3>Incremental, best combination: pause 0.5 s, shortest 4 s, longest 25 s, previous text off</h3>
+  <table><tr><th>Group</th><th>Length</th><th>Clips</th><th>Baseline s</th><th>Incremental s</th><th>Saving</th><th>WER base</th><th>WER incr.</th><th>Gate</th></tr>
+  <tr><td>English</td><td>under 8 s</td><td>2</td><td>1.22</td><td>1.22</td><td>0.00</td><td>0.04</td><td>0.04</td><td class="ok">pass</td></tr>
+  <tr><td>English</td><td>15 s+</td><td>4</td><td>1.71</td><td>1.19</td><td>0.52</td><td>0.06</td><td>0.07</td><td class="ok">pass</td></tr>
+  <tr><td>Vietnamese</td><td>15 s+</td><td>4</td><td>1.83</td><td>1.24</td><td>0.59</td><td>0.11</td><td>0.14</td><td class="err">WER +0.03</td></tr>
+  <tr><td>Mixed</td><td>30 s+</td><td>2</td><td>2.95</td><td>1.30</td><td>1.65</td><td>0.13</td><td>0.14</td><td class="ok">pass</td></tr></table>
+  <p class="foot">Gate: 15 s+ saves at least 0.5 s, 30 s+ at least 1.0 s, under 8 s no slower than 0.05 s, WER at most +0.02 per group and +0.05 per clip. Every row must pass, with and without the concurrent preview loop.</p>
+</div>
+
+<h2 class="sec">5. Diagnostics</h2>
+<p class="why">Copy diagnostics shows how each dictation was transcribed. Numbers and reasons only, never words.</p>
+<pre>outcome=inserted app=notion.id style=document lang=en words=96 rec=40.1 stt=1.31 clean=0.62 insert=0.04 early=4
+outcome=inserted app=com.mitchellh.ghostty style=terminal lang=en words=7 rec=3.0 stt=1.22 clean=0.35 insert=0.03
+outcome=inserted app=com.tinyspeck.slackmacgap style=personal lang=vi words=58 rec=22.4 stt=1.68 clean=0.51 insert=0.04 early=fallback:languageChanged
+shadow_wer=0.02 early=4 rec=40.1</pre>
+<p class="foot" style="margin-top:6px"><span class="tag">shadow_wer</span> only appears with the hidden <code>speech.incrementalShadowCheck</code> key on: after the paste, the whole clip is transcribed again at low priority and the two raw transcripts are compared.</p>
+</div>
+<script>
+document.getElementById('t').onclick=()=>{const r=document.documentElement;const dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme: dark)').matches;r.dataset.theme=dark?'light':'dark'};
+</script>
+</body>
+</html>
