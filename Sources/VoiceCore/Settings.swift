@@ -344,6 +344,8 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var soundsEnabled = true
     public var restoreClipboard = true
     public var launchAtLogin = false
+    /// Check the update feed at launch and daily, and show a new version in the menu.
+    public var updateNotify = true
     /// Master switch from the menu bar; per-style switches apply under it.
     public var cleanupEnabled = true
     public var historyRetention: Retention = .forever
@@ -456,6 +458,7 @@ extension AppSettings {
         soundsEnabled = c.value(.soundsEnabled, default: soundsEnabled)
         restoreClipboard = c.value(.restoreClipboard, default: restoreClipboard)
         launchAtLogin = c.value(.launchAtLogin, default: launchAtLogin)
+        updateNotify = c.value(.updateNotify, default: updateNotify)
         cleanupEnabled = c.value(.cleanupEnabled, default: cleanupEnabled)
         historyRetention = c.value(.historyRetention, default: historyRetention)
         meetings = c.value(.meetings, default: meetings)

@@ -245,6 +245,7 @@ public final class UpdateWatcher {
     private let currentVersion: @MainActor () -> String
     private let isEnabled: @MainActor () -> Bool
     private let announce: @MainActor (UpdateAvailable) -> Void
+    private let found: @MainActor (UpdateAvailable?) -> Void
     private let now: @MainActor () -> Date
     private let defaults: UserDefaults
     private var task: Task<Void, Never>?
@@ -254,6 +255,7 @@ public final class UpdateWatcher {
         currentVersion: @escaping @MainActor () -> String = { AppFeedVersion.string() },
         isEnabled: @escaping @MainActor () -> Bool,
         announce: @escaping @MainActor (UpdateAvailable) -> Void,
+        found: @escaping @MainActor (UpdateAvailable?) -> Void = { _ in },
         now: @escaping @MainActor () -> Date = Date.init,
         defaults: UserDefaults = .standard
     ) {
@@ -261,6 +263,7 @@ public final class UpdateWatcher {
         self.currentVersion = currentVersion
         self.isEnabled = isEnabled
         self.announce = announce
+        self.found = found
         self.now = now
         self.defaults = defaults
     }
@@ -295,7 +298,11 @@ public final class UpdateWatcher {
         case .unavailable(let failure):
             return .unavailable(failure)
         case .success(let feed):
-            guard let update = UpdateSelection.pick(feed, currentVersion: currentVersion()) else { return .upToDate }
+            // Every answer the feed gives reaches `found`, so a standing offer
+            // (the menu row) survives a relaunch; `announce` runs once a version.
+            let update = UpdateSelection.pick(feed, currentVersion: currentVersion())
+            found(update)
+            guard let update else { return .upToDate }
             guard defaults.string(forKey: Self.lastAnnouncedKey) != update.version else { return .alreadyAnnounced }
             announce(update)
             defaults.set(update.version, forKey: Self.lastAnnouncedKey)

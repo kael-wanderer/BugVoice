@@ -100,6 +100,7 @@ struct UpdateWatcherTests {
         var fetches = 0
         var announced: [String] = []
         var enabled = true
+        var offers: [String?] = []
     }
 
     func watcher(_ box: Box, defaults: UserDefaults) -> UpdateWatcher {
@@ -108,6 +109,7 @@ struct UpdateWatcherTests {
             currentVersion: { "0.1.0-build.327" },
             isEnabled: { box.enabled },
             announce: { box.announced.append($0.version) },
+            found: { box.offers.append($0?.version) },
             now: { box.now },
             defaults: defaults
         )
@@ -125,6 +127,8 @@ struct UpdateWatcherTests {
         #expect(await w.check(force: true) == .announced("0.1.0-build.330"))
         #expect(await w.check(force: true) == .alreadyAnnounced)
         #expect(box.announced == ["0.1.0-build.330"])
+        // The standing offer is reported on every check, announced or not.
+        #expect(box.offers == ["0.1.0-build.330", "0.1.0-build.330"])
         box.result = .success(UpdateFeed(version: "0.1.0-build.331", releaseURL: URL(string: "https://kael.io.vn/r")))
         #expect(await w.check(force: true) == .announced("0.1.0-build.331"))
     }
@@ -137,6 +141,7 @@ struct UpdateWatcherTests {
         box.enabled = true
         box.result = .success(UpdateFeed(version: "0.1.0-build.306", releaseURL: URL(string: "https://kael.io.vn/r")))
         #expect(await w.check(force: true) == .upToDate)
+        #expect(box.offers == [nil])
         box.result = .unavailable(.timeout)
         #expect(await w.check(force: true) == .unavailable(.timeout))
         #expect(box.announced.isEmpty)
@@ -156,5 +161,15 @@ struct UpdateWatcherTests {
         let box = Box(), defaults = freshDefaults(), w = watcher(box, defaults: defaults)
         defaults.set(box.now.addingTimeInterval(3_600), forKey: UpdateWatcher.lastCheckAtKey)
         #expect(await w.check(force: false) == .announced("0.1.0-build.330"))
+    }
+}
+
+struct UpdateNotifySettingTests {
+    @Test func isOnUnlessTurnedOff() throws {
+        #expect(try JSONDecoder().decode(AppSettings.self, from: Data("{}".utf8)).updateNotify)
+        var settings = AppSettings()
+        settings.updateNotify = false
+        let saved = try JSONEncoder().encode(settings)
+        #expect(try JSONDecoder().decode(AppSettings.self, from: saved).updateNotify == false)
     }
 }
