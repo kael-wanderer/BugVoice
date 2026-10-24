@@ -5,8 +5,10 @@ import WhisperEngine
 // bugvoice-bench --clips bench/clips [--languages auto,vi,en,es]
 //   [--model large-v3-v20240930_turbo] [--llm-base http://localhost:1234]
 //   [--llm-model qwen3.8-27b-mlx] [--vocab path] [--no-llm]
+// bugvoice-bench --fidelity-history <history.jsonl>
+//   Prints counts and flagged raw/cleaned pairs to the terminal only, then exits.
 // Each clip `name.wav` may have a reference transcript `name.txt`.
-// stdout carries only the markdown results; progress goes to stderr.
+// In clip mode stdout carries markdown results; progress goes to stderr.
 
 func log(_ message: String) {
     FileHandle.standardError.write(Data((message + "\n").utf8))
@@ -16,6 +18,45 @@ func argument(_ name: String) -> String? {
     let args = CommandLine.arguments
     guard let i = args.firstIndex(of: name), i + 1 < args.count else { return nil }
     return args[i + 1]
+}
+
+// This mode runs before any clip discovery, model loading or network request.
+if CommandLine.arguments.contains("--fidelity-history") {
+    guard let path = argument("--fidelity-history"), !path.hasPrefix("--") else {
+        log("Usage: bugvoice-bench --fidelity-history <history.jsonl>")
+        exit(2)
+    }
+    let url = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
+    guard FileManager.default.isReadableFile(atPath: url.path) else {
+        log("Cannot read history file at \(url.path)")
+        exit(1)
+    }
+    let entries = await HistoryLog(url: url).load()
+    var checked = 0
+    var flagged: [(index: Int, entry: HistoryEntry, issues: [FidelityIssue])] = []
+    var counts: [FidelityIssue.Kind: Int] = [:]
+    for (index, entry) in entries.enumerated() {
+        guard let cleaned = entry.cleaned else { continue }
+        checked += 1
+        let issues = FidelityCheck.issues(raw: entry.raw, cleaned: cleaned)
+        guard !issues.isEmpty else { continue }
+        flagged.append((index + 1, entry, issues))
+        for kind in Set(issues.map(\.kind)) { counts[kind, default: 0] += 1 }
+    }
+    let percent = checked == 0 ? 0 : Double(flagged.count) * 100 / Double(checked)
+    print("History entries decoded: \(entries.count)")
+    print("Entries checked (with cleaned text): \(checked)")
+    print(String(format: "Flagged: %d (%.2f%%)", flagged.count, percent))
+    for kind in FidelityIssue.Kind.allCases {
+        print("\(kind.rawValue): \(counts[kind, default: 0]) flagged entries")
+    }
+    for item in flagged {
+        print("\n--- Entry \(item.index) (\(item.entry.id.uuidString)), command=\(item.entry.command != nil) ---")
+        print("Raw: \(item.entry.raw)")
+        print("Cleaned: \(item.entry.cleaned!)")
+        for issue in item.issues { print("\(issue.kind.rawValue) \(issue.direction.rawValue): \(issue.token)") }
+    }
+    exit(0)
 }
 
 let clipsDir = URL(fileURLWithPath: argument("--clips") ?? "bench/clips")

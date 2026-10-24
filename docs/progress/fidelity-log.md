@@ -1,7 +1,8 @@
 # Cleanup fidelity execution log
 
-Completed scope: Tasks 1–3 and the review fixes for Tasks 1–2. Tasks 4–7 remain pending.
-No app launch, synthetic input, history replay, push or merge.
+Implementation: Tasks 1–7 and both requested review fixes complete on `feat/cleanup-fidelity`.
+Owner screenshots and device checks remain open.
+No app launch, synthetic input, push or merge. History replay was local and read-only.
 
 ## Task 1 — numbers
 
@@ -43,19 +44,19 @@ No app was launched. These are pure-check timings, not end-to-end dictation.
 
 ### Deferred work
 
-Task 3 is complete. Tasks 4–7 have not started. History replay counts, flags and false-alarm rates
-per kind are **not measured** (Task 7). Task 6 screenshots and owner checks F1–F8
-remain pending; the feature is not yet wired into the pipeline or UI.
+Tasks 1–7 are implemented and verified as recorded below. Task 6 screenshots
+and owner checks F1–F8 remain pending. The pipeline and UI are wired.
 
 ## Departures
 
 - The plan header's required Superpowers skill is waived by the owner; direct
-  execution authorized. Tasks 3–7 deferred at the owner's request.
+  execution authorized. The initial turn stopped after Task 2 as requested; later
+  turns authorized the remaining tasks.
 - No code-location discrepancies encountered in Tasks 1–2 (new files).
 
 - Added this partial execution log during Tasks 1–2 so TDD and timing evidence
-  survives the requested stopping point; Task 7 will complete it.
-- No test assertions or planned interfaces changed.
+  survived the requested stopping point; Task 7 completed it.
+- At the original Task 1–2 stopping point, no test assertions or planned interfaces changed.
 
 ## Review fixes before Task 3
 
@@ -106,7 +107,7 @@ lost number, mixed kinds and an empty tooltip list. No assertions were changed.
 Final full `swift test`: **1,399 passing** (1,255 VoiceCore, 30 MCPKit,
 114 BugVoiceMac); the 76-pair corpus also passes.
 Commit: `feat(core): fidelity check wording` (see branch history).
-No Task 3 departures. No UI or pipeline wiring performed; that begins in Task 4.
+No Task 3 departures. At the Task 3 commit, UI and pipeline wiring remained for Task 4 onward.
 
 ## Whole-word negation wording fix
 
@@ -179,3 +180,106 @@ Commit: `feat(app): fidelity tag in history and setting on the Style page`.
 
 Screenshots and device checks were deferred as explicitly required by the owner;
 no run-dev-app.sh, bare open, synthetic events or pastes were used.
+
+## Task 7 — history replay and final verification
+
+Added `bugvoice-bench --fidelity-history <path>` before clip discovery/model
+loading. It reads through HistoryLog and prints decoded/checked/flagged counts,
+percent flagged, distinct flagged-entry counts by kind, and each flagged pair to
+stdout only. No replay text is saved. Synthetic CLI verification checked both
+counts/pair output and missing-path usage; its synthetic temporary file was
+removed. Added the plan/log pointers to AGENTS.md and a status entry to HANDOFF.md.
+Commit: `docs: fidelity check log and history replay` (this Task 7 commit).
+
+### Local history results — 2026-10-24
+
+AppPaths.standard().history resolves to
+`~/Library/Application Support/BugVoice/history.jsonl` on this Mac. All 17 JSONL
+entries decoded; 14 have cleaned text and were checked, 3 do not. There are no
+Command entries. Replay was run again after the final checker change with the
+same result. **0 flagged / 14 checked (0.00%)**; no flagged pairs to review.
+
+Counts below are distinct entries per kind. False-alarm rate uses all 14 checked
+entries as its denominator; the kinds can overlap in other replays.
+
+| Kind | Flagged | True alarms | False alarms | False alarms / checked |
+|---|---:|---:|---:|---:|
+| Number | 0 | 0 | 0 | 0 / 14 (0.00%) |
+| Negation | 0 | 0 | 0 | 0 / 14 (0.00%) |
+| Path | 0 | 0 | 0 | 0 / 14 (0.00%) |
+| Identifier | 0 | 0 | 0 | 0 / 14 (0.00%) |
+
+No threshold tuning or default change was needed: **fidelityAction remains raw**.
+This is a 14-entry sample, not a population estimate or proof of detection recall.
+No dictated text was added to the corpus, Diagnostics or documentation.
+
+### Additional final-review correction
+
+Whole-word expansion can make two regex negation matches overlap in an
+apostrophe-linked word. Added an isolated regression test first: it reproduced
+a fatal range-bounds failure. Then skipped already-consumed whole-word ranges;
+the test and full suite pass. This robustness fix was found in code review,
+not in the history replay, and is the only Task 7 checker change. The previously
+recorded decimal/million ambiguity remains intentionally unchanged.
+
+### Final automated evidence
+
+- `swift test`: **1,417 passing** — 1,273 VoiceCore, 30 MCPKit, 114 BugVoiceMac.
+  Fidelity corpus: 76 pairs, plus focused checker, wording, pipeline and swap tests.
+- `swift build` and the bench product build succeed.
+- `Scripts/build-app.sh`: Task 6 release packaging and the final rebuild after
+  the robustness guard both succeeded, signed with **Bugler Local Dev**.
+  No app launch or installation was performed.
+- 200 words, standalone unoptimized build: **1.052 ms median of 20** checks after
+  one warm-up, using the plan's input with numbers, negations, paths and names.
+  The updated median timing assertion also passes in the full test suite.
+
+### Commit index
+
+| Task | Commit | Subject |
+|---|---|---|
+| 1 | `26f0655` | feat(core): fidelity check for numbers |
+| 2 | `86cb189` | feat(core): fidelity check for negations, paths and identifiers |
+| Review fix | `d901bcd` | fix(core): fidelity check false alarms from review |
+| 3 | `19398de` | feat(core): fidelity check wording |
+| Wording fix | `4a3fdd6` | fix(core): negation token is the whole word, lowercased |
+| 4 | `f511deb` | feat(core): run fidelity check before paste |
+| 5 | `a3c3145` | feat(app): paste raw swaps to cleaned after a fidelity fallback |
+| 6 | `078f52e` | feat(app): fidelity tag in history and setting on the Style page |
+| 7 | This commit | docs: fidelity check log and history replay |
+
+## Plan departures and owner-directed changes — final register
+
+1. Direct execution replaces the plan header's Superpowers requirement, as
+   explicitly authorized. The owner staged work at Tasks 2 and 3 before authorizing
+   Tasks 4–7; tasks themselves were not merged or reordered.
+2. The execution log started in Task 1 rather than Task 7 to preserve TDD evidence.
+3. Review instructions changed number suffixes, kept list-marker values, repeated
+   negations, possessives and the timing assertion. A subsequent owner instruction
+   changed negation tokens to whole lowercased words. Both have separate commits.
+4. Task 4 added the exhaustive HUD case needed to compile the new RawReason;
+   Task 5 then supplied final warning/shortcut behavior.
+5. Task 5 also copies fidelity fields in AppModel.replaceLast because the current
+   code copies fields individually; it added the popover tag required by mockup
+   section 4 but omitted from the plan's explicit button-label step.
+6. Task 6 uses the wider existing History metadata width when a fidelity tag is
+   present. No launch/screenshots were performed, per the owner's hard limit;
+   screenshots and F1–F8 are pending, not claimed as completed.
+7. Task 7 includes the TDD overlap crash guard described above, found during final
+   review. No false-alarm tuning or fallback to warn was necessary.
+
+The plan's decided spec differences were followed: no language parameter, no
+Global search entry, and the sentence-start capitalization exception. No planned
+test was found to contradict the spec; none was silently weakened. Location
+numbers moved, but existing helper names and intended behavior were preserved.
+
+## Owner device checks — not performed
+
+- [ ] **F1.** Say "the timeout is fifteen seconds" in Notion; pasted with 15, no warning.
+- [ ] **F2.** Cleanup forced to drop "not" (custom Work tone: "remove the word not"); raw pastes, HUD names "not".
+- [ ] **F3.** ⌃⌥R after F2 swaps in the cleaned text; again swaps back.
+- [ ] **F4.** Setting on *Paste cleaned and warn*: F2 pastes cleaned with "Check" pill.
+- [ ] **F5.** Setting Off: no warning, history still shows the tag.
+- [ ] **F6.** "At three, no, I mean four" in Work style; pastes "at 4", no warning.
+- [ ] **F7.** Vietnamese with a number: "họp lúc ba giờ" → "họp lúc 3 giờ", no warning.
+- [ ] **F8.** History row tag hover lists the issue; swap button pastes the other version.

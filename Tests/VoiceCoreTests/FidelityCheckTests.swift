@@ -125,3 +125,9 @@ extension FidelityCheckTests {
         #expect(FidelityCheck.hudTitle(issues, pastedRaw: true) == "Raw — cleanup dropped “can't”")
     }
 }
+
+extension FidelityCheckTests {
+    @Test func overlappingNegationMatchesFormOneWord() {
+        #expect(FidelityCheck.issues(raw: "not'not now", cleaned: "Now.") == [.init(kind: .negation, direction: .lost, token: "not'not")])
+    }
+}

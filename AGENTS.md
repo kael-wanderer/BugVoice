@@ -96,6 +96,8 @@ version and build live in `App/Info.plist`. Every commit raises the build by one
 - Spanish dictation plan: `docs/superpowers/plans/2026-10-23-spanish-dictation.md`
 - Spanish dictation execution log and device checks: `docs/progress/spanish-log.md`
 - Cleanup fidelity check spec: `docs/superpowers/specs/2026-10-24-cleanup-fidelity-design.md` (mockup: `docs/design/proposal-fidelity.html`)
+- Cleanup fidelity implementation plan: `docs/superpowers/plans/2026-10-24-cleanup-fidelity.md`
+- Cleanup fidelity replay, execution log and owner checks: `docs/progress/fidelity-log.md`
 - Feature review (Codex, 2026-10-24): `docs/research/2026-10-24-feature-review.md`
 
 ## Rules

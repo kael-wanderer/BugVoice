@@ -123,6 +123,9 @@ public enum FidelityCheck {
                 start = before
             }
             while end < text.endIndex, isWordCharacter(text[end]) { end = text.index(after: end) }
+            // Apostrophe-linked words can contain multiple regex matches.
+            // They are one whole-word token; do not compare overlapping ranges.
+            if let previousEnd, start < previousEnd { continue }
             let token = text[start..<end].lowercased()
             let repeated = previousToken == token && previousEnd.map { end in
                 text[end..<start].allSatisfy { $0.isWhitespace || $0 == "," }
