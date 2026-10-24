@@ -4,6 +4,13 @@ Last updated: 2026-10-24
 
 ## Current state
 
+**Update check:** merged on `main` (2026-10-24). Reads
+`kael.io.vn/projects/bugvoice/latest.json`, compares `0.1.0-build.N` as SemVer,
+checks at launch and daily, and offers Open <version> in Settings › General ›
+Updates and in the menu popover; never installs. Tests: **1,289 VoiceCore, 30
+MCPKit, 114 BugVoiceMac**, all pass; no app launch. Device checks 1–5 open; see
+`docs/progress/updates-log.md`.
+
 **Cleanup fidelity:** merged on `main` and pushed (2026-10-24, `c12a284`). Checks numbers, negations, paths and identifiers after
 cleanup; Style chooses Paste raw text (default), cleaned with warning, or Off.
 Cleaned alternatives survive fallback; Paste raw swaps both ways, with History

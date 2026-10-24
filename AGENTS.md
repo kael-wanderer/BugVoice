@@ -101,6 +101,7 @@ version and build live in `App/Info.plist`. Every commit raises the build by one
 - Feature review (Codex, 2026-10-24): `docs/research/2026-10-24-feature-review.md`
 - Incremental transcription spec (bench first, build only after the gate): `docs/superpowers/specs/2026-10-24-incremental-transcription-design.md` (mockup: `docs/design/proposal-incremental.html`)
 - Incremental transcription bench plan (Phase 1): `docs/superpowers/plans/2026-10-24-incremental-transcription-bench.md`
+- Update check execution log and device checks: `docs/progress/updates-log.md`
 
 ## Rules
 
