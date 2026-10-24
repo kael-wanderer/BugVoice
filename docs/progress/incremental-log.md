@@ -153,10 +153,51 @@ Automatic language is informational; gate not applied. Would-fail count: 9.
 The complete report remains local at `/tmp/latency-smoke.md`; no transcript
 text was printed, copied into this log, or committed.
 
-## Owner run
+## Synthetic run (2026-10-24, Claude, owner away)
 
-    Scripts/stt-bench.sh --latency > docs/bench/$(date +%F)-incremental-bench.md
+The owner asked Claude to run the bench. Claude cannot record the owner's voice,
+so the 18 clips were generated locally with macOS `say` (Ava Premium for English,
+Linh for Vietnamese and mixed, 0.5 s silence between sentences), converted to
+16 kHz mono with ffmpeg, with the spoken text as the reference. Generator:
+`Scripts/make-synthetic-clips.py`. Old clips moved to `bench/clips/old-2026-10-14/`
+(not read by the bench). Durations: 4.2–6.1 s (2 per group), 16.4–18.4 s (2 per
+group), 32.1–36.9 s (2 per group). No microphone, app launch or paste.
+
+    Scripts/stt-bench.sh --latency > docs/bench/2026-10-24-incremental-bench.md
+
+Exit 0, 1,950 s. Report: `docs/bench/2026-10-24-incremental-bench.md`.
+
+- Fixed cost: 1.17 s + 0.032 s per audio second.
+- VAD lever: off is no faster (en 1.54 vs 1.54 s, vi 1.77 vs 1.76, mix 1.90 vs
+  1.87) and WER is worse in every group. Does not ship.
+- Best combination: pause 0.5 s, shortest part 2 s, longest 15 s, previous text
+  off. Previous text in the prompt is worse in every combination.
+- Tail after release stays about 1.1–1.4 s whatever the length.
+
+| Group | under 8 s saving | 15 s+ saving | 30 s+ saving | 15 s+ WER change |
+|---|---:|---:|---:|---:|
+| en | 0.03 s | 0.59 s | **0.85 s** | +0.012 |
+| vi | 0.04 s | 0.85 s | 1.18 s | +0.005 |
+| mix | 0.15 s | 0.62 s | **0.88 s** | +0.015 |
+
+With the preview model loop: en 30 s+ 0.97 s, mix 30 s+ **0.47 s** (mix-7 became
+0.2 s slower than baseline), vi 1.21 s. Automatic language: savings similar, mixed
+WER worse (+0.04 at 15 s+), 6 would-fail rows.
 
 ## Gate result
 
+**Fails, narrowly, on synthetic speech.** Two failures without preview load
+(en and mix 30 s+ save 0.85 and 0.88 s; the gate needs 1.0 s), two with it
+(en 0.97 s, mix 0.47 s). Every other check passes: short dictations are not
+slower, 15 s+ saves 0.59–0.85 s, WER within +0.02 per group and +0.05 per clip.
+
+Caveats: synthetic speech has regular, clean pauses and no hesitation; real
+dictation pauses less regularly. Six clips per group. Contention with the preview
+model is uneven (one mixed clip lost its whole saving).
+
 ## Decision
+
+Owner's call. The 1.0 s threshold was Claude's (the owner skipped the design
+questions). Options: drop as the spec says; rerun on owner-recorded clips; or
+lower the 30 s+ threshold, accepting about 0.6–1.2 s saved on 15 s+ dictations
+and a preview-contention risk that Phase 2 would need to handle.

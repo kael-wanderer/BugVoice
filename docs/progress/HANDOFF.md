@@ -12,8 +12,11 @@ the spec's gate. Numbers only on stdout; network blocked for the run. No app
 behavior change. Tests: **1,315 VoiceCore, 30 MCPKit, 114 BugVoiceMac**, all
 pass. Smoke run on the four old clips tests plumbing only (`en-1`, `vi-1`
 unusable): fit 1.73 s fixed + 0.02 s per audio second, so the gate may well
-fail. Next: owner records the 18 clips in `bench/clips/README.md` and runs the
-bench; Phase 2 plan only if the gate passes. See `docs/progress/incremental-log.md`.
+fail. Synthetic run (macOS `say`, 18 clips, 2026-10-24): gate fails narrowly.
+30 s+ saves 0.85 s (en) and 0.88 s (mix), needs 1.0; vi 1.18 s; 15 s+ saves
+0.59–0.85 s; WER within limits; preview load cut one mixed clip's saving to zero.
+Decision is the owner's: drop, rerun on recorded clips, or lower the threshold.
+See `docs/progress/incremental-log.md`.
 Flaky test seen once: `recoveryDropsUncheckpointedJournalTail` (BugVoiceMac)
 failed its 4-byte journal assertion, then passed unchanged.
 

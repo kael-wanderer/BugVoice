@@ -46,3 +46,5 @@ The original full speech-to-text and cleanup bench remains available:
     Scripts/stt-bench.sh > docs/bench/$(date +%F)-stt-bench.md
 
 That original mode includes transcripts in its report; keep it local.
+
+No time to record? `Scripts/make-synthetic-clips.py` generates the 18 clips with macOS `say` (timing evidence only; WER is optimistic).
