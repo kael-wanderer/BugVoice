@@ -92,7 +92,7 @@ public actor WhisperKitTranscriber: Transcriber {
         // requests therefore use auto language; dictation keeps the existing
         // forced-language, no-timestamps behavior.
         decode.withoutTimestamps = !options.timestamps
-        decode.chunkingStrategy = .vad
+        decode.chunkingStrategy = options.vadChunking ? .vad : nil
         if options.timestamps || options.language == .auto {
             decode.language = nil
             decode.detectLanguage = true

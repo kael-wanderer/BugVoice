@@ -23,7 +23,14 @@
   all 10 gate tests passed with the same 1e-9 tolerance as WER. Full suite:
   1,298 VoiceCore, 30 MCPKit, 114 BugVoiceMac (1,442 total), all passed.
 
+- Task 4: default-on VAD chunking option. Supplied test failed to compile
+  before implementation. Full suite: 1,299 VoiceCore, 30 MCPKit,
+  114 BugVoiceMac (1,443 total), all passed. `swift build` succeeded.
+
 ## Decisions
+
+- Task 4: WhisperKit 1.1.1 declares `chunkingStrategy` optional; no chunking
+  uses `nil`, per the plan. The app retains the default `vadChunking: true`.
 
 - Owner correction to Task 3: buckets overlap deliberately. Every clip at least
   30 s is also in the 15 s+ bucket. The corrected `savingThresholds` fixture sets
