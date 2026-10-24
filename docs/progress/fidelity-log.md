@@ -151,3 +151,31 @@ new issue/action fields there to prevent stale metadata after redo/replacement.
 Also added the popover's warning tag and tooltip from mockup section 4 while
 editing MenuSections (the task text only explicitly named its button label).
 No app launch, synthetic events or pastes.
+
+## Task 6 — History and Style UI
+
+Added the global fidelity action card above the Style pills with the exact
+picker options and footnote. History displays one warning tag, a tooltip headed
+Cleanup changed, and the alternate-version button before Paste again. History
+metadata uses a wider column when a fidelity tag is present so it fits beside
+the app name. Its existing plain-raw tag whitelist already excluded detailChanged.
+
+`swift build` and `Scripts/build-app.sh` both succeed. Release app assembled at
+`build/BugVoice.app`, signed with **Bugler Local Dev**; no app launch or install.
+Full `swift test`: **1,416 passing** (1,272 VoiceCore, 30 MCPKit,
+114 BugVoiceMac).
+Commit: `feat(app): fidelity tag in history and setting on the Style page`.
+
+### Owner screenshots and visual checks — not performed
+
+- [ ] Style page: screenshot the card above the style pills; compare label,
+  options and footnote with mockup section 3, including light/dark and large text.
+- [ ] History: screenshot fallback and warned/off entries; compare warning tags,
+  hover descriptions and swap-button placement with mockup section 4.
+- [ ] Popover: inspect Cleaned/Raw labels and shortcut help, plus warning tag,
+  against mockup section 4.
+- [ ] HUD: inspect wording, configured shortcut hint and four-second warning
+  duration against mockup section 2.
+
+Screenshots and device checks were deferred as explicitly required by the owner;
+no run-dev-app.sh, bare open, synthetic events or pastes were used.
