@@ -1,6 +1,6 @@
 # Cleanup fidelity execution log
 
-Current scope: review fixes for Tasks 1–2, then Task 3. Tasks 4–7 remain pending.
+Completed scope: Tasks 1–3 and the review fixes for Tasks 1–2. Tasks 4–7 remain pending.
 No app launch, synthetic input, history replay, push or merge.
 
 ## Task 1 — numbers
@@ -43,7 +43,7 @@ No app was launched. These are pure-check timings, not end-to-end dictation.
 
 ### Deferred work
 
-Task 3 is next. Tasks 4–7 have not started. History replay counts, flags and false-alarm rates
+Task 3 is complete. Tasks 4–7 have not started. History replay counts, flags and false-alarm rates
 per kind are **not measured** (Task 7). Task 6 screenshots and owner checks F1–F8
 remain pending; the feature is not yet wired into the pipeline or UI.
 
@@ -60,7 +60,7 @@ remain pending; the feature is not yet wired into the pipeline or UI.
 ## Review fixes before Task 3
 
 Owner-requested corrections, committed separately as
-`fix(core): fidelity check false alarms from review`:
+`d901bcd` — `fix(core): fidelity check false alarms from review`:
 
 - Digit tokens accept trailing letters (units and clock suffixes), while a
   letter immediately before a digit still excludes it as a number.
@@ -89,3 +89,21 @@ BugVoiceMac). Updated standalone timing: **1.091 ms** median of 20 unoptimized
 
 The review changes override the original plan's token and cold-timing rules;
 no other test assertions changed.
+
+## Task 3 — pill and tooltip wording
+
+Implemented the exact planned public interfaces: `FidelityCheck.describe`,
+`hudTitle` and `hudDetail`. Lost/invented numbers pair in order into one detail;
+unpaired numbers, negations, paths and identifiers retain explicit descriptions.
+HUD counts description lines, names a single issue by kind and uses the supplied
+Paste raw shortcut letter. Actual negation tokens are retained in quoted tooltip
+and HUD wording, including Vietnamese.
+
+TDD: the three specified tests plus an extra multi-number/unpaired-detail test
+first failed compilation because the functions were missing, then all passed.
+The added test covers multiple pairs, an unpaired invented number, an unpaired
+lost number, mixed kinds and an empty tooltip list. No assertions were changed.
+Final full `swift test`: **1,399 passing** (1,255 VoiceCore, 30 MCPKit,
+114 BugVoiceMac); the 76-pair corpus also passes.
+Commit: `feat(core): fidelity check wording` (see branch history).
+No Task 3 departures. No UI or pipeline wiring performed; that begins in Task 4.

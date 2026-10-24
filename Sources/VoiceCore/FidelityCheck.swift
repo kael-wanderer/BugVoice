@@ -170,3 +170,43 @@ public enum FidelityCheck {
         }
     }
 }
+
+extension FidelityCheck {
+    /// Paired lost/invented numbers describe one changed detail. Unpaired
+    /// numbers and other kinds keep their issue order in the tooltip.
+    public static func describe(_ issues: [FidelityIssue]) -> [String] {
+        let lostNumbers = issues.indices.filter { issues[$0].kind == .number && issues[$0].direction == .lost }
+        let inventedNumbers = issues.indices.filter { issues[$0].kind == .number && issues[$0].direction == .invented }
+        let pairs = Dictionary(uniqueKeysWithValues: zip(lostNumbers, inventedNumbers))
+        let pairedInvented = Set(pairs.values)
+        return issues.indices.compactMap { index in
+            let issue = issues[index]
+            switch issue.kind {
+            case .number:
+                if let other = pairs[index] { return "\(issue.token) → \(issues[other].token)" }
+                if pairedInvented.contains(index) { return nil }
+                return "\(issue.direction == .lost ? "lost" : "added") \(issue.token)"
+            case .negation:
+                return "\(issue.direction == .lost ? "dropped" : "added") “\(issue.token)”"
+            case .path, .identifier:
+                return "\(issue.direction == .lost ? "lost" : "added") `\(issue.token)`"
+            }
+        }
+    }
+
+    public static func hudTitle(_ issues: [FidelityIssue], pastedRaw: Bool) -> String {
+        let prefix = pastedRaw ? "Raw — cleanup " : "Check — cleanup "
+        let count = describe(issues).count
+        guard count == 1, let first = issues.first else { return prefix + "changed \(count) details" }
+        switch first.kind {
+        case .number: return prefix + "changed a number"
+        case .negation: return prefix + "dropped “\(first.token)”"
+        case .path: return prefix + "changed a path"
+        case .identifier: return prefix + "changed a name"
+        }
+    }
+
+    public static func hudDetail(pastedRaw: Bool, pasteRawLetter: String) -> String {
+        "⌃⌥\(pasteRawLetter) pastes " + (pastedRaw ? "the cleaned text" : "raw")
+    }
+}

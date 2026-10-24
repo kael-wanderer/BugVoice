@@ -80,4 +80,39 @@ func numberWordComposition(_ words: String, _ digits: String) {
     #expect(FidelityCheck.issues(raw: "value " + words, cleaned: "Value " + digits).isEmpty)
 }
 
+
+@Test func describePairsNumbers() {
+    let issues: [FidelityIssue] = [.init(kind: .number, direction: .lost, token: "5"), .init(kind: .number, direction: .invented, token: "50")]
+    #expect(FidelityCheck.describe(issues) == ["5 → 50"])
+    #expect(FidelityCheck.hudTitle(issues, pastedRaw: true) == "Raw — cleanup changed a number")
+}
+@Test func hudTitles() {
+    #expect(FidelityCheck.hudTitle([.init(kind: .negation, direction: .lost, token: "not")], pastedRaw: true) == "Raw — cleanup dropped “not”")
+    #expect(FidelityCheck.hudTitle([.init(kind: .path, direction: .lost, token: "a/b")], pastedRaw: true) == "Raw — cleanup changed a path")
+    #expect(FidelityCheck.hudTitle([.init(kind: .identifier, direction: .lost, token: "AppModel")], pastedRaw: false) == "Check — cleanup changed a name")
+    #expect(FidelityCheck.hudTitle([.init(kind: .negation, direction: .lost, token: "not"), .init(kind: .path, direction: .lost, token: "a/b")], pastedRaw: true) == "Raw — cleanup changed 2 details")
+    #expect(FidelityCheck.describe([.init(kind: .number, direction: .invented, token: "30%")]) == ["added 30%"])
+    #expect(FidelityCheck.describe([.init(kind: .path, direction: .lost, token: "a/b")]) == ["lost `a/b`"])
+}
+@Test func hudDetails() {
+    #expect(FidelityCheck.hudDetail(pastedRaw: true, pasteRawLetter: "R") == "⌃⌥R pastes the cleaned text")
+    #expect(FidelityCheck.hudDetail(pastedRaw: false, pasteRawLetter: "X") == "⌃⌥X pastes raw")
+}
+
+@Test func describeMultipleNumbersAndUnpairedDetails() {
+    let issues: [FidelityIssue] = [
+        .init(kind: .number, direction: .lost, token: "5"),
+        .init(kind: .number, direction: .lost, token: "10"),
+        .init(kind: .number, direction: .invented, token: "50"),
+        .init(kind: .number, direction: .invented, token: "100"),
+        .init(kind: .number, direction: .invented, token: "30%"),
+        .init(kind: .negation, direction: .lost, token: "đừng"),
+        .init(kind: .identifier, direction: .lost, token: "AppModel")
+    ]
+    #expect(FidelityCheck.describe(issues) == ["5 → 50", "10 → 100", "added 30%", "dropped “đừng”", "lost `AppModel`"])
+    #expect(FidelityCheck.hudTitle(issues, pastedRaw: false) == "Check — cleanup changed 5 details")
+    #expect(FidelityCheck.describe([.init(kind: .number, direction: .lost, token: "15")]) == ["lost 15"])
+    #expect(FidelityCheck.describe([]).isEmpty)
+}
+
 }
