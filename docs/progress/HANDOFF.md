@@ -4,6 +4,19 @@ Last updated: 2026-10-24
 
 ## Current state
 
+**Incremental transcription, Phase 1 (bench):** merged on `main` (2026-10-24,
+`f891a2c`), not pushed. `Scripts/stt-bench.sh --latency` measures Whisper's fixed
+cost, the VAD-chunking lever and a simulated incremental pipeline (pause
+chunker, 36-combination sweep, preview-load run, auto language), then applies
+the spec's gate. Numbers only on stdout; network blocked for the run. No app
+behavior change. Tests: **1,315 VoiceCore, 30 MCPKit, 114 BugVoiceMac**, all
+pass. Smoke run on the four old clips tests plumbing only (`en-1`, `vi-1`
+unusable): fit 1.73 s fixed + 0.02 s per audio second, so the gate may well
+fail. Next: owner records the 18 clips in `bench/clips/README.md` and runs the
+bench; Phase 2 plan only if the gate passes. See `docs/progress/incremental-log.md`.
+Flaky test seen once: `recoveryDropsUncheckpointedJournalTail` (BugVoiceMac)
+failed its 4-byte journal assertion, then passed unchanged.
+
 **Update check:** merged on `main` (2026-10-24). Reads
 `kael.io.vn/projects/bugvoice/latest.json`, compares `0.1.0-build.N` as SemVer,
 checks at launch and daily, and offers Open <version> in Settings › General ›
