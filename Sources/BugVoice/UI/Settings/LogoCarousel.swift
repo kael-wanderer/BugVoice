@@ -36,7 +36,7 @@ struct LogoCarousel: View {
         let theme = BVTheme(ThemeCatalog.spec(dark ? .bugVoiceDark : .bugVoiceLight))
         return Image(nsImage: BrandImages.menuBar(logo: selection, badge: false))
             .renderingMode(.template).foregroundStyle(theme.text)
-            .frame(maxWidth: .infinity).padding(LayoutTokens.spacing[3])
+            .frame(maxWidth: .infinity).frame(height: 52)
             .background(theme.background, in: RoundedRectangle(cornerRadius: LayoutTokens.controlRadius))
     }
     private func step(_ delta: Int) {
