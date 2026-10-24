@@ -63,7 +63,7 @@
 Rules (from the spec):
 - Frames are 320 samples; a trailing partial frame waits for more samples.
 - A frame is voiced when its RMS ≥ `floorRMS`. A frame is silent when its RMS < `max(floorRMS, silenceFactor × median RMS of voiced frames so far)`.
-- Normal cut: when a run of silent frames reaches `pause` seconds and the audio from the last cut to the start of that run is ≥ `shortestPart` and contains a voiced frame. `sample` = pause start + `pause`/2 (frame aligned); `decidedAt` = pause start + `pause`.
+- Normal cut: when a run of silent frames reaches `pause` seconds and the audio from the last cut to the start of that run is ≥ `shortestPart` and contains a voiced frame. `sample` = pause start + (pause frames / 2) frames, integer division; `decidedAt` = pause start + `pause`.
 - Forced cut: when audio since the last cut reaches `longestPart` with a voiced frame in it, cut at the centre of the quietest 10-frame (200 ms) window in the last 3 s; `decidedAt` = the current sample.
 - Silence-only audio never cuts.
 
@@ -80,7 +80,7 @@ let p = SpeechChunker.Parameters(pause: 0.5, shortestPart: 4, longestPart: 25)
     #expect(cuts.count == 1)
     #expect((5 * 16_000 ... 6 * 16_000).contains(cuts[0].sample))
     #expect(cuts[0].decidedAt == 5 * 16_000 + 8_000)   // pause start + 0.5 s
-    #expect(cuts[0].sample == 5 * 16_000 + 4_000)      // pause start + 0.25 s
+    #expect(cuts[0].sample == 5 * 16_000 + 3_840)      // pause start + 12 frames
 }
 @Test func pauseBeforeShortestPartGivesNoCut() {
     let audio = tone(seconds: 2, amplitude: 0.1) + silence(seconds: 1) + tone(seconds: 2, amplitude: 0.1)
@@ -318,8 +318,13 @@ func passingCorpus() -> [ClipRun] {   // one clip per group per bucket, all pass
     #expect(abs(s - 0.1) < 1e-9)
 }
 @Test func savingThresholds() {
-    var c = passingCorpus(); c[1].incrementalSeconds = 1.4   // saving 0.4 at 15 s+
-    #expect(IncrementalGate.failures(c).contains { if case .savingTooSmall("en", "15 s+", _) = $0 { true } else { false } })
+    var c = passingCorpus()
+    c[1].incrementalSeconds = 1.4   // en-2, 16 s: saving 0.4
+    c[2].incrementalSeconds = 2.6   // en-3, 40 s: saving 0.4
+    let f = IncrementalGate.failures(c)
+    #expect(f.contains { if case .savingTooSmall("en", "15 s+", _) = $0 { true } else { false } })  // median 0.4 < 0.5
+    #expect(f.contains { if case .savingTooSmall("en", "30 s+", _) = $0 { true } else { false } })  // 0.4 < 1.0
+    #expect(!f.contains { if case .savingTooSmall("vi", _, _) = $0 { true } else { false } })
 }
 @Test func werChecks() {
     var c = passingCorpus(); c[4].incrementalWER = 0.16      // vi-2: +0.06, vi mean +0.02 (not above the limit)
@@ -403,7 +408,7 @@ git commit -m "feat(core): transcription option to turn off VAD chunking"
 Behavior:
 - **Clips:** same discovery as clip mode. Language from the name prefix: `en` → `.en`; `vi` → `.vi`; `mix` → `.vi` with prompt `Vocabulary().whisperPrompt(example: Vocabulary.mixedExample)` (as the pipeline does with Keep English words on); other prefixes are skipped with a stderr note. Reference = `name.txt` if present. Warm up once before timing.
 - **Timing:** `ContinuousClock` around `engine.transcribe`. Each timed number is the median of 3 runs unless stated otherwise.
-- **Section 1, fixed cost:** for every clip, slices of the first 1, 2, 4, 8, 15, 25 s that fit, plus the whole clip. Table: slice length, median seconds across clips, and a fit line `LatencyStats.linearFit` over all (slice seconds, median) points: "fixed X s + Y s per audio second".
+- **Section 1, fixed cost:** for every clip, slices of the first 2, 4, 8, 15, 25 s that fit, plus the whole clip. Exclude the 1 s slice because WhisperKit's default 1 s clip window skips inference at that length and biases the fixed-cost fit downward. Table: slice length, median seconds across clips, and a fit line `LatencyStats.linearFit` over all (slice seconds, median) points: "fixed X s + Y s per audio second".
 - **Section 2, cheap levers:** full clips with `vadChunking` true and false. Per group: median seconds and mean WER for each. Below the table add the line "Other options tried: none". The executor replaces it with any `DecodingOptions` actually tried and their result, if any.
 - **Section 3, sweep:** every combination of pause {0.3, 0.5, 0.8} × shortest {2, 4, 6} × longest {15, 25} × previous text {off, on}. For each clip: `SpeechChunker.cuts`, then `IncrementalSimulation.run`. The transcribe closure runs the real engine once (not 3 times), cached by (clip, start sample, end sample, prompt text) so combinations with the same cuts reuse the pass and its measured seconds. The baseline per clip = Section 2's `vadChunking: true` median. Build `ClipRun`s. Table: one row per combination with the gate failure count and the median saving on 15 s+ clips. Best combination = fewest failures, ties broken by the larger median saving on 15 s+.
 - **Section 4, best combination:** per-clip table (clip, audio s, parts, baseline s, incremental s, saving, baseline WER, incremental WER), a per-group-and-bucket table, and the gate failures listed in plain words (or "Gate: pass").

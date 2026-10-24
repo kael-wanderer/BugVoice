@@ -121,19 +121,22 @@ public struct TranscriptionOptions: Sendable, Equatable {
     /// another language comes back with `Transcript.languageScores` so the
     /// caller can redo it. Empty = no expectation.
     public var expectedLanguages: [SpeechLanguage]
+    public var vadChunking: Bool
 
     public init(
         language: SpeechLanguage = .auto,
         prompt: String = "",
         timestamps: Bool = false,
         priority: TranscriptionPriority = .dictation,
-        expectedLanguages: [SpeechLanguage] = []
+        expectedLanguages: [SpeechLanguage] = [],
+        vadChunking: Bool = true
     ) {
         self.language = language
         self.prompt = prompt
         self.timestamps = timestamps
         self.priority = priority
         self.expectedLanguages = expectedLanguages
+        self.vadChunking = vadChunking
     }
 }
 
