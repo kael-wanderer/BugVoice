@@ -10,7 +10,7 @@ enum MenuSubmenu: Hashable { case library, dictationOptions, tools }
 enum MenuControl: Hashable, Sendable {
     case statusAction, meetingPause, meetingMark, meetingStop
     case newNote, meeting, upload, pasteLast, copyLast, retryLast, rawLast, redoLast
-    case suggestions
+    case suggestions, update
     case submenu(MenuSubmenu), openApp, settings, quit
     case back, item(String)
 }
@@ -109,6 +109,7 @@ struct MenuPopover: View {
                 : [.pasteLast, .copyLast, .retryLast, .rawLast] + (redoLanguage == nil ? [] : [.redoLast])
         }
         if !model.suggestions.pending.isEmpty { ids.append(.suggestions) }
+        if model.availableUpdate != nil { ids.append(.update) }
         ids += [.submenu(.library), .submenu(.dictationOptions), .openApp, .settings, .submenu(.tools), .quit]
         return ids
     }
@@ -120,6 +121,11 @@ struct MenuPopover: View {
             close()
             model.dictionaryTab = .words
             model.openMainWindow(.dictionary)
+        case .update:
+            // Opens the release page; BugVoice never downloads or installs itself.
+            guard let url = model.availableUpdate?.releaseURL else { return }
+            close()
+            NSWorkspace.shared.open(url)
         case .statusAction:
             if let action = status.action { runStatusAction(action) }
         case .meetingPause:
@@ -260,6 +266,11 @@ struct MenuPopover: View {
         if !model.suggestions.pending.isEmpty {
             MenuRow(id: .suggestions, title: "Dictionary suggestions", hint: "›",
                     badge: model.suggestions.pending.count, highlight: highlight)
+            MenuSeparator()
+        }
+        if let update = model.availableUpdate {
+            MenuRow(id: .update, icon: "arrow.down.circle", title: "BugVoice \(update.version) is available",
+                    hint: "Open", highlight: highlight)
             MenuSeparator()
         }
         MenuSubmenuRow(submenu: .library, icon: "books.vertical", title: "Library", highlight: highlight)

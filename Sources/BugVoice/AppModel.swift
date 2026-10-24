@@ -136,6 +136,14 @@ final class AppModel {
     @ObservationIgnored lazy var mcp = MCPService(model: self)
 
     @ObservationIgnored lazy var backup = BackupController(model: self)
+    /// A newer release from the update feed; the menu and Settings › General offer it.
+    var availableUpdate: UpdateAvailable?
+    /// Checks at launch and daily (Settings › General › Updates). Never installs.
+    @ObservationIgnored lazy var updates = UpdateWatcher(
+        isEnabled: { [weak self] in self?.settings.updateNotify ?? false },
+        announce: { Log.app.notice("update available \($0.version, privacy: .public)") },
+        found: { [weak self] in self?.availableUpdate = $0 }
+    )
     var restoreMessage: String?
 
     var settings = AppSettings() {
@@ -432,6 +440,7 @@ final class AppModel {
         // Last, so agents never see half-loaded notes or meetings.
         mcp.start()
         backup.startSchedule()
+        updates.start()
         if let restoreMessage {
             settingsTab = .storage
             openMainWindow(.settings)
@@ -501,6 +510,9 @@ final class AppModel {
             rebuildSpeechTranscriber()
         }
         if settings.launchAtLogin != old.launchAtLogin { applyLaunchAtLogin() }
+        if settings.updateNotify != old.updateNotify {
+            if settings.updateNotify { Task { await updates.check(force: true) } } else { availableUpdate = nil }
+        }
         if settings.historyRetention != old.historyRetention {
             Task { await applyRetention() }
         }

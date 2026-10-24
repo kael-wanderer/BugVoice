@@ -65,6 +65,8 @@ public enum GlobalSearch {
         .init(label: "Hotkey", section: "shortcuts"),
         .init(label: "Paste last dictation", section: "shortcuts"),
         .init(label: "MCP server", section: "agents"),
+        .init(label: "Updates", section: "general"),
+        .init(label: "Check for updates", section: "general"),
     ]
 
     private enum ItemKey: Hashable {

@@ -1,3 +1,4 @@
+import BugVoiceMac
 import SwiftUI
 import VoiceCore
 
@@ -50,7 +51,88 @@ struct GeneralTab: View {
                 Divider()
                 SettingsToggle(title: "Launch at login", isOn: $model.settings.launchAtLogin)
             }
+            UpdatesCard(model: model)
         }
         .sheet(item: $librarySheet) { ManageLibrarySheet(model: model, tab: $0) }
+    }
+}
+
+/// Settings › General › Updates: the running build, a check against the
+/// published feed, and the launch-and-daily switch. An offer opens the release
+/// page in the browser; BugVoice never downloads or installs itself.
+private struct UpdatesCard: View {
+    @Bindable var model: AppModel
+
+    private enum CheckState: Equatable {
+        case checking
+        case failed(UpdateFeedFailure)
+        case upToDate(String)
+        case offer(UpdateAvailable)
+    }
+
+    @State private var state: CheckState = .checking
+
+    var body: some View {
+        SettingsCard(title: "Updates") {
+            SettingsRow(title: "Version") {
+                Text(Log.appVersion).monospacedDigit().foregroundStyle(.bvSecondary)
+            }
+            Divider()
+            SettingsRow(title: "Check for updates") {
+                Button(label) {
+                    if case .offer(let update) = state {
+                        NSWorkspace.shared.open(update.releaseURL)
+                    } else {
+                        Task { await check() }
+                    }
+                }
+                .disabled(state == .checking)
+            }
+            Text(note).bvFont(.footnote).foregroundStyle(isFailure ? .bvWarning : .bvSecondary)
+            Divider()
+            SettingsToggle(title: "Check at launch and daily, and show new versions in the menu", isOn: $model.settings.updateNotify)
+        }
+        // One check per visit to the tab, not per render.
+        .task { await check() }
+    }
+
+    private func check() async {
+        state = .checking
+        let result = await UpdateFeed.fetch()
+        switch result {
+        case .unavailable(let failure):
+            state = .failed(failure)
+        case .success(let feed):
+            let update = UpdateSelection.pick(feed, currentVersion: AppFeedVersion.string())
+            if model.settings.updateNotify { model.availableUpdate = update }
+            state = update.map(CheckState.offer) ?? .upToDate(feed.version)
+        }
+    }
+
+    private var isFailure: Bool {
+        if case .failed = state { return true }
+        return false
+    }
+
+    /// A failure says Retry, never "up to date": a check that did not happen
+    /// must not read as one that succeeded.
+    private var label: String {
+        switch state {
+        case .checking: "Checking…"
+        case .failed: "Retry"
+        case .upToDate: "Check again"
+        case .offer(let update): "Open \(update.version)"
+        }
+    }
+
+    private var note: String {
+        switch state {
+        case .checking: "Comparing this build with the newest published release."
+        case .failed(.timeout), .failed(.transport): "BugVoice could not reach the update feed. Check your connection."
+        case .failed(.notFound), .failed(.serverError): "The update feed is not answering right now. Try again later."
+        case .failed(.malformed): "The update feed could not be read, so no version was compared."
+        case .upToDate(let latest): "Up to date. The newest release is \(latest)."
+        case .offer(let update): "BugVoice \(update.version) is available. Open shows its release page in your browser."
+        }
     }
 }

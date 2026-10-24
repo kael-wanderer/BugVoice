@@ -103,9 +103,9 @@ import Testing
     }
 
     @Test func settingsListIsExact() {
-        #expect(GlobalSearch.settingsEntries.count == 23)
+        #expect(GlobalSearch.settingsEntries.count == 25)
         #expect(GlobalSearch.settingsEntries.first == SettingsSearchEntry(label: "General", section: "general"))
-        #expect(GlobalSearch.settingsEntries.last == SettingsSearchEntry(label: "MCP server", section: "agents"))
+        #expect(GlobalSearch.settingsEntries.last == SettingsSearchEntry(label: "Check for updates", section: "general"))
     }
 
     @Test func limitCutsAfterOrdering() {
