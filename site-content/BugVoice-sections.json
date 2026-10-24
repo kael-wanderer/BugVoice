@@ -1,0 +1,197 @@
+{
+  "requirements": "macOS 15 Sequoia or later · Apple Silicon (M1 or later)",
+  "features": [
+    {
+      "background": "plain",
+      "kicker": "Dictation for every app",
+      "title": "Speak instead of type, in any text field on your Mac",
+      "description": "Hold Right Control, talk, let go. BugVoice turns your speech into text on your Mac, removes filler words and false starts, and pastes the result where your cursor is. It works in terminals, code editors, mail, chat and browsers.",
+      "layout": "split",
+      "side": "right",
+      "bullets": [
+        "Hold-to-talk on Right Control, or double-tap it for hands-free dictation (10-minute limit by default)",
+        "Cleans up \"um\", repeats and self-corrections like \"Friday, no, Thursday\"",
+        "Paste raw text instead, or redo the last dictation in the other language, with one shortcut",
+        "Command key: select text, hold Right Option and say how to change it",
+        "Live preview shows your last words under the recording indicator while you speak"
+      ],
+      "media": {
+        "pictures": [
+          "01-hero.png"
+        ]
+      }
+    },
+    {
+      "background": "tint",
+      "kicker": "Meetings",
+      "title": "Record a call and get the transcript, summary and to-dos",
+      "description": "BugVoice records your microphone and the call audio on your Mac. It tells the voices apart, writes a transcript you can click to replay, then a summary and action items with owners. Uploaded audio and video files get the same treatment.",
+      "layout": "showcase",
+      "tiles": [
+        {
+          "title": "Transcript with speakers",
+          "caption": "Voices are split on your Mac. Name a speaker once and BugVoice can suggest them next time.",
+          "picture": "02-meeting-transcript.png"
+        },
+        {
+          "title": "Summary and decisions",
+          "caption": "A short summary from your chosen text model. Regenerate it or send it to the Scratchpad.",
+          "picture": "03-meeting-summary-dark.png"
+        },
+        {
+          "title": "English under each line",
+          "caption": "Turn on Show English to read a translation under every Vietnamese or Spanish line.",
+          "picture": "04-meeting-translation.png"
+        },
+        {
+          "title": "One list of action items",
+          "caption": "Open items from all meetings, filtered by owner and date. Tick them off or copy the open ones.",
+          "picture": "05-action-items.png"
+        }
+      ]
+    },
+    {
+      "background": "plain",
+      "kicker": "Writes the way you do",
+      "title": "Your words, your tone, your languages",
+      "description": "Each app belongs to a style, so a Slack message stays short and an email keeps its greeting. Teach BugVoice the names it gets wrong. Speak English, Vietnamese, Spanish or a mix, and set a language per app.",
+      "layout": "split",
+      "side": "left",
+      "bullets": [
+        "Six styles (personal, work, email, document, terminal, other) with a tone you can edit",
+        "Dictionary words with \"heard as\" fixes, plus snippets that expand a spoken phrase",
+        "Suggests new Dictionary words when you correct a pasted word by hand",
+        "Reads file and symbol names from your code folders so coding prompts get them right",
+        "Keeps English technical words inside Vietnamese and Spanish sentences"
+      ],
+      "media": {
+        "pictures": [
+          "09-styles.png",
+          "08-dictionary.png"
+        ]
+      }
+    },
+    {
+      "background": "tint",
+      "kicker": "Your library",
+      "title": "Notes, history and stats in one window",
+      "description": "Everything you dictate, record or write is kept in a searchable library with folders and tags. Ask a question across your notes and meetings and get an answer with links to the exact passage.",
+      "layout": "showcase",
+      "tiles": [
+        {
+          "title": "Scratchpad",
+          "caption": "A floating note window you can dictate into, with Polish, More concise and More professional rewrites.",
+          "picture": "07-scratchpad.png"
+        },
+        {
+          "title": "Insights",
+          "caption": "Words spoken, words per minute, streaks and an estimate of time saved against typing.",
+          "picture": "06-insights.png"
+        },
+        {
+          "title": "Languages and models",
+          "caption": "Pick the speech model and the languages you speak. Each language shows up in the menu switch.",
+          "picture": "10-languages.png"
+        }
+      ]
+    },
+    {
+      "background": "dark",
+      "kicker": "How it works",
+      "title": "From your voice to text in about two seconds",
+      "description": "Four steps run every time you release the key. Speech recognition happens on your Mac; cleanup goes to the text model you picked.",
+      "layout": "cards",
+      "numbered": true,
+      "cards": [
+        {
+          "title": "Hold and speak",
+          "text": "Hold Right Control in any app. BugVoice notes which app you are in and picks its style and language."
+        },
+        {
+          "title": "Transcribe on device",
+          "text": "WhisperKit turns the audio into text on your Mac, using your Dictionary words as hints."
+        },
+        {
+          "title": "Clean up",
+          "text": "Your text model removes fillers and applies the app's tone. If it is slow or off, the raw text is used."
+        },
+        {
+          "title": "Paste at the cursor",
+          "text": "The text is pasted where you were typing and your clipboard is put back. Secure fields are never filled."
+        }
+      ]
+    },
+    {
+      "background": "plain",
+      "kicker": "Local-first",
+      "title": "Built to keep your voice on your Mac",
+      "description": "BugVoice has no account and no BugVoice server. What leaves your Mac depends only on the connections you set up yourself.",
+      "layout": "cards",
+      "numbered": false,
+      "cards": [
+        {
+          "title": "On-device speech",
+          "text": "Speech-to-text and speaker separation run locally with Core ML models downloaded once from Hugging Face."
+        },
+        {
+          "title": "Your choice of text model",
+          "text": "Use a local server (oMLX, LM Studio, Ollama, MLX), Apple Intelligence, or a cloud API key if you add one."
+        },
+        {
+          "title": "Plain files you own",
+          "text": "Notes are Markdown files and history is JSON, in a folder on your Mac. Back up to any folder, daily or weekly."
+        },
+        {
+          "title": "Works with your tools",
+          "text": "Apple Shortcuts actions, and an optional MCP server so coding agents can read and add notes. Off by default."
+        }
+      ]
+    }
+  ],
+  "faq": [
+    {
+      "question": "What is BugVoice?",
+      "answer": "BugVoice is a menu bar app for macOS that turns speech into clean text. Hold Right Control, speak and release; the text is pasted at your cursor in any app. It also records and transcribes meetings, keeps notes in a floating Scratchpad, and shows stats about how much you dictate."
+    },
+    {
+      "question": "Who is it for?",
+      "answer": "People who write all day on a Mac and would rather talk: developers prompting coding agents in a terminal, people answering email and chat, and anyone who takes meeting notes. It handles English, Vietnamese and Spanish, including sentences that mix English technical words into Vietnamese or Spanish."
+    },
+    {
+      "question": "What do I need to run it?",
+      "answer": "A Mac with Apple Silicon (M1 or later) running macOS 15 Sequoia or later. The default speech model is a 1.6 GB download on first use; a 0.5 GB model is available for smaller Macs. For text cleanup you need a local model server such as oMLX, LM Studio or Ollama, Apple Intelligence, or an API key for a cloud model. Without one, BugVoice pastes the raw transcript."
+    },
+    {
+      "question": "How much does it cost?",
+      "answer": "PRICE AND LICENCE: to be confirmed by the owner before publishing."
+    },
+    {
+      "question": "Where is my data stored? Does anything go to the cloud?",
+      "answer": "Everything is stored in ~/Library/Application Support/BugVoice on your Mac: settings, history, notes (Markdown files), meetings and their audio. Speech recognition runs on your Mac. Text is sent only to the text model you configure; if that is a local server, nothing leaves your Mac. API keys are kept in a file only your user can read. The app downloads speech models from Hugging Face once."
+    },
+    {
+      "question": "Does it sync between Macs or work offline?",
+      "answer": "There is no sync and no account. With a local text model, dictation and meetings work fully offline once the speech model is downloaded. To move your library, use Settings, Storage, Backup to write an archive to any folder, then Restore it on the other Mac."
+    },
+    {
+      "question": "How do I install and update it?",
+      "answer": "Download the DMG and drag BugVoice to Applications. The app is not notarized by Apple, so the first time macOS blocks it: open System Settings, Privacy & Security, and click Open Anyway. BugVoice then asks for Microphone, Accessibility and Input Monitoring so it can hear you, paste text and see the hotkey. To update, replace the app with the new version; your library stays where it is."
+    },
+    {
+      "question": "Can I import audio or export my meetings and notes?",
+      "answer": "Yes. The Upload page transcribes MP3, WAV, M4A, AIFF, CAF, MP4, MOV and M4V files into a meeting with timestamps. Each meeting can be exported as Markdown, SubRip captions or audio. Notes are plain Markdown files you can open in any editor."
+    },
+    {
+      "question": "How is it different from macOS Dictation?",
+      "answer": "macOS Dictation types what you say. BugVoice also cleans up fillers and self-corrections, adapts the tone to each app, learns your words, keeps a searchable history, and adds meeting recording with summaries and action items. You choose the speech and text models."
+    },
+    {
+      "question": "Can coding agents use it?",
+      "answer": "BugVoice can run an MCP server that lets agents such as Claude Code read and search your notes and meetings, create notes and upload recordings. It is off by default; turn it on in Settings, Agents, where you also choose whether agents may edit notes or upload files."
+    },
+    {
+      "question": "How do I report a bug?",
+      "answer": "BUG REPORT CHANNEL: to be confirmed by the owner. Settings, Storage, Copy diagnostics copies the app version, model names and this session's log (never your dictated text) so you can paste it into a report."
+    }
+  ]
+}
