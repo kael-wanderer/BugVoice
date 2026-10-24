@@ -40,6 +40,8 @@ enum HUDState: Equatable {
             )
         case .inserted:
             switch r.rawReason {
+            case .detailChanged:
+                return .warning(title: FidelityCheck.hudTitle(r.fidelityIssues, pastedRaw: true), detail: "raw text pasted")
             case .modelError, .modelTimeout:
                 return .warning(title: "Raw — model unavailable", detail: "raw text pasted")
             case .emptyOutput, .tooLong, .placeholderLost:

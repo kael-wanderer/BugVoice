@@ -52,6 +52,9 @@ public struct DictationResult: Sendable, Equatable {
     public var rawReason: RawReason?
     public var errorMessage: String?
     public var projectName: String? = nil
+    public var fidelityIssues: [FidelityIssue] = []
+    public var fidelityAction: FidelityAction = .raw
+    public var isFidelityFallback: Bool { rawReason == .detailChanged && cleaned != nil }
     public var timings: StageTimings
 
     /// What the app may keep in memory for the menu preview and *Paste last*.
@@ -64,6 +67,7 @@ public struct DictationResult: Sendable, Equatable {
         redacted.uncleanedText = ""
         redacted.raw = ""
         redacted.cleaned = nil
+        redacted.fidelityIssues = []
         redacted.finalText = ""
         return redacted
     }
@@ -78,7 +82,8 @@ public struct DictationResult: Sendable, Equatable {
             return HistoryEntry(
                 id: id, startedAt: startedAt, appName: appName, bundleID: bundleID, style: style,
                 language: language, raw: raw, cleaned: cleaned, text: finalText,
-                outcome: outcome.rawValue, rawReason: rawReason, timings: timings, command: command
+                outcome: outcome.rawValue, rawReason: rawReason, timings: timings, command: command,
+                fidelityIssues: fidelityIssues.isEmpty ? nil : fidelityIssues
             )
         }
     }
@@ -144,6 +149,7 @@ public struct DictationPipeline: Sendable {
             timings: StageTimings(recording: clip.duration)
         )
         result.projectName = projectMatch.projectName
+        result.fidelityAction = settings.styles.fidelityAction
 
         guard clip.duration >= minimumDuration else {
             result.outcome = .discardedTooShort
@@ -190,6 +196,7 @@ public struct DictationPipeline: Sendable {
         let protected = SnippetExpander.protect(vocabulary.applyReplacements(to: raw), snippets: vocabulary.snippets)
         var text = protected.text
         var cleanedAccepted = false
+        var heldCleaned: String?
 
         // Clean
         if let cleanup, settings.cleanupEnabled, settings.styles.isCleanupEnabled(for: style) {
@@ -209,8 +216,15 @@ public struct DictationPipeline: Sendable {
                 }
                 switch OutputSanitizer.sanitize(output, raw: protected.text) {
                 case .accepted(let cleaned) where protected.isIntact(cleaned):
-                    text = cleaned
-                    cleanedAccepted = true
+                    let issues = FidelityCheck.issues(raw: protected.text, cleaned: cleaned)
+                    result.fidelityIssues = issues
+                    if !issues.isEmpty && result.fidelityAction == .raw {
+                        result.rawReason = .detailChanged
+                        heldCleaned = cleaned
+                    } else {
+                        text = cleaned
+                        cleanedAccepted = true
+                    }
                 case .accepted:
                     result.rawReason = .placeholderLost
                 case .rejected(let reason):
@@ -229,6 +243,7 @@ public struct DictationPipeline: Sendable {
 
         text = protected.fill(vocabulary.applyReplacements(to: text))
         if cleanedAccepted { result.cleaned = text }
+        if let heldCleaned { result.cleaned = protected.fill(vocabulary.applyReplacements(to: heldCleaned)) }
         result.finalText = Self.trimmed(text, style: style)
         result.uncleanedText = Self.trimmed(protected.fill(vocabulary.applyReplacements(to: protected.text)), style: style)
         text = result.finalText

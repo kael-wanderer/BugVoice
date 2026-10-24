@@ -144,3 +144,22 @@ extension HistoryTests {
         #expect(try JSONDecoder().decode(HistoryEntry.self, from: data) == e)
     }
 }
+
+extension HistoryTests {
+    @Test func historyKeepsIssues() throws {
+        var e = entry("not now", at: Date(timeIntervalSince1970: 0))
+        e.cleaned = "Now."
+        e.rawReason = .detailChanged
+        e.fidelityIssues = [.init(kind: .negation, direction: .lost, token: "not")]
+        let data = try JSONEncoder().encode(e)
+        #expect(try JSONDecoder().decode(HistoryEntry.self, from: data) == e)
+    }
+
+    @Test func historyWithoutIssuesDecodes() throws {
+        let e = entry("example", at: Date(timeIntervalSince1970: 0))
+        var json = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(e)) as? [String: Any])
+        json.removeValue(forKey: "fidelityIssues")
+        let decoded = try JSONDecoder().decode(HistoryEntry.self, from: JSONSerialization.data(withJSONObject: json))
+        #expect(decoded.fidelityIssues == nil)
+    }
+}

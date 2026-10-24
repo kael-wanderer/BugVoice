@@ -558,3 +558,63 @@ final class StageRecorder: @unchecked Sendable {
     func add(_ s: PipelineStage) { lock.withLock { stages.append(s) } }
     var all: [PipelineStage] { lock.withLock { stages } }
 }
+
+extension DictationPipelineTests {
+    @Test func fallbackPastesRawAndKeepsCleaned() async {
+        let insertion = RecordingInsertion()
+        let r = await pipeline(transcriber: FakeTranscriber(text: "we should not ship Friday"), model: FakeModel(output: "We should ship Friday."), insertion: insertion)
+            .run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })
+        #expect(r.rawReason == .detailChanged)
+        #expect(r.finalText == "we should not ship Friday")
+        #expect(r.cleaned == "We should ship Friday.")
+        #expect(r.fidelityIssues.map(\.kind) == [.negation])
+        #expect(r.isFidelityFallback)
+        #expect(await insertion.inserted == [r.uncleanedText])
+        #expect(r.historyEntry?.cleaned == r.cleaned)
+        #expect(r.historyEntry?.fidelityIssues == r.fidelityIssues)
+    }
+
+    @Test func warnPastesCleaned() async {
+        var settings = AppSettings(); settings.styles.fidelityAction = .warn
+        let r = await pipeline(transcriber: FakeTranscriber(text: "we should not ship Friday"), model: FakeModel(output: "We should ship Friday."), settings: settings)
+            .run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })
+        #expect(r.rawReason == nil && r.finalText == "We should ship Friday." && r.fidelityIssues.count == 1 && r.fidelityAction == .warn)
+    }
+
+    @Test func offStillRecords() async {
+        var settings = AppSettings(); settings.styles.fidelityAction = .off
+        let r = await pipeline(transcriber: FakeTranscriber(text: "we should not ship Friday"), model: FakeModel(output: "We should ship Friday."), settings: settings)
+            .run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })
+        #expect(r.rawReason == nil && r.finalText == "We should ship Friday.")
+        #expect(r.fidelityIssues.count == 1 && r.fidelityAction == .off)
+    }
+
+    @Test func cleanPassHasNoIssues() async {
+        let r = await pipeline().run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })
+        #expect(r.fidelityIssues.isEmpty && r.rawReason == nil)
+    }
+
+    @Test func secureFieldDropsIssues() async {
+        let r = await pipeline(transcriber: FakeTranscriber(text: "we should not ship Friday"), model: FakeModel(output: "We should ship Friday."), focusAtInsert: FocusSnapshot(isSecure: true))
+            .run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })
+        #expect(r.outcome == .copiedSecureField)
+        #expect(r.fidelityIssues.count == 1)
+        #expect(r.recallable.fidelityIssues.isEmpty)
+        #expect(r.recallable.cleaned == nil && r.historyEntry == nil)
+    }
+
+    @Test func notesReceiveFidelityFallback() async {
+        let insertion = RecordingInsertion()
+        let r = await pipeline(transcriber: FakeTranscriber(text: "we should not ship Friday"), model: FakeModel(output: "We should ship Friday."), insertion: insertion)
+            .run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), mode: .notes, onStage: { _ in })
+        #expect(r.outcome == .insertedInNote && r.isFidelityFallback)
+        #expect(await insertion.inserted == [r.uncleanedText])
+    }
+
+    @Test func fidelityRunsOnProtectedDictionaryText() async {
+        let r = await pipeline(transcriber: FakeTranscriber(text: "open whisper my linkedin"), model: FakeModel(output: "OpenWhispr ⟦S1⟧"), vocabulary: Self.dictionaryVocab)
+            .run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })
+        #expect(r.fidelityIssues.isEmpty && r.rawReason == nil)
+        #expect(r.finalText == "OpenWhispr linkedin.com/in/kael")
+    }
+}

@@ -115,3 +115,21 @@ The exact contraction, capitalized-word and HUD tests first failed with three
 assertion failures, then passed. Full `swift test`: 1,400 passing (1,256
 VoiceCore, 30 MCPKit, 114 BugVoiceMac).
 Commit: `fix(core): negation token is the whole word, lowercased`.
+
+## Task 4 — setting, result, history and pipeline
+
+Added the specified FidelityAction setting with defensive decoding, detailChanged
+reason, result/history issue fields and fallback flag. The pipeline compares
+protected text against sanitized cleanup, retains the filled cleaned alternative,
+and inserts the uncleaned version for raw action. Warn/off retain issues while
+accepting cleanup. Secure recall clears issue tokens. Diagnostics record only
+ordered distinct kinds.
+
+TDD: planned tests (with full bodies) plus Notes and protected Dictionary/snippet
+coverage failed on missing members before implementation. Full `swift test`:
+**1,411 passing** (1,267 VoiceCore, 30 MCPKit, 114 BugVoiceMac).
+Commit: `feat(core): run fidelity check before paste`.
+
+Plan adaptation: added an initial detailChanged HUD switch case in Task 4 so the
+new RawReason compiles exhaustively in the app target. Task 5 supplies its final
+shortcut detail and warn-action handling. No planned interfaces/assertions changed.

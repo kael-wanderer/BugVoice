@@ -251,3 +251,16 @@ struct CorrectionSettingsTests {
         #expect(try JSONDecoder().decode(SpeechSettings.self, from: Data("{}".utf8)).learnFromCorrections)
     }
 }
+
+extension SettingsTests {
+    @Test func unknownFidelityActionKeepsDefault() throws {
+        for json in [#"{"fidelityAction":"maybe"}"#, "{}"] {
+            let styles = try JSONDecoder().decode(StyleSettings.self, from: Data(json.utf8))
+            #expect(styles.fidelityAction == .raw)
+        }
+        for action in FidelityAction.allCases {
+            var styles = StyleSettings(); styles.fidelityAction = action
+            #expect(try JSONDecoder().decode(StyleSettings.self, from: JSONEncoder().encode(styles)) == styles)
+        }
+    }
+}
