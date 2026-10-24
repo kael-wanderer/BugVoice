@@ -39,7 +39,7 @@ would restart the owner's running BugVoice.
 
 ## Device checks (owner)
 
-1. Settings › General › Updates at build 330 against the live feed (306): note
+1. Settings › General › Updates against the live feed (306, older than any current build): note
    reads "Up to date. The newest release is 0.1.0-build.306.", button "Check again".
 2. Publish a newer build to the feed (or lower `CFBundleVersion` in a dev build):
    the menu shows "BugVoice … is available"; Open lands on the release page.
