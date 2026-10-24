@@ -141,8 +141,15 @@ struct MenuLastDictation: View {
         let time = result.startedAt.formatted(date: .omitted, time: .shortened)
         VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
             VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
-                Text("\(result.command == nil ? "Last dictation" : "Last command") · \(app) · \(time)")
-                    .bvFont(.footnote).foregroundStyle(.bvSecondary)
+                HStack(spacing: LayoutTokens.spacing[0]) {
+                    Text("\(result.command == nil ? "Last dictation" : "Last command") · \(app) · \(time)")
+                        .bvFont(.footnote).foregroundStyle(.bvSecondary)
+                    if !result.fidelityIssues.isEmpty {
+                        Text(result.isFidelityFallback ? "raw · detail" : "check")
+                            .bvFont(.caption).foregroundStyle(.bvWarning)
+                            .help((["Cleanup changed"] + FidelityCheck.describe(result.fidelityIssues)).joined(separator: "\n"))
+                    }
+                }
                 if let command = result.command {
                     Text("“\(command)”").italic().bvFont(.body).foregroundStyle(.bvSecondary)
                 }
@@ -157,8 +164,8 @@ struct MenuLastDictation: View {
                     MenuButton(id: .rawLast, small: true, highlight: highlight) { Text("Original") }
                 } else {
                     MenuButton(id: .retryLast, small: true, highlight: highlight) { Text("Retry") }
-                    MenuButton(id: .rawLast, small: true, highlight: highlight) { Text("Raw") }
-                        .help("Paste raw (⌃⌥\(shortcuts.letter(for: .pasteRaw)))")
+                    MenuButton(id: .rawLast, small: true, highlight: highlight) { Text(result.isFidelityFallback ? "Cleaned" : "Raw") }
+                        .help("Paste \(result.isFidelityFallback ? "cleaned" : "raw") (⌃⌥\(shortcuts.letter(for: .pasteRaw)))")
                     if let redoLanguage {
                         MenuButton(id: .redoLast, small: true, highlight: highlight) {
                             Text(redoLanguage.displayName)

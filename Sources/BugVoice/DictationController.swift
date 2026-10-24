@@ -348,7 +348,7 @@ final class DictationController {
             if result.outcome == .cancelled {
                 hud.hide()
             } else {
-                if let state = HUDState.from(result) { hud.show(state) } else { hud.hide() }
+                if let state = HUDState.from(result, pasteRawLetter: model.settings.shortcuts.letter(for: .pasteRaw)) { hud.show(state) } else { hud.hide() }
                 await model.recordInsights(result, noteID: notesCapture?.noteID)
                 if !intoNotes { await model.record(result) }
             }
@@ -398,20 +398,17 @@ final class DictationController {
             showNothingToFix()
             return
         }
-        if previous.uncleanedText == previous.finalText {
+        switch FixLast.pasteRawPlan(previous) {
+        case .alreadyRaw:
             let detail = previous.rawReason == .cleanupOff ? "cleanup is off for \(previous.style.title)" : nil
             hud.show(.message(title: "Already raw", detail: detail))
-            return
+        case .replace(let replacement, let kind, let title):
+            guard let decision = replacementDecision() else {
+                showNothingToFix()
+                return
+            }
+            performDirectReplacement(replacement, kind: kind, decision: decision, title: title)
         }
-        guard let decision = replacementDecision() else {
-            showNothingToFix()
-            return
-        }
-        var replacement = previous
-        replacement.finalText = previous.uncleanedText
-        replacement.cleaned = nil
-        replacement.rawReason = nil
-        performDirectReplacement(replacement, kind: .raw, decision: decision, title: "Replaced with raw text")
     }
 
     func redoInOtherLanguage() {
@@ -474,7 +471,7 @@ final class DictationController {
                 model.redoChain = advanced
                 clearReplacementRecord()
                 hud.show(.message(title: "Copied — press ⌘V", detail: "text changed since the paste"))
-            } else if let state = HUDState.from(result) {
+            } else if let state = HUDState.from(result, pasteRawLetter: model.settings.shortcuts.letter(for: .pasteRaw)) {
                 hud.show(state)
             } else {
                 showNothingToFix()

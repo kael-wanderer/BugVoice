@@ -20,6 +20,10 @@ public enum Diagnostics {
     public static func dictationSummary(_ result: DictationResult) -> String {
         var parts = ["outcome=\(result.outcome.rawValue)"]
         if let reason = result.rawReason { parts.append("raw=\(reason.rawValue)") }
+        if !result.fidelityIssues.isEmpty {
+            let kinds = FidelityIssue.Kind.allCases.filter { kind in result.fidelityIssues.contains { $0.kind == kind } }
+            parts.append("fidelity=\(kinds.map(\.rawValue).joined(separator: ","))")
+        }
         if let bundleID = result.bundleID { parts.append("app=\(bundleID)") }
         parts.append("style=\(result.style.rawValue)")
         if let language = result.language { parts.append("lang=\(language)") }

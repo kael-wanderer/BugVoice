@@ -75,7 +75,8 @@ struct DictationHistoryView: View {
     }
 
     func row(_ e: HistoryEntry) -> some View {
-        HStack(alignment: .top, spacing: LayoutTokens.spacing[2]) {
+        let issues = e.fidelityIssues ?? []
+        return HStack(alignment: .top, spacing: LayoutTokens.spacing[2]) {
             VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
                 Text(e.startedAt.formatted(date: .omitted, time: .shortened)).bvFont(.body)
                 HStack(spacing: LayoutTokens.spacing[0]) {
@@ -85,12 +86,19 @@ struct DictationHistoryView: View {
                             .padding(.horizontal, LayoutTokens.spacing[0])
                             .overlay(RoundedRectangle(cornerRadius: 4).stroke(.bvSeparator))
                     }
-                    if let reason = e.rawReason, [.modelError, .modelTimeout, .placeholderLost].contains(reason) {
+                    if !issues.isEmpty {
+                        Text(e.rawReason == .detailChanged ? "raw · detail" : "check")
+                            .bvFont(.caption).foregroundStyle(.bvWarning).fixedSize()
+                            .padding(.horizontal, LayoutTokens.spacing[0])
+                            .overlay(RoundedRectangle(cornerRadius: 4).stroke(.bvWarning))
+                            .help((["Cleanup changed"] + FidelityCheck.describe(issues)).joined(separator: "\n"))
+                    }
+                    if issues.isEmpty, let reason = e.rawReason, [.modelError, .modelTimeout, .placeholderLost].contains(reason) {
                         Text("raw").bvFont(.caption).foregroundStyle(.bvWarning)
                     }
                 }
             }
-            .frame(width: store.scaled(e.command == nil ? 80 : 160), alignment: .leading)
+            .frame(width: store.scaled(e.command == nil && issues.isEmpty ? 80 : 160), alignment: .leading)
             VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
                 if let command = e.command {
                     Text("“\(command)”").italic().bvFont(.body).foregroundStyle(.bvSecondary)
@@ -101,6 +109,16 @@ struct DictationHistoryView: View {
             .frame(maxWidth: store.readingWidth, alignment: .leading).frame(maxWidth: .infinity, alignment: .leading)
             HStack(spacing: LayoutTokens.spacing[1]) {
                 Button { model.dictation?.copy(e.text) } label: { Image(systemName: "doc.on.doc") }.help("Copy")
+                if !issues.isEmpty {
+                    Button {
+                        if e.rawReason == .detailChanged {
+                            if let cleaned = e.cleaned { model.dictation?.pasteAgain(cleaned) }
+                        } else {
+                            model.dictation?.pasteAgain(e.raw)
+                        }
+                    } label: { Image(systemName: "arrow.left.arrow.right") }
+                    .help(e.rawReason == .detailChanged ? "Paste the cleaned version" : "Paste the raw version")
+                }
                 Button { model.dictation?.pasteAgain(e.text) } label: { Image(systemName: "arrow.uturn.right") }.help("Paste again")
                 Button { Task { await model.deleteHistory(id: e.id) } } label: { Image(systemName: "trash") }.help("Delete")
             }

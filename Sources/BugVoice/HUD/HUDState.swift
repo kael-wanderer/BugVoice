@@ -16,7 +16,7 @@ enum HUDState: Equatable {
     static let secureFieldCopied = HUDState.failure(title: "Secure field — copied", detail: "text copied, not pasted")
 
     /// What the user sees after a run; nil means hide immediately.
-    static func from(_ r: DictationResult) -> HUDState? {
+    static func from(_ r: DictationResult, pasteRawLetter: String) -> HUDState? {
         switch r.outcome {
         case .discardedTooShort, .cancelled:
             return nil
@@ -39,7 +39,13 @@ enum HUDState: Equatable {
                 seconds: (r.timings.releaseToText * 10).rounded() / 10
             )
         case .inserted:
+            if !r.fidelityIssues.isEmpty, r.fidelityAction == .warn, r.rawReason == nil {
+                return .warning(title: FidelityCheck.hudTitle(r.fidelityIssues, pastedRaw: false),
+                    detail: FidelityCheck.hudDetail(pastedRaw: false, pasteRawLetter: pasteRawLetter))
+            }
             switch r.rawReason {
+            case .detailChanged:
+                return .warning(title: FidelityCheck.hudTitle(r.fidelityIssues, pastedRaw: true), detail: FidelityCheck.hudDetail(pastedRaw: true, pasteRawLetter: pasteRawLetter))
             case .modelError, .modelTimeout:
                 return .warning(title: "Raw — model unavailable", detail: "raw text pasted")
             case .emptyOutput, .tooLong, .placeholderLost:

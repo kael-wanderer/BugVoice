@@ -195,7 +195,10 @@ public struct TextModelSettings: Codable, Equatable, Sendable {
     public init() {}
 }
 
+public enum FidelityAction: String, Codable, Sendable, CaseIterable { case raw, warn, off }
+
 public struct StyleSettings: Codable, Equatable, Sendable {
+    public var fidelityAction: FidelityAction = .raw
     /// Keyed by `Style.rawValue`. A missing key means cleanup is on.
     public var cleanupEnabled: [String: Bool] = [Style.terminal.rawValue: false]
     /// Bundle ID → style.
@@ -415,6 +418,7 @@ extension StyleSettings {
     public init(from decoder: Decoder) throws {
         self.init()
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        fidelityAction = c.value(.fidelityAction, default: fidelityAction)
         cleanupEnabled = c.value(.cleanupEnabled, default: cleanupEnabled)
         // Decoded as strings so one unknown style drops only its own entry.
         let rawOverrides: [String: String] = c.value(.appOverrides, default: [:])

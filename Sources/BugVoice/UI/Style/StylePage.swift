@@ -38,6 +38,18 @@ struct StylePage: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) {
+                SettingsCard {
+                    SettingsRow(title: "When cleanup changes a number, path, name or “not”") {
+                        Picker("When cleanup changes a number, path, name or “not”", selection: $model.settings.styles.fidelityAction) {
+                            Text("Paste raw text").tag(FidelityAction.raw)
+                            Text("Paste cleaned text and warn").tag(FidelityAction.warn)
+                            Text("Off").tag(FidelityAction.off)
+                        }
+                        .labelsHidden().pickerStyle(.menu)
+                    }
+                    Text("BugVoice compares the cleaned text with what you said. Command mode and Ask AI are not checked.")
+                        .bvFont(.footnote).foregroundStyle(.bvSecondary)
+                }
                 RoundPills("Style sections", items: Style.allCases.map { ($0, $0.title) }, selection: $selected)
                 VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) {
                     Text("Each app is matched to a style when you start dictating. The style sets how the text model cleans your words.")

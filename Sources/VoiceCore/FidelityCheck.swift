@@ -1,0 +1,224 @@
+import Foundation
+
+public struct FidelityIssue: Codable, Equatable, Sendable {
+    public enum Kind: String, Codable, Sendable, CaseIterable { case number, negation, path, identifier }
+    public enum Direction: String, Codable, Sendable { case lost, invented }
+    public var kind: Kind
+    public var direction: Direction
+    public var token: String
+
+    public init(kind: Kind, direction: Direction, token: String) {
+        self.kind = kind; self.direction = direction; self.token = token
+    }
+}
+
+public enum FidelityCheck {
+    private static let placeholders = try! NSRegularExpression(pattern: "⟦[^⟧]*⟧")
+    private static let lists = try! NSRegularExpression(pattern: #"(?m)^\s*(?:\d+[.)]|[-*•])\s+"#)
+    private static let digits = try! NSRegularExpression(pattern: #"(?<![\p{L}\p{N}_])\d+(?:[.,:]\d+)*(?:\.?[ºª]|\p{L}+|%)?(?![\p{N}_])"#)
+    private static let sentences = try! NSRegularExpression(pattern: #"[^\n]*?(?:[.!?](?=\s|$)|\n|$)"#)
+    private static let corrections = try! NSRegularExpression(pattern: #"(?i)(?<!\p{L})(?:no\s*,?\s*I mean|I mean|sorry|actually|à không|à nhầm|ý là|no\s*,?\s*perdón|quiero decir)(?!\p{L})"#)
+
+    private static func replacing(_ regex: NSRegularExpression, in text: String) -> String {
+        regex.stringByReplacingMatches(in: text, range: NSRange(text.startIndex..., in: text), withTemplate: " ")
+    }
+
+    /// Only details in the corrected portion of each sentence can be lost.
+    private static func afterCorrections(_ text: String) -> String {
+        guard corrections.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil else { return text }
+        return sentences.matches(in: text, range: NSRange(text.startIndex..., in: text)).compactMap { match in
+            guard let range = Range(match.range, in: text) else { return nil }
+            let sentence = String(text[range])
+            guard let marker = corrections.matches(in: sentence, range: NSRange(sentence.startIndex..., in: sentence)).last,
+                  let markerRange = Range(marker.range, in: sentence) else { return sentence }
+            return String(sentence[markerRange.upperBound...])
+        }.joined(separator: " ")
+    }
+
+    private struct NumberToken {
+        var token: String
+        var values: Set<Decimal>
+    }
+
+    private static func numbers(_ text: String) -> [NumberToken] {
+        digits.matches(in: text, range: NSRange(text.startIndex..., in: text)).compactMap { match in
+            guard let range = Range(match.range, in: text) else { return nil }
+            let token = String(text[range])
+            let numeric = token.prefix { $0.isNumber || ".,:".contains($0) }
+            let parts = numeric.split(separator: ":")
+            var values = Set<Decimal>()
+            for part in parts {
+                let s = String(part)
+                if let n = Decimal(string: s.replacingOccurrences(of: ",", with: "."), locale: Locale(identifier: "en_US_POSIX")) { values.insert(n) }
+                if s.contains(",") || (s.contains(".") && s.split(separator: ".").last?.count == 3) {
+                    if let n = Decimal(string: s.filter(\.isNumber)) { values.insert(n) }
+                }
+            }
+            // A clock's :00 suffix does not introduce a new number.
+            if parts.count > 1 { values.remove(0) }
+            return NumberToken(token: token, values: values)
+        }
+    }
+
+    public static func issues(raw: String, cleaned: String) -> [FidelityIssue] {
+        let raw = replacing(placeholders, in: raw)
+        let cleanedWithMarkers = replacing(placeholders, in: cleaned)
+        // List numbering can preserve a spoken digit, but must never introduce
+        // an invented-number issue merely because cleanup formatted a list.
+        let markerValues = lists.matches(in: cleanedWithMarkers, range: NSRange(cleanedWithMarkers.startIndex..., in: cleanedWithMarkers))
+            .reduce(into: Set<Decimal>()) { values, match in
+                guard let range = Range(match.range, in: cleanedWithMarkers) else { return }
+                for number in numbers(String(cleanedWithMarkers[range])) { values.formUnion(number.values) }
+            }
+        let cleaned = replacing(lists, in: cleanedWithMarkers)
+        let rawNumbers = numbers(raw)
+        let cleanedNumbers = numbers(cleaned)
+        let rawValues = rawNumbers.reduce(into: NumberWords.values(in: raw)) { $0.formUnion($1.values) }
+        let cleanedValues = cleanedNumbers.reduce(into: NumberWords.values(in: cleaned).union(markerValues)) { $0.formUnion($1.values) }
+        var issues: [FidelityIssue] = []
+        let eligibleRaw = afterCorrections(raw)
+        for n in numbers(eligibleRaw) where n.values.isDisjoint(with: cleanedValues) {
+            issues.append(.init(kind: .number, direction: .lost, token: n.token))
+        }
+        for n in cleanedNumbers where n.values.isDisjoint(with: rawValues) {
+            let parts = n.token.split(separator: ".")
+            if parts.count == 2, parts.allSatisfy({ part in
+                guard let value = Decimal(string: String(part)) else { return false }
+                return rawValues.contains(value)
+            }) { continue }
+            issues.append(.init(kind: .number, direction: .invented, token: n.token))
+        }
+        let rawNegations = collapsedNegations(in: eligibleRaw)
+        let cleanedNegationCount = collapsedNegations(in: cleaned).count
+        for token in rawNegations.dropFirst(cleanedNegationCount) {
+            issues.append(.init(kind: .negation, direction: .lost, token: token))
+        }
+        let originalTokens = tokens(eligibleRaw)
+        let outputTokens = tokens(cleaned)
+        for kind in [FidelityIssue.Kind.path, .identifier] {
+            for token in originalTokens where token.kind == kind {
+                let kept = outputTokens.contains { candidate in
+                    candidate.text == token.text || (candidate.sentenceStart &&
+                        candidate.text == token.text.prefix(1).uppercased() + token.text.dropFirst())
+                }
+                if !kept { issues.append(.init(kind: kind, direction: .lost, token: token.text)) }
+            }
+        }
+        return issues
+    }
+
+    private static let negations = try! NSRegularExpression(pattern: #"(?i)(?<![\p{L}\p{N}_])(?:not|no|never|cannot|none|nothing|nobody|neither|nor|without|không|chưa|chẳng|đừng|chả|nunca|nada|nadie|ni|sin|tampoco)(?![\p{L}\p{N}_])|n['’]t(?!\p{L})"#)
+    private static func collapsedNegations(in text: String) -> [String] {
+        var result: [String] = []
+        var previousToken: String?
+        var previousEnd: String.Index?
+        for match in negations.matches(in: text, range: NSRange(text.startIndex..., in: text)) {
+            guard let range = Range(match.range, in: text) else { continue }
+            var start = range.lowerBound
+            var end = range.upperBound
+            func isWordCharacter(_ c: Character) -> Bool { c.isLetter || c == "'" || c == "’" }
+            while start > text.startIndex {
+                let before = text.index(before: start)
+                guard isWordCharacter(text[before]) else { break }
+                start = before
+            }
+            while end < text.endIndex, isWordCharacter(text[end]) { end = text.index(after: end) }
+            // Apostrophe-linked words can contain multiple regex matches.
+            // They are one whole-word token; do not compare overlapping ranges.
+            if let previousEnd, start < previousEnd { continue }
+            let token = text[start..<end].lowercased()
+            let repeated = previousToken == token && previousEnd.map { end in
+                text[end..<start].allSatisfy { $0.isWhitespace || $0 == "," }
+            } == true
+            if !repeated { result.append(token) }
+            previousToken = token
+            previousEnd = end
+        }
+        return result
+    }
+
+    private static let whitespaceToken = try! NSRegularExpression(pattern: #"\S+"#)
+    private static let pathPattern = try! NSRegularExpression(pattern: #"(?:[\p{L}\p{N}_][/\\][\p{L}\p{N}_]|^(?:~/|\./)|^[\p{L}\p{N}_-]{2,}\.[\p{L}]{1,5}$)"#)
+    private static let identifierPattern = try! NSRegularExpression(pattern: #"(?:[\p{Ll}\p{N}]\p{Lu}|\p{Lu}{2,}\p{Ll}|_|^--\p{L}[\p{L}\p{N}-]*$|^-\p{L}$)"#)
+    private static let leadingDecoration = CharacterSet(charactersIn: "`*\"'“”‘’([{<")
+    private static let trailingDecoration = CharacterSet(charactersIn: "`*\"'“”‘’.,;:!?)]}>" )
+
+    private static let leadingContent = leadingDecoration.inverted
+    private static let trailingContent = trailingDecoration.inverted
+
+    private struct DetailToken {
+        var text: String
+        var kind: FidelityIssue.Kind?
+        var sentenceStart: Bool
+    }
+
+    private static func tokens(_ text: String) -> [DetailToken] {
+        var cache: [String: (String, FidelityIssue.Kind?)] = [:]
+        return whitespaceToken.matches(in: text, range: NSRange(text.startIndex..., in: text)).compactMap { match in
+            guard let range = Range(match.range, in: text) else { return nil }
+            let original = String(text[range])
+            let token: String
+            let kind: FidelityIssue.Kind?
+            if let cached = cache[original] {
+                (token, kind) = cached
+            } else {
+                let backticked = original.hasPrefix("`") && original.dropFirst().contains("`")
+                guard let start = original.rangeOfCharacter(from: leadingContent)?.lowerBound,
+                      let end = original.rangeOfCharacter(from: trailingContent, options: .backwards)?.upperBound,
+                      start < end else { return nil }
+                let trimmed = String(original[start..<end])
+                token = trimmed.hasSuffix("'s") || trimmed.hasSuffix("’s") ? String(trimmed.dropLast(2)) : trimmed
+                let fullRange = NSRange(token.startIndex..., in: token)
+                if pathPattern.firstMatch(in: token, range: fullRange) != nil { kind = .path }
+                else if backticked || identifierPattern.firstMatch(in: token, range: fullRange) != nil { kind = .identifier }
+                else { kind = nil }
+                cache[original] = (token, kind)
+            }
+            // Only an uppercase candidate can preserve a detail by sentence
+            // capitalization. Exact matches do not need sentence context.
+            let preceding = token.first?.isUppercase == true ? text[..<range.lowerBound].last { !$0.isWhitespace } : nil
+            let sentenceStart = token.first?.isUppercase == true && (preceding == nil || preceding.map { ".!?".contains($0) } == true)
+            return DetailToken(text: token, kind: kind, sentenceStart: sentenceStart)
+        }
+    }
+}
+
+extension FidelityCheck {
+    /// Paired lost/invented numbers describe one changed detail. Unpaired
+    /// numbers and other kinds keep their issue order in the tooltip.
+    public static func describe(_ issues: [FidelityIssue]) -> [String] {
+        let lostNumbers = issues.indices.filter { issues[$0].kind == .number && issues[$0].direction == .lost }
+        let inventedNumbers = issues.indices.filter { issues[$0].kind == .number && issues[$0].direction == .invented }
+        let pairs = Dictionary(uniqueKeysWithValues: zip(lostNumbers, inventedNumbers))
+        let pairedInvented = Set(pairs.values)
+        return issues.indices.compactMap { index in
+            let issue = issues[index]
+            switch issue.kind {
+            case .number:
+                if let other = pairs[index] { return "\(issue.token) → \(issues[other].token)" }
+                if pairedInvented.contains(index) { return nil }
+                return "\(issue.direction == .lost ? "lost" : "added") \(issue.token)"
+            case .negation:
+                return "\(issue.direction == .lost ? "dropped" : "added") “\(issue.token)”"
+            case .path, .identifier:
+                return "\(issue.direction == .lost ? "lost" : "added") `\(issue.token)`"
+            }
+        }
+    }
+
+    public static func hudTitle(_ issues: [FidelityIssue], pastedRaw: Bool) -> String {
+        let prefix = pastedRaw ? "Raw — cleanup " : "Check — cleanup "
+        let count = describe(issues).count
+        guard count == 1, let first = issues.first else { return prefix + "changed \(count) details" }
+        switch first.kind {
+        case .number: return prefix + "changed a number"
+        case .negation: return prefix + "dropped “\(first.token)”"
+        case .path: return prefix + "changed a path"
+        case .identifier: return prefix + "changed a name"
+        }
+    }
+
+    public static func hudDetail(pastedRaw: Bool, pasteRawLetter: String) -> String {
+        "⌃⌥\(pasteRawLetter) pastes " + (pastedRaw ? "the cleaned text" : "raw")
+    }
+}

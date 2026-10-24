@@ -88,3 +88,13 @@ struct DiagnosticsTests {
         #expect(Diagnostics.facts(settings)["Meetings model"] == "none")
     }
 }
+
+extension DiagnosticsTests {
+    @Test func summaryNamesFidelityKinds() {
+        var result = DictationResult(startedAt: Date(), appName: nil, bundleID: nil, style: .work, language: "en", raw: "private words", cleaned: "Private words", finalText: "private words", outcome: .inserted, rawReason: .detailChanged, errorMessage: nil, timings: StageTimings())
+        result.fidelityIssues = [.init(kind: .path, direction: .lost, token: "private/path"), .init(kind: .negation, direction: .lost, token: "never"), .init(kind: .negation, direction: .lost, token: "not")]
+        let summary = Diagnostics.dictationSummary(result)
+        #expect(summary.contains("raw=detailChanged") && summary.contains("fidelity=negation,path"))
+        for text in ["private", "never", "not"] { #expect(!summary.contains(text)) }
+    }
+}

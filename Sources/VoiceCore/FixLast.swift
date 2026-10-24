@@ -1,6 +1,6 @@
 import Foundation
 
-public enum FixKind: String, Codable, Sendable { case raw, otherLanguage }
+public enum FixKind: String, Codable, Sendable { case raw, otherLanguage, cleaned }
 
 public enum FixLast {
     public static let syntheticEventMarker: Int64 = 0x4256_5043
@@ -106,5 +106,30 @@ extension ReplacementGuard {
               now.timeIntervalSince(last.at) < Self.maxAge,
               last.text.count <= Self.maxSelectBackCharacters else { return .copyOnly }
         return .selectBack(characters: last.text.count)
+    }
+}
+
+public enum PasteRawPlan: Equatable, Sendable {
+    case alreadyRaw
+    case replace(DictationResult, kind: FixKind, title: String)
+}
+
+extension FixLast {
+    public static func pasteRawPlan(_ previous: DictationResult) -> PasteRawPlan {
+        var replacement = previous
+        if previous.isFidelityFallback, let cleaned = previous.cleaned {
+            replacement.finalText = DictationPipeline.trimmed(cleaned, style: previous.style)
+            replacement.rawReason = nil
+            return .replace(replacement, kind: .cleaned, title: "Replaced with cleaned text")
+        }
+        guard previous.finalText != previous.uncleanedText else { return .alreadyRaw }
+        replacement.finalText = previous.uncleanedText
+        if !previous.fidelityIssues.isEmpty, previous.cleaned != nil {
+            replacement.rawReason = .detailChanged
+        } else {
+            replacement.cleaned = nil
+            replacement.rawReason = nil
+        }
+        return .replace(replacement, kind: .raw, title: "Replaced with raw text")
     }
 }

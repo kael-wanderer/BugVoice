@@ -1,8 +1,19 @@
 # BugVoice — Handoff
 
-Last updated: 2026-10-23
+Last updated: 2026-10-24
 
 ## Current state
+
+**Cleanup fidelity:** Tasks 1–7 implemented on `feat/cleanup-fidelity` (2026-10-24),
+not merged or pushed. Checks numbers, negations, paths and identifiers after
+cleanup; Style chooses Paste raw text (default), cleaned with warning, or Off.
+Cleaned alternatives survive fallback; Paste raw swaps both ways, with History
+and popover tags. Secure recall clears issue tokens; Diagnostics log kinds only.
+Local replay: 14 checked of 17 history entries, zero flags (0% false alarms for
+all four kinds). The sample is small. 200-word check: 1.052 ms warm median of 20.
+Tests: **1,273 VoiceCore, 30 MCPKit, 114 BugVoiceMac**, all pass. Signed app build
+succeeds with Bugler Local Dev; no app launch or synthetic input. Owner screenshots
+and device checks F1–F8 remain open; see `docs/progress/fidelity-log.md`.
 
 **Spanish dictation:** built on `feat/spanish-dictation` (2026-10-23), not merged.
 Settings › Speech › Dictation languages (English, Vietnamese, Spanish; default English +
