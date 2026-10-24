@@ -4,8 +4,7 @@ Last updated: 2026-10-24
 
 ## Current state
 
-**Cleanup fidelity:** Tasks 1–7 implemented on `feat/cleanup-fidelity` (2026-10-24),
-not merged or pushed. Checks numbers, negations, paths and identifiers after
+**Cleanup fidelity:** merged on `main` and pushed (2026-10-24, `c12a284`). Checks numbers, negations, paths and identifiers after
 cleanup; Style chooses Paste raw text (default), cleaned with warning, or Off.
 Cleaned alternatives survive fallback; Paste raw swaps both ways, with History
 and popover tags. Secure recall clears issue tokens; Diagnostics log kinds only.
@@ -14,8 +13,11 @@ all four kinds). The sample is small. 200-word check: 1.052 ms warm median of 20
 Tests: **1,273 VoiceCore, 30 MCPKit, 114 BugVoiceMac**, all pass. Signed app build
 succeeds with Bugler Local Dev; no app launch or synthetic input. Owner screenshots
 and device checks F1–F8 remain open; see `docs/progress/fidelity-log.md`.
+Rerun the history replay after a week of use. Also on `main` (2026-10-24): meeting
+Summary renders Markdown (`47104f4`); Themes and icons shows every icon as a grid
+(`0d75e19`). Next item: owner picks from `docs/research/2026-10-24-feature-review.md`.
 
-**Spanish dictation:** built on `feat/spanish-dictation` (2026-10-23), not merged.
+**Spanish dictation:** merged on `main` and pushed (2026-10-23, `d6522fa`).
 Settings › Speech › Dictation languages (English, Vietnamese, Spanish; default English +
 Vietnamese, so nothing changes until Spanish is ticked). Ticked languages drive the popover
 switch, Dictation options, the language key, the HUD, redo (English and Vietnamese swap
