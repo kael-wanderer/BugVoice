@@ -63,7 +63,7 @@
 Rules (from the spec):
 - Frames are 320 samples; a trailing partial frame waits for more samples.
 - A frame is voiced when its RMS ≥ `floorRMS`. A frame is silent when its RMS < `max(floorRMS, silenceFactor × median RMS of voiced frames so far)`.
-- Normal cut: when a run of silent frames reaches `pause` seconds and the audio from the last cut to the start of that run is ≥ `shortestPart` and contains a voiced frame. `sample` = pause start + `pause`/2 (frame aligned); `decidedAt` = pause start + `pause`.
+- Normal cut: when a run of silent frames reaches `pause` seconds and the audio from the last cut to the start of that run is ≥ `shortestPart` and contains a voiced frame. `sample` = pause start + (pause frames / 2) frames, integer division; `decidedAt` = pause start + `pause`.
 - Forced cut: when audio since the last cut reaches `longestPart` with a voiced frame in it, cut at the centre of the quietest 10-frame (200 ms) window in the last 3 s; `decidedAt` = the current sample.
 - Silence-only audio never cuts.
 
@@ -80,7 +80,7 @@ let p = SpeechChunker.Parameters(pause: 0.5, shortestPart: 4, longestPart: 25)
     #expect(cuts.count == 1)
     #expect((5 * 16_000 ... 6 * 16_000).contains(cuts[0].sample))
     #expect(cuts[0].decidedAt == 5 * 16_000 + 8_000)   // pause start + 0.5 s
-    #expect(cuts[0].sample == 5 * 16_000 + 4_000)      // pause start + 0.25 s
+    #expect(cuts[0].sample == 5 * 16_000 + 3_840)      // pause start + 12 frames
 }
 @Test func pauseBeforeShortestPartGivesNoCut() {
     let audio = tone(seconds: 2, amplitude: 0.1) + silence(seconds: 1) + tone(seconds: 2, amplitude: 0.1)
