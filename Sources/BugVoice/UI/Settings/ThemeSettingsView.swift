@@ -32,27 +32,14 @@ struct ThemeSettingsView: View {
                     }
                 }
                 AppearanceCard(title: "Icons") {
-                    ViewThatFits(in: .horizontal) {
-                        HStack(alignment: .top, spacing: LayoutTokens.spacing[2]) {
-                            iconColumn("App icon", selection: $model.settings.appearance.appIcon, kind: .app)
-                            iconColumn("Menu-bar icon", selection: $model.settings.appearance.menuBarIcon, kind: .menuBar)
-                        }
-                        VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) {
-                            HStack { Text("App icon"); Spacer(); LogoCarousel(selection: $model.settings.appearance.appIcon, kind: .app) }
-                            Divider().overlay(.bvSeparator)
-                            HStack { Text("Menu-bar icon"); Spacer(); LogoCarousel(selection: $model.settings.appearance.menuBarIcon, kind: .menuBar) }
-                        }
-                    }
+                    Text("App icon").bvFont(.bodyStrong)
+                    LogoGrid(selection: $model.settings.appearance.appIcon, kind: .app)
+                    Text("Menu-bar icon").bvFont(.bodyStrong).padding(.top, LayoutTokens.spacing[1])
+                    LogoGrid(selection: $model.settings.appearance.menuBarIcon, kind: .menuBar)
                 }
                 Button("Reset theme and icons") { model.settings.appearance.resetThemeAndIcons() }
             }.bvFont(.body).padding(LayoutTokens.spacing[0])
         }
-    }
-    private func iconColumn(_ title: String, selection: Binding<LogoID>, kind: LogoCarousel.Kind) -> some View {
-        VStack(spacing: LayoutTokens.spacing[1]) {
-            Text(title)
-            LogoCarousel(selection: selection, kind: kind)
-        }.frame(maxWidth: .infinity)
     }
     private func themePicker(_ title: String, dark: Bool, selection: Binding<ThemeID>) -> some View {
         Picker(title, selection: selection) {
