@@ -510,7 +510,7 @@ private struct MeetingDetails: View {
                         Text(line).bvFont(.reading).textSelection(.enabled)
                     }
                 } else {
-                    Text(value).bvFont(.reading).frame(maxWidth: .infinity, alignment: .leading).textSelection(.enabled)
+                    MarkdownDocView(text: value, onToggleTask: { _ in }, scrolls: false, pagePadding: false).bvFont(.reading)
                 }
             } else {
                 EmptyState(kind == .summary ? "No summary" : "No action items", systemImage: kind == .summary ? "text.alignleft" : "checklist", message: emptyMessage)
