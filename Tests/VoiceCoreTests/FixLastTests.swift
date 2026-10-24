@@ -122,3 +122,60 @@ extension FixLastTests {
         #expect(g.decideSelectBack(now: Date(), frontProcessID: 1, sameFocus: true) == .copyOnly)
     }
 }
+
+extension FixLastTests {
+    private func fidelityPrevious() -> DictationResult {
+        var result = DictationResult(startedAt: Date(), appName: nil, bundleID: nil, style: .work, language: "en", raw: "we should not ship Friday", cleaned: "We should ship Friday.", finalText: "we should not ship Friday", outcome: .inserted, rawReason: .detailChanged, errorMessage: nil, timings: StageTimings())
+        result.uncleanedText = result.raw
+        result.fidelityIssues = [.init(kind: .negation, direction: .lost, token: "not")]
+        return result
+    }
+
+    @Test func fallbackSwapsToCleaned() {
+        let previous = fidelityPrevious()
+        guard case .replace(let r, let kind, let title) = FixLast.pasteRawPlan(previous) else { Issue.record("Expected a cleaned replacement"); return }
+        #expect(kind == .cleaned && title == "Replaced with cleaned text")
+        #expect(r.finalText == "We should ship Friday." && r.rawReason == nil)
+        #expect(r.cleaned == previous.cleaned && r.fidelityIssues == previous.fidelityIssues)
+    }
+
+    @Test func swappedBackKeepsCleaned() {
+        var previous = fidelityPrevious()
+        previous.finalText = previous.cleaned!
+        previous.rawReason = nil
+        guard case .replace(let r, let kind, let title) = FixLast.pasteRawPlan(previous) else { Issue.record("Expected a raw replacement"); return }
+        #expect(kind == .raw && title == "Replaced with raw text")
+        #expect(r.finalText == r.uncleanedText && r.rawReason == .detailChanged && r.cleaned != nil)
+        #expect(r.fidelityIssues == previous.fidelityIssues)
+    }
+
+    @Test func ordinaryPasteRawUnchanged() {
+        var previous = fidelityPrevious()
+        previous.fidelityIssues = []
+        previous.rawReason = nil
+        previous.finalText = previous.cleaned!
+        guard case .replace(let r, let kind, let title) = FixLast.pasteRawPlan(previous) else { Issue.record("Expected a raw replacement"); return }
+        #expect(r.finalText == r.uncleanedText && r.cleaned == nil && r.rawReason == nil)
+        #expect(kind == .raw && title == "Replaced with raw text")
+    }
+
+    @Test func alreadyRawWithoutCleaned() {
+        var previous = fidelityPrevious()
+        previous.cleaned = nil
+        previous.fidelityIssues = []
+        previous.rawReason = .cleanupOff
+        #expect(FixLast.pasteRawPlan(previous) == .alreadyRaw)
+    }
+
+    @Test func terminalTrimOnSwap() {
+        var previous = fidelityPrevious()
+        previous.style = .terminal
+        previous.raw = "git status 5"
+        previous.uncleanedText = previous.raw
+        previous.finalText = previous.raw
+        previous.cleaned = "git status."
+        previous.fidelityIssues = [.init(kind: .number, direction: .lost, token: "5")]
+        guard case .replace(let r, _, _) = FixLast.pasteRawPlan(previous) else { Issue.record("Expected a cleaned replacement"); return }
+        #expect(r.finalText == "git status" && r.cleaned == "git status.")
+    }
+}

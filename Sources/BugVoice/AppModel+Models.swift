@@ -151,6 +151,8 @@ extension AppModel {
         previous.uncleanedText = result.uncleanedText
         previous.outcome = .inserted
         previous.rawReason = result.rawReason
+        previous.fidelityIssues = result.fidelityIssues
+        previous.fidelityAction = result.fidelityAction
         previous.errorMessage = nil
         previous.timings = result.timings
         lastResult = previous.recallable

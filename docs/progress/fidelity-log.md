@@ -133,3 +133,21 @@ Commit: `feat(core): run fidelity check before paste`.
 Plan adaptation: added an initial detailChanged HUD switch case in Task 4 so the
 new RawReason compiles exhaustively in the app target. Task 5 supplies its final
 shortcut detail and warn-action handling. No planned interfaces/assertions changed.
+
+## Task 5 — swapping, HUD and popover
+
+The five specified swap tests first failed on missing PasteRawPlan/pasteRawPlan,
+then passed. Raw fallback swaps to retained cleaned text and back, preserving
+issues; ordinary Paste raw behavior stays the same. Terminal swaps use the
+existing trim helper. Controller guards, replacementDecision and secure-field
+checks remain on the insertion path. HUD uses configured shortcut letters and
+four-second warning timing. The popover offers Cleaned after fallback.
+Full `swift test`: **1,416 passing** (1,272 VoiceCore, 30 MCPKit, 114
+BugVoiceMac). `swift build` succeeds.
+Commit: `feat(app): paste raw swaps to cleaned after a fidelity fallback`.
+
+Plan adaptations: AppModel.replaceLast copies fields individually, so added the
+new issue/action fields there to prevent stale metadata after redo/replacement.
+Also added the popover's warning tag and tooltip from mockup section 4 while
+editing MenuSections (the task text only explicitly named its button label).
+No app launch, synthetic events or pastes.
