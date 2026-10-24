@@ -15,7 +15,7 @@ public struct FidelityIssue: Codable, Equatable, Sendable {
 public enum FidelityCheck {
     private static let placeholders = try! NSRegularExpression(pattern: "⟦[^⟧]*⟧")
     private static let lists = try! NSRegularExpression(pattern: #"(?m)^\s*(?:\d+[.)]|[-*•])\s+"#)
-    private static let digits = try! NSRegularExpression(pattern: #"(?<![\p{L}\p{N}_])\d+(?:[.,:]\d+)*(?:st|nd|rd|th|\.?º|\.?ª|%)?(?![\p{L}\p{N}_])"#)
+    private static let digits = try! NSRegularExpression(pattern: #"(?<![\p{L}\p{N}_])\d+(?:[.,:]\d+)*(?:\.?[ºª]|\p{L}+|%)?(?![\p{N}_])"#)
     private static let sentences = try! NSRegularExpression(pattern: #"[^\n]*?(?:[.!?](?=\s|$)|\n|$)"#)
     private static let corrections = try! NSRegularExpression(pattern: #"(?i)(?<!\p{L})(?:no\s*,?\s*I mean|I mean|sorry|actually|à không|à nhầm|ý là|no\s*,?\s*perdón|quiero decir)(?!\p{L})"#)
 
@@ -62,11 +62,19 @@ public enum FidelityCheck {
 
     public static func issues(raw: String, cleaned: String) -> [FidelityIssue] {
         let raw = replacing(placeholders, in: raw)
-        let cleaned = replacing(lists, in: replacing(placeholders, in: cleaned))
+        let cleanedWithMarkers = replacing(placeholders, in: cleaned)
+        // List numbering can preserve a spoken digit, but must never introduce
+        // an invented-number issue merely because cleanup formatted a list.
+        let markerValues = lists.matches(in: cleanedWithMarkers, range: NSRange(cleanedWithMarkers.startIndex..., in: cleanedWithMarkers))
+            .reduce(into: Set<Decimal>()) { values, match in
+                guard let range = Range(match.range, in: cleanedWithMarkers) else { return }
+                for number in numbers(String(cleanedWithMarkers[range])) { values.formUnion(number.values) }
+            }
+        let cleaned = replacing(lists, in: cleanedWithMarkers)
         let rawNumbers = numbers(raw)
         let cleanedNumbers = numbers(cleaned)
         let rawValues = rawNumbers.reduce(into: NumberWords.values(in: raw)) { $0.formUnion($1.values) }
-        let cleanedValues = cleanedNumbers.reduce(into: NumberWords.values(in: cleaned)) { $0.formUnion($1.values) }
+        let cleanedValues = cleanedNumbers.reduce(into: NumberWords.values(in: cleaned).union(markerValues)) { $0.formUnion($1.values) }
         var issues: [FidelityIssue] = []
         let eligibleRaw = afterCorrections(raw)
         for n in numbers(eligibleRaw) where n.values.isDisjoint(with: cleanedValues) {
@@ -80,12 +88,10 @@ public enum FidelityCheck {
             }) { continue }
             issues.append(.init(kind: .number, direction: .invented, token: n.token))
         }
-        let rawNegations = negations.matches(in: eligibleRaw, range: NSRange(eligibleRaw.startIndex..., in: eligibleRaw))
-        let cleanedNegationCount = negations.numberOfMatches(in: cleaned, range: NSRange(cleaned.startIndex..., in: cleaned))
-        for match in rawNegations.dropFirst(cleanedNegationCount) {
-            if let range = Range(match.range, in: eligibleRaw) {
-                issues.append(.init(kind: .negation, direction: .lost, token: String(eligibleRaw[range])))
-            }
+        let rawNegations = collapsedNegations(in: eligibleRaw)
+        let cleanedNegationCount = collapsedNegations(in: cleaned).count
+        for token in rawNegations.dropFirst(cleanedNegationCount) {
+            issues.append(.init(kind: .negation, direction: .lost, token: token))
         }
         let originalTokens = tokens(eligibleRaw)
         let outputTokens = tokens(cleaned)
@@ -102,6 +108,23 @@ public enum FidelityCheck {
     }
 
     private static let negations = try! NSRegularExpression(pattern: #"(?i)(?<![\p{L}\p{N}_])(?:not|no|never|cannot|none|nothing|nobody|neither|nor|without|không|chưa|chẳng|đừng|chả|nunca|nada|nadie|ni|sin|tampoco)(?![\p{L}\p{N}_])|n['’]t(?!\p{L})"#)
+    private static func collapsedNegations(in text: String) -> [String] {
+        var result: [String] = []
+        var previousToken: String?
+        var previousEnd: String.Index?
+        for match in negations.matches(in: text, range: NSRange(text.startIndex..., in: text)) {
+            guard let range = Range(match.range, in: text) else { continue }
+            let token = String(text[range])
+            let repeated = previousToken?.lowercased() == token.lowercased() && previousEnd.map { end in
+                text[end..<range.lowerBound].allSatisfy { $0.isWhitespace || $0 == "," }
+            } == true
+            if !repeated { result.append(token) }
+            previousToken = token
+            previousEnd = range.upperBound
+        }
+        return result
+    }
+
     private static let whitespaceToken = try! NSRegularExpression(pattern: #"\S+"#)
     private static let pathPattern = try! NSRegularExpression(pattern: #"(?:[\p{L}\p{N}_][/\\][\p{L}\p{N}_]|^(?:~/|\./)|^[\p{L}\p{N}_-]{2,}\.[\p{L}]{1,5}$)"#)
     private static let identifierPattern = try! NSRegularExpression(pattern: #"(?:[\p{Ll}\p{N}]\p{Lu}|\p{Lu}{2,}\p{Ll}|_|^--\p{L}[\p{L}\p{N}-]*$|^-\p{L}$)"#)
@@ -131,7 +154,8 @@ public enum FidelityCheck {
                 guard let start = original.rangeOfCharacter(from: leadingContent)?.lowerBound,
                       let end = original.rangeOfCharacter(from: trailingContent, options: .backwards)?.upperBound,
                       start < end else { return nil }
-                token = String(original[start..<end])
+                let trimmed = String(original[start..<end])
+                token = trimmed.hasSuffix("'s") || trimmed.hasSuffix("’s") ? String(trimmed.dropLast(2)) : trimmed
                 let fullRange = NSRange(token.startIndex..., in: token)
                 if pathPattern.firstMatch(in: token, range: fullRange) != nil { kind = .path }
                 else if backticked || identifierPattern.firstMatch(in: token, range: fullRange) != nil { kind = .identifier }

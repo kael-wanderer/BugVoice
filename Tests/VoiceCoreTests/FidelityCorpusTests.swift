@@ -69,6 +69,22 @@ struct FidelityCorpusTests {
         .init(raw: "run -x", cleaned: "Run x.", flags: true),
         .init(raw: "use `widget`", cleaned: "Use gadget.", flags: true),
         .init(raw: "límite 15", cleaned: "Límite 50.", flags: true),
+        .init(raw: "the disk has 10 GB free", cleaned: "The disk has 10GB free.", flags: false),
+        .init(raw: "meet at 3pm", cleaned: "Meet at 3:00 PM.", flags: false),
+        .init(raw: "number 1 fix login number 2 update docs", cleaned: "1. Fix login\n2. Update docs", flags: false),
+        .init(raw: "no no that's fine", cleaned: "No, that's fine.", flags: false),
+        .init(raw: "we should not not ship", cleaned: "We should not ship.", flags: false),
+        .init(raw: "rename the AppModel's field", cleaned: "Rename the AppModel field.", flags: false),
+        .init(raw: "set the limit to 5GB", cleaned: "Set the limit to 50GB.", flags: true),
+        .init(raw: "we should not not ship", cleaned: "We should ship.", flags: true),
+        .init(raw: "set the limit to 5gb", cleaned: "Set the limit to 50gb.", flags: true),
+        .init(raw: "use M3 and v2", cleaned: "Use M4 and v3.", flags: false),
+        .init(raw: "rename the AppModel’s field", cleaned: "Rename the AppModel field.", flags: false),
+        .init(raw: "read Sources/App.swift's field", cleaned: "Read Sources/App.swift field.", flags: false),
+        .init(raw: "read Sources/App.swift’s field", cleaned: "Read Sources/App.swift field.", flags: false),
+        .init(raw: "we should not ship and never stop", cleaned: "We should not not ship.", flags: true),
+        .init(raw: "we should not ship", cleaned: "We should not not ship.", flags: false),
+        .init(raw: "fix login", cleaned: "1. Fix login", flags: false),
     ]
 
     @Test(arguments: cases)

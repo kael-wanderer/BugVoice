@@ -43,9 +43,14 @@ struct FidelityCheckTests {
 @Test func abbreviationsAreNotPaths() { #expect(FidelityCheck.issues(raw: "e.g. at 3 a.m.", cleaned: "For example, at 3 AM.").isEmpty) }
 @Test func twoHundredWordsUnderFiveMilliseconds() {
     let raw = Array(repeating: "please do not change Sources/App.swift or AppModel before 15 users", count: 20).joined(separator: " ")
-    let start = ContinuousClock.now
     _ = FidelityCheck.issues(raw: raw, cleaned: raw)
-    #expect(ContinuousClock.now - start < .milliseconds(5))
+    let samples = (0..<20).map { _ in
+        let start = ContinuousClock.now
+        _ = FidelityCheck.issues(raw: raw, cleaned: raw)
+        return ContinuousClock.now - start
+    }.sorted()
+    let median = (samples[9] + samples[10]) / 2
+    #expect(median < .milliseconds(5))
 }
 
 

@@ -1,6 +1,6 @@
 # Cleanup fidelity execution log
 
-Scope authorized for this session: Tasks 1 and 2 only. Tasks 3–7 remain pending.
+Current scope: review fixes for Tasks 1–2, then Task 3. Tasks 4–7 remain pending.
 No app launch, synthetic input, history replay, push or merge.
 
 ## Task 1 — numbers
@@ -43,7 +43,7 @@ No app was launched. These are pure-check timings, not end-to-end dictation.
 
 ### Deferred work
 
-Tasks 3–7 have not started. History replay counts, flags and false-alarm rates
+Task 3 is next. Tasks 4–7 have not started. History replay counts, flags and false-alarm rates
 per kind are **not measured** (Task 7). Task 6 screenshots and owner checks F1–F8
 remain pending; the feature is not yet wired into the pipeline or UI.
 
@@ -56,3 +56,36 @@ remain pending; the feature is not yet wired into the pipeline or UI.
 - Added this partial execution log during Tasks 1–2 so TDD and timing evidence
   survives the requested stopping point; Task 7 will complete it.
 - No test assertions or planned interfaces changed.
+
+## Review fixes before Task 3
+
+Owner-requested corrections, committed separately as
+`fix(core): fidelity check false alarms from review`:
+
+- Digit tokens accept trailing letters (units and clock suffixes), while a
+  letter immediately before a digit still excludes it as a number.
+- Stripped cleaned list-marker values preserve raw digits in the lost check;
+  markers never become invented-number issues.
+- Back-to-back repeats of the same negation (case-insensitive, separated by
+  whitespace or commas) collapse on both sides before counting.
+- Straight and curly possessive suffixes are stripped before path/identifier
+  classification and comparison.
+- Timing test now warms up once and asserts the median of 20 checks, as directed.
+
+TDD: added all eight requested corpus cases before code changes. The six false
+alarms failed; both must-still-flag guards already passed. Eight additional
+boundary cases brought the corpus to 76 pairs; the expanded red run reported
+11 failures. All passed after implementation. An initial build failed on a
+missing generated constant-extraction file; `swift package clean` repaired the
+stale build cache before obtaining the behavioral failures.
+
+Full `swift test`: **1,395 passing** (1,251 VoiceCore, 30 MCPKit, 114
+BugVoiceMac). Updated standalone timing: **1.091 ms** median of 20 unoptimized
+200-word checks after one warm-up call.
+
+### Known miss — intentionally not fixed
+
+"1.5 million" cleaned to "1,500" is not flagged (1,500 also reads as 1.5).
+
+The review changes override the original plan's token and cold-timing rules;
+no other test assertions changed.
