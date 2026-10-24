@@ -283,3 +283,14 @@ numbers moved, but existing helper names and intended behavior were preserved.
 - [ ] **F6.** "At three, no, I mean four" in Work style; pastes "at 4", no warning.
 - [ ] **F7.** Vietnamese with a number: "họp lúc ba giờ" → "họp lúc 3 giờ", no warning.
 - [ ] **F8.** History row tag hover lists the issue; swap button pastes the other version.
+
+## Final review (Claude, 2026-10-24)
+
+- Fixed: history replay skipped nothing; it now skips command-mode entries,
+  which rewrite on purpose and are never checked live. Rerun: 14 checked,
+  0 flagged.
+- The replay sample is small (14 dictations). Rerun after a week of use:
+  `swift run bugvoice-bench --fidelity-history "$HOME/Library/Application Support/BugVoice/history.jsonl"`.
+- Known limits, not fixed: the History swap button on a "check" row pastes the
+  transcript before Dictionary replacements and snippets (history does not keep
+  the uncleaned text); a fallback inside Notes shows the normal done pill.

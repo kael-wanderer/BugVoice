@@ -36,7 +36,8 @@ if CommandLine.arguments.contains("--fidelity-history") {
     var flagged: [(index: Int, entry: HistoryEntry, issues: [FidelityIssue])] = []
     var counts: [FidelityIssue.Kind: Int] = [:]
     for (index, entry) in entries.enumerated() {
-        guard let cleaned = entry.cleaned else { continue }
+        // Command mode rewrites on purpose and is never checked live.
+        guard entry.command == nil, let cleaned = entry.cleaned else { continue }
         checked += 1
         let issues = FidelityCheck.issues(raw: entry.raw, cleaned: cleaned)
         guard !issues.isEmpty else { continue }
@@ -45,13 +46,13 @@ if CommandLine.arguments.contains("--fidelity-history") {
     }
     let percent = checked == 0 ? 0 : Double(flagged.count) * 100 / Double(checked)
     print("History entries decoded: \(entries.count)")
-    print("Entries checked (with cleaned text): \(checked)")
+    print("Entries checked (dictations with cleaned text): \(checked)")
     print(String(format: "Flagged: %d (%.2f%%)", flagged.count, percent))
     for kind in FidelityIssue.Kind.allCases {
         print("\(kind.rawValue): \(counts[kind, default: 0]) flagged entries")
     }
     for item in flagged {
-        print("\n--- Entry \(item.index) (\(item.entry.id.uuidString)), command=\(item.entry.command != nil) ---")
+        print("\n--- Entry \(item.index) (\(item.entry.id.uuidString)) ---")
         print("Raw: \(item.entry.raw)")
         print("Cleaned: \(item.entry.cleaned!)")
         for issue in item.issues { print("\(issue.kind.rawValue) \(issue.direction.rawValue): \(issue.token)") }
