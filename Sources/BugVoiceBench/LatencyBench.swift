@@ -260,7 +260,7 @@ func runLatencyBench(clipsDir: URL, modelName: String, showText: Bool) async thr
     var fitX: [Double] = []
     var fitY: [Double] = []
     for clip in clips {
-        let lengths = Set([1, 2, 4, 8, 15, 25].map { $0 * 16_000 }.filter { $0 <= clip.audio.samples.count } + [clip.audio.samples.count]).sorted()
+        let lengths = Set([2, 4, 8, 15, 25].map { $0 * 16_000 }.filter { $0 <= clip.audio.samples.count } + [clip.audio.samples.count]).sorted()
         for length in lengths {
             let audio = AudioClip(samples: Array(clip.audio.samples.prefix(length)))
             let measured = try await runner.median(audio, options: clip.options())
