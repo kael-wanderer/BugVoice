@@ -22,7 +22,7 @@ while (( i < ${#names[@]} )); do
     echo
     echo "Read at your normal dictation pace, pausing where you naturally would."
     read -r -p "Press Enter to start recording… "
-    ffmpeg -loglevel error -y -f avfoundation -i ":0" -ac 1 -ar 16000 -c:a pcm_s16le "$name.recording.wav" &
+    ffmpeg -nostdin -loglevel error -y -f avfoundation -i ":0" -ac 1 -ar 16000 -c:a pcm_s16le "$name.recording.wav" &
     pid=$!
     read -r -p "Recording. Press Enter when you finish… "
     kill -INT "$pid"; wait "$pid" || true
