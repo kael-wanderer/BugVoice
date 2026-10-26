@@ -39,6 +39,27 @@ public enum AudioDevices {
         }
     }
 
+    /// True for Bluetooth inputs, which deliver audio with a noticeable lag.
+    /// Nil `uid` means the system default input.
+    public static func isBluetoothInput(uid: String?) -> Bool {
+        let id: AudioDeviceID
+        if let uid {
+            guard let found = deviceID(forUID: uid) else { return false }
+            id = found
+        } else {
+            var address = AudioObjectPropertyAddress(mSelector: kAudioHardwarePropertyDefaultInputDevice, mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
+            var found = AudioDeviceID(0)
+            var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+            guard AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &found) == noErr else { return false }
+            id = found
+        }
+        var address = AudioObjectPropertyAddress(mSelector: kAudioDevicePropertyTransportType, mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
+        var transport = UInt32(0)
+        var size = UInt32(MemoryLayout<UInt32>.size)
+        guard AudioObjectGetPropertyData(id, &address, 0, nil, &size, &transport) == noErr else { return false }
+        return transport == kAudioDeviceTransportTypeBluetooth || transport == kAudioDeviceTransportTypeBluetoothLE
+    }
+
     public static func deviceID(forUID uid: String) -> AudioDeviceID? {
         allDeviceIDs().first { string($0, kAudioDevicePropertyDeviceUID) == uid }
     }

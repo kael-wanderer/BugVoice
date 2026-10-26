@@ -19,6 +19,8 @@ final class CommandController {
     private var limitTask: Task<Void, Never>?
     private var flashTask: Task<Void, Never>?
     private var releasedDuringCapture = false
+    private var drainingTail = false
+    private var drainTask: Task<Void, Never>?
     private var startFocus = FocusSnapshot.unknown
     private var startElement: AXUIElement?
     private var startPID: Int32 = 0
@@ -183,6 +185,19 @@ final class CommandController {
     }
 
     private func finish() {
+        guard phase == .recording, !drainingTail else { return }
+        let tail = recorder.releaseTail
+        guard tail > 0 else { return finishNow() }
+        drainingTail = true
+        drainTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(tail))
+            guard !Task.isCancelled, let self else { return }
+            self.drainingTail = false
+            self.finishNow()
+        }
+    }
+
+    private func finishNow() {
         preview?.stop()
         guard phase == .recording else { return }
         let clip = recorder.stop()
@@ -278,6 +293,8 @@ final class CommandController {
     }
 
     private func cancel() {
+        drainTask?.cancel()
+        drainingTail = false
         preview?.stop()
         let wasActive = isActive
         if wasActive { log(outcome: "cancelled") }

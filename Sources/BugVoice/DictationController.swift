@@ -13,6 +13,8 @@ import VoiceCore
 final class DictationController {
     private unowned let model: AppModel
     private let recorder = AudioRecorder()
+    private var drainingTail = false
+    private var drainTask: Task<Void, Never>?
     lazy var hud = HUDController(appearance: model.appearance)
     private lazy var preview = LivePreviewController(recorder: recorder, transcriber: model.previewWhisper, hud: hud)
     let inserter = PasteboardInserter()
@@ -237,6 +239,8 @@ final class DictationController {
 
     /// Option used as a modifier (e.g. ⌥E): nothing is pasted or logged.
     private func cancel() {
+        drainTask?.cancel()
+        drainingTail = false
         preview.stop()
         limitTask?.cancel()
         detector.reset()
@@ -252,6 +256,19 @@ final class DictationController {
     }
 
     private func finish() {
+        guard recorder.isRunning, !drainingTail else { return }
+        let tail = recorder.releaseTail
+        guard tail > 0 else { return finishNow() }
+        drainingTail = true
+        drainTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(tail))
+            guard !Task.isCancelled, let self else { return }
+            self.drainingTail = false
+            self.finishNow()
+        }
+    }
+
+    private func finishNow() {
         preview.stop()
         limitTask?.cancel()
         model.isListening = recorder.isRunning
