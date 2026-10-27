@@ -30,6 +30,8 @@ public struct AppPaths: Sendable {
     /// Folder list for Notes, Meetings and Upload. Items store their own labels.
     public var library: URL { root.appendingPathComponent("library.json") }
     public var lastRecording: URL { root.appendingPathComponent("last.wav") }
+    /// Recordings whose transcription failed, owner-only. See `FailedDictationStore`.
+    public var failedDictations: URL { root.appendingPathComponent("Failed", isDirectory: true) }
     public var models: URL { root.appendingPathComponent("models", isDirectory: true) }
     /// Reserved for sub-project 2.
     public var meetings: URL { root.appendingPathComponent("Meetings", isDirectory: true) }
