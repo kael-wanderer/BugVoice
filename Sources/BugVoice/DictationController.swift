@@ -27,6 +27,8 @@ final class DictationController {
     private var lastInsertionFocus: FocusSnapshot?
     private var hotkey: HotkeyMonitor!
     private var startFocus = FocusSnapshot.unknown
+    /// The kept failed recording that `last.wav` also holds, if any.
+    private var lastRecordingFailedID: UUID?
     private var correctionFocus: FocusSnapshot?
     private var correctionElement: AXUIElement?
     private var notesCapture: NotesDictationCapture?
@@ -285,6 +287,7 @@ final class DictationController {
         model.notesIsListening = false
         model.notesRecordingStartedAt = nil
         if capturedNotesRun == nil && capturedMeetingNotes == nil {
+            lastRecordingFailedID = nil
             if startFocus.isSecure {
                 // Likely a spoken secret: keep no audio of it. An older
                 // last.wav goes too, so Retry last cannot replay another clip.
@@ -314,9 +317,12 @@ final class DictationController {
         startedAt: Date,
         notesCapture: NotesDictationCapture? = nil,
         meetingNotes: MeetingNotesTextView? = nil,
-        languageChoice: SpeechLanguage? = nil
+        languageChoice: SpeechLanguage? = nil,
+        retrying: FailedDictation? = nil,
+        copyOnly: Bool = false
     ) {
         isBusy = true
+        model.retryingFailedID = retrying?.id
         runCounter += 1
         let run = runCounter
         stagedRun = run
@@ -325,6 +331,9 @@ final class DictationController {
             insertion = NotesEditorInsertion(controller: model.notesController, capture: notesCapture)
         } else if let meetingNotes {
             insertion = MeetingNotesInsertion(editor: meetingNotes)
+        } else if copyOnly {
+            // The user is in BugVoice when they press Retry: never paste.
+            insertion = ClipboardOnlyInsertionTarget(inserter: inserter)
         } else {
             insertion = RecordingPasteInsertionTarget(inserter: inserter) { [weak self] text in
                 self?.recordOrdinaryInsertion(text, focus: focus)
@@ -365,9 +374,29 @@ final class DictationController {
             if result.outcome == .cancelled {
                 hud.hide()
             } else {
-                if let state = HUDState.from(result, pasteRawLetter: model.settings.shortcuts.letter(for: .pasteRaw)) { hud.show(state) } else { hud.hide() }
+                if copyOnly, [.copiedNotConsumed, .copiedFocusChanged].contains(result.outcome) {
+                    hud.show(.message(title: "Copied — press ⌘V", detail: "text from the retried recording"))
+                } else if let state = HUDState.from(result, pasteRawLetter: model.settings.shortcuts.letter(for: .pasteRaw)) {
+                    hud.show(state)
+                } else {
+                    hud.hide()
+                }
                 await model.recordInsights(result, noteID: notesCapture?.noteID)
                 if !intoNotes { await model.record(result) }
+            }
+            if let retrying {
+                if result.outcome == .transcriptionFailed {
+                    var updated = retrying
+                    updated.reason = result.errorMessage ?? updated.reason
+                    model.updateFailedDictation(updated)
+                } else if result.outcome != .cancelled {
+                    model.deleteFailedDictation(retrying.id)
+                }
+                model.retryingFailedID = nil
+            } else if result.outcome == .transcriptionFailed, !intoNotes, !focus.isSecure {
+                model.keepFailedDictation(result, clip: clip)
+                // last.wav holds this clip too, unless a newer run replaced it.
+                if runCounter == run { lastRecordingFailedID = result.id }
             }
             isBusy = false
             languageCycler = nil
@@ -395,7 +424,24 @@ final class DictationController {
         }
         guard let data = try? Data(contentsOf: model.paths.lastRecording),
               let clip = try? WAVDecoder.decode(data) else { return }
-        process(clip, focus: FocusInspector.read(), startedAt: Date())
+        let kept = model.failedDictations.first { $0.id == lastRecordingFailedID }
+        process(clip, focus: FocusInspector.read(), startedAt: Date(), retrying: kept)
+    }
+
+    /// Runs a kept failed recording again; the text goes to the clipboard.
+    func retryFailed(_ item: FailedDictation) {
+        model.correctionWatcher.cancel()
+        guard model.command?.isActive != true, !isBusy, !recorder.isRunning else { return }
+        if let notReady = speechNotReadyState() {
+            hud.show(notReady)
+            return
+        }
+        guard let data = try? Data(contentsOf: model.failedStore.audioURL(item.id)),
+              let clip = try? WAVDecoder.decode(data) else {
+            model.deleteFailedDictation(item.id)
+            return
+        }
+        process(clip, focus: FocusSnapshot(appName: item.appName, bundleID: item.bundleID), startedAt: Date(), retrying: item, copyOnly: true)
     }
 
     func pasteLast() {
@@ -691,6 +737,23 @@ private final class RecordingPasteInsertionTarget: InsertionTarget {
         inserter.onWillPostPaste = nil
         if outcome != .pasted { onInsertedFailure() }
         return outcome
+    }
+
+    func copy(_ text: String) async { await inserter.copy(text) }
+}
+
+/// Copies, never pastes. Used when retrying a failed recording.
+@MainActor
+private final class ClipboardOnlyInsertionTarget: InsertionTarget {
+    private let inserter: PasteboardInserter
+
+    init(inserter: PasteboardInserter) {
+        self.inserter = inserter
+    }
+
+    func insert(_ text: String) async -> InsertOutcome {
+        await inserter.copy(text)
+        return .notConsumed
     }
 
     func copy(_ text: String) async { await inserter.copy(text) }

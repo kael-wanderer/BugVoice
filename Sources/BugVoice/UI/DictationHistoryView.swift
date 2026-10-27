@@ -33,6 +33,10 @@ struct DictationHistoryView: View {
         ScrollViewReader { reader in
         ScrollView {
             VStack(alignment: .leading, spacing: LayoutTokens.spacing[2]) {
+                if !model.failedDictations.isEmpty {
+                    Text("NEEDS ATTENTION").bvFont(.footnote).foregroundStyle(.bvSecondary)
+                    ForEach(model.failedDictations) { failedRow($0) }
+                }
                 CardGrid(minCardWidth: store.scaled(150), spacing: LayoutTokens.spacing[1]) {
                     StatTile(value: stats.wordsToday.formatted(), label: "words today")
                     StatTile(value: "\(stats.wordsPerMinute)", label: "words per minute")
@@ -58,7 +62,10 @@ struct DictationHistoryView: View {
             .bvPageColumn(.wide)
         }
 
-        .task { await model.reloadHistory() }
+        .task {
+            model.reloadFailedDictations()
+            await model.reloadHistory()
+        }
         .task(id: model.dictationHighlight) {
             guard let id = model.dictationHighlight else { return }
             filter = nil
@@ -72,6 +79,39 @@ struct DictationHistoryView: View {
             if model.dictationHighlight == id { model.dictationHighlight = nil }
         }
         }
+    }
+
+    func failedRow(_ item: FailedDictation) -> some View {
+        let running = model.retryingFailedID == item.id
+        let expiry = item.startedAt.addingTimeInterval(FailedDictationStore.maxAge)
+        let until = expiry.formatted(date: .omitted, time: .shortened) + (Calendar.current.isDateInToday(expiry) ? " today" : " tomorrow")
+        return HStack(alignment: .top, spacing: LayoutTokens.spacing[2]) {
+            VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
+                Text(item.startedAt.formatted(date: .omitted, time: .shortened)).bvFont(.body)
+                Text("\(item.appName ?? "Unknown") · \(Int(item.duration.rounded())) s").bvFont(.caption).foregroundStyle(.bvSecondary)
+            }
+            .frame(width: store.scaled(120), alignment: .leading)
+            VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
+                if running {
+                    Text("Transcribing…").bvFont(.body)
+                } else {
+                    Text("Transcription failed").bvFont(.body).foregroundStyle(.bvWarning)
+                    Text("\(item.reason) The recording is kept until \(until).")
+                        .bvFont(.caption).foregroundStyle(.bvSecondary).textSelection(.enabled)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(spacing: LayoutTokens.spacing[1]) {
+                Button("Retry") { model.dictation?.retryFailed(item) }
+                    .help("Transcribe again and copy the text")
+                Button { model.deleteFailedDictation(item.id) } label: { Image(systemName: "trash") }
+                    .buttonStyle(.borderless).help("Delete the recording")
+            }
+            .disabled(model.retryingFailedID != nil)
+        }
+        .padding(LayoutTokens.spacing[2])
+        .background(.bvCard, in: RoundedRectangle(cornerRadius: LayoutTokens.cardRadius))
+        .overlay(RoundedRectangle(cornerRadius: LayoutTokens.cardRadius).stroke(.bvSeparator))
     }
 
     func row(_ e: HistoryEntry) -> some View {

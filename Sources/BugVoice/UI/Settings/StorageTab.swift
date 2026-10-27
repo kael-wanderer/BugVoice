@@ -42,6 +42,11 @@ struct StorageTab: View {
                 }
                 Divider()
                 row("Last recording (last.wav)", path: model.paths.lastRecording, detail: "1 file") { EmptyView() }
+                Divider()
+                row("Failed recordings", path: model.paths.failedDictations, detail: "\(model.failedDictations.count) \(model.failedDictations.count == 1 ? "file" : "files")") {
+                    Button("Clear") { model.clearFailedDictations() }
+                        .disabled(model.failedDictations.isEmpty)
+                }
                 if FileManager.default.fileExists(atPath: model.paths.meetings.path) {
                     Divider()
                     row("Meetings", path: model.paths.meetings, detail: "\(model.meetingManifests.count) meetings") {
@@ -147,7 +152,7 @@ struct StorageTab: View {
     }
 
     func measure() async {
-        let urls = [model.paths.models, model.paths.history, model.paths.insights, model.paths.lastRecording, model.paths.meetings, model.paths.notes]
+        let urls = [model.paths.models, model.paths.history, model.paths.insights, model.paths.lastRecording, model.paths.failedDictations, model.paths.meetings, model.paths.notes]
         sizes = await Task.detached {
             var out: [String: Int64] = [:]
             for url in urls { out[url.path] = Self.size(of: url) }

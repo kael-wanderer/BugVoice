@@ -94,6 +94,7 @@ final class AppModel {
     @ObservationIgnored let notesController: NotesController
     @ObservationIgnored let store = SettingsStore(url: AppPaths.standard().settings)
     @ObservationIgnored let historyLog = HistoryLog(url: AppPaths.standard().history)
+    @ObservationIgnored let failedStore = FailedDictationStore(folder: AppPaths.standard().failedDictations)
     @ObservationIgnored let insightsStore = InsightsStore(url: AppPaths.standard().insights)
     @ObservationIgnored let dictionaryStore = DictionaryStore(url: AppPaths.standard().dictionary)
     @ObservationIgnored let libraryStore = LibraryStore(url: AppPaths.standard().library)
@@ -176,6 +177,10 @@ final class AppModel {
     var lastProjectMatch: (name: String, app: String, at: Date)?
     @ObservationIgnored lazy var projectsController = ProjectsController(model: self, store: projectStore)
     var history: [HistoryEntry] = []
+    /// Recordings whose transcription failed, newest first. See `FailedDictationStore`.
+    var failedDictations: [FailedDictation] = []
+    /// The failed recording being retried, if any.
+    var retryingFailedID: UUID?
     /// Daily usage totals for the Insights page.
     var insights = InsightsFile()
     /// True when `insights.json` was written by a newer BugVoice: shown, never written.
@@ -415,6 +420,7 @@ final class AppModel {
 
         await loadDictionary()
         await loadInsights()
+        reloadFailedDictations()
         await loadLibrary()
         suggestions = await suggestionStore.load()
         await projectsController.load()

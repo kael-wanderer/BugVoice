@@ -310,6 +310,7 @@ extension AppModel {
 
     /// Drops entries older than the retention window, then reloads.
     func applyRetention() async {
+        if settings.historyRetention == .off { clearFailedDictations() }
         if let age = settings.historyRetention.maxAge {
             do {
                 try await historyLog.prune(olderThan: Date().addingTimeInterval(-age))

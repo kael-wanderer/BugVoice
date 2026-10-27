@@ -141,6 +141,42 @@ extension AppModel {
         searchIndexer.schedule(.dictations, after: .seconds(600), extend: false)
     }
 
+    // MARK: Failed dictations
+
+    func reloadFailedDictations() {
+        failedDictations = failedStore.load(now: Date())
+    }
+
+    /// Keeps the audio of an ordinary dictation whose transcription failed,
+    /// unless history is off.
+    func keepFailedDictation(_ result: DictationResult, clip: AudioClip) {
+        guard settings.historyRetention != .off else { return }
+        let item = FailedDictation(
+            id: result.id, startedAt: result.startedAt, appName: result.appName, bundleID: result.bundleID,
+            duration: clip.duration, reason: result.errorMessage ?? "Transcription failed.")
+        do {
+            try failedStore.save(item, audio: WAVEncoder.encode(clip), now: Date())
+        } catch {
+            saveError = "Could not keep the failed recording: \(error.localizedDescription)"
+        }
+        reloadFailedDictations()
+    }
+
+    func updateFailedDictation(_ item: FailedDictation) {
+        try? failedStore.update(item)
+        reloadFailedDictations()
+    }
+
+    func deleteFailedDictation(_ id: UUID) {
+        failedStore.remove(id)
+        reloadFailedDictations()
+    }
+
+    func clearFailedDictations() {
+        failedStore.removeAll()
+        reloadFailedDictations()
+    }
+
     func replaceLast(_ result: DictationResult, kind: FixKind) async {
         guard var previous = lastResult else { return }
         previous.language = result.language

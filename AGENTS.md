@@ -103,6 +103,9 @@ version and build live in `App/Info.plist`. Every commit raises the build by one
 - Incremental transcription bench plan (Phase 1): `docs/superpowers/plans/2026-10-24-incremental-transcription-bench.md`
 - Update check execution log and device checks: `docs/progress/updates-log.md`
 - Incremental transcription execution log and bench results: `docs/progress/incremental-log.md`
+- App review (Codex, 2026-10-27): `docs/research/2026-10-27-app-review-and-improvement-plan.md`
+- Trust fixes plan (2026-10-27): `docs/superpowers/plans/2026-10-27-trust-fixes.md`
+- Failed dictations spec: `docs/superpowers/specs/2026-10-27-failed-dictations-design.md` (mockup: `docs/design/proposal-failed-dictations.html`)
 
 ## Rules
 
