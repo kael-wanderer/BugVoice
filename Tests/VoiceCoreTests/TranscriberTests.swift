@@ -3,6 +3,27 @@ import Testing
 @testable import VoiceCore
 
 extension ProviderTests {
+    @Test func transcriberDefaultsToNoRedirectSession() {
+        let t = OpenAICompatibleTranscriber(baseURL: URL(string: "http://h")!, model: "m")
+        #expect(t.session === HTTP.noRedirectSession)
+    }
+
+    @Test func transcriberTreatsRedirectAsError() async {
+        StubURLProtocol.handler = { _, _ in (307, Data()) }
+        let t = OpenAICompatibleTranscriber(baseURL: URL(string: "http://h")!, model: "m", apiKey: "K", session: StubURLProtocol.session())
+        await #expect(throws: ProviderError.redirected) {
+            try await t.transcribe(AudioClip(samples: [0]), options: TranscriptionOptions())
+        }
+    }
+
+    @Test func transcriberDropsErrorBodyWhenKeyed() async {
+        StubURLProtocol.handler = { _, _ in (500, Data("SENTINEL-SECRET".utf8)) }
+        let t = OpenAICompatibleTranscriber(baseURL: URL(string: "http://h")!, model: "m", apiKey: "K", session: StubURLProtocol.session())
+        await #expect(throws: ProviderError.http(status: 500, body: "")) {
+            try await t.transcribe(AudioClip(samples: [0]), options: TranscriptionOptions())
+        }
+    }
+
     @Test func transcriberSendsMultipartAndParsesVerboseJSON() async throws {
         StubURLProtocol.handler = { req, body in
             #expect(req.url?.path == "/v1/audio/transcriptions")

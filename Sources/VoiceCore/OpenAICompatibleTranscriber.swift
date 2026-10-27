@@ -8,7 +8,7 @@ public struct OpenAICompatibleTranscriber: Transcriber {
     public var apiKey: String?
     public var session: URLSession
 
-    public init(baseURL: URL, model: String, apiKey: String? = nil, session: URLSession = .shared) {
+    public init(baseURL: URL, model: String, apiKey: String? = nil, session: URLSession = HTTP.noRedirectSession) {
         self.baseURL = baseURL
         self.model = model
         self.apiKey = apiKey
@@ -42,7 +42,8 @@ public struct OpenAICompatibleTranscriber: Transcriber {
         if let apiKey, !apiKey.isEmpty { request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization") }
         request.httpBody = body
 
-        let reply = try HTTP.decode(Reply.self, from: try await HTTP.send(request, session: session))
+        let keyed = !(apiKey ?? "").isEmpty
+        let reply = try HTTP.decode(Reply.self, from: try await HTTP.send(request, session: session, redactBody: keyed))
         let segments = (reply.segments ?? []).map {
             TranscriptSegment(start: $0.start, end: $0.end, text: $0.text.trimmingCharacters(in: .whitespacesAndNewlines))
         }
