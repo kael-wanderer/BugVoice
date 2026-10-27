@@ -32,7 +32,7 @@ public enum ProviderError: Error, Equatable, Sendable, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .invalidURL(let url): "The address \(url) is not valid."
-        case .http(let status, let body):
+        case .http(let status, _):
             switch status {
             case 401, 403: "The key was refused."
             case 404: "The model or address was not found."
