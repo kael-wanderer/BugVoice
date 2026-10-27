@@ -16,7 +16,7 @@ struct PermissionsView: View {
             row(.inputMonitoring, "Input Monitoring", "To notice when you hold the hotkey. Keys are watched, never recorded.", "keyboard")
             Divider()
             systemAudioRow
-            Text("Nothing you say leaves this Mac unless you set a remote server in Settings → Text model.")
+            Text("Nothing you say leaves this Mac unless you set a remote server in Settings → Models or Settings → Speech.")
                 .bvFont(.footnote).foregroundStyle(.bvSecondary).padding(.top, LayoutTokens.spacing[2])
         }
         .padding(LayoutTokens.spacing[4])
