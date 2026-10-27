@@ -119,12 +119,24 @@ public struct DictationPipeline: Sendable {
         self.projects = projects
     }
 
-    /// Removes Whisper annotations such as `[BLANK_AUDIO]` or `[Music]`.
+    /// Whisper's own annotations, compared lowercased with `_` read as a space.
+    static let annotations: Set<String> = [
+        "blank audio", "music", "music playing", "silence", "applause", "laughter", "laughs",
+        "noise", "background noise", "inaudible", "sound", "no speech", "typing", "clicking",
+        "coughs", "coughing", "sighs", "breathing", "pause", "wind", "static", "beep",
+    ]
+
+    /// Removes Whisper annotations such as `[BLANK_AUDIO]` or `[Music]`. Any other
+    /// bracketed text (`items[0]`, `[String]`, `[draft]`) was dictated and stays.
     /// Parentheses stay: dictated text may use them.
     static func stripPlaceholders(_ text: String) -> String {
-        text.replacing(/\[[^\]]*\]/, with: " ")
-            .split(whereSeparator: \.isWhitespace)
-            .joined(separator: " ")
+        text.replacing(/\[([^\[\]]*)\]/) { match in
+            let inner = match.output.1.replacingOccurrences(of: "_", with: " ")
+                .split(whereSeparator: \.isWhitespace).joined(separator: " ").lowercased()
+            return annotations.contains(inner) ? " " : String(match.output.0)
+        }
+        .split(whereSeparator: \.isWhitespace)
+        .joined(separator: " ")
     }
 
     public func run(

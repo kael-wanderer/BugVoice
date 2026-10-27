@@ -437,6 +437,25 @@ struct DictationPipelineTests {
         #expect(r.historyEntry?.raw == "merge the branch")
     }
 
+    @Test(arguments: [
+        ("[BLANK_AUDIO] merge the branch", "merge the branch"),
+        ("[ Music ] hello [MUSIC PLAYING]", "hello"),
+        ("[inaudible] sửa lỗi build", "sửa lỗi build"),
+        ("use items[0] here", "use items[0] here"),
+        ("return [String] values", "return [String] values"),
+        ("mark it [draft] for now", "mark it [draft] for now"),
+        ("see [the docs](https://example.com) now", "see [the docs](https://example.com) now"),
+    ])
+    func stripPlaceholdersRemovesOnlyWhisperAnnotations(input: String, expected: String) {
+        #expect(DictationPipeline.stripPlaceholders(input) == expected)
+    }
+
+    @Test func bracketedCodeReachesTheResult() async {
+        let r = await pipeline(transcriber: FakeTranscriber(text: "use items[0] here"), model: nil)
+            .run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })
+        #expect(r.finalText == "use items[0] here")
+    }
+
     @Test func placeholderStripWorksWithEchoingModel() async {
         let model = RecordingModel()
         let r = await pipeline(transcriber: FakeTranscriber(text: "[BLANK_AUDIO] merge the branch"), model: model)
