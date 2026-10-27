@@ -49,7 +49,7 @@ public enum HTTP {
         do {
             return try JSONDecoder().decode(type, from: data)
         } catch {
-            throw ProviderError.malformedResponse(String(decoding: data.prefix(500), as: UTF8.self))
+            throw ProviderError.malformedResponse("\(data.count)-byte reply")
         }
     }
 }

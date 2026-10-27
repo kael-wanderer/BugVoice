@@ -178,7 +178,7 @@ public struct DictationPipeline: Sendable {
             return result
         } catch {
             result.outcome = .transcriptionFailed
-            result.errorMessage = String(describing: error)
+            result.errorMessage = error.localizedDescription
             result.timings.transcribe = Date().timeIntervalSince(mark)
             return result
         }

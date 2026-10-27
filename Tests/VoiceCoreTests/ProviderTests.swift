@@ -6,6 +6,22 @@ import Testing
 struct ProviderTests {
     let request = CleanupRequest(system: "SYS", user: "USER", maxTokens: 64, temperature: 0.1)
 
+    @Test func errorDescriptionsNeverIncludeTheBody() {
+        let http = ProviderError.http(status: 418, body: "SENTINEL-SECRET")
+        #expect(http.localizedDescription == "The service answered with status 418.")
+    }
+
+    @Test func malformedReplyKeepsNoReplyText() {
+        #expect(throws: ProviderError.self) {
+            _ = try HTTP.decode([String: Int].self, from: Data("SENTINEL-SECRET".utf8))
+        }
+        do {
+            _ = try HTTP.decode([String: Int].self, from: Data("SENTINEL-SECRET".utf8))
+        } catch {
+            #expect(!String(describing: error).contains("SENTINEL"))
+        }
+    }
+
     func json(_ data: Data) -> [String: Any] {
         (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
     }

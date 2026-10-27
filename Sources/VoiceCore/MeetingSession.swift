@@ -243,7 +243,7 @@ public actor MeetingSession {
                 throw error
             }
             meeting.state = .failed
-            meeting.transcriptionError = String(describing: error)
+            meeting.transcriptionError = error.localizedDescription
             manifest = meeting
             try? await store.save(meeting)
             throw error
@@ -421,7 +421,7 @@ public actor MeetingSession {
                 if cancelRequested { return manifest ?? meeting }
                 var current = manifest ?? meeting
                 current.state = .transcribing
-                current.transcriptionError = String(describing: error)
+                current.transcriptionError = error.localizedDescription
                 manifest = current
                 try? await store.save(current)
                 throw error

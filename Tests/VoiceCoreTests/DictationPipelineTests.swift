@@ -311,6 +311,13 @@ struct DictationPipelineTests {
         #expect(r.recallable.finalText.isEmpty)
     }
 
+    @Test func transcriptionErrorMessageHasNoResponseBody() async {
+        let failing = FakeTranscriber(error: ProviderError.http(status: 400, body: "SENTINEL-SECRET"))
+        let r = await pipeline(transcriber: failing).run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })
+        #expect(r.outcome == .transcriptionFailed)
+        #expect(r.errorMessage?.contains("SENTINEL") == false)
+    }
+
     @Test func secureFieldResultHasNoHistoryEntry() async {
         let r = await pipeline(focusAtInsert: FocusSnapshot(bundleID: "com.apple.Safari", isSecure: true))
             .run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })

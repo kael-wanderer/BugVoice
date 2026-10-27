@@ -38,7 +38,7 @@ public enum ProviderError: Error, Equatable, Sendable, LocalizedError {
             case 404: "The model or address was not found."
             case 429: "The service is rate limiting requests."
             case 500...599: "The service had an error."
-            default: body.isEmpty ? "The service answered with status \(status)." : "The service answered with status \(status): \(body.prefix(200))"
+            default: "The service answered with status \(status)."
             }
         case .malformedResponse: "The service sent an answer BugVoice could not read."
         case .unavailable(let reason): reason

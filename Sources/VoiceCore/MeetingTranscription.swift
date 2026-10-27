@@ -133,7 +133,7 @@ public struct MeetingChunkProcessor: Sendable {
                 mode: .timestamped,
                 requestedLanguage: .auto,
                 state: .failed,
-                errorMessage: String(describing: error)
+                errorMessage: error.localizedDescription
             )
         }
 
@@ -209,7 +209,7 @@ public struct MeetingChunkProcessor: Sendable {
                 mode: .forcedVAD,
                 requestedLanguage: language,
                 state: .failed,
-                errorMessage: String(describing: error)
+                errorMessage: error.localizedDescription
             )
             return result(id: id, track: track, offset: offset, clip: clip, attempts: [previous, retry], chosen: nil)
         }
