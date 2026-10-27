@@ -299,6 +299,18 @@ struct DictationPipelineTests {
         #expect(await insertion.copied == ["Hello world."])
     }
 
+    @Test func secureFieldAtStartCopiesOnlyEvenWhenFocusMoves() async {
+        let insertion = RecordingInsertion()
+        let r = await pipeline(insertion: insertion, focusAtInsert: notionFocus)
+            .run(clip: speechClip, startFocus: FocusSnapshot(bundleID: "com.apple.Safari", isSecure: true),
+                 startedAt: Date(), onStage: { _ in })
+        #expect(r.outcome == .copiedSecureField)
+        #expect(await insertion.inserted.isEmpty)
+        #expect(await insertion.copied.count == 1)
+        #expect(r.historyEntry == nil)
+        #expect(r.recallable.finalText.isEmpty)
+    }
+
     @Test func secureFieldResultHasNoHistoryEntry() async {
         let r = await pipeline(focusAtInsert: FocusSnapshot(bundleID: "com.apple.Safari", isSecure: true))
             .run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })

@@ -259,7 +259,8 @@ public struct DictationPipeline: Sendable {
             }
         } else {
             let current = await focus.snapshot()
-            if current.isSecure {
+            // A run that began in a secure field stays secure even if focus moved.
+            if startFocus.isSecure || current.isSecure {
                 await insertion.copy(text)
                 result.outcome = .copiedSecureField
             } else {
