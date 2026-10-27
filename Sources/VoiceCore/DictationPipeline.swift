@@ -30,7 +30,7 @@ public enum PipelineStage: Sendable, Equatable {
 }
 
 public enum DictationOutcome: String, Codable, Sendable {
-    case inserted, insertedInNote, noteDeleted, noteSaveFailed, copiedSecureField, copiedNotConsumed, discardedTooShort, nothingHeard, transcriptionFailed, cancelled
+    case inserted, insertedInNote, noteDeleted, noteSaveFailed, copiedSecureField, copiedNotConsumed, copiedFocusChanged, discardedTooShort, nothingHeard, transcriptionFailed, cancelled
 }
 
 public struct DictationResult: Sendable, Equatable {
@@ -78,7 +78,7 @@ public struct DictationResult: Sendable, Equatable {
         switch outcome {
         case .discardedTooShort, .nothingHeard, .transcriptionFailed, .cancelled, .copiedSecureField, .insertedInNote, .noteDeleted, .noteSaveFailed:
             return nil
-        case .inserted, .copiedNotConsumed:
+        case .inserted, .copiedNotConsumed, .copiedFocusChanged:
             return HistoryEntry(
                 id: id, startedAt: startedAt, appName: appName, bundleID: bundleID, style: style,
                 language: language, raw: raw, cleaned: cleaned, text: finalText,
@@ -275,6 +275,11 @@ public struct DictationPipeline: Sendable {
             if startFocus.isSecure || current.isSecure {
                 await insertion.copy(text)
                 result.outcome = .copiedSecureField
+            } else if let startApp = startFocus.bundleID, current.bundleID != startApp {
+                // Another app came to the front while this ran: a paste would
+                // land there, so the text waits on the clipboard instead.
+                await insertion.copy(text)
+                result.outcome = .copiedFocusChanged
             } else {
                 switch await insertion.insert(text) {
                 case .pasted: result.outcome = .inserted

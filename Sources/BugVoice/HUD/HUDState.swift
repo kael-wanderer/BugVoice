@@ -28,6 +28,8 @@ enum HUDState: Equatable {
             return .secureFieldCopied
         case .copiedNotConsumed:
             return .warning(title: "Copied — press ⌘V", detail: "paste not picked up")
+        case .copiedFocusChanged:
+            return .warning(title: "Copied — press ⌘V", detail: "another app came to the front")
         case .noteDeleted:
             return .warning(title: "Note deleted — dictation was not added", detail: "The note was deleted before insertion")
         case .noteSaveFailed:

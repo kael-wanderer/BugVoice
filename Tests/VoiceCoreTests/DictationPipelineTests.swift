@@ -311,6 +311,39 @@ struct DictationPipelineTests {
         #expect(r.recallable.finalText.isEmpty)
     }
 
+    @Test func appSwitchDuringProcessingCopiesInsteadOfPasting() async {
+        let insertion = RecordingInsertion()
+        let r = await pipeline(insertion: insertion, focusAtInsert: FocusSnapshot(appName: "Slack", bundleID: "com.tinyspeck.slackmacgap"))
+            .run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })
+        #expect(r.outcome == .copiedFocusChanged)
+        #expect(await insertion.inserted.isEmpty)
+        #expect(await insertion.copied == ["Hello world."])
+        #expect(r.historyEntry?.outcome == "copiedFocusChanged")
+        #expect(r.recallable.finalText == "Hello world.")
+    }
+
+    @Test func unreadableAppAtInsertCopiesInsteadOfPasting() async {
+        let insertion = RecordingInsertion()
+        let r = await pipeline(insertion: insertion, focusAtInsert: FocusSnapshot())
+            .run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })
+        #expect(r.outcome == .copiedFocusChanged)
+        #expect(await insertion.inserted.isEmpty)
+    }
+
+    @Test func unknownStartAppStillPastes() async {
+        let insertion = RecordingInsertion()
+        let r = await pipeline(insertion: insertion)
+            .run(clip: speechClip, startFocus: FocusSnapshot(), startedAt: Date(), onStage: { _ in })
+        #expect(r.outcome == .inserted)
+        #expect(await insertion.inserted.count == 1)
+    }
+
+    @Test func secureBeatsAppSwitch() async {
+        let r = await pipeline(focusAtInsert: FocusSnapshot(bundleID: "com.apple.Safari", isSecure: true))
+            .run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })
+        #expect(r.outcome == .copiedSecureField)
+    }
+
     @Test func transcriptionErrorMessageHasNoResponseBody() async {
         let failing = FakeTranscriber(error: ProviderError.http(status: 400, body: "SENTINEL-SECRET"))
         let r = await pipeline(transcriber: failing).run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })
