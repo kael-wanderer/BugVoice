@@ -136,7 +136,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    func installViewMenu() -> some Commands {
+    @CommandsBuilder func installViewMenu() -> some Commands {
+        CommandGroup(after: .appInfo) {
+            Button("Check for Updates…") { self.model.checkForUpdates() }
+        }
         CommandGroup(before: .toolbar) {
             Button(model.sidebarHidden ? "Show Sidebar" : "Hide Sidebar") { self.model.toggleSidebar() }
                 .keyboardShortcut("s", modifiers: [.control, .command])

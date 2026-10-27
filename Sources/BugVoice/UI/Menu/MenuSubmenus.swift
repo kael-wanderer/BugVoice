@@ -50,6 +50,7 @@ struct MenuSubmenuView: View {
     @ViewBuilder private var tools: some View {
         row("permissions", "Permissions…")
         row("dataFolder", "Open data folder")
+        row("updates", "Check for Updates…")
     }
 
     // MARK: Dictation options
@@ -108,7 +109,7 @@ struct MenuSubmenuItems {
     func ids(_ submenu: MenuSubmenu) -> [String] {
         switch submenu {
         case .library: ["meetings", "scratchpad", "floating"]
-        case .tools: ["permissions", "dataFolder"]
+        case .tools: ["permissions", "dataFolder", "updates"]
         case .dictationOptions: ["cleanup", "handsFree"] + Self.languages(for: model).map(\.id) + Self.engines(for: model).map(\.id)
         }
     }
@@ -130,6 +131,9 @@ struct MenuSubmenuItems {
         case "dataFolder":
             close()
             NSWorkspace.shared.open(model.paths.root)
+        case "updates":
+            close()
+            model.checkForUpdates()
         case "cleanup":
             model.settings.cleanupEnabled.toggle()
         case "handsFree":

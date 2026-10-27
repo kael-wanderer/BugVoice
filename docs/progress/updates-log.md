@@ -26,6 +26,10 @@ Phase 474, which reads the same kind of feed).
 - Menu popover: "BugVoice <version> is available" row with Open, while an offer
   stands. Opens the release page in the browser; nothing downloads or installs.
 
+- Check for Updates… (added 2026-10-27): in the BugVoice app menu under
+  About, and in the popover's Tools submenu. Both open Settings › General and
+  run a check, even when that tab is already showing.
+
 Not taken from Bugler: the Beta channel (the feed has no `beta` entry) and a
 macOS notification (BugVoice has no UserNotifications path; a new one would add
 a permission prompt).
@@ -46,3 +50,5 @@ would restart the owner's running BugVoice.
 3. Switch off: the menu row goes; relaunch shows none. Switch on: row returns.
 4. Wi-Fi off, Check again: "could not reach the update feed", button "Retry".
 5. Light and dark, at the larger text sizes: the card's row and toggle title fit.
+6. BugVoice menu › Check for Updates… and popover › Tools › Check for Updates…:
+   each opens Settings › General and the Updates card reads Checking…, then the result.

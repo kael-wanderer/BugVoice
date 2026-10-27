@@ -92,8 +92,8 @@ private struct UpdatesCard: View {
             Divider()
             SettingsToggle(title: "Check at launch and daily, and show new versions in the menu", isOn: $model.settings.updateNotify)
         }
-        // One check per visit to the tab, not per render.
-        .task { await check() }
+        // One check per visit to the tab, not per render, and again on Check for Updates….
+        .task(id: model.updateCheckRequest) { await check() }
     }
 
     private func check() async {

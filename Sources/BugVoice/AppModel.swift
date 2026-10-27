@@ -229,6 +229,8 @@ final class AppModel {
     var sidebarWidth: Double { ShellLayout.sidebarWidth(scale: settings.appearance.textScale, dragged: sidebarDraggedWidth) }
     var listPaneWidth: Double { ShellLayout.listPaneWidth(scale: settings.appearance.textScale, dragged: listPaneDraggedWidth) }
     var searchFocusRequest: UInt64 = 0
+    /// Raised by Check for Updates… so Settings › General checks again while already open.
+    var updateCheckRequest: UInt64 = 0
     var mainWindowIsKey = false
     var mainContentHeight: CGFloat = ShellLayout.minimumWindowHeight
     /// The title bar search text. On Meetings, Scratchpad, and Dictation it
@@ -474,6 +476,14 @@ final class AppModel {
 
     func openSpeechSettings() {
         settingsTab = .speech
+        openMainWindow(.settings)
+    }
+
+    /// Check for Updates… in the app menu and the popover: Settings › General
+    /// shows the Updates card, which checks the feed.
+    func checkForUpdates() {
+        settingsTab = .general
+        updateCheckRequest &+= 1
         openMainWindow(.settings)
     }
 
