@@ -2,8 +2,19 @@ import AppKit
 import ApplicationServices
 import VoiceCore
 
-public struct FocusInspector: FocusProvider {
-    public init() {}
+public struct FocusInspector: FocusProvider, @unchecked Sendable {
+    private let startingElement: AXUIElement?
+    public init() { startingElement = nil }
+    @MainActor public init(capturingTarget: Bool) {
+        startingElement = capturingTarget ? Self.focusedElement() : nil
+    }
+
+    public func isSameTarget() async -> Bool? {
+        await MainActor.run {
+            guard let startingElement, let current = Self.focusedElement() else { return nil }
+            return Self.isSameElement(startingElement, current)
+        }
+    }
 
     public func snapshot() async -> FocusSnapshot {
         await MainActor.run { Self.read() }

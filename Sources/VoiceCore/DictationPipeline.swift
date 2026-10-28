@@ -21,6 +21,11 @@ public protocol InsertionTarget: Sendable {
 
 public protocol FocusProvider: Sendable {
     func snapshot() async -> FocusSnapshot
+    func isSameTarget() async -> Bool?
+}
+
+public extension FocusProvider {
+    func isSameTarget() async -> Bool? { nil }
 }
 
 public enum PipelineStage: Sendable, Equatable {
@@ -30,7 +35,7 @@ public enum PipelineStage: Sendable, Equatable {
 }
 
 public enum DictationOutcome: String, Codable, Sendable {
-    case inserted, insertedInNote, noteDeleted, noteSaveFailed, copiedSecureField, copiedNotConsumed, copiedFocusChanged, discardedTooShort, nothingHeard, transcriptionFailed, cancelled
+    case inserted, insertedInNote, noteDeleted, noteSaveFailed, copiedSecureField, copiedNotConsumed, copiedFocusChanged, copiedFieldChanged, discardedTooShort, nothingHeard, transcriptionFailed, cancelled
 }
 
 public struct DictationResult: Sendable, Equatable {
@@ -78,7 +83,7 @@ public struct DictationResult: Sendable, Equatable {
         switch outcome {
         case .discardedTooShort, .nothingHeard, .transcriptionFailed, .cancelled, .copiedSecureField, .insertedInNote, .noteDeleted, .noteSaveFailed:
             return nil
-        case .inserted, .copiedNotConsumed, .copiedFocusChanged:
+        case .inserted, .copiedNotConsumed, .copiedFocusChanged, .copiedFieldChanged:
             return HistoryEntry(
                 id: id, startedAt: startedAt, appName: appName, bundleID: bundleID, style: style,
                 language: language, raw: raw, cleaned: cleaned, text: finalText,
@@ -292,6 +297,9 @@ public struct DictationPipeline: Sendable {
                 // land there, so the text waits on the clipboard instead.
                 await insertion.copy(text)
                 result.outcome = .copiedFocusChanged
+            } else if await focus.isSameTarget() == false {
+                await insertion.copy(text)
+                result.outcome = .copiedFieldChanged
             } else {
                 switch await insertion.insert(text) {
                 case .pasted: result.outcome = .inserted

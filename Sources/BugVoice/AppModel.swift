@@ -629,7 +629,7 @@ final class AppModel {
 
     // MARK: Dictation
 
-    func makePipeline(insertion: any InsertionTarget, feature: ModelFeature) -> DictationPipeline {
+    func makePipeline(insertion: any InsertionTarget, feature: ModelFeature, focus: FocusInspector = FocusInspector()) -> DictationPipeline {
         DictationPipeline(
             transcriber: transcriptionRouter,
             cleanup: ProviderFactory.cleanupModel(
@@ -637,7 +637,7 @@ final class AppModel {
                 fallbackTimeout: settings.models.dictationTimeoutSeconds
             ),
             insertion: insertion,
-            focus: FocusInspector(),
+            focus: focus,
             settings: settings,
             vocabulary: vocabulary,
             projects: projects.projects

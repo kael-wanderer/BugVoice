@@ -33,6 +33,8 @@ version and build live in `App/Info.plist`. Every commit raises the build by one
 
 ## Key documents
 
+- Field check spec: `docs/superpowers/specs/2026-10-28-field-check-design.md` (mockup: `docs/design/proposal-field-check.html`)
+
 - Spec: `docs/superpowers/specs/2026-10-14-dictation-core-and-shell-design.md`
 - Plan: `docs/superpowers/plans/2026-10-14-dictation-core-and-shell.md`
 - UI mockup: `docs/design/mockup.html` (open in a browser; light/dark toggle)

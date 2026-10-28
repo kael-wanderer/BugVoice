@@ -130,7 +130,7 @@ public struct InsightsDelta: Equatable, Sendable {
         guard words > 0 else { return nil }
         var day = InsightsDay()
         switch outcome {
-        case .inserted, .copiedNotConsumed, .copiedFocusChanged:
+        case .inserted, .copiedNotConsumed, .copiedFocusChanged, .copiedFieldChanged:
             let app = appName.flatMap { $0.isEmpty ? nil : $0 } ?? "Unknown"
             day.words = words
             day.wordsByApp[app] = words
