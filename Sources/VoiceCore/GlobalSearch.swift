@@ -88,6 +88,7 @@ public enum GlobalSearch {
         .init(label: "Meeting detection", section: "meetings", keywords: ["zoom", "meet", "teams"]),
         .init(label: "Delete meetings automatically", section: "meetings", keywords: ["retention"]),
         .init(label: "Known voices", section: "meetings", keywords: ["speaker", "voice"]),
+        .init(label: "Ready to dictate", section: "general", keywords: ["setup", "status", "permissions", "readiness"]),
     ]
 
     private enum ItemKey: Hashable {
