@@ -115,6 +115,7 @@ version and build live in `App/Info.plist`. Every commit raises the build by one
 - Retry language spec: `docs/superpowers/specs/2026-10-28-retry-language-design.md` (mockup: `docs/design/proposal-retry-language.html`)
 - Summary templates spec: `docs/superpowers/specs/2026-10-28-summary-templates-design.md` (mockup: `docs/design/proposal-summary-templates.html`)
 - Transcript editing spec: `docs/superpowers/specs/2026-10-28-transcript-edit-design.md` (mockup: `docs/design/proposal-transcript-edit.html`)
+- Usability pass log and owner checks: `docs/progress/usability-log.md`
 - Field check spec (branch `feat/field-check`, not merged): `docs/superpowers/specs/2026-10-28-field-check-design.md` (mockup: `docs/design/proposal-field-check.html`)
 
 ## Rules

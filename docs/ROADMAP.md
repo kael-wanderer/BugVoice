@@ -5,24 +5,11 @@ implementation, like Dictation, Meetings and Notes before it.
 
 ## Current state
 
-The owner marked prior device checks done on 2026-10-19; their "pending" entries
-below are history. Backup and restore checks: B1, B5–B9 pass; B2–B4, B10 not run
-(see `docs/progress/backup-log.md`).
-Proposed new features from the 2026-10-19 review: `docs/propose-new-features.md`.
-
-| Feature | State |
-|---|---|
-| Dictation (speech → text at the cursor) | Works. Device checks passed for Terminal, VS Code, Notion, Chrome, Vietnamese, hands-free. |
-| Meetings | Built (You/Others tracks, transcript, Summary, Action items). Untested on device; waits for a real meeting and the system-audio spike. |
-| Notes | Fixes BV-0004/5/6 landed (2026-10-15); notes are edited in the Scratchpad window (item 8). Device checks 63–72 pending. |
-| Insights | Built (Usage tab). Device checks 73–80 pending. |
-| Meeting speakers | Part 1 merged (2026-10-17); device checks 195–206 and tuning pending. Part 2 known voices built (2026-10-17) with a cautious 0.2 rule; checks 209–212 and a real-call check pending. |
-| Upload audio/video | Implemented (Upload queue, local media extraction, file-only transcription, recovery and uploaded Meetings). Device checks 103–119 pending. |
-| Ask AI | Merged and pushed (2026-10-17, `dcc4b21`). Per-tab Scratchpad scope, checked cards, translated audio citations, local search index (Qwen3-Embedding-0.6B on oMLX) and Meetings jumps. Tried on device in English and Vietnamese. Device checks 1–40 in `docs/progress/ask-log.md` pending. |
-| MCP server | Built (2026-10-17): `bugvoice-mcp` stdio bridge, Settings › Agents, 12 tools. Device checks 1–34 in `docs/progress/mcp-log.md` pending. |
-| Backup and restore | Merged on `main` (2026-10-19): local archives, automatic backups and retention, restore applied at next launch with a safety copy, Storage controls. B1, B5–B9 pass on device; B2–B4 and B10 not run (B2/B4 covered by tests). 1,106 tests pass. Evidence: `docs/progress/backup-log.md`. |
-| Command mode | Built on `feat/command-mode` (2026-10-19, not merged or pushed). Hold Right Option to rewrite selections or write new text; Original, history tag/search, safe copy decisions and Insights exclusion. 1,190 tests pass; signed build succeeds. Read-only Settings smoke passed. C1–C11 not run; C12 partial only. Evidence: `docs/progress/command-log.md`. |
-| Language per app and fix last paste | Implemented on `feat/language-fix-last` (2026-10-19, not merged). Language rules, menu switch, language key, English-word preservation, paste-raw and other-language replacement. L1–L12 not run because the computer-use provider rejected BugVoice access. Evidence: `docs/progress/language-log.md`. |
+The current-state table (implemented, automated tests, owner-verified, open or
+blocked) is in `docs/progress/HANDOFF.md`. Every numbered item below is built and
+merged except 7 (frozen). Proposed new features from the 2026-10-19 review:
+`docs/propose-new-features.md`. The "pending" notes in the Order table are
+history; the owner marked those device checks done on 2026-10-19.
 
 ## Order
 

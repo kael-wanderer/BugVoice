@@ -4,6 +4,53 @@ Last updated: 2026-10-28
 
 ## Current state
 
+`main` is pushed through `91ca906` (version 0.1.0, build 373; the pre-commit
+hook raises the build on every commit). `swift test`: **1,363 VoiceCore, 30
+MCPKit, 114 BugVoiceMac**, all pass. Every feature below is merged on `main`
+unless the row says otherwise. Nothing is pending a merge except
+`feat/field-check`.
+
+"Owner-verified" means device evidence from the owner. On 2026-10-19 the owner
+marked every device check written up to that day done; that blanket statement is
+the evidence for those rows. Builds, tests and Claude's screenshots are not device
+evidence.
+
+| Feature | Implemented | Automated tests | Owner-verified | Open or blocked |
+|---|---|---|---|---|
+| Dictation core, HUD, history, secure-field copy | 2026-10-14 | yes | 2026-10-19 | Benchmark gate never re-run with real clips |
+| Meetings (recording, transcript, Summary, Action items) | 2026-10-14 | yes | 2026-10-19 | — |
+| Notes and Scratchpad window | 2026-10-14 / 10-16 | yes | 2026-10-19 | — |
+| Insights | 2026-10-15 | yes | 2026-10-19 | — |
+| Dictionary, snippets, styles | 2026-10-15 | yes | 2026-10-19 | — |
+| Models per feature | 2026-10-15 | yes | 2026-10-19 | pi's own default provider key (pi config, not BugVoice) |
+| Upload audio/video | 2026-10-15 | yes | 2026-10-19 | — |
+| Folders and tags | 2026-10-15 / 10-18 | yes | 2026-10-19 | — |
+| Meetings v2 and live translation | 2026-10-16 | yes | 2026-10-19 | — |
+| Meeting speakers and known voices | 2026-10-17 | yes | 2026-10-19 | 0.2 cosine rule rests on one recording |
+| Ask AI | 2026-10-17 | yes | 2026-10-19 | — |
+| MCP server | 2026-10-17 | yes | 2026-10-19 | — |
+| Appearance, app shell, menu popover, note editor | 2026-10-18 | yes | 2026-10-19 | — |
+| Backup and restore | 2026-10-19 | yes | B1, B5–B9 | B2–B4, B10 not run |
+| Language per app, fix last paste | 2026-10-19 | yes | 2026-10-19 | — |
+| Command mode, project words | 2026-10-19 | yes | 2026-10-19 (all checks pass) | — |
+| Learn from corrections, action items, Shortcuts, live preview | 2026-10-19 | yes | 2026-10-19 | — |
+| Spanish dictation | 2026-10-23 | yes | no | Checks 1–7 (`spanish-log.md`) |
+| Cleanup fidelity check | 2026-10-24 | yes | no | Checks F1–F8 (`fidelity-log.md`); rerun the history replay |
+| Update check | 2026-10-24 | yes | no | Checks 1–5 (`updates-log.md`) |
+| Incremental transcription | bench only | yes (bench) | — | **Blocked**: gate needs the owner's real-voice clips; no app change |
+| Trust fixes, app-switch copy, failed dictations, search aliases, action-item checkmarks | 2026-10-27 | yes | no | Review checks 1–5 below |
+| Readiness card | 2026-10-28 | yes | no (Claude saw it on screen) | Review check 6 |
+| Esc cancels while processing | 2026-10-28 | yes | no | Review check 7 |
+| Crash recovery, retry language | 2026-10-28 | yes | no | Review checks 8–9 |
+| Summary templates, transcript editing | 2026-10-28 | yes | no | Review checks 10–11 |
+| Per-field destination check | branch `feat/field-check` | yes | no | **Not merged**: waits on review check 12 |
+| Usability pass (review Phase 5) | 2026-10-28 | — | no | Checks U1–U2 (`usability-log.md`): keyboard navigation, VoiceOver |
+
+Roadmap: Integrations (Calendar, export) and Home are frozen (`docs/ROADMAP.md`);
+nothing is scheduled after the review follow-ups. The owner picks the next item.
+
+## Latest work
+
 **2026-10-27/28: review follow-ups, all on `main` and pushed.** Codex reviewed the
 app (`docs/research/2026-10-27-app-review-and-improvement-plan.md`); Claude
 checked every finding against the code and shipped a reduced plan:
@@ -89,7 +136,21 @@ builds. Owner device checks open:
     Slack channel before the text lands: "Copied — press ⌘V", "the cursor moved
     to another field". Note what a terminal split-pane switch does.
 
-Not done from the review: usability pass (Phase 5), current-state docs table.
+- Usability pass (log `docs/progress/usability-log.md`): at 160% text and the
+  minimum window width all nine Settings tabs, Dictation and Meetings fit. Fixed:
+  the Models connection status was color only (now a symbol and a word), and
+  icon buttons read SF Symbol names to VoiceOver ("Redo", "Trash"); they now
+  read their tooltips. Known limit: macOS pop-up menus stay small at large text.
+- Docs: the current-state table above; ROADMAP points to it; old entries are
+  under History.
+
+Every item from the review is done except the field check (on its branch).
+
+## History
+
+Entries below are newest first and were true when written. "Not merged",
+"not pushed", "pending" and test counts in them are historical; the table above
+is current.
 
 **Incremental transcription, paused at the gate.**
 Phase 1 bench merged and pushed (2026-10-24). `Scripts/stt-bench.sh --latency`
@@ -417,10 +478,11 @@ recovery and playback are **UNVERIFIED on device**.
 | Manual checklist | `docs/testing/manual-checklist.md` | Dictation rows 1–44, Meetings rows 45–62, Notes rows 63–72 written; **not run** (needs maintainer checks) |
 | Benchmark gate (Task 8 step 12) | `bench/clips/`, `docs/bench/2026-10-14-stt-bench.md` | **Open**: first run found and fixed a decoder bug; clips and references incomplete |
 
-## Next steps
+### Original maintainer gates (2026-10-14)
 
-Roadmap item 7 (Calendar + export) is next; see Current state. The items below
-are the original maintainer gates, still open.
+Historical. Roadmap item 7 (Calendar + export) was later frozen; the owner marked
+the manual checklist done on 2026-10-19. Only the benchmark gate below is still
+open.
 
 1. **Maintainer: benchmark gate.** Record six clips in `bench/clips/` per its
    README, run `Scripts/stt-bench.sh > docs/bench/$(date +%F)-stt-bench.md`,
@@ -447,7 +509,7 @@ are the original maintainer gates, still open.
 3. **Final whole-branch review**: done; the deferred minor findings are fixed
    (see below).
 
-## Deviations from the plan (all decided during execution)
+### Deviations from the plan (all decided during execution)
 
 - Main window and Permissions window are AppKit windows opened via
   `AppModel.openMainWindow(page)` / `openPermissionsWindow()`, not SwiftUI
@@ -474,7 +536,7 @@ are the original maintainer gates, still open.
   asks before clearing history; save failures show a *Could not save* alert.
 - `build-app.sh` refuses to sign ad hoc unless `ALLOW_ADHOC=1`.
 
-## Deferred minor findings (fixed 2026-10-14)
+### Deferred minor findings (fixed 2026-10-14)
 
 The seven deferred sub-project 1 findings are fixed on `main`:
 - Vocabulary replacements match in NFC (precomposed and decomposed Vietnamese).
@@ -487,7 +549,7 @@ The seven deferred sub-project 1 findings are fixed on `main`:
 - Transcription cancellation is detected by type (`CancellationError`,
   `URLError.cancelled`, or any error after task cancellation).
 
-## Known risks
+### Known risks
 
 - Meetings system audio capture, self-audio exclusion, aggregate-device input
   behavior, and denied-permission behavior are **UNVERIFIED on device**. Run
@@ -503,6 +565,6 @@ The seven deferred sub-project 1 findings are fixed on `main`:
 - Whisper detects one language per clip; mixed EN/VI quality depends on the
   language setting (benchmark gate decides).
 
-## Background
+### Background
 
 The design came from a study of Wispr Flow 1.6.1147 (Electron; cloud gRPC transcription; Swift helper pastes via delayed pasteboard provider + ⌘V; meetings capture mic + system audio). BugVoice keeps the paste technique and moves everything on device.
