@@ -293,22 +293,22 @@ final class DictationController {
         meetingNotes = nil
         model.notesIsListening = false
         model.notesRecordingStartedAt = nil
+        var savedLastRecording = false
         if capturedNotesRun == nil && capturedMeetingNotes == nil {
             lastRecordingFailedID = nil
-            if startFocus.isSecure {
-                // Likely a spoken secret: keep no audio of it. An older
-                // last.wav goes too, so Retry last cannot replay another clip.
-                try? FileManager.default.removeItem(at: model.paths.lastRecording)
-            } else if clip.duration >= 0.3 {
+            if startFocus.isSecure || clip.duration >= 0.3 {
                 do {
-                    try WAVEncoder.encode(clip).write(to: model.paths.lastRecording, options: .atomic)
+                    let data = startFocus.isSecure ? nil : WAVEncoder.encode(clip)
+                    try InflightDictationStore(url: model.paths.inflightDictation)
+                        .replaceLastRecording(at: model.paths.lastRecording, with: data)
+                    savedLastRecording = data != nil
                 } catch {
                     model.saveError = "Could not save last.wav: \(error.localizedDescription)"
                 }
             }
         }
         let languageChoice = languageCycler?.changed == true ? languageCycler?.current : nil
-        process(clip, focus: startFocus, startedAt: startedAt, notesCapture: capturedNotesRun, meetingNotes: capturedMeetingNotes, languageChoice: languageChoice)
+        process(clip, focus: startFocus, startedAt: startedAt, notesCapture: capturedNotesRun, meetingNotes: capturedMeetingNotes, languageChoice: languageChoice, savedLastRecording: savedLastRecording)
     }
 
     private func releaseNotesCapture() {
@@ -326,7 +326,8 @@ final class DictationController {
         meetingNotes: MeetingNotesTextView? = nil,
         languageChoice: SpeechLanguage? = nil,
         retrying: FailedDictation? = nil,
-        copyOnly: Bool = false
+        copyOnly: Bool = false,
+        savedLastRecording: Bool = false
     ) {
         isBusy = true
         model.retryingFailedID = retrying?.id
@@ -356,7 +357,14 @@ final class DictationController {
         cancelDetail = intoNotes ? "nothing was added"
             : focus.isSecure || copyOnly ? "nothing was pasted"
             : "nothing was pasted · Retry last runs it again"
+        let marker = InflightDictationStore(url: model.paths.inflightDictation)
+        let marked = savedLastRecording && !intoNotes && !focus.isSecure && retrying == nil && model.settings.historyRetention != .off
+        if marked {
+            do { try marker.begin(InflightDictation(id: UUID(), startedAt: startedAt, appName: focus.appName, bundleID: focus.bundleID, duration: clip.duration)) }
+            catch { model.saveError = "Could not save recovery marker: \(error.localizedDescription)" }
+        }
         processingTask = Task { [self] in
+            defer { if marked { marker.end() } }
             let result = await pipeline.run(
                 clip: clip,
                 startFocus: focus,

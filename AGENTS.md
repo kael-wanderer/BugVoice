@@ -33,6 +33,8 @@ version and build live in `App/Info.plist`. Every commit raises the build by one
 
 ## Key documents
 
+- Crash recovery spec: `docs/superpowers/specs/2026-10-28-crash-recovery-design.md`
+
 - Spec: `docs/superpowers/specs/2026-10-14-dictation-core-and-shell-design.md`
 - Plan: `docs/superpowers/plans/2026-10-14-dictation-core-and-shell.md`
 - UI mockup: `docs/design/mockup.html` (open in a browser; light/dark toggle)
