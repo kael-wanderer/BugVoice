@@ -36,6 +36,7 @@ struct InflightDictationStoreTests {
         try store.begin(item)
         try store.replaceLastRecording(at: wav, with: Data("new".utf8))
         #expect(!FileManager.default.fileExists(atPath: store.url.path))
+        #expect(try (FileManager.default.attributesOfItem(atPath: wav.path)[.posixPermissions] as? NSNumber)?.intValue == 0o600)
         try store.begin(item)
         try store.replaceLastRecording(at: wav, with: nil)
         #expect(!FileManager.default.fileExists(atPath: store.url.path))

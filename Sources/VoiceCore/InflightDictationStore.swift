@@ -34,8 +34,14 @@ public struct InflightDictationStore: Sendable {
         if FileManager.default.fileExists(atPath: url.path) {
             try FileManager.default.removeItem(at: url)
         }
-        if let data { try data.write(to: target, options: .atomic) }
-        else if FileManager.default.fileExists(atPath: target.path) { try FileManager.default.removeItem(at: target) }
+        if let data {
+            let fm = FileManager.default
+            let temporary = target.deletingLastPathComponent().appendingPathComponent(".\(UUID().uuidString).tmp")
+            guard fm.createFile(atPath: temporary.path, contents: data, attributes: [.posixPermissions: 0o600]) else { throw CocoaError(.fileWriteUnknown) }
+            do { _ = try fm.replaceItemAt(target, withItemAt: temporary) }
+            catch { try? fm.removeItem(at: temporary); throw error }
+            try fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: target.path)
+        } else if FileManager.default.fileExists(atPath: target.path) { try FileManager.default.removeItem(at: target) }
     }
 
     public func end() { try? FileManager.default.removeItem(at: url) }
