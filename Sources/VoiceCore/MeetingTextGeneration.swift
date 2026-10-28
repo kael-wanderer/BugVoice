@@ -21,14 +21,14 @@ public struct MeetingTranscriptPart: Equatable, Sendable {
     public let estimatedTokens: Int
 
     public var promptText: String {
-        segments.map { "[\(timestamp($0.start))–\(timestamp($0.end)) \($0.speaker)] \($0.text)" }
+        segments.map { "[\(timestamp($0.start))–\(timestamp($0.end)) \($0.speaker)] \($0.displayText)" }
             .joined(separator: "\n")
     }
 
     public init(segments: [MeetingSegment]) {
         self.segments = segments
         let formattedCharacterCount = segments.reduce(0) { partial, segment in
-            partial + segment.text.count + timestamp(segment.start).count + timestamp(segment.end).count + segment.speaker.count + 7
+            partial + segment.displayText.count + timestamp(segment.start).count + timestamp(segment.end).count + segment.speaker.count + 7
         } + max(0, segments.count - 1)
         self.estimatedTokens = max(1, (formattedCharacterCount + 2) / 3)
     }
@@ -48,7 +48,7 @@ public struct MeetingTranscriptPart: Equatable, Sendable {
 
         for segment in transcript {
             let markerLength = timestamp(segment.start).count + timestamp(segment.end).count + segment.speaker.count + 7
-            let renderedLength = max(1, segment.text.count + markerLength)
+            let renderedLength = max(1, segment.displayText.count + markerLength)
             if renderedLength <= maxCharacters {
                 if currentCharacters + renderedLength > maxCharacters { flush() }
                 current.append(segment)
@@ -57,7 +57,7 @@ public struct MeetingTranscriptPart: Equatable, Sendable {
             }
 
             flush()
-            for fragment in textFragments(segment.text, maximumCharacters: max(1, maxCharacters - markerLength)) {
+            for fragment in textFragments(segment.displayText, maximumCharacters: max(1, maxCharacters - markerLength)) {
                 let piece = MeetingSegment(
                     start: segment.start, end: segment.end, text: fragment,
                     track: segment.track, sourceChunkID: segment.sourceChunkID,

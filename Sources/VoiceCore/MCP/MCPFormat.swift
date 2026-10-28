@@ -86,7 +86,7 @@ public enum MCPFormat {
                 out.append("No lines from \(start). The transcript has \(segments.count) lines.")
             }
             for s in page {
-                out.append("[\(clock(s.start))] \(s.speaker): \(s.text)")
+                out.append("[\(clock(s.start))] \(s.speaker): \(s.displayText)")
                 if let t = s.translation, !t.isEmpty { out.append("    English: \(t)") }
             }
             let next = start + page.count

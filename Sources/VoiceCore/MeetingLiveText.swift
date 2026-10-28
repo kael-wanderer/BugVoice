@@ -4,7 +4,7 @@ import Foundation
 public enum MeetingPromptLines {
     public static func line(_ segment: MeetingSegment) -> String {
         let seconds = max(0, Int(segment.start))
-        return String(format: "[%d:%02d] ", seconds / 60, seconds % 60) + "\(segment.speaker): \(segment.text)"
+        return String(format: "[%d:%02d] ", seconds / 60, seconds % 60) + "\(segment.speaker): \(segment.displayText)"
     }
 
     /// The newest lines that fit `maxCharacters`, oldest first.

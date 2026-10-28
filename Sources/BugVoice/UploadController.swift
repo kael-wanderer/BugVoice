@@ -301,11 +301,11 @@ final class UploadController {
         return true
     }
 
-    func saveGeneratedTextToSession(id: MeetingID, text: String, kind: MeetingTextKind, names: [String: String]? = nil)
+    func saveGeneratedTextToSession(id: MeetingID, text: String, kind: MeetingTextKind, names: [String: String]? = nil, generatedAt: Date = Date())
         async throws -> Bool
     {
         guard activeDirectory?.lastPathComponent == id.rawValue, let session else { return false }
-        try await session.saveGeneratedText(text, kind: kind, names: names)
+        try await session.saveGeneratedText(text, kind: kind, names: names, generatedAt: generatedAt)
         return true
     }
 
