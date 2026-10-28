@@ -35,8 +35,14 @@ checked every finding against the code and shipped a reduced plan:
   and cleanup model, each with a colored dot and at most one fix button. Opening
   it checks the cleanup server once (model list only, no text sent). Search
   "setup" or "status" finds it. Seen on screen 2026-10-28: all four rows green.
+- Cancel while processing (spec `docs/superpowers/specs/2026-10-28-cancel-processing-design.md`,
+  mockup `docs/design/proposal-cancel-processing.html`, plan run by Codex Luna,
+  reviewed): Esc while the HUD shows Transcribing or Cleaning stops the run;
+  nothing is pasted, copied or saved, HUD says "Cancelled" (Retry last still has
+  the clip). Fixed a latent gap: a cancel during cleanup would have pasted raw
+  text. Esc also reaches the front app, as in command mode. Not seen on screen.
 
-Tests: **1,351 VoiceCore, 30 MCPKit, 114 BugVoiceMac**, all pass. Signed app
+Tests: **1,354 VoiceCore, 30 MCPKit, 114 BugVoiceMac**, all pass. Signed app
 builds. Owner device checks open:
 1. Start dictating in a password field, click a normal field before the text
    lands: copy only, nothing in history.
@@ -48,9 +54,11 @@ builds. Owner device checks open:
 5. Settings search "input device", "retention": land on Speech and Storage.
 6. Quit the cleanup server (oMLX), open Settings › General: Cleanup model row
    turns red with Check again; start it, Check again: green.
+7. Dictate a long sentence into Notion with a slow model, press Esc during
+   Cleaning: "Cancelled", no text, nothing new in History; Retry last pastes it.
 
 Not done from the review: transcript line editing, summary templates,
-per-field destination check, crash recovery of in-flight runs.
+per-field destination check, crash recovery of in-flight runs, retry language picker.
 
 **Incremental transcription, paused at the gate.**
 Phase 1 bench merged and pushed (2026-10-24). `Scripts/stt-bench.sh --latency`
