@@ -36,6 +36,8 @@ public struct SearchTitle: Sendable {
 public struct SettingsSearchEntry: Sendable, Equatable {
     public var label: String
     public var section: String
+    /// Other words people use for this setting; matched like the label.
+    public var keywords: [String] = []
 }
 
 public enum GlobalSearch {
@@ -67,6 +69,25 @@ public enum GlobalSearch {
         .init(label: "MCP server", section: "agents"),
         .init(label: "Updates", section: "general"),
         .init(label: "Check for updates", section: "general"),
+        .init(label: "Dictation languages", section: "speech", keywords: ["language", "english", "vietnamese", "spanish", "auto"]),
+        .init(label: "Language per app", section: "speech", keywords: ["language"]),
+        .init(label: "Live preview", section: "speech"),
+        .init(label: "Learn from corrections", section: "speech", keywords: ["correction"]),
+        .init(label: "Microphone", section: "speech", keywords: ["input device", "headset", "audio input", "mic"]),
+        .init(label: "Speech model", section: "speech", keywords: ["whisper", "engine", "speech server", "transcription"]),
+        .init(label: "Project words", section: "speech", keywords: ["vocabulary"]),
+        .init(label: "Text model", section: "models", keywords: ["cleanup", "connection", "api key", "llm"]),
+        .init(label: "Backup and restore", section: "storage"),
+        .init(label: "Keep dictation history", section: "storage", keywords: ["retention"]),
+        .init(label: "Failed recordings", section: "storage", keywords: ["retry"]),
+        .init(label: "Diagnostics", section: "storage", keywords: ["log"]),
+        .init(label: "Hands-free", section: "general", keywords: ["double-tap", "toggle"]),
+        .init(label: "Start and stop sounds", section: "general"),
+        .init(label: "Restore clipboard", section: "general", keywords: ["clipboard"]),
+        .init(label: "Launch at login", section: "general", keywords: ["startup"]),
+        .init(label: "Meeting detection", section: "meetings", keywords: ["zoom", "meet", "teams"]),
+        .init(label: "Delete meetings automatically", section: "meetings", keywords: ["retention"]),
+        .init(label: "Known voices", section: "meetings", keywords: ["speaker", "voice"]),
     ]
 
     private enum ItemKey: Hashable {
@@ -170,7 +191,7 @@ public enum GlobalSearch {
             }
         }
 
-        for entry in settingsEntries where titleMatches(entry.label, terms: terms) {
+        for entry in settingsEntries where ([entry.label] + entry.keywords).contains(where: { titleMatches($0, terms: terms) }) {
             hits.append(SearchHit(
                 target: .settings(section: entry.section), kind: .settings, title: entry.label,
                 snippet: "", date: nil, score: 1,

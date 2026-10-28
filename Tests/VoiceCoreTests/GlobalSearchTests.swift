@@ -103,9 +103,26 @@ import Testing
     }
 
     @Test func settingsListIsExact() {
-        #expect(GlobalSearch.settingsEntries.count == 25)
+        #expect(GlobalSearch.settingsEntries.count == 44)
         #expect(GlobalSearch.settingsEntries.first == SettingsSearchEntry(label: "General", section: "general"))
-        #expect(GlobalSearch.settingsEntries.last == SettingsSearchEntry(label: "Check for updates", section: "general"))
+        #expect(GlobalSearch.settingsEntries.last == SettingsSearchEntry(label: "Known voices", section: "meetings", keywords: ["speaker", "voice"]))
+    }
+
+    @Test(arguments: [
+        ("input device", "Microphone", "speech"),
+        ("headset", "Microphone", "speech"),
+        ("retention", "Keep dictation history", "storage"),
+        ("restore", "Backup and restore", "storage"),
+        ("live prev", "Live preview", "speech"),
+        ("vietnamese", "Dictation languages", "speech"),
+        ("correction", "Learn from corrections", "speech"),
+        ("cleanup", "Text model", "models"),
+        ("whisper", "Speech model", "speech"),
+        ("retry", "Failed recordings", "storage"),
+    ])
+    func settingsKeywordsFindTheSection(query: String, label: String, section: String) {
+        let hits = GlobalSearch.search(query, passages: [], titles: [], first: nil)
+        #expect(hits.contains { $0.title == label && $0.target == .settings(section: section) })
     }
 
     @Test func limitCutsAfterOrdering() {
