@@ -1,10 +1,50 @@
 # BugVoice — Handoff
 
-Last updated: 2026-10-24
+Last updated: 2026-10-28
 
 ## Current state
 
-**Next session starts here: incremental transcription, paused at the gate.**
+**2026-10-27/28: review follow-ups, all on `main` and pushed.** Codex reviewed the
+app (`docs/research/2026-10-27-app-review-and-improvement-plan.md`); Claude
+checked every finding against the code and shipped a reduced plan:
+
+- Trust fixes (plan `docs/superpowers/plans/2026-10-27-trust-fixes.md`, run by
+  Codex Luna, reviewed): a dictation that starts in a secure field stays
+  copy-only even if focus moves; the speech server refuses redirects and drops
+  keyed error bodies; provider errors never carry a response body (dictation and
+  meetings); `stripPlaceholders` removes only Whisper annotations, so `items[0]`
+  and `[String]` survive; Permissions copy names Settings › Models and Speech.
+- App switch: if another app is frontmost when text is ready, it is copied, not
+  pasted (outcome `copiedFocusChanged`, HUD "Copied — press ⌘V"). App-level only,
+  not per field, so terminal tabs still paste.
+- Failed dictations (spec `docs/superpowers/specs/2026-10-27-failed-dictations-design.md`,
+  mockup `docs/design/proposal-failed-dictations.html`): failed transcriptions keep
+  their audio (5 max, 24 h, `Failed/`, owner-only, not backed up, off when history
+  is off). Dictation page › Needs attention: Retry (copies, never pastes) and Delete.
+  Settings › Storage › Failed recordings with Clear.
+- Settings search: 19 more entries with keywords (input device, retention,
+  restore, cleanup, whisper…).
+- Models › Use for › Send test sentence now says whether the reply beat the
+  dictation time limit. (It already generated; the review missed it.)
+- Action items: a checkmark stores the item's text; after a Regenerate that
+  rewords a checked item, the old one stays listed as done, "From an earlier
+  version of this list". Spec amendment in the action items spec.
+
+Tests: **1,345 VoiceCore, 30 MCPKit, 114 BugVoiceMac**, all pass. Signed app
+builds; not launched. Owner device checks open:
+1. Start dictating in a password field, click a normal field before the text
+   lands: copy only, nothing in history.
+2. Start in Notion, switch to Slack before the text lands: "Copied — press ⌘V",
+   no paste in Slack.
+3. Point the speech server at a wrong address, dictate, dictate again: the first
+   appears under Needs attention; fix the server, Retry: text on the clipboard.
+4. Regenerate action items for a meeting with a checked item: the item stays done.
+5. Settings search "input device", "retention": land on Speech and Storage.
+
+Not done from the review: transcript line editing, summary templates, readiness
+card, per-field destination check, crash recovery of in-flight runs.
+
+**Incremental transcription, paused at the gate.**
 Phase 1 bench merged and pushed (2026-10-24). `Scripts/stt-bench.sh --latency`
 measures Whisper's fixed cost, a VAD lever and a simulated incremental pipeline
 (pause chunker, 36-combination sweep, preview-load run, auto language), then
