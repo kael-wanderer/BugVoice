@@ -108,6 +108,8 @@ version and build live in `App/Info.plist`. Every commit raises the build by one
 - Failed dictations spec: `docs/superpowers/specs/2026-10-27-failed-dictations-design.md` (mockup: `docs/design/proposal-failed-dictations.html`)
 - Readiness card spec: `docs/superpowers/specs/2026-10-28-readiness-card-design.md` (mockup: `docs/design/proposal-readiness.html`)
 - Readiness card plan: `docs/superpowers/plans/2026-10-28-readiness-card.md`
+- Cancel while processing spec: `docs/superpowers/specs/2026-10-28-cancel-processing-design.md` (mockup: `docs/design/proposal-cancel-processing.html`)
+- Cancel while processing plan: `docs/superpowers/plans/2026-10-28-cancel-processing.md`
 
 ## Rules
 
