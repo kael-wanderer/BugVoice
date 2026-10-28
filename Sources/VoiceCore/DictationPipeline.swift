@@ -202,6 +202,11 @@ public struct DictationPipeline: Sendable {
             result.outcome = .nothingHeard
             return result
         }
+        // Cancelled while the engine finished anyway: skip cleanup.
+        if Task.isCancelled {
+            result.outcome = .cancelled
+            return result
+        }
 
         // Apply Dictionary corrections before protecting snippets. The
         // snippet text itself remains outside the text model request.
@@ -259,6 +264,13 @@ public struct DictationPipeline: Sendable {
         result.finalText = Self.trimmed(text, style: style)
         result.uncleanedText = Self.trimmed(protected.fill(vocabulary.applyReplacements(to: protected.text)), style: style)
         text = result.finalText
+
+        // Cancelled during cleanup: the model's error became raw text above,
+        // but nothing is pasted, copied or kept.
+        if Task.isCancelled {
+            result.outcome = .cancelled
+            return result
+        }
 
         // Insert
         onStage(.inserting)

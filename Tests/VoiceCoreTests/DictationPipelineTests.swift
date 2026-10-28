@@ -217,6 +217,50 @@ struct DictationPipelineTests {
         #expect(r.errorMessage == nil)
     }
 
+    @Test func cancelDuringCleanupPastesNothing() async throws {
+        let model = RecordingModel(delay: 5)
+        let insertion = RecordingInsertion()
+        let pipeline = pipeline(model: model, insertion: insertion)
+        let task = Task {
+            await pipeline.run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })
+        }
+        while await model.requests.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
+        task.cancel()
+        let r = await task.value
+        #expect(r.outcome == .cancelled)
+        #expect(await model.wasCancelled)
+        #expect(await insertion.inserted.isEmpty)
+        #expect(await insertion.copied.isEmpty)
+        #expect(r.historyEntry == nil)
+    }
+
+    @Test func cancelBeforeCleanupSkipsTheModel() async {
+        let model = RecordingModel()
+        let insertion = RecordingInsertion()
+        let pipeline = pipeline(model: model, insertion: insertion)
+        let task = Task {
+            withUnsafeCurrentTask { $0?.cancel() }
+            return await pipeline.run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })
+        }
+        let r = await task.value
+        #expect(r.outcome == .cancelled)
+        #expect(await model.requests.isEmpty)
+        #expect(await insertion.inserted.isEmpty)
+        #expect(await insertion.copied.isEmpty)
+    }
+
+    @Test func cancelledNotesRunAddsNothing() async {
+        let insertion = RecordingInsertion()
+        let pipeline = pipeline(model: nil, insertion: insertion)
+        let task = Task {
+            withUnsafeCurrentTask { $0?.cancel() }
+            return await pipeline.run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), mode: .notes, onStage: { _ in })
+        }
+        let r = await task.value
+        #expect(r.outcome == .cancelled)
+        #expect(await insertion.inserted.isEmpty)
+    }
+
     @Test func anyErrorAfterTaskCancellationIsQuietCancellation() async {
         struct EngineStopped: Error {}
         let pipeline = pipeline(transcriber: FakeTranscriber(error: EngineStopped()))
