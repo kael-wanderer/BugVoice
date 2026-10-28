@@ -450,10 +450,10 @@ final class MeetingController {
     }
 
     func saveGeneratedTextToSession(
-        id: MeetingID, text: String, kind: MeetingTextKind, names: [String: String]? = nil
+        id: MeetingID, text: String, kind: MeetingTextKind, names: [String: String]? = nil, template: SummaryTemplate = .general
     ) async throws -> Bool {
         guard meetingID == id, let session else { return false }
-        try await session.saveGeneratedText(text, kind: kind, names: names)
+        try await session.saveGeneratedText(text, kind: kind, names: names, template: template)
         return true
     }
 

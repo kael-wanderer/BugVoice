@@ -328,6 +328,9 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
     public var transcriptProgress: Double?
     public var transcriptionError: String?
     public var summary: String?
+    public var summaryTemplateID: String?
+    public var summaryTemplateVersion: Int?
+    public var summaryTemplate: SummaryTemplate { summaryTemplateID.flatMap(SummaryTemplate.init(rawValue:)) ?? .general }
     public var actionItems: String?
     public var source: MeetingSource
     public var sourceFileName: String?
@@ -410,6 +413,8 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
         self.transcriptProgress = transcriptProgress
         self.transcriptionError = transcriptionError
         self.summary = summary
+        self.summaryTemplateID = nil
+        self.summaryTemplateVersion = nil
         self.actionItems = actionItems
         self.source = source
         self.sourceFileName = sourceFileName
@@ -435,7 +440,7 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
     private enum CodingKeys: String, CodingKey {
         case schemaVersion, id, title, startedAt, endedAt, duration, state
         case audioFormat, chunks, marks, segments, transcriptProgress
-        case transcriptionError, summary, actionItems, source, sourceFileName, importedAt, folderID, tags, suggestedTags, languages
+        case transcriptionError, summary, summaryTemplateID, summaryTemplateVersion, actionItems, source, sourceFileName, importedAt, folderID, tags, suggestedTags, languages
         case speakers, speakerSplit, speakerNamesAtSummary, declinedVoices
         case notes, liveSummary, liveSummaryUpdatedAt, liveSummaryCutoff, detectedApp, showEnglish
         case uploadJobID, addedBy
@@ -457,6 +462,8 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
         transcriptProgress = try c.decodeIfPresent(Double.self, forKey: .transcriptProgress)
         transcriptionError = try c.decodeIfPresent(String.self, forKey: .transcriptionError)
         summary = try c.decodeIfPresent(String.self, forKey: .summary)
+        summaryTemplateID = try c.decodeIfPresent(String.self, forKey: .summaryTemplateID)
+        summaryTemplateVersion = try c.decodeIfPresent(Int.self, forKey: .summaryTemplateVersion)
         actionItems = try c.decodeIfPresent(String.self, forKey: .actionItems)
         source = try c.decodeIfPresent(MeetingSource.self, forKey: .source) ?? .recording
         sourceFileName = try c.decodeIfPresent(String.self, forKey: .sourceFileName)
@@ -480,9 +487,11 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
     }
 
     /// `names` are the speaker names the text was generated with; nil means the current ones.
-    public mutating func setGeneratedText(_ text: String, kind: MeetingTextKind, names: [String: String]? = nil) {
+    public mutating func setGeneratedText(_ text: String, kind: MeetingTextKind, names: [String: String]? = nil, template: SummaryTemplate = .general) {
         if kind == .summary {
             summary = text
+            summaryTemplateID = template.rawValue
+            summaryTemplateVersion = 1
             speakerNamesAtSummary = names ?? MeetingSpeakers.names(in: self)
         } else { actionItems = text }
     }

@@ -36,6 +36,7 @@ version and build live in `App/Info.plist`. Every commit raises the build by one
 - Retry language spec: `docs/superpowers/specs/2026-10-28-retry-language-design.md` (mockup: `docs/design/proposal-retry-language.html`)
 
 - Crash recovery spec: `docs/superpowers/specs/2026-10-28-crash-recovery-design.md`
+- Summary templates spec: `docs/superpowers/specs/2026-10-28-summary-templates-design.md` (mockup: `docs/design/proposal-summary-templates.html`)
 
 - Spec: `docs/superpowers/specs/2026-10-14-dictation-core-and-shell-design.md`
 - Plan: `docs/superpowers/plans/2026-10-14-dictation-core-and-shell.md`

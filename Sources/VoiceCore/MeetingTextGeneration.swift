@@ -98,6 +98,21 @@ public enum MeetingTextGenerationError: Error, Equatable, Sendable {
     case mergeDidNotReduceToFitContext
 }
 
+public enum SummaryTemplate: String, CaseIterable, Sendable {
+    case general, technicalDesign = "technical-design", standUp = "stand-up", interview
+    public var title: String {
+        switch self { case .general: "General"; case .technicalDesign: "Technical design"; case .standUp: "Stand-up"; case .interview: "Interview" }
+    }
+    public var instruction: String {
+        switch self {
+        case .general: ""
+        case .technicalDesign: "Use Markdown sections: decisions, options considered, open questions, and risks. Do not invent owners or deadlines; leave missing owners and deadlines unspecified."
+        case .standUp: "Use Markdown sections per person: done, next, and blocked. Do not invent owners or deadlines; leave missing owners and deadlines unspecified."
+        case .interview: "Use Markdown sections: candidate, topics, strengths, concerns, and follow-ups. Do not invent owners or deadlines; leave missing owners and deadlines unspecified."
+        }
+    }
+}
+
 public struct MeetingTextGenerator: Sendable {
     public init() {}
 
@@ -106,6 +121,7 @@ public struct MeetingTextGenerator: Sendable {
         kind: MeetingTextKind,
         budget rawBudget: MeetingTextBudget,
         notes: String = "",
+        template: SummaryTemplate = .general,
         model: any TextModel,
         progress: @Sendable (MeetingTextProgress) -> Void = { _ in }
     ) async throws -> String {
@@ -122,7 +138,7 @@ public struct MeetingTextGenerator: Sendable {
         for (index, part) in parts.enumerated() {
             try Task.checkCancellation()
             let answer = try await model.clean(CleanupRequest(
-                system: systemPrompt(kind: kind, stage: .part, followsNotes: !notesText.isEmpty),
+                system: systemPrompt(kind: kind, stage: .part, followsNotes: !notesText.isEmpty, template: template),
                 user: notesPrefix + "Part \(index + 1) of \(parts.count):\n\(part.promptText)",
                 maxTokens: budget.outputTokens,
                 disableThinking: true
@@ -143,7 +159,7 @@ public struct MeetingTextGenerator: Sendable {
                     throw MeetingTextGenerationError.mergeDidNotReduceToFitContext
                 }
                 let answer = try await model.clean(CleanupRequest(
-                    system: systemPrompt(kind: kind, stage: .merge, followsNotes: !notesText.isEmpty),
+                    system: systemPrompt(kind: kind, stage: .merge, followsNotes: !notesText.isEmpty, template: template),
                     user: notesPrefix + "Merge these results (group \(index + 1) of \(groups.count)):\n\(group.joined(separator: "\n"))",
                     maxTokens: budget.outputTokens,
                     disableThinking: true
@@ -166,13 +182,14 @@ public struct MeetingTextGenerator: Sendable {
 
     static let followNotesInstruction = "Follow the user's notes: keep their headings and order; fill in details from the transcript."
 
-    private func systemPrompt(kind: MeetingTextKind, stage: Stage, followsNotes: Bool) -> String {
+    private func systemPrompt(kind: MeetingTextKind, stage: Stage, followsNotes: Bool, template: SummaryTemplate) -> String {
         let kindInstruction = kind == .summary
             ? "Write a factual meeting summary. Keep names, decisions, and uncertainty faithful to the transcript."
             : "Extract action items as concise Markdown bullets. Include an owner only when stated."
         let stageInstruction = stage == .part ? "Process only the supplied transcript part." : "Combine the supplied partial results without adding facts."
         let notesInstruction = followsNotes ? " " + Self.followNotesInstruction : ""
-        return "\(kindInstruction) \(stageInstruction)\(notesInstruction)"
+        let templateInstruction = kind == .summary && template != .general ? " " + template.instruction : ""
+        return "\(kindInstruction) \(stageInstruction)\(notesInstruction)\(templateInstruction)"
     }
 
     private func grouped(_ values: [String], maximumCharacters: Int) -> [[String]] {

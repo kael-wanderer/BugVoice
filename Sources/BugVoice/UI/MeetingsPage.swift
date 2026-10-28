@@ -46,6 +46,7 @@ struct MeetingsPage: View {
             ResizeHandle(width: model.listPaneWidth, range: ShellLayout.listPaneRange) { model.listPaneDraggedWidth = $0 }
             if let meeting = model.selectedMeeting {
                 MeetingDetails(model: model, meeting: meeting, player: player, citedLineIDs: $citedLineIDs, citationScrollRequest: citationScrollRequest)
+                    .id(meeting.id)
                     .environment(model)
             } else {
                 EmptyState("No meeting selected", systemImage: "waveform.path", message: "Choose a meeting or start a recording.")
@@ -274,6 +275,7 @@ private struct MeetingDetails: View {
     @State private var generationTask: Task<Void, Never>?
     @State private var generationProgress: MeetingTextProgress?
     @State private var generationError: String?
+    @State private var selectedTemplate: SummaryTemplate?
 
     private var meetingDirectory: URL { model.paths.meetings.appendingPathComponent(meeting.id.rawValue, isDirectory: true) }
     private var audioURL: URL? {
@@ -529,6 +531,11 @@ private struct MeetingDetails: View {
             }
             if let generationError { Text(generationError).bvFont(.body).foregroundStyle(.bvWarning) }
             HStack {
+                if kind == .summary {
+                    Picker("Template", selection: Binding(get: { selectedTemplate ?? meeting.summaryTemplate }, set: { selectedTemplate = $0 })) {
+                        ForEach(SummaryTemplate.allCases, id: \.self) { template in Text(template.title).tag(template) }
+                    }.frame(width: 180)
+                }
                 if generationTask != nil {
                     Button("Cancel") { generationTask?.cancel() }
                 } else {
@@ -553,7 +560,7 @@ private struct MeetingDetails: View {
         generationTask = Task {
             defer { generationTask = nil }
             do {
-                _ = try await model.generateMeetingText(id: meeting.id, kind: kind) { progress in
+                _ = try await model.generateMeetingText(id: meeting.id, kind: kind, template: kind == .summary ? (selectedTemplate ?? meeting.summaryTemplate) : nil) { progress in
                     Task { @MainActor in generationProgress = progress }
                 }
             } catch is CancellationError {

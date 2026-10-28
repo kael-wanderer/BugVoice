@@ -205,6 +205,7 @@ extension AppModel {
     func generateMeetingText(
         id: MeetingID,
         kind: MeetingTextKind,
+        template: SummaryTemplate? = nil,
         progress: @escaping @Sendable (MeetingTextProgress) -> Void
     ) async throws -> String {
         let directory = paths.meetings.appendingPathComponent(id.rawValue)
@@ -215,7 +216,7 @@ extension AppModel {
         else {
             throw CancellationError()
         }
-        let task = Task { try await self.performMeetingText(id: id, kind: kind, progress: progress) }
+        let task = Task { try await self.performMeetingText(id: id, kind: kind, template: template, progress: progress) }
         meetingTextTasks[id] = task
         defer { meetingTextTasks[id] = nil }
         return try await withTaskCancellationHandler {
@@ -239,9 +240,11 @@ extension AppModel {
     private func performMeetingText(
         id: MeetingID,
         kind: MeetingTextKind,
+        template: SummaryTemplate?,
         progress: @escaping @Sendable (MeetingTextProgress) -> Void
     ) async throws -> String {
         let original = try await meetingStore.load(id: id)
+        let selectedTemplate = template ?? original.summaryTemplate
         let names = MeetingSpeakers.names(in: original)
         guard let textModel = await meetingTextModel() else {
             throw MeetingGenerationError.noTextModel
@@ -251,11 +254,12 @@ extension AppModel {
             kind: kind,
             budget: MeetingTextBudget(settings: settings.meetings),
             notes: original.notes,
+            template: selectedTemplate,
             model: textModel,
             progress: progress
         )
         try Task.checkCancellation()
-        if let uploads, try await uploads.saveGeneratedTextToSession(id: id, text: text, kind: kind, names: names) {
+        if let uploads, try await uploads.saveGeneratedTextToSession(id: id, text: text, kind: kind, names: names, template: selectedTemplate) {
             await reloadMeetings()
             if kind == .summary {
                 let suggestionModel = textModel
@@ -263,7 +267,7 @@ extension AppModel {
             }
             return text
         }
-        if let meetings, try await meetings.saveGeneratedTextToSession(id: id, text: text, kind: kind, names: names) {
+        if let meetings, try await meetings.saveGeneratedTextToSession(id: id, text: text, kind: kind, names: names, template: selectedTemplate) {
             await reloadMeetings()
             if kind == .summary {
                 let suggestionModel = textModel
@@ -273,7 +277,7 @@ extension AppModel {
         }
         var current = try await meetingStore.load(id: id)
         try Task.checkCancellation()
-        current.setGeneratedText(text, kind: kind, names: names)
+        current.setGeneratedText(text, kind: kind, names: names, template: selectedTemplate)
         try await meetingStore.save(current)
         await reloadMeetings()
         if kind == .summary {
