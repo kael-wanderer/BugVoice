@@ -44,6 +44,7 @@ checked every finding against the code and shipped a reduced plan:
 
 Tests: **1,354 VoiceCore, 30 MCPKit, 114 BugVoiceMac**, all pass. Signed app
 builds. Owner device checks open:
+- On feat/retry-language, fail Vietnamese dictation with a wrong speech server address; fix it and Retry in Vietnamese, then check the clipboard.
 0. On feat/crash-recovery, dictate with a slow cleanup model, quit from Activity Monitor during Cleaning, and relaunch: Needs attention shows the quit reason; Retry copies the recording.
 1. Start dictating in a password field, click a normal field before the text
    lands: copy only, nothing in history.

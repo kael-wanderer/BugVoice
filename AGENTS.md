@@ -33,6 +33,8 @@ version and build live in `App/Info.plist`. Every commit raises the build by one
 
 ## Key documents
 
+- Retry language spec: `docs/superpowers/specs/2026-10-28-retry-language-design.md` (mockup: `docs/design/proposal-retry-language.html`)
+
 - Crash recovery spec: `docs/superpowers/specs/2026-10-28-crash-recovery-design.md`
 
 - Spec: `docs/superpowers/specs/2026-10-14-dictation-core-and-shell-design.md`

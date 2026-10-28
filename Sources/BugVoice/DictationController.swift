@@ -460,7 +460,7 @@ final class DictationController {
     }
 
     /// Runs a kept failed recording again; the text goes to the clipboard.
-    func retryFailed(_ item: FailedDictation) {
+    func retryFailed(_ item: FailedDictation, language: SpeechLanguage? = nil) {
         model.correctionWatcher.cancel()
         guard model.command?.isActive != true, !isBusy, !recorder.isRunning else { return }
         if let notReady = speechNotReadyState() {
@@ -472,7 +472,7 @@ final class DictationController {
             model.deleteFailedDictation(item.id)
             return
         }
-        process(clip, focus: FocusSnapshot(appName: item.appName, bundleID: item.bundleID), startedAt: Date(), retrying: item, copyOnly: true)
+        process(clip, focus: FocusSnapshot(appName: item.appName, bundleID: item.bundleID), startedAt: Date(), languageChoice: language, retrying: item, copyOnly: true)
     }
 
     func pasteLast() {
