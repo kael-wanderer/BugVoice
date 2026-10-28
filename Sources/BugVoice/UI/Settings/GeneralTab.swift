@@ -9,6 +9,7 @@ struct GeneralTab: View {
 
     var body: some View {
         SettingsScroll {
+            ReadinessCard(model: model)
             SettingsCard {
                 SettingsRow(title: "Hotkey") {
                     Picker("Hotkey", selection: $model.settings.hotkey) {
