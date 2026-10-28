@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BugVoice Readiness Card</title>
+<meta name="description" content="Readiness card at the top of Settings › General: permissions, hotkey, speech model and cleanup model, each with a fix button.">
+<style>
+:root{
+  --bg:#f7f0d2;--panel:#fbf5df;--hover:#efe6c6;--line:#d9cfa8;--text:#2b2a26;--muted:#77705d;--accent:#9a7a2a;--soft:#e9dcae;--on:#fff;--rec:#d8443f;--ok:#3f9a5e;
+  --desk:linear-gradient(160deg,#c9b98a,#8f7f56);
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#2b2f37;--panel:#323741;--hover:#3a404b;--line:#454b57;--text:#eceff4;--muted:#a3abb8;--accent:#88c0d0;--soft:#3d4a5a;--on:#0b0d12;--rec:#e06c66;--ok:#8fc79f;
+  --desk:linear-gradient(160deg,#5a6b8c,#2b3346)}}
+:root[data-theme="dark"]{
+  --bg:#2b2f37;--panel:#323741;--hover:#3a404b;--line:#454b57;--text:#eceff4;--muted:#a3abb8;--accent:#88c0d0;--soft:#3d4a5a;--on:#0b0d12;--rec:#e06c66;--ok:#8fc79f;
+  --desk:linear-gradient(160deg,#5a6b8c,#2b3346)}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font:13px/1.45 -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+.review{max-width:1300px;margin:0 auto;padding:20px 16px 48px}
+header.top{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:flex-end;margin-bottom:12px}
+header.top h1{font-size:22px;margin:0}
+header.top p{margin:4px 0 0;color:var(--muted);max-width:860px}
+.toggle{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:6px 14px}
+h2.sec{font-size:15px;margin:28px 0 6px}
+p.why{margin:0 0 12px;color:var(--muted);max-width:900px}
+.stage{background:var(--desk);border-radius:12px;padding:16px}
+.pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,400px),1fr));gap:16px;align-items:start}
+.label{color:#fff;font-weight:600;margin:0 0 8px;text-shadow:0 1px 2px #0006}
+.notes{color:#fff;font-size:12px;margin:8px 0 0;text-shadow:0 1px 2px #0008}
+.win{background:var(--bg);border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 50px #0006;overflow:hidden}
+.wbar{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.wbar b{font-size:15px}
+.cols{display:flex}
+.side{width:150px;flex:none;border-right:1px solid var(--line);padding:8px}
+.side div{padding:4px 8px;border-radius:6px;color:var(--muted)}
+.side div.on{background:var(--soft);color:var(--text);font-weight:600}
+.body{flex:1;min-width:0;padding:12px;display:flex;flex-direction:column;gap:10px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.card h3{margin:0;font-size:13px}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.row .grow{flex:1;min-width:120px}
+hr{border:0;border-top:1px solid var(--line);margin:0}
+.btn{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:3px 9px;white-space:nowrap}
+.btn.prim{background:var(--accent);color:var(--on);border-color:var(--accent);font-weight:600}
+.btn.danger{color:var(--rec)}
+.pop{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:3px 8px}
+.foot{color:var(--muted);font-size:12px}
+.ok{color:var(--ok)}
+.err{color:var(--rec)}
+.bar{height:6px;border-radius:3px;background:var(--hover);overflow:hidden}
+.bar i{display:block;height:100%;width:34%;background:var(--accent)}
+.path{font:12px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sheet{background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 50px #0006;overflow:hidden;max-width:460px}
+.shead{padding:14px 16px 6px}
+.shead b{font-size:15px}
+.sbody{padding:0 16px 12px;display:flex;flex-direction:column;gap:10px}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:3px 14px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.facts span{color:var(--muted)}
+.callout{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12px}
+.callout.warn{border-color:var(--rec)}
+.sfoot{display:flex;justify-content:flex-end;gap:8px;padding:10px 16px;border-top:1px solid var(--line)}
+code{font-size:12px;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:0 4px}
+.rrow{display:flex;align-items:center;gap:10px;padding:4px 0}
+.dot{width:9px;height:9px;border-radius:50%;flex:none}
+.d-ok{background:var(--ok)}.d-wait{background:var(--muted);opacity:.5}.d-bad{background:#d99a2b}.d-off{background:var(--muted);opacity:.35}
+.rrow .t{flex:1;min-width:0}
+.rrow .t div:last-child{color:var(--muted);font-size:12px}
+</style></head><body><div class="review">
+<header class="top"><div><h1>Readiness card</h1><p>Spec: <code>docs/superpowers/specs/2026-10-28-readiness-card-design.md</code>. First card in Settings › General. Four rows, each with a colored dot, a plain-English state and, when something can be done, one button.</p></div><button class="toggle" id="t">Light / dark</button></header>
+<h2 class="sec">1. Everything ready</h2><p class="why">Green dots, no buttons. The cleanup row says "server reachable": the check lists the server's models. Models › Send test sentence is the full test.</p>
+<div class="stage"><div class="win"><div class="wbar"><b>Settings</b></div><div class="cols"><div class="side"><div class="on">General</div><div>Shortcuts</div><div>Editing</div><div>Speech</div><div>Models</div><div>Storage</div></div><div class="body"><div class="card"><h3>Ready to dictate</h3><div class="rrow"><span class="dot d-ok"></span><div class="t"><div>Permissions</div><div>Microphone, Accessibility and Input Monitoring are on</div></div></div><hr><div class="rrow"><span class="dot d-ok"></span><div class="t"><div>Hotkey</div><div>Hold Right Control to speak</div></div></div><hr><div class="rrow"><span class="dot d-ok"></span><div class="t"><div>Speech model</div><div>large-v3-turbo on this Mac</div></div></div><hr><div class="rrow"><span class="dot d-ok"></span><div class="t"><div>Cleanup model</div><div>Qwen3.6 35B, server reachable</div></div></div></div><div class="card"><div class="row"><div class="grow">Hotkey</div><span class="pop">Right Control ▾</span></div><div class="foot">Hold to talk. Pressing another key cancels.</div></div></div></div></div></div>
+<h2 class="sec">2. Problems and a download in progress</h2><p class="why">Amber for a fix, grey for still loading. The title counts problems only. Open permissions opens the Permissions window; Check again repeats the connection check.</p>
+<div class="stage"><div class="win"><div class="wbar"><b>Settings</b></div><div class="cols"><div class="side"><div class="on">General</div><div>Shortcuts</div><div>Editing</div><div>Speech</div><div>Models</div><div>Storage</div></div><div class="body"><div class="card"><h3>2 items need attention</h3><div class="rrow"><span class="dot d-bad"></span><div class="t"><div>Permissions</div><div>Accessibility is off</div></div><button class="btn">Open permissions</button></div><hr><div class="rrow"><span class="dot d-ok"></span><div class="t"><div>Hotkey</div><div>Hold Right Control to speak</div></div></div><hr><div class="rrow"><span class="dot d-wait"></span><div class="t"><div>Speech model</div><div>Downloading large-v3-turbo, 40%</div></div></div><hr><div class="rrow"><span class="dot d-bad"></span><div class="t"><div>Cleanup model</div><div>Qwen3.6 35B: The key was refused.</div></div><button class="btn">Check again</button></div></div><div class="card"><div class="row"><div class="grow">Hotkey</div><span class="pop">Right Control ▾</span></div><div class="foot">Hold to talk. Pressing another key cancels.</div></div></div></div></div></div>
+<h2 class="sec">3. Speech server and cleanup off</h2><p class="why">With the server engine the speech row shows the address (not checked). Cleanup None is a choice, not a problem: faint dot, counts as ready, button goes to Models.</p>
+<div class="stage"><div class="win"><div class="wbar"><b>Settings</b></div><div class="cols"><div class="side"><div class="on">General</div><div>Shortcuts</div><div>Editing</div><div>Speech</div><div>Models</div><div>Storage</div></div><div class="body"><div class="card"><h3>Ready to dictate</h3><div class="rrow"><span class="dot d-ok"></span><div class="t"><div>Permissions</div><div>Microphone, Accessibility and Input Monitoring are on</div></div></div><hr><div class="rrow"><span class="dot d-ok"></span><div class="t"><div>Hotkey</div><div>Hold Right Control to speak</div></div></div><hr><div class="rrow"><span class="dot d-ok"></span><div class="t"><div>Speech model</div><div>Speech server at http://localhost:9000</div></div></div><hr><div class="rrow"><span class="dot d-off"></span><div class="t"><div>Cleanup model</div><div>Off, raw text is pasted</div></div><button class="btn">Choose a model</button></div></div><div class="card"><div class="row"><div class="grow">Hotkey</div><span class="pop">Right Control ▾</span></div><div class="foot">Hold to talk. Pressing another key cancels.</div></div></div></div></div></div>
+</div>
+<script>
+document.getElementById('t').onclick=()=>{const r=document.documentElement;const dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme: dark)').matches;r.dataset.theme=dark?'light':'dark'};
+</script></body></html>

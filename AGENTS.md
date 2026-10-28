@@ -106,6 +106,8 @@ version and build live in `App/Info.plist`. Every commit raises the build by one
 - App review (Codex, 2026-10-27): `docs/research/2026-10-27-app-review-and-improvement-plan.md`
 - Trust fixes plan (2026-10-27): `docs/superpowers/plans/2026-10-27-trust-fixes.md`
 - Failed dictations spec: `docs/superpowers/specs/2026-10-27-failed-dictations-design.md` (mockup: `docs/design/proposal-failed-dictations.html`)
+- Readiness card spec: `docs/superpowers/specs/2026-10-28-readiness-card-design.md` (mockup: `docs/design/proposal-readiness.html`)
+- Readiness card plan: `docs/superpowers/plans/2026-10-28-readiness-card.md`
 
 ## Rules
 
