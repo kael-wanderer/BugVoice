@@ -37,6 +37,7 @@ version and build live in `App/Info.plist`. Every commit raises the build by one
 
 - Crash recovery spec: `docs/superpowers/specs/2026-10-28-crash-recovery-design.md`
 - Summary templates spec: `docs/superpowers/specs/2026-10-28-summary-templates-design.md` (mockup: `docs/design/proposal-summary-templates.html`)
+- Transcript editing spec: `docs/superpowers/specs/2026-10-28-transcript-edit-design.md` (mockup: `docs/design/proposal-transcript-edit.html`)
 
 - Spec: `docs/superpowers/specs/2026-10-14-dictation-core-and-shell-design.md`
 - Plan: `docs/superpowers/plans/2026-10-14-dictation-core-and-shell.md`

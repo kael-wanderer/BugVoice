@@ -96,9 +96,7 @@ extension AppModel {
         }
         if let meetings, try await meetings.updateSpeakersInSession(id: id, change: recording) { return try captured.value() }
         if let uploads, try await uploads.updateSpeakersInSession(id: id, change: recording) { return try captured.value() }
-        let store = MeetingStore(root: paths.meetings)
-        let current = try await store.load(id: id)
-        try await store.save(recording(current))
+        _ = try await meetingStore.update(id: id, change: recording)
         return try captured.value()
     }
 

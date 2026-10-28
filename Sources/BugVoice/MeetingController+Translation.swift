@@ -49,7 +49,7 @@ extension MeetingController {
                     self.translationRetryAt = Date().addingTimeInterval(MeetingTranslation.retryDelay)
                     return
                 }
-                try await session.setTranslations(english)
+                try await session.setTranslations(english, expected: Dictionary(lines.map { ($0.id, $0.displayText) }, uniquingKeysWith: { first, _ in first }))
                 self.translationRetryAt = nil
                 if let saved = await session.snapshot() { self.showTranslations(from: saved) }
                 if !self.isActive { await self.model.reloadMeetings() }

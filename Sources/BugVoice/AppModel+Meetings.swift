@@ -55,6 +55,30 @@ extension AppModel {
         }
     }
 
+    func editMeetingSegment(meeting id: MeetingID, segment: String, text: String?) async {
+        do {
+            let date = Date()
+            let change: @Sendable (MeetingManifest) throws -> MeetingManifest = { current in
+                var updated = current
+                if let text { try updated.editSegment(id: segment, text: text, at: date) }
+                else { try updated.revertSegment(id: segment) }
+                return updated
+            }
+            if let meetings, try await meetings.updateSpeakersInSession(id: id, change: change) {
+                // The live session owns the manifest.
+            } else if let uploads, try await uploads.updateSpeakersInSession(id: id, change: change) {
+                // The upload session owns the manifest.
+            } else {
+                try await meetingStore.editSegment(meeting: id, segment: segment, text: text, at: date)
+            }
+            await reloadMeetings()
+            searchIndexer.schedule(.meeting(id))
+            if meetingManifests.first(where: { $0.id == id })?.showEnglish == true {
+                _ = await translateCitation(meetingID: id, lineIDs: [segment])
+            }
+        } catch { saveError = "Could not edit transcript: \(error.localizedDescription)" }
+    }
+
     func renameMeeting(id: MeetingID, title: String) async {
         let cleaned = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleaned.isEmpty else { return }
@@ -243,6 +267,7 @@ extension AppModel {
         template: SummaryTemplate?,
         progress: @escaping @Sendable (MeetingTextProgress) -> Void
     ) async throws -> String {
+        let generatedAt = Date()
         let original = try await meetingStore.load(id: id)
         let selectedTemplate = template ?? original.summaryTemplate
         let names = MeetingSpeakers.names(in: original)
@@ -259,7 +284,7 @@ extension AppModel {
             progress: progress
         )
         try Task.checkCancellation()
-        if let uploads, try await uploads.saveGeneratedTextToSession(id: id, text: text, kind: kind, names: names, template: selectedTemplate) {
+        if let uploads, try await uploads.saveGeneratedTextToSession(id: id, text: text, kind: kind, names: names, template: selectedTemplate, generatedAt: generatedAt) {
             await reloadMeetings()
             if kind == .summary {
                 let suggestionModel = textModel
@@ -267,7 +292,7 @@ extension AppModel {
             }
             return text
         }
-        if let meetings, try await meetings.saveGeneratedTextToSession(id: id, text: text, kind: kind, names: names, template: selectedTemplate) {
+        if let meetings, try await meetings.saveGeneratedTextToSession(id: id, text: text, kind: kind, names: names, template: selectedTemplate, generatedAt: generatedAt) {
             await reloadMeetings()
             if kind == .summary {
                 let suggestionModel = textModel
@@ -275,10 +300,8 @@ extension AppModel {
             }
             return text
         }
-        var current = try await meetingStore.load(id: id)
         try Task.checkCancellation()
-        current.setGeneratedText(text, kind: kind, names: names, template: selectedTemplate)
-        try await meetingStore.save(current)
+        try await meetingStore.saveGeneratedText(meeting: id, text: text, kind: kind, names: names, template: selectedTemplate, generatedAt: generatedAt)
         await reloadMeetings()
         if kind == .summary {
             let suggestionModel = textModel

@@ -232,7 +232,7 @@ private struct MeetingListRow: View {
                         }
                     }
                 }
-                if let line = meeting.segments.last?.text, !line.isEmpty {
+                if let line = meeting.segments.last?.displayText, !line.isEmpty {
                     Text(line).bvFont(.footnote).foregroundStyle(.bvSecondary).lineLimit(2)
                 }
             }
@@ -276,6 +276,8 @@ private struct MeetingDetails: View {
     @State private var generationProgress: MeetingTextProgress?
     @State private var generationError: String?
     @State private var selectedTemplate: SummaryTemplate?
+    @State private var editingSegmentID: String?
+    @State private var editingText = ""
 
     private var meetingDirectory: URL { model.paths.meetings.appendingPathComponent(meeting.id.rawValue, isDirectory: true) }
     private var audioURL: URL? {
@@ -449,18 +451,44 @@ private struct MeetingDetails: View {
                                 .frame(width: store.scaled(50), alignment: .leading)
                         }
                         MeetingSpeakerLineMenu(meeting: meeting, segment: segment)
-                        Button { player.seek(to: MeetingTimeline.seekTime(for: segment)) } label: {
-                            VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
-                                Text(segment.text).bvFont(.reading).frame(maxWidth: store.readingWidth, alignment: .leading)
-                                if meeting.showEnglish, let english = segment.translation, !english.isEmpty {
-                                    Text(english).bvFont(.body).foregroundStyle(.bvSecondary)
+                        VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
+                            if editingSegmentID == segment.id {
+                                TextField("Transcript", text: $editingText)
+                                    .onSubmit {
+                                        guard !editingText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+                                        let value = editingText
+                                        editingSegmentID = nil
+                                        Task { await model.editMeetingSegment(meeting: meeting.id, segment: segment.id, text: value) }
+                                    }
+                                    .onExitCommand { editingSegmentID = nil }
+                            } else {
+                                Button { player.seek(to: MeetingTimeline.seekTime(for: segment)) } label: {
+                                    Text(segment.displayText).bvFont(.reading).frame(maxWidth: store.readingWidth, alignment: .leading)
                                 }
+                                if segment.editedText != nil { Text("Edited").bvFont(.caption).foregroundStyle(.bvSecondary) }
                             }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .contentShape(Rectangle())
+                            if meeting.showEnglish, let english = segment.translation, !english.isEmpty {
+                                Text(english).bvFont(.body).foregroundStyle(.bvSecondary)
+                            }
+                        }.frame(maxWidth: .infinity, alignment: .leading)
+                        if meeting.state == .ready {
+                            Menu {
+                                Button("Edit") { editingText = segment.displayText; editingSegmentID = segment.id }
+                                if segment.editedText != nil {
+                                    Button("Revert to original") { Task { await model.editMeetingSegment(meeting: meeting.id, segment: segment.id, text: nil) } }
+                                }
+                            } label: { Image(systemName: "ellipsis") }
                         }
                     }
                     .buttonStyle(.plain)
+                    .contextMenu {
+                        if meeting.state == .ready {
+                            Button("Edit") { editingText = segment.displayText; editingSegmentID = segment.id }
+                            if segment.editedText != nil {
+                                Button("Revert to original") { Task { await model.editMeetingSegment(meeting: meeting.id, segment: segment.id, text: nil) } }
+                            }
+                        }
+                    }
                     .padding(.horizontal, LayoutTokens.spacing[1]).padding(.vertical, LayoutTokens.spacing[0])
                     .background(citedLineIDs.contains(segment.id) ? store.theme.accent.opacity(0.24) : active ? store.theme.accent.opacity(0.16) : .clear, in: RoundedRectangle(cornerRadius: LayoutTokens.controlRadius))
                     .id(segment.id)
@@ -498,6 +526,11 @@ private struct MeetingDetails: View {
 
     private func generatedText(_ value: String?, kind: MeetingTextKind, emptyMessage: String) -> some View {
         VStack(alignment: .leading, spacing: LayoutTokens.spacing[2]) {
+            if kind == .summary, value != nil,
+               let latest = meeting.segments.compactMap(\.editedAt).max(),
+               meeting.summaryGeneratedAt == nil || latest >= meeting.summaryGeneratedAt! {
+                Text("Transcript edited after this summary").bvFont(.footnote).foregroundStyle(.bvWarning)
+            }
             if let value, !value.isEmpty {
                 if kind == .actionItems {
                     let parsed = ActionItemParser.parse(value, meetingID: meeting.id)

@@ -47,6 +47,7 @@ builds. Owner device checks open:
 - On feat/retry-language, fail Vietnamese dictation with a wrong speech server address; fix it and Retry in Vietnamese, then check the clipboard.
 0. On feat/crash-recovery, dictate with a slow cleanup model, quit from Activity Monitor during Cleaning, and relaunch: Needs attention shows the quit reason; Retry copies the recording.
 - On feat/summary-templates, regenerate a real meeting with each template; verify transcript fidelity and no invented owners or dates.
+- On feat/transcript-edit, correct a name in a finished meeting, verify export and Ask use the correction, then revert and verify the original returns.
 1. Start dictating in a password field, click a normal field before the text
    lands: copy only, nothing in history.
 2. Start in Notion, switch to Slack before the text lands: "Copied — press ⌘V",

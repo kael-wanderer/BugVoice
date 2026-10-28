@@ -54,7 +54,7 @@ struct CitationPanel: View {
                                     Text(AskAnswerView.clock(line.start)).bvCode(.footnote).monospacedDigit().foregroundStyle(.bvSecondary)
                                     Text(line.speaker).bvFont(.body)
                                 }
-                                Text(line.text).textSelection(.enabled)
+                                Text(line.displayText).textSelection(.enabled)
                                 if let english = line.translation {
                                     if !english.isEmpty { Text(english).bvFont(.body).foregroundStyle(.bvSecondary).textSelection(.enabled) }
                                 } else if translating {

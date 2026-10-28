@@ -176,6 +176,9 @@ public struct MeetingSegment: Codable, Equatable, Sendable, Identifiable {
     public var start: TimeInterval
     public var end: TimeInterval
     public var text: String
+    public var editedText: String?
+    public var editedAt: Date?
+    public var displayText: String { editedText ?? text }
     public var track: MeetingTrack
     public var sourceChunkID: String?
     /// English for a non-English line: nil until translated, empty when the line needs none.
@@ -208,6 +211,8 @@ public struct MeetingSegment: Codable, Equatable, Sendable, Identifiable {
         self.start = start
         self.end = end
         self.text = text
+        self.editedText = nil
+        self.editedAt = nil
         self.track = track
         self.sourceChunkID = sourceChunkID
         self.speakerID = speakerID
@@ -331,6 +336,7 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
     public var summaryTemplateID: String?
     public var summaryTemplateVersion: Int?
     public var summaryTemplate: SummaryTemplate { summaryTemplateID.flatMap(SummaryTemplate.init(rawValue:)) ?? .general }
+    public var summaryGeneratedAt: Date?
     public var actionItems: String?
     public var source: MeetingSource
     public var sourceFileName: String?
@@ -415,6 +421,7 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
         self.summary = summary
         self.summaryTemplateID = nil
         self.summaryTemplateVersion = nil
+        self.summaryGeneratedAt = nil
         self.actionItems = actionItems
         self.source = source
         self.sourceFileName = sourceFileName
@@ -440,7 +447,7 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
     private enum CodingKeys: String, CodingKey {
         case schemaVersion, id, title, startedAt, endedAt, duration, state
         case audioFormat, chunks, marks, segments, transcriptProgress
-        case transcriptionError, summary, summaryTemplateID, summaryTemplateVersion, actionItems, source, sourceFileName, importedAt, folderID, tags, suggestedTags, languages
+        case transcriptionError, summary, summaryTemplateID, summaryTemplateVersion, summaryGeneratedAt, actionItems, source, sourceFileName, importedAt, folderID, tags, suggestedTags, languages
         case speakers, speakerSplit, speakerNamesAtSummary, declinedVoices
         case notes, liveSummary, liveSummaryUpdatedAt, liveSummaryCutoff, detectedApp, showEnglish
         case uploadJobID, addedBy
@@ -464,6 +471,7 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
         summary = try c.decodeIfPresent(String.self, forKey: .summary)
         summaryTemplateID = try c.decodeIfPresent(String.self, forKey: .summaryTemplateID)
         summaryTemplateVersion = try c.decodeIfPresent(Int.self, forKey: .summaryTemplateVersion)
+        summaryGeneratedAt = try c.decodeIfPresent(Date.self, forKey: .summaryGeneratedAt)
         actionItems = try c.decodeIfPresent(String.self, forKey: .actionItems)
         source = try c.decodeIfPresent(MeetingSource.self, forKey: .source) ?? .recording
         sourceFileName = try c.decodeIfPresent(String.self, forKey: .sourceFileName)
@@ -487,11 +495,12 @@ public struct MeetingManifest: Codable, Equatable, Sendable, Identifiable {
     }
 
     /// `names` are the speaker names the text was generated with; nil means the current ones.
-    public mutating func setGeneratedText(_ text: String, kind: MeetingTextKind, names: [String: String]? = nil, template: SummaryTemplate = .general) {
+    public mutating func setGeneratedText(_ text: String, kind: MeetingTextKind, names: [String: String]? = nil, template: SummaryTemplate = .general, generatedAt: Date = Date()) {
         if kind == .summary {
             summary = text
             summaryTemplateID = template.rawValue
             summaryTemplateVersion = 1
+            summaryGeneratedAt = generatedAt
             speakerNamesAtSummary = names ?? MeetingSpeakers.names(in: self)
         } else { actionItems = text }
     }
@@ -549,9 +558,29 @@ public enum MeetingListProjection {
         return meeting.title.localizedCaseInsensitiveContains(needle)
             || meeting.segments.contains {
                 $0.speaker.localizedCaseInsensitiveContains(needle)
-                    || $0.text.localizedCaseInsensitiveContains(needle)
+                    || $0.displayText.localizedCaseInsensitiveContains(needle)
                     || ($0.translation?.localizedCaseInsensitiveContains(needle) ?? false)
             }
+    }
+}
+
+public enum TranscriptEditError: Error { case invalidState, missingSegment, emptyText }
+
+public extension MeetingManifest {
+    mutating func editSegment(id: String, text: String, at date: Date) throws {
+        guard state == .ready else { throw TranscriptEditError.invalidState }
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw TranscriptEditError.emptyText }
+        guard let index = segments.firstIndex(where: { $0.id == id }) else { throw TranscriptEditError.missingSegment }
+        segments[index].editedText = text
+        segments[index].editedAt = date
+        segments[index].translation = nil
+    }
+    mutating func revertSegment(id: String) throws {
+        guard state == .ready else { throw TranscriptEditError.invalidState }
+        guard let index = segments.firstIndex(where: { $0.id == id }) else { throw TranscriptEditError.missingSegment }
+        segments[index].editedText = nil
+        segments[index].editedAt = nil
+        segments[index].translation = nil
     }
 }
 
@@ -565,7 +594,8 @@ public actor MeetingStore {
 
     public func save(_ meeting: MeetingManifest) throws {
         let directory = root.appendingPathComponent(meeting.id.rawValue, isDirectory: true)
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: directory.path)
 
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
@@ -574,7 +604,7 @@ public actor MeetingStore {
         let destination = directory.appendingPathComponent("meeting.json")
         let temporary = directory.appendingPathComponent(".meeting.json.\(UUID().uuidString).tmp")
         do {
-            try data.write(to: temporary, options: [])
+            guard FileManager.default.createFile(atPath: temporary.path, contents: data, attributes: [.posixPermissions: 0o600]) else { throw CocoaError(.fileWriteUnknown) }
             let handle = try FileHandle(forWritingTo: temporary)
             try handle.synchronize()
             try handle.close()
@@ -587,6 +617,25 @@ public actor MeetingStore {
             try? FileManager.default.removeItem(at: temporary)
             throw error
         }
+    }
+
+    public func update(id: MeetingID, change: @Sendable (MeetingManifest) throws -> MeetingManifest) throws -> MeetingManifest {
+        let value = try change(load(id: id))
+        try save(value)
+        return value
+    }
+
+    public func editSegment(meeting id: MeetingID, segment: String, text: String?, at: Date) throws {
+        var value = try load(id: id)
+        if let text { try value.editSegment(id: segment, text: text, at: at) }
+        else { try value.revertSegment(id: segment) }
+        try save(value)
+    }
+
+    public func saveGeneratedText(meeting id: MeetingID, text: String, kind: MeetingTextKind, names: [String: String]?, template: SummaryTemplate = .general, generatedAt: Date = Date()) throws {
+        var value = try load(id: id)
+        value.setGeneratedText(text, kind: kind, names: names, template: template, generatedAt: generatedAt)
+        try save(value)
     }
 
     public func load(id: MeetingID) throws -> MeetingManifest {

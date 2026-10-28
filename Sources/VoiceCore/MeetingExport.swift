@@ -3,7 +3,7 @@ import Foundation
 public enum MeetingExporter {
     public static func srt(_ meeting: MeetingManifest) -> String {
         ordered(meeting.segments).enumerated().map { index, segment in
-            "\(index + 1)\n\(srtTime(segment.start)) --> \(srtTime(segment.end))\n\(segment.speaker): \(flattenNewlines(segment.text))"
+            "\(index + 1)\n\(srtTime(segment.start)) --> \(srtTime(segment.end))\n\(segment.speaker): \(flattenNewlines(segment.displayText))"
         }.joined(separator: "\n\n")
     }
 
@@ -21,7 +21,7 @@ public enum MeetingExporter {
         }
         lines.append("## Transcript")
         for segment in ordered(meeting.segments) {
-            lines.append("\(displayTime(segment.start)) | \(segment.speaker) | \(flattenNewlines(segment.text))")
+            lines.append("\(displayTime(segment.start)) | \(segment.speaker) | \(flattenNewlines(segment.displayText))")
             if let english = segment.translation, !english.isEmpty {
                 lines.append("  English: \(flattenNewlines(english))")
             }
@@ -32,7 +32,7 @@ public enum MeetingExporter {
     /// One line per segment, `m:ss Speaker: text`, for Send to Scratchpad.
     public static func transcriptText(_ meeting: MeetingManifest) -> String {
         ordered(meeting.segments).map {
-            "\(displayTime($0.start)) \($0.speaker): \(flattenNewlines($0.text))"
+            "\(displayTime($0.start)) \($0.speaker): \(flattenNewlines($0.displayText))"
         }.joined(separator: "\n")
     }
 

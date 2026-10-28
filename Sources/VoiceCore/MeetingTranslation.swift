@@ -25,14 +25,14 @@ public enum MeetingTranslation {
     public static func pending(in meeting: MeetingManifest) -> [MeetingSegment] {
         guard meeting.showEnglish, isOffered(meeting.languages) else { return [] }
         let lines = meeting.segments.filter {
-            $0.translation == nil && !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            $0.translation == nil && !$0.displayText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
         return Array(lines.sorted { $0.start < $1.start }.prefix(batchSize))
     }
 
     public static func request(lines: [MeetingSegment], budget: MeetingTextBudget) -> CleanupRequest {
         let user = lines.enumerated().map { index, segment in
-            "\(index + 1). " + segment.text.split(whereSeparator: \.isNewline).joined(separator: " ")
+            "\(index + 1). " + segment.displayText.split(whereSeparator: \.isNewline).joined(separator: " ")
         }.joined(separator: "\n")
         // Thinking off: a reasoning model takes about five times as long and adds nothing here.
         return CleanupRequest(system: systemPrompt, user: user, maxTokens: min(2_048, budget.outputTokens), disableThinking: true)
@@ -53,7 +53,7 @@ public enum MeetingTranslation {
             let english = rest.dropFirst().trimmingCharacters(in: .whitespaces)
             let segment = lines[number - 1]
             guard !english.isEmpty else { continue }
-            result[segment.id] = comparable(english) == comparable(segment.text) ? "" : english
+            result[segment.id] = comparable(english) == comparable(segment.displayText) ? "" : english
         }
         return result
     }
@@ -62,10 +62,10 @@ public enum MeetingTranslation {
     /// track that start within 1 second of them.
     public static func carryOver(from live: [MeetingSegment], to final: [MeetingSegment]) -> [MeetingSegment] {
         final.map { segment in
-            let text = segment.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            let text = segment.displayText.trimmingCharacters(in: .whitespacesAndNewlines)
             guard let match = live.first(where: {
                       $0.track == segment.track && abs($0.start - segment.start) <= 1
-                          && $0.text.trimmingCharacters(in: .whitespacesAndNewlines) == text
+                          && $0.displayText.trimmingCharacters(in: .whitespacesAndNewlines) == text
                   }) else { return segment }
             var carried = segment
             if carried.translation == nil { carried.translation = match.translation }

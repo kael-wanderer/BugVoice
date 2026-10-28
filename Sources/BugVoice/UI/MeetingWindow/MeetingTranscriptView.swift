@@ -41,7 +41,7 @@ struct MeetingTranscriptView: View {
         let needle = query.trimmingCharacters(in: .whitespaces)
         let lines = segments
             .filter {
-                needle.isEmpty || $0.speaker.localizedCaseInsensitiveContains(needle) || $0.text.localizedCaseInsensitiveContains(needle)
+                needle.isEmpty || $0.speaker.localizedCaseInsensitiveContains(needle) || $0.displayText.localizedCaseInsensitiveContains(needle)
                     || (showEnglish && ($0.translation?.localizedCaseInsensitiveContains(needle) ?? false))
             }
             .map(Row.line)
@@ -127,7 +127,7 @@ struct MeetingTranscriptView: View {
                     .foregroundStyle(speakerColor(segment))
                     .frame(width: store.scaled(62), alignment: .leading)
                 VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
-                    Text(segment.text)
+                    Text(segment.displayText)
                     if let english = english(segment) {
                         Text(english).bvFont(.footnote).foregroundStyle(.bvSecondary)
                     }

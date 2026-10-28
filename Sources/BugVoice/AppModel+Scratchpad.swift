@@ -329,7 +329,7 @@ extension AppModel {
             var pending: [MeetingSegment] = []
             for line in lines {
                 let recognizer = NLLanguageRecognizer()
-                recognizer.processString(line.text)
+                recognizer.processString(line.displayText)
                 if recognizer.dominantLanguage == .english { translations[line.id] = "" }
                 else { pending.append(line) }
             }
@@ -344,12 +344,12 @@ extension AppModel {
             }
             try Task.checkCancellation()
             let english = translations
-            let original = Dictionary(lines.map { ($0.id, $0.text) }, uniquingKeysWith: { first, _ in first })
+            let original = Dictionary(lines.map { ($0.id, $0.displayText) }, uniquingKeysWith: { first, _ in first })
             let change = try await updateMeetingSpeakers(id: meetingID) { current in
                 var updated = current
                 for index in updated.segments.indices {
                     let line = updated.segments[index]
-                    if line.translation == nil, original[line.id] == line.text, let text = english[line.id] {
+                    if line.translation == nil, original[line.id] == line.displayText, let text = english[line.id] {
                         updated.segments[index].translation = text
                     }
                 }

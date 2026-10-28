@@ -120,10 +120,10 @@ public actor MeetingSession {
     }
 
     /// English for transcript lines by segment id; ids no longer in the transcript are ignored.
-    public func setTranslations(_ translations: [String: String]) async throws {
+    public func setTranslations(_ translations: [String: String], expected: [String: String] = [:]) async throws {
         guard var meeting = manifest, Self.acceptsNotes(meeting.state) else { throw MeetingSessionError.invalidState }
         for index in meeting.segments.indices {
-            if let english = translations[meeting.segments[index].id] { meeting.segments[index].translation = english }
+            if let english = translations[meeting.segments[index].id], expected.isEmpty || expected[meeting.segments[index].id] == meeting.segments[index].displayText { meeting.segments[index].translation = english }
         }
         manifest = meeting
         try await store.save(meeting)
@@ -157,9 +157,9 @@ public actor MeetingSession {
         }
     }
 
-    public func saveGeneratedText(_ text: String, kind: MeetingTextKind, names: [String: String]? = nil, template: SummaryTemplate = .general) async throws {
+    public func saveGeneratedText(_ text: String, kind: MeetingTextKind, names: [String: String]? = nil, template: SummaryTemplate = .general, generatedAt: Date = Date()) async throws {
         guard var meeting = manifest else { throw MeetingSessionError.invalidState }
-        meeting.setGeneratedText(text, kind: kind, names: names, template: template)
+        meeting.setGeneratedText(text, kind: kind, names: names, template: template, generatedAt: generatedAt)
         manifest = meeting
         try await store.save(meeting)
     }

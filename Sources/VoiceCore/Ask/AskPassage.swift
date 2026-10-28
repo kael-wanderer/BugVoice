@@ -133,7 +133,7 @@ public enum AskPassageBuilder {
             let lines = sorted[begin..<end].map {
                 AskLine(
                     id: $0.id, start: $0.start, end: $0.end, speaker: $0.speaker,
-                    text: $0.text, translation: $0.translation)
+                    text: $0.displayText, translation: $0.translation)
             }
             out.append(AskPassage(source: source, part: .transcript, index: out.count, date: date, lines: lines))
             if end >= sorted.count { break }

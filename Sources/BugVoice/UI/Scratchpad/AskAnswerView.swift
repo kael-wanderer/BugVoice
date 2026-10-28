@@ -132,7 +132,10 @@ struct AskAnswerView: View {
                     } else if case .meeting = card.source {
                         Text(partTitle(citation.part)).bvFont(.footnote).foregroundStyle(.bvSecondary)
                     }
-                    Text(citation.lines.first.map { line in (line.speaker.map { "\($0): " } ?? "") + "\"\(line.text)\"" } ?? "")
+                    Text(citation.lines.first.map { line in
+                        let current = { if case .meeting(let id) = card.source { return model.meetingManifests.first { $0.id == id }?.segments.first { $0.id == line.id }?.displayText }; return nil }()
+                        return (line.speaker.map { "\($0): " } ?? "") + "\"\(current ?? line.text)\""
+                    } ?? "")
                         .lineLimit(2).textSelection(.enabled)
                 }
             }
