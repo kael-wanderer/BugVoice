@@ -98,11 +98,11 @@ struct HUDView: View {
         case .transcribing(let language):
             ProgressView().controlSize(.small).tint(store.theme.text)
             Text("Transcribing").fontWeight(.semibold)
-            Text(language).foregroundStyle(.bvSecondary)
+            Text("\(language) · Esc to cancel").foregroundStyle(.bvSecondary)
         case .cleaning(let modelName, let app):
             ProgressView().controlSize(.small).tint(store.theme.text)
             Text(modelName.map { "Cleaning (\($0))" } ?? "Cleaning").fontWeight(.semibold)
-            if let app { Text(app).foregroundStyle(.bvSecondary) }
+            Text(app.map { "\($0) · Esc to cancel" } ?? "Esc to cancel").foregroundStyle(.bvSecondary)
         case .done(let style, let words, let seconds):
             Image(systemName: "checkmark").foregroundStyle(.bvSuccess)
             Text("Done (\(style))").fontWeight(.semibold)

@@ -40,6 +40,13 @@ final class DictationController {
     /// The run whose stage updates may still reach the HUD; nil once its
     /// final state is shown.
     private var stagedRun: Int?
+    /// The pipeline task of the current run; Esc cancels it while its
+    /// stages show.
+    private var processingTask: Task<Void, Never>?
+    /// What the Cancelled message says about the current run.
+    private var cancelDetail = "nothing was pasted"
+    /// The run cancelled with Esc; its result changes the HUD no further.
+    private var cancelledRun: Int?
     private(set) var isBusy = false
     var isRecording: Bool { recorder.isRunning }
     var recordingLevel: Float { recorder.level }
@@ -344,7 +351,12 @@ final class DictationController {
         let pipeline = model.makePipeline(insertion: insertion, feature: feature)
         let language = LanguageResolver(settings: model.settings.speech).language(for: focus, keyChoice: languageChoice).displayName
         let modelName = model.plan(for: feature).shortName
-        Task { [self] in
+        // last.wav holds this clip unless it went to a note, came from a
+        // secure field or is a kept recording being retried.
+        cancelDetail = intoNotes ? "nothing was added"
+            : focus.isSecure || copyOnly ? "nothing was pasted"
+            : "nothing was pasted · Retry last runs it again"
+        processingTask = Task { [self] in
             let result = await pipeline.run(
                 clip: clip,
                 startFocus: focus,
@@ -372,7 +384,7 @@ final class DictationController {
             if let notesCapture { model.notesController.releaseCapture(notesCapture) }
             if intoNotes || result.outcome != .inserted { clearReplacementRecord() }
             if result.outcome == .cancelled {
-                hud.hide()
+                if cancelledRun != run { hud.hide() }
             } else {
                 if copyOnly, [.copiedNotConsumed, .copiedFocusChanged].contains(result.outcome) {
                     hud.show(.message(title: "Copied — press ⌘V", detail: "text from the retried recording"))
@@ -398,9 +410,20 @@ final class DictationController {
                 // last.wav holds this clip too, unless a newer run replaced it.
                 if runCounter == run { lastRecordingFailedID = result.id }
             }
+            if cancelledRun == run { cancelledRun = nil }
+            processingTask = nil
             isBusy = false
             languageCycler = nil
         }
+    }
+
+    /// Esc while Transcribing or Cleaning: the run stops, nothing is pasted
+    /// and nothing is kept in history.
+    private func cancelProcessing(run: Int) {
+        cancelledRun = run
+        stagedRun = nil
+        processingTask?.cancel()
+        hud.show(.message(title: "Cancelled", detail: cancelDetail))
     }
 
     private func showStage(_ stage: PipelineStage, run: Int, language: String, modelName: String?, app: String?) {
@@ -408,7 +431,7 @@ final class DictationController {
         switch stage {
         case .transcribing: hud.show(.transcribing(language: language))
         case .cleaning: hud.show(.cleaning(model: modelName, app: app))
-        case .inserting: break
+        case .inserting: stagedRun = nil  // too late for Esc to stop the paste
         }
     }
 
@@ -510,7 +533,8 @@ final class DictationController {
         runCounter += 1
         let run = runCounter
         stagedRun = run
-        Task { [self] in
+        cancelDetail = "nothing was replaced"
+        processingTask = Task { [self] in
             let result = await pipeline.run(
                 clip: clip,
                 startFocus: focus,
@@ -522,7 +546,9 @@ final class DictationController {
                 }
             }
             stagedRun = nil
-            if result.outcome == .inserted {
+            if result.outcome == .cancelled {
+                if cancelledRun != run { hud.hide() }
+            } else if result.outcome == .inserted {
                 model.redoChain = advanced
                 await model.replaceLast(result, kind: .otherLanguage)
                 rememberReplacement(text: result.finalText)
@@ -539,6 +565,8 @@ final class DictationController {
             } else {
                 showNothingToFix()
             }
+            if cancelledRun == run { cancelledRun = nil }
+            processingTask = nil
             isBusy = false
         }
     }
@@ -620,6 +648,10 @@ final class DictationController {
     }
 
     private func keyDownObserved(keyCode: Int64, flags: UInt64, userData: Int64) {
+        if keyCode == 53, userData != FixLast.syntheticEventMarker, let run = stagedRun {
+            cancelProcessing(run: run)
+            return
+        }
         let keyCodes = Set([
             ShortcutAction.pasteLast, .pasteRaw, .redoOtherLanguage,
         ].compactMap { ShortcutKeys.keyCode(forLetter: model.settings.shortcuts.letter(for: $0)) }.map(Int64.init))
