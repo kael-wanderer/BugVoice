@@ -47,6 +47,7 @@ struct LabelsBox: View {
                             .bvFont(.footnote).foregroundStyle(.bvSecondary)
                         Button(action: onDismissSuggestions) { Image(systemName: "xmark") }
                             .buttonStyle(.plain)
+                            .accessibilityLabel("Dismiss suggestions")
                             .foregroundStyle(.bvSecondary)
                             .help("Dismiss suggestions")
                             .accessibilityLabel("Dismiss suggestions")

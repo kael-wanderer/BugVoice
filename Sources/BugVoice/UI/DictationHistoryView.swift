@@ -110,8 +110,9 @@ struct DictationHistoryView: View {
                     }
                 } label: { Image(systemName: "chevron.down") }
                 .help("Choose a retry language")
+                .accessibilityLabel("Choose a retry language")
                 Button { model.deleteFailedDictation(item.id) } label: { Image(systemName: "trash") }
-                    .buttonStyle(.borderless).help("Delete the recording")
+                    .buttonStyle(.borderless).help("Delete the recording").accessibilityLabel("Delete the recording")
             }
             .disabled(model.retryingFailedID != nil)
         }
@@ -154,7 +155,7 @@ struct DictationHistoryView: View {
             }
             .frame(maxWidth: store.readingWidth, alignment: .leading).frame(maxWidth: .infinity, alignment: .leading)
             HStack(spacing: LayoutTokens.spacing[1]) {
-                Button { model.dictation?.copy(e.text) } label: { Image(systemName: "doc.on.doc") }.help("Copy")
+                Button { model.dictation?.copy(e.text) } label: { Image(systemName: "doc.on.doc") }.help("Copy").accessibilityLabel("Copy")
                 if !issues.isEmpty {
                     Button {
                         if e.rawReason == .detailChanged {
@@ -164,9 +165,10 @@ struct DictationHistoryView: View {
                         }
                     } label: { Image(systemName: "arrow.left.arrow.right") }
                     .help(e.rawReason == .detailChanged ? "Paste the cleaned version" : "Paste the raw version")
+                    .accessibilityLabel(e.rawReason == .detailChanged ? "Paste the cleaned version" : "Paste the raw version")
                 }
-                Button { model.dictation?.pasteAgain(e.text) } label: { Image(systemName: "arrow.uturn.right") }.help("Paste again")
-                Button { Task { await model.deleteHistory(id: e.id) } } label: { Image(systemName: "trash") }.help("Delete")
+                Button { model.dictation?.pasteAgain(e.text) } label: { Image(systemName: "arrow.uturn.right") }.help("Paste again").accessibilityLabel("Paste again")
+                Button { Task { await model.deleteHistory(id: e.id) } } label: { Image(systemName: "trash") }.help("Delete").accessibilityLabel("Delete")
             }
             .buttonStyle(.borderless)
         }

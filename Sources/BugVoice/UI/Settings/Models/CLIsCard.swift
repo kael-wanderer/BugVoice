@@ -23,7 +23,7 @@ struct CLIsCard: View {
                             .bvCode(.footnote).foregroundStyle(.bvSecondary).lineLimit(1).truncationMode(.middle).help(info.path)
                         Text("Found · \(Self.isolation(tool))").bvFont(.footnote).foregroundStyle(.bvSecondary)
                         HStack(spacing: LayoutTokens.spacing[1]) {
-                            StatusDot(status: .reachable(models: []))
+                            Image(systemName: "checkmark.circle.fill").foregroundStyle(store.theme.success).accessibilityHidden(true)
                             Button("Reveal") { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: info.path)]) }
                         }
                     } else {

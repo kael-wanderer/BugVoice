@@ -14,6 +14,7 @@ struct TitleBar<Action: View>: View {
                 Button { model.toggleSidebar() } label: { Image(systemName: "sidebar.left") }
                     .buttonStyle(.plain)
                     .help(model.sidebarHidden ? "Show sidebar ⌃⌘S" : "Hide sidebar ⌃⌘S")
+                    .accessibilityLabel(model.sidebarHidden ? "Show sidebar" : "Hide sidebar")
                 VStack(alignment: .leading, spacing: 0) {
                     Text(title).bvFont(.title2).lineLimit(1).truncationMode(.tail)
                     if model.page == .actions {

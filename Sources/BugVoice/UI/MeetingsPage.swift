@@ -478,6 +478,8 @@ private struct MeetingDetails: View {
                                     Button("Revert to original") { Task { await model.editMeetingSegment(meeting: meeting.id, segment: segment.id, text: nil) } }
                                 }
                             } label: { Image(systemName: "ellipsis") }
+                            .menuIndicator(.hidden).fixedSize()
+                            .help("Edit this line").accessibilityLabel("Line actions")
                         }
                     }
                     .buttonStyle(.plain)

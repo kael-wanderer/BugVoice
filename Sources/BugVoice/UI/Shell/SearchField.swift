@@ -37,6 +37,7 @@ struct SearchField: View {
             if compact {
                 Button { iconPopover = true; model.searchIsPresented = true } label: { Image(systemName: "magnifyingglass") }
                     .buttonStyle(.plain).help("Search notes, meetings, dictations ⌘K")
+                    .accessibilityLabel("Search notes, meetings, dictations")
                     .popover(isPresented: $iconPopover, arrowEdge: .bottom) {
                         // The popover is its own window: it needs its own focus
                         // state, set once that window is key.

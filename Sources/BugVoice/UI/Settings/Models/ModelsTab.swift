@@ -23,15 +23,37 @@ struct ModelsTab: View {
 }
 
 /// Green when the last test reached the server, orange when it failed, grey before a test.
+/// A symbol and a word say the same, so the state does not rest on color.
 struct StatusDot: View {
     @Environment(AppearanceStore.self) private var store
     let status: ConnectionStatus?
 
     var body: some View {
-        Circle()
-            .fill(color)
-            .frame(width: 9, height: 9)
-            .help(help)
+        HStack(spacing: LayoutTokens.spacing[0]) {
+            Image(systemName: symbol).foregroundStyle(color)
+            Text(word).foregroundStyle(.bvSecondary)
+        }
+        .bvFont(.footnote)
+        .fixedSize()
+        .help(help)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(help)
+    }
+
+    private var symbol: String {
+        switch status {
+        case .reachable: "checkmark.circle.fill"
+        case .failed: "exclamationmark.triangle.fill"
+        case nil: "circle.dashed"
+        }
+    }
+
+    private var word: String {
+        switch status {
+        case .reachable: "Reachable"
+        case .failed: "Not reachable"
+        case nil: "Not tested"
+        }
     }
 
     private var color: Color {

@@ -141,10 +141,11 @@ struct MeetingPlayer: View {
                 .frame(height: 54)
                 .accessibilityLabel("Scrub meeting waveform")
             HStack(spacing: LayoutTokens.spacing[2]) {
-                Button { model.skip(-15) } label: { Image(systemName: "gobackward.15") }.help("Back 15 seconds")
+                Button { model.skip(-15) } label: { Image(systemName: "gobackward.15") }.help("Back 15 seconds").accessibilityLabel("Back 15 seconds")
                 Button { model.togglePlayback() } label: { Image(systemName: model.isPlaying ? "pause.fill" : "play.fill") }
                     .buttonStyle(.borderedProminent)
-                Button { model.skip(15) } label: { Image(systemName: "goforward.15") }.help("Forward 15 seconds")
+                    .accessibilityLabel(model.isPlaying ? "Pause" : "Play")
+                Button { model.skip(15) } label: { Image(systemName: "goforward.15") }.help("Forward 15 seconds").accessibilityLabel("Forward 15 seconds")
                 Text("\(clock(model.currentTime)) / \(clock(model.duration))")
                     .bvCode(.footnote).monospacedDigit().foregroundStyle(.bvSecondary)
                 Spacer()
