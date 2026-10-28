@@ -420,6 +420,11 @@ final class AppModel {
 
         await loadDictionary()
         await loadInsights()
+        do {
+            try InflightDictationStore(url: paths.inflightDictation).recover(into: failedStore, lastRecording: paths.lastRecording, now: Date())
+        } catch {
+            saveError = "Could not recover the recording: \(error.localizedDescription)"
+        }
         reloadFailedDictations()
         await loadLibrary()
         suggestions = await suggestionStore.load()

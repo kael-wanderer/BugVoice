@@ -78,7 +78,9 @@ public enum WAVDecoder {
             let id = String(decoding: data[offset..<offset + 4], as: UTF8.self)
             let size = Int(u32(offset + 4))
             let body = offset + 8
+            guard size <= data.count - body else { throw WAVError.notWAV }
             if id == "fmt " {
+                guard size >= 16 else { throw WAVError.notWAV }
                 format = (u16(body + 2), u32(body + 4), u16(body + 14))
             } else if id == "data" {
                 guard let format else { throw WAVError.unsupportedFormat("data before fmt") }

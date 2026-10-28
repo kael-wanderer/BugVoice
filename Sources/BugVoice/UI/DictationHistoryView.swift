@@ -104,6 +104,12 @@ struct DictationHistoryView: View {
             HStack(spacing: LayoutTokens.spacing[1]) {
                 Button("Retry") { model.dictation?.retryFailed(item) }
                     .help("Transcribe again and copy the text")
+                Menu {
+                    ForEach(RetryLanguage.options(model.settings.speech.dictationLanguages), id: \.language) { option in
+                        Button(option.label) { model.dictation?.retryFailed(item, language: option.language) }
+                    }
+                } label: { Image(systemName: "chevron.down") }
+                .help("Choose a retry language")
                 Button { model.deleteFailedDictation(item.id) } label: { Image(systemName: "trash") }
                     .buttonStyle(.borderless).help("Delete the recording")
             }
