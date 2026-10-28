@@ -173,7 +173,11 @@ struct UseForCard: View {
             case .accepted(let text): text
             case .rejected(let reason): "Rejected (\(reason.rawValue)): \(output)"
             }
-            testOutput = String(format: "%@ · %.2f s", shown, Date().timeIntervalSince(start))
+            let elapsed = Date().timeIntervalSince(start)
+            let limit = CleanupTimeout.limit(base: cleanup.timeoutSeconds, raw: Self.sample)
+            // Dictation gives up after the limit and pastes raw text.
+            let verdict = elapsed > limit ? String(format: "over the %.1f s limit, dictation would paste raw text", limit) : "within the time limit"
+            testOutput = String(format: "%@ · %.2f s, %@", shown, elapsed, verdict)
         } catch {
             testOutput = error.localizedDescription
         }
