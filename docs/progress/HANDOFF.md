@@ -5,10 +5,9 @@ Last updated: 2026-10-28
 ## Current state
 
 `main` is pushed through `91ca906` (version 0.1.0, build 373; the pre-commit
-hook raises the build on every commit). `swift test`: **1,363 VoiceCore, 30
+hook raises the build on every commit). `swift test`: **1,364 VoiceCore, 30
 MCPKit, 114 BugVoiceMac**, all pass. Every feature below is merged on `main`
-unless the row says otherwise. Nothing is pending a merge except
-`feat/field-check`.
+unless the row says otherwise. No feature branch is pending a merge.
 
 "Owner-verified" means device evidence from the owner. On 2026-10-19 the owner
 marked every device check written up to that day done; that blanket statement is
@@ -43,7 +42,7 @@ evidence.
 | Esc cancels while processing | 2026-10-28 | yes | no | Review check 7 |
 | Crash recovery, retry language | 2026-10-28 | yes | no | Review checks 8–9 |
 | Summary templates, transcript editing | 2026-10-28 | yes | no | Review checks 10–11 |
-| Per-field destination check | branch `feat/field-check` | yes | no | **Not merged**: waits on review check 12 |
+| Per-field destination check | 2026-10-28 | yes | no | Review check 12 (merged before the check, at the owner's call) |
 | Usability pass (review Phase 5) | 2026-10-28 | — | no | Checks U1–U2 (`usability-log.md`): keyboard navigation, VoiceOver |
 
 Roadmap: Integrations (Calendar, export) and Home are frozen (`docs/ROADMAP.md`);
@@ -105,8 +104,13 @@ checked every finding against the code and shipped a reduced plan:
     Scratchpad and generation use the edited text; a summary older than the
     newest edit shows "Transcript edited after this summary". Meeting folders
     are now 0700 and manifests 0600.
-  - Per-field destination check is on `feat/field-check`, not merged: waits on
-    owner check 12.
+  - Per-field destination check (spec `docs/superpowers/specs/2026-10-28-field-check-design.md`,
+    mockup `docs/design/proposal-field-check.html`): the focused element is
+    captured at hotkey down; if the paste target is a known different field in
+    the same app, the text is copied instead ("Copied — press ⌘V", "the cursor
+    moved to another field"). Unknown elements still paste. Merged before
+    check 12 at the owner's call; if an app copies instead of pasting in the
+    same field, revert the merge commit.
 
 Tests: **1,363 VoiceCore, 30 MCPKit, 114 BugVoiceMac**, all pass. Signed app
 builds. Owner device checks open:
@@ -131,7 +135,7 @@ builds. Owner device checks open:
     transcript, no invented owners or dates.
 11. Correct a name in a finished meeting: export and Ask use the correction;
     Revert to original brings the old text back.
-12. On `feat/field-check` (not merged), away from the keyboard: dictate into the
+12. Field check, away from the keyboard: dictate into the
     same field in Notion, Slack, Chrome and Ghostty, each must paste; switch
     Slack channel before the text lands: "Copied — press ⌘V", "the cursor moved
     to another field". Note what a terminal split-pane switch does.
@@ -144,7 +148,7 @@ builds. Owner device checks open:
 - Docs: the current-state table above; ROADMAP points to it; old entries are
   under History.
 
-Every item from the review is done except the field check (on its branch).
+Every item from the review is done and merged.
 
 ## History
 

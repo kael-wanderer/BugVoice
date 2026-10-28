@@ -15,12 +15,13 @@ struct DictationPipelineTests {
         focusAtInsert: FocusSnapshot = notionFocus,
         settings: AppSettings = AppSettings(),
         vocabulary: Vocabulary = Vocabulary(),
-        timeout: Double = 3
+        timeout: Double = 3,
+        sameTarget: Bool? = nil
     ) -> DictationPipeline {
         DictationPipeline(
             transcriber: transcriber,
             cleanup: model.map { CleanupModel(model: $0, modelID: "qwen3.8-27b-mlx", shortName: "Qwen", disableThinking: true, timeoutSeconds: timeout) },
-            insertion: insertion, focus: FixedFocus(focus: focusAtInsert), settings: settings, vocabulary: vocabulary
+            insertion: insertion, focus: FixedFocus(focus: focusAtInsert, same: sameTarget), settings: settings, vocabulary: vocabulary
         )
     }
 
@@ -364,6 +365,22 @@ struct DictationPipelineTests {
         #expect(await insertion.copied == ["Hello world."])
         #expect(r.historyEntry?.outcome == "copiedFocusChanged")
         #expect(r.recallable.finalText == "Hello world.")
+    }
+
+    @Test func fieldIdentityControlsPaste() async {
+        for same in [true, false, nil] as [Bool?] {
+            let insertion = RecordingInsertion()
+            let r = await pipeline(insertion: insertion, sameTarget: same)
+                .run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })
+            #expect(r.outcome == (same == false ? .copiedFieldChanged : .inserted))
+            if same == false { #expect(r.historyEntry?.outcome == "copiedFieldChanged") }
+        }
+        let r = await pipeline(focusAtInsert: FocusSnapshot(bundleID: "other"), sameTarget: false)
+            .run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })
+        #expect(r.outcome == .copiedFocusChanged)
+        let secure = await pipeline(focusAtInsert: FocusSnapshot(bundleID: "other", isSecure: true), sameTarget: false)
+            .run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })
+        #expect(secure.outcome == .copiedSecureField)
     }
 
     @Test func unreadableAppAtInsertCopiesInsteadOfPasting() async {

@@ -59,6 +59,8 @@ actor RecordingInsertion: InsertionTarget {
 
 struct FixedFocus: FocusProvider {
     var focus: FocusSnapshot
+    var same: Bool? = nil
+    func isSameTarget() async -> Bool? { same }
     func snapshot() async -> FocusSnapshot { focus }
 }
 

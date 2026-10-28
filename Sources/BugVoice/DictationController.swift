@@ -27,6 +27,7 @@ final class DictationController {
     private var lastInsertionFocus: FocusSnapshot?
     private var hotkey: HotkeyMonitor!
     private var startFocus = FocusSnapshot.unknown
+    private var startTarget = FocusInspector()
     /// The kept failed recording that `last.wav` also holds, if any.
     private var lastRecordingFailedID: UUID?
     private var correctionFocus: FocusSnapshot?
@@ -157,6 +158,7 @@ final class DictationController {
             return
         }
         startFocus = FocusInspector.read()
+        startTarget = FocusInspector(capturingTarget: true)
         languageCycler = LanguageKeyCycler(
             start: LanguageResolver(settings: model.settings.speech).language(for: startFocus),
             languages: model.settings.speech.dictationLanguages
@@ -349,7 +351,7 @@ final class DictationController {
         }
         let intoNotes = notesCapture != nil || meetingNotes != nil
         let feature: ModelFeature = intoNotes ? .notes : .dictation
-        let pipeline = model.makePipeline(insertion: insertion, feature: feature)
+        let pipeline = model.makePipeline(insertion: insertion, feature: feature, focus: retrying == nil && !copyOnly ? startTarget : FocusInspector())
         let language = LanguageResolver(settings: model.settings.speech).language(for: focus, keyChoice: languageChoice).displayName
         let modelName = model.plan(for: feature).shortName
         // last.wav holds this clip unless it went to a note, came from a
