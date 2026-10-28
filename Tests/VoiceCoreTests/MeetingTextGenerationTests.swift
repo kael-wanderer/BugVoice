@@ -3,6 +3,32 @@ import Testing
 @testable import VoiceCore
 
 struct MeetingTextGenerationTests {
+    @Test func templatesReachAllSummaryStages() async throws {
+        for template in SummaryTemplate.allCases {
+            let model = MeetingTextModelProbe(responses: ["Part"], mergeResponse: "Merged")
+            _ = try await MeetingTextGenerator().generate(
+                transcript: [segment(String(repeating: "First sentence. ", count: 900)), segment(String(repeating: "Second sentence. ", count: 900), start: 20)],
+                kind: .summary, budget: .init(contextTokens: 2048, outputTokens: 256), template: template, model: model)
+            let requests = await model.requests
+            #expect(requests.count > 1)
+            if template == .general {
+                #expect(requests[0].system == "Write a factual meeting summary. Keep names, decisions, and uncertainty faithful to the transcript. Process only the supplied transcript part.")
+            } else {
+                #expect(requests.allSatisfy { $0.system.contains(template.instruction) && $0.system.contains("Do not invent owners or deadlines") })
+            }
+        }
+    }
+
+    @Test func summaryTemplateManifestRoundTrip() throws {
+        var meeting = MeetingManifest(startedAt: Date())
+        #expect(meeting.summaryTemplate == .general)
+        meeting.summaryTemplateID = SummaryTemplate.standUp.rawValue
+        meeting.summaryTemplateVersion = 1
+        let decoded = try JSONDecoder().decode(MeetingManifest.self, from: JSONEncoder().encode(meeting))
+        #expect(decoded.summaryTemplate == .standUp)
+        #expect(decoded.summaryTemplateVersion == 1)
+    }
+
     @Test func clampsInvalidBudgetsAndStillSplitsTranscript() {
         var settings = MeetingSettings()
         settings.generationContextTokens = 0

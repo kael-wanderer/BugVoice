@@ -44,6 +44,7 @@ checked every finding against the code and shipped a reduced plan:
 
 Tests: **1,354 VoiceCore, 30 MCPKit, 114 BugVoiceMac**, all pass. Signed app
 builds. Owner device checks open:
+- On feat/summary-templates, regenerate a real meeting with each template; verify transcript fidelity and no invented owners or dates.
 1. Start dictating in a password field, click a normal field before the text
    lands: copy only, nothing in history.
 2. Start in Notion, switch to Slack before the text lands: "Copied — press ⌘V",
