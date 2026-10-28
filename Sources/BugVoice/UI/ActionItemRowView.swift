@@ -11,12 +11,17 @@ struct ActionItemRowView: View {
             Toggle(isOn: Binding(get: { row.doneAt != nil }, set: { setDone($0) })) { Text(row.item.text) }
                 .labelsHidden().toggleStyle(.checkbox)
                 .accessibilityLabel(row.item.text)
-            Text(row.item.text)
-                .bvFont(.body)
-                .strikethrough(row.doneAt != nil && !showsUndo)
-                .foregroundStyle(row.doneAt == nil ? .bvText : .bvSecondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .textSelection(.enabled)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(row.item.text)
+                    .bvFont(.body)
+                    .strikethrough(row.doneAt != nil && !showsUndo)
+                    .foregroundStyle(row.doneAt == nil ? .bvText : .bvSecondary)
+                    .textSelection(.enabled)
+                if row.isEarlier {
+                    Text("From an earlier version of this list").bvFont(.caption).foregroundStyle(.bvSecondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
             if let owner = row.item.owner {
                 Text(owner).bvFont(.caption).foregroundStyle(.bvAccent)
                     .padding(.horizontal, LayoutTokens.spacing[1]).padding(.vertical, 1)

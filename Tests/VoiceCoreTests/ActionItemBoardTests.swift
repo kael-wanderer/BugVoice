@@ -46,10 +46,18 @@ struct ActionItemBoardTests {
     @Test func meetingsWithoutItemsSkipped() {
         #expect(board([meeting("a", items: nil), meeting("b", items: ""), meeting("c", items: "No action items")]).groups.isEmpty)
     }
-    @Test func staleDoneNotShown() {
+    @Test func doneItemThatLeftTheListShowsAsEarlier() {
         var done = ActionItemFile(); done.setDone(ActionItemParser.parse("- Old", meetingID: meeting().id).items[0], true, at: now)
         let b = board([meeting()], done: done, status: .done)
-        #expect(b.groups.isEmpty); #expect(b.doneTotal == 0); #expect(done.done.count == 1)
+        #expect(b.groups[0].rows.map(\.item.text) == ["Old"])
+        #expect(b.groups[0].rows[0].isEarlier)
+        #expect(b.doneTotal == 1 && b.openTotal == 3)
+        #expect(board([meeting()], done: done).groups[0].rows.count == 3)
+    }
+    @Test func oldFormatDoneWithoutTextNotShown() {
+        let done = ActionItemFile(done: [DoneActionItem(meetingID: meeting().id, key: "old", doneAt: now)])
+        let b = board([meeting()], done: done, status: .done)
+        #expect(b.groups.isEmpty); #expect(b.doneTotal == 0)
     }
     @Test func totalsIgnoreFilters() {
         let b = board([meeting()], status: .done, owner: .none, range: .week, query: "missing")

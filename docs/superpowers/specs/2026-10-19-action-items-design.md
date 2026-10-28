@@ -153,3 +153,13 @@ My calls; say if any is wrong:
 3. A changed item text after Regenerate counts as a new open item.
 4. The meeting's own Action items tab becomes the same checklist.
 5. MCP gets a read-only `list_action_items`.
+
+## Amendment 2026-10-28: checkmarks survive reworded items
+
+A checkmark records the item's text and owner along with its key. When
+Regenerate rewords or drops a checked item, the old item stays listed for that
+meeting as done, with the caption "From an earlier version of this list", on
+the meeting's Action items tab, the Action items page, Shortcuts and MCP.
+Unchecking it removes it. No similarity matching: a reworded item appears once
+as the new open item and once as the earlier done item. Checkmarks saved by
+older builds have no text and stay hidden, as before.

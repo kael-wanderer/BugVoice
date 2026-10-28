@@ -63,23 +63,31 @@ public struct DoneActionItem: Codable, Equatable, Sendable {
     public var meetingID: MeetingID
     public var key: String
     public var doneAt: Date
+    /// The item as it read when checked, so a Regenerate that rewords it
+    /// does not lose the checkmark. Nil in files from older builds.
+    public var text: String?
+    public var owner: String?
 
-    public init(meetingID: MeetingID, key: String, doneAt: Date) {
-        self.meetingID = meetingID; self.key = key; self.doneAt = doneAt
+    public init(meetingID: MeetingID, key: String, doneAt: Date, text: String? = nil, owner: String? = nil) {
+        self.meetingID = meetingID; self.key = key; self.doneAt = doneAt; self.text = text; self.owner = owner
     }
 
-    private enum CodingKeys: String, CodingKey { case meetingID, key, doneAt }
+    private enum CodingKeys: String, CodingKey { case meetingID, key, doneAt, text, owner }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         meetingID = MeetingID(rawValue: try c.decode(String.self, forKey: .meetingID))
         key = try c.decode(String.self, forKey: .key)
         doneAt = try c.decode(Date.self, forKey: .doneAt)
+        text = try c.decodeIfPresent(String.self, forKey: .text)
+        owner = try c.decodeIfPresent(String.self, forKey: .owner)
     }
     public func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(meetingID.rawValue, forKey: .meetingID)
         try c.encode(key, forKey: .key)
         try c.encode(doneAt, forKey: .doneAt)
+        try c.encodeIfPresent(text, forKey: .text)
+        try c.encodeIfPresent(owner, forKey: .owner)
     }
 }
 
@@ -99,9 +107,21 @@ public struct ActionItemFile: Codable, Equatable, Sendable {
     public mutating func setDone(_ item: ActionItem, _ done: Bool, at: Date) {
         if done {
             guard doneAt(item) == nil else { return }
-            self.done.append(DoneActionItem(meetingID: item.meetingID, key: item.key, doneAt: at))
+            self.done.append(DoneActionItem(meetingID: item.meetingID, key: item.key, doneAt: at, text: item.text, owner: item.owner))
             cap()
         } else { self.done.removeAll { $0.meetingID == item.meetingID && $0.key == item.key } }
+    }
+    /// Checked items of a meeting that its current list no longer contains,
+    /// newest first. Entries saved without text are not shown.
+    public func earlierRows(meetingID: MeetingID, current: [ActionItem]) -> [ActionItemRow] {
+        let keys = Set(current.map(\.key))
+        return done
+            .filter { $0.meetingID == meetingID && !keys.contains($0.key) && !($0.text ?? "").isEmpty }
+            .sorted { $0.doneAt > $1.doneAt }
+            .map { entry in
+                ActionItemRow(item: ActionItem(meetingID: meetingID, text: entry.text ?? "", owner: entry.owner, key: entry.key),
+                              doneAt: entry.doneAt, isEarlier: true)
+            }
     }
     public mutating func prune(keeping meetings: Set<MeetingID>) {
         done.removeAll { !meetings.contains($0.meetingID) }
@@ -149,8 +169,12 @@ public enum ActionItemRange: CaseIterable, Sendable { case week, month, all }
 public struct ActionItemRow: Equatable, Sendable, Identifiable {
     public var item: ActionItem
     public var doneAt: Date?
+    /// Checked in an earlier version of the list; Regenerate reworded or dropped it.
+    public var isEarlier: Bool
     public var id: String { item.id }
-    public init(item: ActionItem, doneAt: Date?) { self.item = item; self.doneAt = doneAt }
+    public init(item: ActionItem, doneAt: Date?, isEarlier: Bool = false) {
+        self.item = item; self.doneAt = doneAt; self.isEarlier = isEarlier
+    }
 }
 public struct ActionItemGroup: Equatable, Sendable, Identifiable {
     public var meetingID: MeetingID
@@ -179,8 +203,9 @@ public struct ActionItemBoard: Equatable, Sendable {
         }
         let days: Int? = switch range { case .week: 7; case .month: 30; case .all: nil }
         for meeting in meetings.sorted(by: { $0.startedAt == $1.startedAt ? $0.id.rawValue < $1.id.rawValue : $0.startedAt > $1.startedAt }) {
-            let rows = ActionItemParser.parse(meeting.actionItems, meetingID: meeting.id).items
-                .map { ActionItemRow(item: $0, doneAt: done.doneAt($0)) }
+            let items = ActionItemParser.parse(meeting.actionItems, meetingID: meeting.id).items
+            let rows = items.map { ActionItemRow(item: $0, doneAt: done.doneAt($0)) }
+                + done.earlierRows(meetingID: meeting.id, current: items)
             let openCount = rows.filter { $0.doneAt == nil }.count
             let doneCount = rows.count - openCount
             openTotal += openCount; doneTotal += doneCount

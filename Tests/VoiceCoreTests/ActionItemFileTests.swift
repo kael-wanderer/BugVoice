@@ -14,6 +14,44 @@ struct ActionItemFileTests {
         file.setDone(item(), false, at: date)
         #expect(file.done.isEmpty)
     }
+    @Test func doneKeepsTextAndOwner() {
+        var file = ActionItemFile()
+        file.setDone(item("m", "Send X (Kael)"), true, at: Date())
+        #expect(file.done[0].text == "Send X")
+        #expect(file.done[0].owner == "Kael")
+    }
+    @Test func oldFormatDecodesWithoutText() throws {
+        let json = #"{"schemaVersion":1,"done":[{"meetingID":"m","key":"send x","doneAt":"2026-10-20T10:00:00Z"}]}"#
+        let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601
+        let file = try decoder.decode(ActionItemFile.self, from: Data(json.utf8))
+        #expect(file.done.count == 1)
+        #expect(file.done[0].text == nil)
+    }
+    @Test func earlierRowsKeepCheckedItemsThatLeftTheList() {
+        var file = ActionItemFile()
+        let date = Date(timeIntervalSince1970: 1)
+        file.setDone(item("m", "Send the build to QA (Kael)"), true, at: date)
+        let regenerated = ActionItemParser.parse("- Send build 2.4 to QA (Kael)", meetingID: MeetingID(rawValue: "m")).items
+        let rows = file.earlierRows(meetingID: MeetingID(rawValue: "m"), current: regenerated)
+        #expect(rows.count == 1)
+        #expect(rows[0].item.text == "Send the build to QA")
+        #expect(rows[0].item.owner == "Kael")
+        #expect(rows[0].doneAt == date)
+        #expect(rows[0].isEarlier)
+        #expect(file.earlierRows(meetingID: MeetingID(rawValue: "m"), current: [item("m", "Send the build to QA (Kael)")]).isEmpty)
+        #expect(file.earlierRows(meetingID: MeetingID(rawValue: "other"), current: []).isEmpty)
+    }
+    @Test func earlierRowsSkipEntriesWithoutText() {
+        let file = ActionItemFile(done: [DoneActionItem(meetingID: MeetingID(rawValue: "m"), key: "old", doneAt: Date())])
+        #expect(file.earlierRows(meetingID: MeetingID(rawValue: "m"), current: []).isEmpty)
+    }
+    @Test func uncheckingAnEarlierRowRemovesIt() {
+        var file = ActionItemFile()
+        file.setDone(item("m", "Old wording"), true, at: Date())
+        let row = file.earlierRows(meetingID: MeetingID(rawValue: "m"), current: [])[0]
+        file.setDone(row.item, false, at: Date())
+        #expect(file.done.isEmpty)
+    }
     @Test func sameTextOtherMeetingIndependent() {
         var file = ActionItemFile()
         file.setDone(item(), true, at: Date())

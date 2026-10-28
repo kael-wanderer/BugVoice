@@ -505,6 +505,9 @@ private struct MeetingDetails: View {
                                 model.setActionItemDone(item, $0)
                             }
                         }
+                        ForEach(model.actionItemsDone.earlierRows(meetingID: meeting.id, current: parsed.items)) { row in
+                            ActionItemRowView(row: row) { model.setActionItemDone(row.item, $0) }
+                        }
                     }
                     ForEach(Array(parsed.otherLines.enumerated()), id: \.offset) { _, line in
                         Text(line).bvFont(.reading).textSelection(.enabled)
@@ -516,7 +519,7 @@ private struct MeetingDetails: View {
                 EmptyState(kind == .summary ? "No summary" : "No action items", systemImage: kind == .summary ? "text.alignleft" : "checklist", message: emptyMessage)
             }
             if kind == .actionItems {
-                Text("Checkmarks are shared with the Action items page and kept after Regenerate when an item's text is the same.")
+                Text("Checkmarks are shared with the Action items page. After Regenerate, a checked item whose wording changed stays here, marked as from an earlier version.")
                     .bvFont(.footnote).foregroundStyle(.bvSecondary)
             }
             if let generationProgress {
