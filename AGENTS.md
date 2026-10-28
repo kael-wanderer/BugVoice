@@ -33,12 +33,6 @@ version and build live in `App/Info.plist`. Every commit raises the build by one
 
 ## Key documents
 
-- Retry language spec: `docs/superpowers/specs/2026-10-28-retry-language-design.md` (mockup: `docs/design/proposal-retry-language.html`)
-
-- Crash recovery spec: `docs/superpowers/specs/2026-10-28-crash-recovery-design.md`
-- Summary templates spec: `docs/superpowers/specs/2026-10-28-summary-templates-design.md` (mockup: `docs/design/proposal-summary-templates.html`)
-- Transcript editing spec: `docs/superpowers/specs/2026-10-28-transcript-edit-design.md` (mockup: `docs/design/proposal-transcript-edit.html`)
-
 - Spec: `docs/superpowers/specs/2026-10-14-dictation-core-and-shell-design.md`
 - Plan: `docs/superpowers/plans/2026-10-14-dictation-core-and-shell.md`
 - UI mockup: `docs/design/mockup.html` (open in a browser; light/dark toggle)
@@ -116,6 +110,12 @@ version and build live in `App/Info.plist`. Every commit raises the build by one
 - Readiness card plan: `docs/superpowers/plans/2026-10-28-readiness-card.md`
 - Cancel while processing spec: `docs/superpowers/specs/2026-10-28-cancel-processing-design.md` (mockup: `docs/design/proposal-cancel-processing.html`)
 - Cancel while processing plan: `docs/superpowers/plans/2026-10-28-cancel-processing.md`
+- Remaining review items plan (Codex Sol): `docs/superpowers/plans/2026-10-28-review-remaining.md`
+- Crash recovery spec: `docs/superpowers/specs/2026-10-28-crash-recovery-design.md`
+- Retry language spec: `docs/superpowers/specs/2026-10-28-retry-language-design.md` (mockup: `docs/design/proposal-retry-language.html`)
+- Summary templates spec: `docs/superpowers/specs/2026-10-28-summary-templates-design.md` (mockup: `docs/design/proposal-summary-templates.html`)
+- Transcript editing spec: `docs/superpowers/specs/2026-10-28-transcript-edit-design.md` (mockup: `docs/design/proposal-transcript-edit.html`)
+- Field check spec (branch `feat/field-check`, not merged): `docs/superpowers/specs/2026-10-28-field-check-design.md` (mockup: `docs/design/proposal-field-check.html`)
 
 ## Rules
 

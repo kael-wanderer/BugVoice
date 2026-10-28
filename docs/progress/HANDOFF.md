@@ -41,13 +41,28 @@ checked every finding against the code and shipped a reduced plan:
   nothing is pasted, copied or saved, HUD says "Cancelled" (Retry last still has
   the clip). Fixed a latent gap: a cancel during cleanup would have pasted raw
   text. Esc also reaches the front app, as in command mode. Not seen on screen.
+- Remaining review items (plan `docs/superpowers/plans/2026-10-28-review-remaining.md`,
+  run by Codex Sol, reviewed by Claude, merged 2026-10-28):
+  - Crash recovery: `inflight.json` beside `last.wav` marks a running
+    dictation; at launch a leftover marker with a matching `last.wav` (duration
+    within 0.1 s) goes to Needs attention, "BugVoice quit before this dictation
+    finished." Never pastes. Writing or deleting `last.wav` clears any marker;
+    `last.wav` is now 0600.
+  - Retry language: a menu beside Retry offers "Retry in <language>" for each
+    dictation language and "Retry with automatic language". Copies only.
+  - Summary templates: General (prompt unchanged), Technical design, Stand-up,
+    Interview. Picker beside Generate; the template id and version are stored on
+    the meeting; choosing one does not regenerate.
+  - Transcript editing: finished meetings only. Line menu › Edit (Return saves,
+    Esc cancels), "Edited" label, Revert to original. Export, search, Ask, MCP,
+    Scratchpad and generation use the edited text; a summary older than the
+    newest edit shows "Transcript edited after this summary". Meeting folders
+    are now 0700 and manifests 0600.
+  - Per-field destination check is on `feat/field-check`, not merged: waits on
+    owner check 12.
 
-Tests: **1,354 VoiceCore, 30 MCPKit, 114 BugVoiceMac**, all pass. Signed app
+Tests: **1,363 VoiceCore, 30 MCPKit, 114 BugVoiceMac**, all pass. Signed app
 builds. Owner device checks open:
-- On feat/retry-language, fail Vietnamese dictation with a wrong speech server address; fix it and Retry in Vietnamese, then check the clipboard.
-0. On feat/crash-recovery, dictate with a slow cleanup model, quit from Activity Monitor during Cleaning, and relaunch: Needs attention shows the quit reason; Retry copies the recording.
-- On feat/summary-templates, regenerate a real meeting with each template; verify transcript fidelity and no invented owners or dates.
-- On feat/transcript-edit, correct a name in a finished meeting, verify export and Ask use the correction, then revert and verify the original returns.
 1. Start dictating in a password field, click a normal field before the text
    lands: copy only, nothing in history.
 2. Start in Notion, switch to Slack before the text lands: "Copied — press ⌘V",
@@ -60,9 +75,21 @@ builds. Owner device checks open:
    turns red with Check again; start it, Check again: green.
 7. Dictate a long sentence into Notion with a slow model, press Esc during
    Cleaning: "Cancelled", no text, nothing new in History; Retry last pastes it.
+8. Dictate with a slow cleanup model, quit BugVoice from Activity Monitor during
+   Cleaning, relaunch: Needs attention shows "BugVoice quit before this
+   dictation finished."; Retry copies it.
+9. Fail a Vietnamese dictation (wrong speech server address), fix the address,
+   choose Retry in Vietnamese: Vietnamese text on the clipboard.
+10. Regenerate a real meeting with each summary template: facts match the
+    transcript, no invented owners or dates.
+11. Correct a name in a finished meeting: export and Ask use the correction;
+    Revert to original brings the old text back.
+12. On `feat/field-check` (not merged), away from the keyboard: dictate into the
+    same field in Notion, Slack, Chrome and Ghostty, each must paste; switch
+    Slack channel before the text lands: "Copied — press ⌘V", "the cursor moved
+    to another field". Note what a terminal split-pane switch does.
 
-Not done from the review: transcript line editing, summary templates,
-per-field destination check, crash recovery of in-flight runs, retry language picker.
+Not done from the review: usability pass (Phase 5), current-state docs table.
 
 **Incremental transcription, paused at the gate.**
 Phase 1 bench merged and pushed (2026-10-24). `Scripts/stt-bench.sh --latency`
