@@ -20,6 +20,26 @@ struct TranscriptEditTests {
         try meeting.revertSegment(id: "a")
         #expect(meeting.segments[0].displayText == "Original")
     }
+    @Test func savingUnchangedLineIsNotAnEdit() throws {
+        var meeting = MeetingManifest(startedAt: Date(), state: .ready, segments: [MeetingSegment(id: "a", start: 0, end: 1, text: "Original", track: .mic, translation: "Gốc")])
+        try meeting.editSegment(id: "a", text: "Original", at: Date())
+        #expect(meeting.segments[0].editedText == nil)
+        #expect(meeting.segments[0].editedAt == nil)
+        #expect(meeting.segments[0].translation == "Gốc")
+    }
+    @Test func editingBackToOriginalClearsTheEdit() throws {
+        var meeting = MeetingManifest(startedAt: Date(), state: .ready, segments: [MeetingSegment(id: "a", start: 0, end: 1, text: "Original", track: .mic)])
+        try meeting.editSegment(id: "a", text: "Corrected", at: Date(timeIntervalSince1970: 1))
+        try meeting.editSegment(id: "a", text: "Original", at: Date(timeIntervalSince1970: 2))
+        #expect(meeting.segments[0].editedText == nil)
+        #expect(meeting.segments[0].editedAt == nil)
+    }
+    @Test func savingSameEditKeepsItsDate() throws {
+        var meeting = MeetingManifest(startedAt: Date(), state: .ready, segments: [MeetingSegment(id: "a", start: 0, end: 1, text: "Original", track: .mic)])
+        try meeting.editSegment(id: "a", text: "Corrected", at: Date(timeIntervalSince1970: 1))
+        try meeting.editSegment(id: "a", text: "Corrected", at: Date(timeIntervalSince1970: 2))
+        #expect(meeting.segments[0].editedAt == Date(timeIntervalSince1970: 1))
+    }
     @Test func generationSaveKeepsInterveningEdit() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }

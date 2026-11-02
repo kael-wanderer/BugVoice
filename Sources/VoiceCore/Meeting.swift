@@ -571,6 +571,12 @@ public extension MeetingManifest {
         guard state == .ready else { throw TranscriptEditError.invalidState }
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw TranscriptEditError.emptyText }
         guard let index = segments.firstIndex(where: { $0.id == id }) else { throw TranscriptEditError.missingSegment }
+        // Saving the line as it already reads changes nothing; typing the original back undoes the edit.
+        guard text != segments[index].displayText else { return }
+        if text == segments[index].text {
+            try revertSegment(id: id)
+            return
+        }
         segments[index].editedText = text
         segments[index].editedAt = date
         segments[index].translation = nil
