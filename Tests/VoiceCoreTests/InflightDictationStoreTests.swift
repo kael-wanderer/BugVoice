@@ -17,6 +17,7 @@ struct InflightDictationStoreTests {
         try marker.recover(into: failed, lastRecording: wav, now: now)
         #expect(failed.load(now: now).first?.id == item.id)
         #expect(failed.load(now: now).first?.reason == "BugVoice quit before this dictation finished.")
+        #expect(failed.load(now: now).first?.title == "Dictation did not finish")
         try marker.recover(into: failed, lastRecording: wav, now: now)
         #expect(failed.load(now: now).count == 1)
         try marker.begin(item)
@@ -26,6 +27,13 @@ struct InflightDictationStoreTests {
         try marker.begin(item)
         marker.end()
         #expect(!FileManager.default.fileExists(atPath: marker.url.path))
+    }
+    @Test func failedTranscriptionKeepsItsTitleAndOldRecordsLoad() throws {
+        let failed = FailedDictation(id: UUID(), startedAt: Date(), appName: nil, bundleID: nil, duration: 1, reason: "No speech model.")
+        #expect(failed.title == "Transcription failed")
+        let old = #"{"id":"\#(UUID().uuidString)","startedAt":0,"duration":1,"reason":"x"}"#
+        let decoded = try JSONDecoder().decode(FailedDictation.self, from: Data(old.utf8))
+        #expect(decoded.title == "Transcription failed")
     }
     @Test func replacingOrDeletingLastRecordingClearsMarker() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

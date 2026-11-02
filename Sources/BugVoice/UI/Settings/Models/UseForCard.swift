@@ -51,11 +51,12 @@ struct UseForCard: View {
     private func row(_ feature: ModelFeature, use: Binding<ModelUse>) -> some View {
         VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {
             label(feature)
-            enginePicker(use.engine, allowCLI: feature == .meetings)
+            enginePicker(use.engine, allowCLI: feature == .meetings, label: "\(feature.title) model")
             TextField(placeholder(use.wrappedValue), text: use.model).textFieldStyle(.roundedBorder)
-            thinkingOrEffort(use)
+                .accessibilityLabel("\(feature.title) model name")
+            thinkingOrEffort(use, feature: feature)
             if feature == .dictation {
-                Picker("", selection: $model.settings.models.dictationTimeoutSeconds) {
+                Picker("Dictation time limit", selection: $model.settings.models.dictationTimeoutSeconds) {
                     Text("3 s").tag(3.0)
                     Text("5 s").tag(5.0)
                     Text("8 s").tag(8.0)
@@ -69,7 +70,7 @@ struct UseForCard: View {
     private var notesRow: some View {
         VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {
             label(.notes)
-            Picker("", selection: Binding<ModelEngine?>(
+            Picker("\(ModelFeature.notes.title) model", selection: Binding<ModelEngine?>(
                 get: { model.settings.models.notes?.engine },
                 set: { engine in
                     model.settings.models.notes = engine.map { ModelUse(engine: $0, disableThinking: true) }
@@ -88,6 +89,7 @@ struct UseForCard: View {
                     set: { model.settings.models.notes?.model = $0 }
                 ))
                 .textFieldStyle(.roundedBorder)
+                .accessibilityLabel("\(ModelFeature.notes.title) model name")
             } else {
                 Text("—").foregroundStyle(.bvSecondary)
             }
@@ -95,8 +97,9 @@ struct UseForCard: View {
         }
     }
 
-    private func enginePicker(_ engine: Binding<ModelEngine>, allowCLI: Bool) -> some View {
-        Picker("", selection: engine) {
+    /// `label` is hidden on screen but names the picker for VoiceOver.
+    private func enginePicker(_ engine: Binding<ModelEngine>, allowCLI: Bool, label: String) -> some View {
+        Picker(label, selection: engine) {
             Section("Connections") {
                 ForEach(model.settings.models.connections) { Text($0.name).tag(ModelEngine.connection($0.id)) }
                 if model.appleIntelligenceAvailable { Text("Apple Intelligence").tag(ModelEngine.appleIntelligence) }
@@ -117,15 +120,15 @@ struct UseForCard: View {
     }
 
     @ViewBuilder
-    private func thinkingOrEffort(_ use: Binding<ModelUse>) -> some View {
+    private func thinkingOrEffort(_ use: Binding<ModelUse>, feature: ModelFeature) -> some View {
         if case .cli(let tool) = use.wrappedValue.engine {
-            Picker("", selection: use.effort) {
+            Picker("\(feature.title) effort", selection: use.effort) {
                 Text("Effort: default").tag("")
                 ForEach(CLIArguments.efforts(for: tool), id: \.self) { Text($0).tag($0) }
             }
             .labelsHidden().frame(width: store.scaled(130))
         } else {
-            Picker("", selection: use.disableThinking) {
+            Picker("\(feature.title) thinking", selection: use.disableThinking) {
                 Text("Thinking off").tag(true)
                 Text("Thinking on").tag(false)
             }

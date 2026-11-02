@@ -95,3 +95,15 @@ worked (200) and checks 4, 6, 10 and 11 ran against the real model.
 
 - **Ask "could not read the model's answer":** reproduced through the MCP `ask` tool with a logging proxy. Qwen3.8-27B on oMLX replied with one stray closing bracket after the JSON object (`...]}}`, `...]}]`) and listed citations as bare strings (`["P1.7"]`). `AskAnswerPrompt.parse` (and `AskQueryPrompt.parse`) now read the first balanced JSON object (`ModelJSON.object`) and accept bare-string citations. After the fix, both questions that failed were answered with citations.
 - **Progress bar stuck after generation:** `MeetingsPage.generate(_:)` now hides the bar when the run ends and drops progress updates from an ended run. Checked in the dev build: the bar showed during Regenerate and was gone afterwards.
+
+## Findings fixed (branch fix/device-check-bugs)
+
+- Review 12 intermittent copy: the field check now also matches app, role, subrole and screen frame when the accessibility reference changes (`FocusFingerprint`). Not reproduced on demand, so owner check: same-field dictations in Chrome right after a page reload should paste. The log line "field check: new reference …" shows when the fallback decided.
+- Review 6 dot colour: not a bug. The readiness spec makes a connection error amber; the handoff checklist now says amber.
+- Saving an unchanged transcript line no longer marks it Edited; typing the original back clears the edit.
+- A dictation recovered after a quit is titled "Dictation did not finish", not "Transcription failed".
+- Retry-language menu: sized to its icon, VoiceOver reads "Choose a retry language".
+- History rows: one first-column width, tags on their own line, so text lines up.
+- Models tab and Search card pickers and model-name fields have VoiceOver names.
+- Menu: after a cancelled first dictation, "Retry cancelled dictation" appears.
+- Not changed: "Last dictation stale after Retry" (the code records the retried result; most likely read before the retry finished) and Scratchpad "Run again" after Ask (it repeats the last rewrite, by design).

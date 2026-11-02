@@ -9,11 +9,18 @@ public struct FailedDictation: Codable, Equatable, Sendable, Identifiable {
     public var duration: TimeInterval
     /// Plain-English reason, never a provider's response body.
     public var reason: String
+    /// BugVoice quit before the dictation finished, at any step. Absent in older records.
+    public var interrupted: Bool?
 
-    public init(id: UUID, startedAt: Date, appName: String?, bundleID: String?, duration: TimeInterval, reason: String) {
+    public init(id: UUID, startedAt: Date, appName: String?, bundleID: String?, duration: TimeInterval, reason: String,
+                interrupted: Bool? = nil) {
         self.id = id; self.startedAt = startedAt; self.appName = appName
         self.bundleID = bundleID; self.duration = duration; self.reason = reason
+        self.interrupted = interrupted
     }
+
+    /// Row title: a quit can happen while cleaning or pasting, so it is not called a transcription failure.
+    public var title: String { interrupted == true ? "Dictation did not finish" : "Transcription failed" }
 }
 
 /// `Failed/<id>.wav` plus `Failed/<id>.json`, owner-only. The record is

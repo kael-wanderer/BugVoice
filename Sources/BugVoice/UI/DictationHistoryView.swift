@@ -95,7 +95,7 @@ struct DictationHistoryView: View {
                 if running {
                     Text("Transcribing…").bvFont(.body)
                 } else {
-                    Text("Transcription failed").bvFont(.body).foregroundStyle(.bvWarning)
+                    Text(item.title).bvFont(.body).foregroundStyle(.bvWarning)
                     Text("\(item.reason) The recording is kept until \(until).")
                         .bvFont(.caption).foregroundStyle(.bvSecondary).textSelection(.enabled)
                 }
@@ -108,7 +108,11 @@ struct DictationHistoryView: View {
                     ForEach(RetryLanguage.options(model.settings.speech.dictationLanguages), id: \.language) { option in
                         Button(option.label) { model.dictation?.retryFailed(item, language: option.language) }
                     }
-                } label: { Image(systemName: "chevron.down") }
+                } label: {
+                    // A real label, shown as the icon: a bare chevron image reads "go down" to VoiceOver.
+                    Label("Choose a retry language", systemImage: "chevron.down").labelStyle(.iconOnly)
+                }
+                .menuIndicator(.hidden).fixedSize()
                 .help("Choose a retry language")
                 .accessibilityLabel("Choose a retry language")
                 Button { model.deleteFailedDictation(item.id) } label: { Image(systemName: "trash") }
@@ -126,8 +130,9 @@ struct DictationHistoryView: View {
         return HStack(alignment: .top, spacing: LayoutTokens.spacing[2]) {
             VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
                 Text(e.startedAt.formatted(date: .omitted, time: .shortened)).bvFont(.body)
+                Text(e.appName ?? "Unknown").bvFont(.caption).foregroundStyle(.bvSecondary)
+                // Tags sit on their own line so every row's text starts at the same place.
                 HStack(spacing: LayoutTokens.spacing[0]) {
-                    Text(e.appName ?? "Unknown").bvFont(.caption).foregroundStyle(.bvSecondary)
                     if e.command != nil {
                         Text("Command").bvFont(.caption).foregroundStyle(.bvAccent).fixedSize()
                             .padding(.horizontal, LayoutTokens.spacing[0])
@@ -145,7 +150,7 @@ struct DictationHistoryView: View {
                     }
                 }
             }
-            .frame(width: store.scaled(e.command == nil && issues.isEmpty ? 80 : 160), alignment: .leading)
+            .frame(width: store.scaled(120), alignment: .leading)
             VStack(alignment: .leading, spacing: LayoutTokens.spacing[0]) {
                 if let command = e.command {
                     Text("“\(command)”").italic().bvFont(.body).foregroundStyle(.bvSecondary)

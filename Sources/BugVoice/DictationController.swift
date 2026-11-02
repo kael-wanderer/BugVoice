@@ -395,6 +395,8 @@ final class DictationController {
             if intoNotes || result.outcome != .inserted { clearReplacementRecord() }
             if result.outcome == .cancelled {
                 if cancelledRun != run { hud.hide() }
+                // last.wav holds this clip: Retry last can run it again.
+                if savedLastRecording, retrying == nil, !intoNotes, !focus.isSecure { model.canRetryCancelled = true }
             } else {
                 if copyOnly, [.copiedNotConsumed, .copiedFocusChanged].contains(result.outcome) {
                     hud.show(.message(title: "Copied — press ⌘V", detail: "text from the retried recording"))

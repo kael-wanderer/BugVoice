@@ -123,7 +123,7 @@ builds. Owner device checks open:
 4. Regenerate action items for a meeting with a checked item: the item stays done.
 5. Settings search "input device", "retention": land on Speech and Storage.
 6. Quit the cleanup server (oMLX), open Settings › General: Cleanup model row
-   turns red with Check again; start it, Check again: green.
+   turns amber with Check again; start it, Check again: green.
 7. Dictate a long sentence into Notion with a slow model, press Esc during
    Cleaning: "Cancelled", no text, nothing new in History; Retry last pastes it.
 8. Dictate with a slow cleanup model, quit BugVoice from Activity Monitor during

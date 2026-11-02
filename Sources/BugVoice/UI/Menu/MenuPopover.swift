@@ -107,6 +107,8 @@ struct MenuPopover: View {
             ids += model.lastResult?.command != nil
                 ? [.pasteLast, .copyLast, .rawLast]
                 : [.pasteLast, .copyLast, .retryLast, .rawLast] + (redoLanguage == nil ? [] : [.redoLast])
+        } else if model.canRetryCancelled {
+            ids.append(.retryLast)
         }
         if !model.suggestions.pending.isEmpty { ids.append(.suggestions) }
         if model.availableUpdate != nil { ids.append(.update) }
@@ -261,6 +263,10 @@ struct MenuPopover: View {
                 redoLanguage: redoLanguage,
                 shortcuts: model.settings.shortcuts, highlight: highlight
             )
+            MenuSeparator()
+        } else if model.canRetryCancelled {
+            // First dictation after launch was cancelled: no last result to show, but Retry works.
+            MenuRow(id: .retryLast, icon: "arrow.clockwise", title: "Retry cancelled dictation", highlight: highlight)
             MenuSeparator()
         }
         if !model.suggestions.pending.isEmpty {

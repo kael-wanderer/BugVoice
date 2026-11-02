@@ -21,8 +21,10 @@ struct SearchCard: View {
                     Text("None").tag(String?.none)
                     ForEach(connections) { Text($0.name).tag(Optional($0.id)) }
                 }
+                .accessibilityLabel("Embedding model")
                 if model.settings.models.search.embeddingConnectionID != nil {
                     TextField("Model name", text: $modelNameDraft)
+                        .accessibilityLabel("Embedding model name")
                         .focused($modelNameFocused)
                         .onSubmit(commitModelName)
                         .onChange(of: modelNameFocused) { wasFocused, isFocused in

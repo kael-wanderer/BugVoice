@@ -4,16 +4,48 @@ import VoiceCore
 
 public struct FocusInspector: FocusProvider, @unchecked Sendable {
     private let startingElement: AXUIElement?
-    public init() { startingElement = nil }
+    private let startingFingerprint: FocusFingerprint?
+    public init() {
+        startingElement = nil
+        startingFingerprint = nil
+    }
     @MainActor public init(capturingTarget: Bool) {
         startingElement = capturingTarget ? Self.focusedElement() : nil
+        startingFingerprint = startingElement.flatMap(Self.fingerprint)
     }
 
     public func isSameTarget() async -> Bool? {
         await MainActor.run {
             guard let startingElement, let current = Self.focusedElement() else { return nil }
-            return Self.isSameElement(startingElement, current)
+            let identical = Self.isSameElement(startingElement, current)
+            let same = FocusFingerprint.isSameTarget(
+                identical: identical, start: startingFingerprint, now: Self.fingerprint(current))
+            if same && !identical {
+                Log.dictation.notice("field check: new reference, same app, role and frame; treated as the same field")
+            }
+            return same
         }
+    }
+
+    /// App, role, subrole and screen frame of `element`; nil when the app cannot be read.
+    @MainActor
+    static func fingerprint(_ element: AXUIElement) -> FocusFingerprint? {
+        AXUIElementSetMessagingTimeout(element, 0.25)
+        var pid: pid_t = 0
+        guard AXUIElementGetPid(element, &pid) == .success else { return nil }
+        var position = CGPoint.zero, size = CGSize.zero
+        if let value = attributeValue(element, kAXPositionAttribute) { AXValueGetValue(value, .cgPoint, &position) }
+        if let value = attributeValue(element, kAXSizeAttribute) { AXValueGetValue(value, .cgSize, &size) }
+        return FocusFingerprint(
+            pid: pid, role: string(element, kAXRoleAttribute), subrole: string(element, kAXSubroleAttribute),
+            x: position.x, y: position.y, width: size.width, height: size.height)
+    }
+
+    static func attributeValue(_ element: AXUIElement, _ attribute: String) -> AXValue? {
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success,
+              let value, CFGetTypeID(value) == AXValueGetTypeID() else { return nil }
+        return (value as! AXValue)
     }
 
     public func snapshot() async -> FocusSnapshot {

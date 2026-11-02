@@ -54,7 +54,7 @@ public struct InflightDictationStore: Sendable {
               abs(clip.duration - item.duration) <= 0.1 else { end(); return }
         let failed = FailedDictation(id: item.id, startedAt: item.startedAt, appName: item.appName,
                                      bundleID: item.bundleID, duration: item.duration,
-                                     reason: "BugVoice quit before this dictation finished.")
+                                     reason: "BugVoice quit before this dictation finished.", interrupted: true)
         try store.save(failed, audio: audio, now: now)
         end()
     }
