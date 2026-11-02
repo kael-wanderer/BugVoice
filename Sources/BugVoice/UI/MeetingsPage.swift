@@ -274,6 +274,8 @@ private struct MeetingDetails: View {
     @State private var renameTitle = ""
     @State private var generationTask: Task<Void, Never>?
     @State private var generationProgress: MeetingTextProgress?
+    /// The run whose progress may show; updates from an ended run are dropped.
+    @State private var generationRunID: UUID?
     @State private var generationError: String?
     @State private var selectedTemplate: SummaryTemplate?
     @State private var editingSegmentID: String?
@@ -592,11 +594,22 @@ private struct MeetingDetails: View {
     private func generate(_ kind: MeetingTextKind) {
         generationError = nil
         generationProgress = nil
+        let runID = UUID()
+        generationRunID = runID
         generationTask = Task {
-            defer { generationTask = nil }
+            defer {
+                generationTask = nil
+                // The bar belongs to the run: hide it when the run ends, however it ends.
+                if generationRunID == runID {
+                    generationRunID = nil
+                    generationProgress = nil
+                }
+            }
             do {
                 _ = try await model.generateMeetingText(id: meeting.id, kind: kind, template: kind == .summary ? (selectedTemplate ?? meeting.summaryTemplate) : nil) { progress in
-                    Task { @MainActor in generationProgress = progress }
+                    Task { @MainActor in
+                        if generationRunID == runID { generationProgress = progress }
+                    }
                 }
             } catch is CancellationError {
                 generationError = nil

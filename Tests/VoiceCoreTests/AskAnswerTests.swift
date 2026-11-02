@@ -106,6 +106,29 @@ struct AskAnswerTests {
         #expect(AskAnswerPrompt.parse(#"{"citations": []}"#) == nil)
     }
 
+    // Replies seen from Qwen3.8-27B on oMLX: one stray closing bracket after the object.
+    @Test func parseIgnoresTrailingBracketAfterObject() {
+        let curly = #"{"answer": "It turns off the Okta account.", "citations": [{"line": "P1.7"}]}}"#
+        let square = #"{"answer": "It turns off the Okta account.", "citations": [{"line": "P2.5"}]}]"#
+        #expect(AskAnswerPrompt.parse(curly)?.lineRefs == ["P1.7"])
+        #expect(AskAnswerPrompt.parse(square)?.lineRefs == ["P2.5"])
+    }
+
+    @Test func parseReadsBracesInsideAnswerText() {
+        let reply = #"{"answer": "Type `{email}` then \"}\" to finish.", "citations": [{"line": "P1.1"}]} trailing"#
+        #expect(AskAnswerPrompt.parse(reply)?.answer == #"Type `{email}` then "}" to finish."#)
+    }
+
+    @Test func parseAcceptsPlainStringCitations() {
+        let reply = #"{"answer": "Okta.", "citations": ["P1.7", "P6.5", 3]}"#
+        #expect(AskAnswerPrompt.parse(reply)?.lineRefs == ["P1.7", "P6.5"])
+    }
+
+    @Test func parseUnclosedObjectIsNil() {
+        #expect(AskAnswerPrompt.parse(#"{"answer": "Okta.", "citations": ["#) == nil)
+        #expect(AskAnswerPrompt.parse("}{") == nil)
+    }
+
     @Test func parseWithoutCitationsGivesEmptyRefs() {
         #expect(AskAnswerPrompt.parse(#"{"answer": "x"}"#)?.lineRefs == [])
     }

@@ -121,12 +121,12 @@ public enum AskAnswerPrompt {
     /// Nil when the reply is not JSON or has no answer text.
     public static func parse(_ reply: String) -> (answer: String, lineRefs: [String])? {
         guard let cleaned = NoteTransformPrompt.clean(reply),
-              let data = cleaned.data(using: .utf8),
-              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let object = ModelJSON.object(cleaned),
               let answer = (object["answer"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
               !answer.isEmpty
         else { return nil }
-        let refs = (object["citations"] as? [Any] ?? []).compactMap { ($0 as? [String: Any])?["line"] as? String }
+        // Models sometimes list bare refs ("P1.2") instead of {"line": "P1.2"}.
+        let refs = (object["citations"] as? [Any] ?? []).compactMap { ($0 as? [String: Any])?["line"] as? String ?? $0 as? String }
         return (answer, refs)
     }
 

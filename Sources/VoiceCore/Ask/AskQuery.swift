@@ -51,8 +51,7 @@ public enum AskQueryPrompt {
 
     public static func parse(_ reply: String, question: String, calendar: Calendar) -> AskQuery {
         guard let cleaned = NoteTransformPrompt.clean(reply),
-              let data = cleaned.data(using: .utf8),
-              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+              let object = ModelJSON.object(cleaned)
         else { return fallback(question: question) }
 
         let terms = (object["terms"] as? [Any] ?? [])

@@ -30,6 +30,12 @@ struct AskQueryTests {
         #expect(q.from == nil && q.to == nil && q.people.isEmpty)
     }
 
+    @Test func strayClosingBracketStillParses() {
+        let reply = #"{"terms": ["okta"], "from": null, "to": null, "people": []}}"#
+        let q = AskQueryPrompt.parse(reply, question: "what does deactivate turn off", calendar: calendar)
+        #expect(q.terms == ["okta"])
+    }
+
     @Test func badJSONFallsBack() {
         let q = AskQueryPrompt.parse("not json at all", question: "what did we decide about pricing", calendar: calendar)
         #expect(q == AskQueryPrompt.fallback(question: "what did we decide about pricing"))
