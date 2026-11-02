@@ -117,6 +117,7 @@ version and build live in `App/Info.plist`. Every commit raises the build by one
 - Transcript editing spec: `docs/superpowers/specs/2026-10-28-transcript-edit-design.md` (mockup: `docs/design/proposal-transcript-edit.html`)
 - Field check spec: `docs/superpowers/specs/2026-10-28-field-check-design.md` (mockup: `docs/design/proposal-field-check.html`)
 - Usability pass log and owner checks: `docs/progress/usability-log.md`
+- Meeting prompt quality (action items, Interview, Stand-up) eval: `docs/progress/prompt-quality-log.md`
 
 ## Rules
 

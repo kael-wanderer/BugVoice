@@ -19,6 +19,25 @@ struct MeetingTextGenerationTests {
         }
     }
 
+    // Demo talks came back as action items: the prompt says what counts as one.
+    @Test func actionItemPromptExcludesTopicsAndDoneWork() async throws {
+        let model = MeetingTextModelProbe(responses: ["- Share the slides"], mergeResponse: nil)
+        _ = try await MeetingTextGenerator().generate(transcript: [segment("Short")], kind: .actionItems, budget: .init(), model: model)
+        let system = await model.requests.first?.system ?? ""
+        #expect(system.contains("said they will do after the meeting"))
+        #expect(system.contains("Do not list topics discussed, features shown or explained, or work already done"))
+        #expect(system.contains("No action items"))
+    }
+
+    @Test func interviewTemplateHandlesMeetingsWithoutCandidate() {
+        #expect(SummaryTemplate.interview.instruction.contains("If no one is being interviewed, write \"Not an interview.\""))
+        #expect(SummaryTemplate.interview.instruction.contains("describe the candidate's answers"))
+    }
+
+    @Test func standUpNextListsOnlyStatedPlans() {
+        #expect(SummaryTemplate.standUp.instruction.contains("list only what a person said they will do; do not infer plans"))
+    }
+
     @Test func summaryTemplateManifestRoundTrip() throws {
         var meeting = MeetingManifest(startedAt: Date())
         #expect(meeting.summaryTemplate == .general)

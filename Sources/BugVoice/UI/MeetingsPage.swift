@@ -551,6 +551,10 @@ private struct MeetingDetails: View {
                     ForEach(Array(parsed.otherLines.enumerated()), id: \.offset) { _, line in
                         Text(line).bvFont(.reading).textSelection(.enabled)
                     }
+                    // The model replied that the meeting has no tasks.
+                    if parsed.items.isEmpty && parsed.otherLines.isEmpty {
+                        Text("No action items in this meeting.").bvFont(.body).foregroundStyle(.bvSecondary)
+                    }
                 } else {
                     MarkdownDocView(text: value, onToggleTask: { _ in }, scrolls: false, pagePadding: false).bvFont(.reading)
                 }
