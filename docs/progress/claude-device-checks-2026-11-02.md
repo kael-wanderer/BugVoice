@@ -1,0 +1,97 @@
+# Claude device checks — 2026-11-02
+
+Run by Claude on the owner's Mac while the owner was away, on the installed
+`/Applications/BugVoice.app` build 376. These are Claude checks, not
+owner-verified evidence (see HANDOFF's definition).
+
+Method: speech came from `say` voices (English Samantha, Vietnamese Linh, Spanish
+Eddy) played through the FREQUENCY 2.0 speakers into the Jabra SPEAK 410 mic. The
+hotkey was a synthetic Right Control hold (CGEvent). Test targets: TextEdit, a
+local Chrome page with password and text fields, Ghostty (`cat` window), Slack's
+Find-a-DM search box, Notion quick search. Screens were read with `orca computer`,
+an AXDescription dump, and `screencapture`. The data folder, clipboard, volume,
+keyboard-navigation setting and the Ghostty per-app rule were restored afterwards.
+
+**Cleanup model blocker (first run):** oMLX answered 401 to the key BugVoice stores (4 chars).
+Readiness card: "Qwen: The key was refused." Checks that need a model ran against
+a local fake OpenAI-compatible server on 127.0.0.1:8011, which echoes the
+dictation with scripted edits (e.g. drop "not") and an optional delay. That tests
+BugVoice's logic, not model quality. After the owner restarted oMLX the key
+worked (200) and checks 4, 6, 10 and 11 ran against the real model.
+
+## Review checks
+
+| # | Result | Evidence |
+|---|---|---|
+| 1 | Pass | Started in Chrome password field, focus moved to a text field at release: both fields empty, text on clipboard, no history row. |
+| 2 | Pass (Chrome → TextEdit, not Notion → Slack) | HUD "Copied — press ⌘V · another app came to the front"; TextEdit unchanged. |
+| 3 | Pass | Engine on OpenAI-compatible server (localhost:8000, refused key): both failures under Needs attention, "The recording is kept until …"; switched to WhisperKit, Retry: text on clipboard, row gone. |
+| 4 | Pass | Real model (oMLX Qwen3.8-27B), people-bot meeting: generated 8 items, checked "Share the slide…", Regenerate reworded the list; the checked item stayed, struck through, "Done 2 Nov", "From an earlier version of this list". Quality: first list was mostly demo topics, not tasks (7 of 8). |
+| 5 | Pass | "input device" → Speech tab. "retention" lists Delete meetings automatically (Meetings) first and Keep dictation history (Storage) second. |
+| 6 | Pass (dot colour partial) | oMLX stopped: "Qwen: Could not connect to the server." with Check again, dot orange (not red). After the owner restarted oMLX: all four rows green, "Qwen, server reachable". |
+| 7 | Pass | HUD "Cancelled · nothing was pasted · Retry last runs it again"; TextEdit, history, clipboard unchanged; popover Retry pasted the sentence. |
+| 8 | Pass | `kill -9` during Cleaning; relaunch: "BugVoice quit before this dictation finished."; Retry copied the text. Row title says "Transcription failed" though the kill was during cleanup. |
+| 9 | Pass | Failed Vietnamese dictation, engine fixed, Retry in Vietnamese: "Chiều nay chúng ta họp với nhóm thiết kế lúc 3 giờ." on clipboard. |
+| 10 | Pass, minor slips | 22-min people-bot meeting, all four templates. General and Technical design: facts match. Stand-up: "Next" stretches the closing remark into a plan. Interview: frames the demo as a candidate; invents a meaning for `/log` ("logs actions", from a misheard "lock"). No invented owners or dates; follow-ups say "Unspecified". |
+| 11 | Partial | Edit: line 1:09 "octa" → "Okta account": saved, "Edited" label, original kept. Revert to original: original back, label gone. Export: save panel cannot be driven (keys do not reach it), code exports `displayText`. **Ask failed 3 of 3** ("Ask could not read the model's answer. Try again."): all notes and meetings (108 passages, read 40) and this meeting only (43, read 40), ~40 s each, log `outcome=failed.unreadable`. Same rules prompt sent directly to oMLX (small, 14k tokens, thinking on and off) returns valid JSON, so the cause is in the app's real passages or reply; needs the raw reply logged. |
+| 12 | Pass with one intermittent issue | Same field pasted in Chrome (4 of 5), Ghostty, Slack search, Notion search, TextEdit. Different field: Chrome A→B, Slack (Tab after release), Ghostty split-pane switch all copied with "the cursor moved to another field". **Intermittent:** 2 same-field runs copied instead of pasting (Chrome right after a page reload; TextEdit once, `copiedFieldChanged`). Not reproducible on demand (0 of 6 retries). Likely cause: `FocusInspector.focusedElement()` read system-wide at hotkey down catches a transient element right after an app/page focus change, so `CFEqual` fails at paste time. |
+
+## Fidelity (fake model)
+
+| # | Result | Evidence |
+|---|---|---|
+| F1 | Pass | Whisper already writes 15; cleanup writing "fifteen" raised no issue. |
+| F2 | Pass | Raw pasted; HUD "Raw — cleanup dropped “not” · ⌃⌥R pastes the cleaned text". |
+| F3 | Pass via popover | Popover "Cleaned" swapped in the cleaned text in place; "Raw" swapped back. (Synthetic ⌃⌥R cannot reach the Carbon shortcut.) |
+| F4 | Pass | "Paste cleaned text and warn": cleaned pasted, HUD "Check — cleanup dropped “not” · ⌃⌥R pastes raw". |
+| F5 | Pass | Off: plain "Done (Document)", history row still tagged "check". |
+| F6 | Pass | "at three, no, I mean four" → "at 4", no issue. |
+| F7 | Pass | "3 giờ" ↔ "ba giờ" either way, no issue. |
+| F8 | Pass | Tag tooltip "Cleanup changed / dropped “not”"; swap button on a raw row pasted the cleaned version into TextEdit. |
+
+## Spanish
+
+| # | Result | Evidence |
+|---|---|---|
+| 1 | Pass | ES in Settings switch, popover switch, per-app picker. |
+| 2 | Pass (transcription only) | ES switch: Spanish text, language es. Filler removal not testable: the owner has cleanup off (`cleanupEnabled=false`, history `rawReason: cleanupOff`). A second Eddy clip through the speakers came out garbled. |
+| 3 | Pass | Shift taps while recording: HUD EN → VI → ES → Auto. |
+| 4 | Not run | Scratchpad mic / meeting My notes. |
+| 5 | Pass | Auto detected es. Popover redo offers English, then Vietnamese. |
+| 6 | Pass | Untick Spanish with switch on ES: switch → Auto; Ghostty rule still shows Spanish. |
+| 7 | Not run | Shortcuts app action. |
+
+## Usability
+
+| # | Result | Evidence |
+|---|---|---|
+| U1 | Pass after relaunch | With Keyboard navigation on (BugVoice relaunched), Tab reaches sidebar, tabs and every General and Models control in reading order with a focus ring. Without a relaunch Tab only toggled the search field. |
+| U2 | Partial | History rows, Retry, swap buttons read their names; status reads "Reachable · 1 model". **Unlabeled:** Models tab pop-ups (connection, Thinking, time limit) and model-name text fields have no AX label, so VoiceOver reads only the value. Retry-language menu button still has AXDescription "go down". |
+
+## Updates and backup
+
+| # | Result | Evidence |
+|---|---|---|
+| Updates 1 | Pass | "Up to date. The newest release is 0.1.0-build.343." (feed is at 343). |
+| Updates 6 | Pass | App menu and popover Tools › Check for Updates… both open Settings › General with the result. |
+| Updates 2–5 | Not run | Need a newer feed build, Wi‑Fi off, theme sweep. |
+| B2 | Pass | Save into the data folder: "Choose a folder outside the BugVoice data folder.", no file written. |
+| B3 | Pass | Word typed into a new note right before Back up now is in `data/Notes/untitled-14.md` of the archive; no credentials file in it. |
+| B4 | Not run | 8 MB backup finishes before Cancel can be pressed. |
+| B10 | Pass | Meeting recording, Restore… → file → "Restore and relaunch": "A meeting is recording. Stop the meeting first." (the confirmation sheet still appears first). |
+
+## Other findings
+
+- Retry-language menu in Needs attention renders as a wide empty bar with only a chevron (no label), stretching across the row.
+- After a fresh launch, if the first dictation is cancelled, the popover has no Retry (Retry shows only when a last result exists), although the HUD says "Retry last runs it again".
+- After Retry of a cancelled dictation, the popover still shows the previous dictation as "Last dictation".
+- History rows with a fidelity tag indent their text further than other rows.
+- Orca screenshots of a background BugVoice window miss the search results overlay; `screencapture -l <window>` shows it.
+- Meeting text generation leaves its progress bar ("Combining results", full) on screen after the text is saved: `MeetingsPage.swift` `generate(_:)` resets `generationProgress` only at the start, never on success.
+- Saving a transcript line without changing it marks it "Edited" (editedText equals text).
+- Scratchpad Ask: "Run again" after an Ask failure does nothing for Ask (no ask log line).
+
+## Fixes after the run (uncommitted)
+
+- **Ask "could not read the model's answer":** reproduced through the MCP `ask` tool with a logging proxy. Qwen3.8-27B on oMLX replied with one stray closing bracket after the JSON object (`...]}}`, `...]}]`) and listed citations as bare strings (`["P1.7"]`). `AskAnswerPrompt.parse` (and `AskQueryPrompt.parse`) now read the first balanced JSON object (`ModelJSON.object`) and accept bare-string citations. After the fix, both questions that failed were answered with citations.
+- **Progress bar stuck after generation:** `MeetingsPage.generate(_:)` now hides the bar when the run ends and drops progress updates from an ended run. Checked in the dev build: the bar showed during Regenerate and was gone afterwards.
