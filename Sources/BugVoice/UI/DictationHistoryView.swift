@@ -95,7 +95,7 @@ struct DictationHistoryView: View {
                 if running {
                     Text("Transcribing…").bvFont(.body)
                 } else {
-                    Text("Transcription failed").bvFont(.body).foregroundStyle(.bvWarning)
+                    Text(item.title).bvFont(.body).foregroundStyle(.bvWarning)
                     Text("\(item.reason) The recording is kept until \(until).")
                         .bvFont(.caption).foregroundStyle(.bvSecondary).textSelection(.enabled)
                 }
