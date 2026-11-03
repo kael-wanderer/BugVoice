@@ -107,3 +107,22 @@ worked (200) and checks 4, 6, 10 and 11 ran against the real model.
 - Models tab and Search card pickers and model-name fields have VoiceOver names.
 - Menu: after a cancelled first dictation, "Retry cancelled dictation" appears.
 - Not changed: "Last dictation stale after Retry" (the code records the retried result; most likely read before the retry finished) and Scratchpad "Run again" after Ask (it repeats the last rewrite, by design).
+
+## Rerun on build 388 (2026-11-03)
+
+Installed build 388 (`8f55801`) to /Applications. Pastes went into a local test page in Chrome on the second display; nothing was pasted into the owner's apps.
+
+| Check | Result | Evidence |
+|---|---|---|
+| Retry cancelled dictation | Pass | Fresh launch, Esc during Transcribing (`outcome=cancelled`), popover shows "Retry cancelled dictation"; pressing it pasted the clip into Chrome (`outcome=inserted`). With a last result the row is "Retry", which also pasted. |
+| Chrome same-field paste after reload | Pass | Reload before dictating: 3/3 pasted. Reload during recording: 3/3 pasted, log "field check: new reference, same app, role and frame; treated as the same field". Clicking a second field during recording: 3/3 copied (`copiedFieldChanged`); same-field controls pasted. |
+| Scratchpad Ask | Pass | "What did the people bot demo show, and what needs to happen next?" answered in 30 s with citations (`ask outcome=answered`, cited=4). |
+| Markdown export of an edited line | Pass | Edited the first people-bot line, More › Export › Markdown: the file has the edited text, not the original. Edit reverted afterwards; exported file deleted. |
+| Regenerate action items, Interview on a real meeting | Postponed | Owner postponed the remaining tests. |
+| Spanish 4 and 7, Updates 2–5, Backup B4 | Postponed | Same. |
+
+Notes:
+
+- TextEdit (running 11 h) took no synthetic keystrokes, BugVoice's or a test tool's, so the checks moved to Chrome. While it lasted, keys typed with Chrome frontmost landed in BugVoice's search field; after quitting and relaunching BugVoice it did not happen again, even after the same popover, Esc and Retry steps. Most likely left over from an AX press on BugVoice's menu bar item during setup. Not reproduced; not treated as a bug.
+- In one run of four same-field dictations into Chrome, two logged `inserted` (Chrome asked for the clipboard data) but their text is not in the field or in any other Chrome window. Later runs placed every paste. Not reproduced.
+- Esc while recording (not processing) discards the clip without a log line or Retry row; by design, the Retry row follows Esc during Transcribing or Cleaning.
