@@ -4,19 +4,22 @@ Last updated: 2026-11-03
 
 ## Current state
 
-`main` is pushed through `8f55801` (version 0.1.0, build 388; the pre-commit
-hook raises the build on every commit). `swift test`: **1,384 VoiceCore, 30
-MCPKit, 114 BugVoiceMac**, all pass. Every feature below is merged on `main`
-unless the row says otherwise. No feature branch is pending a merge.
+`main` is pushed through the docs merge after `3eb8818` (version 0.1.0; the
+pre-commit hook raises the build on every commit). Release 0.1.0-build.390 is on
+kael.io.vn and in the update feed. `swift test`: **1,384 VoiceCore, 30 MCPKit,
+114 BugVoiceMac**, all pass. Every feature below is merged on `main` unless the
+row says otherwise. No feature branch is pending a merge.
 
-**2026-11-02/03 device checks by Claude** (builds 376 and 388, log
+**2026-11-02/03 device checks by Claude** (builds 376, 388, 389; log
 `docs/progress/claude-device-checks-2026-11-02.md`): Ask parse failure, stuck
 progress bar and the other findings are fixed; meeting prompts (action items,
-Interview, Stand-up) tuned (`docs/progress/prompt-quality-log.md`). On build 388
-these pass: Retry cancelled dictation, Chrome same-field paste after reload,
-Scratchpad Ask, Markdown export of an edited line. **Postponed by the owner
-(2026-11-03):** regenerate action items and the Interview summary on a real
-meeting; Spanish 4 and 7, Updates 2–5, Backup B4.
+Interview, Stand-up) tuned (`docs/progress/prompt-quality-log.md`). Pass: Retry
+cancelled dictation, Chrome same-field paste after reload, Scratchpad Ask,
+Markdown export of an edited line, real-meeting action items and Interview,
+Updates 2, 3 and 5. **Skipped by the owner (2026-11-03):** Updates 4 (Wi-Fi off
+would end the session), Spanish 4 and 7 (owner does not speak Spanish), Backup B4
+(an 8 MB backup finishes before Cancel; covered by `failedZipLeavesNoFile`;
+revisit when backups take noticeable time).
 
 "Owner-verified" means device evidence from the owner. On 2026-10-19 the owner
 marked every device check written up to that day done; that blanket statement is
@@ -38,13 +41,13 @@ evidence.
 | Ask AI | 2026-10-17 | yes | 2026-10-19 | — |
 | MCP server | 2026-10-17 | yes | 2026-10-19 | — |
 | Appearance, app shell, menu popover, note editor | 2026-10-18 | yes | 2026-10-19 | — |
-| Backup and restore | 2026-10-19 | yes | B1, B5–B9 | B2–B4, B10 not run |
+| Backup and restore | 2026-10-19 | yes | B1, B5–B9 (B2, B3, B10 by Claude) | B4 skipped by the owner |
 | Language per app, fix last paste | 2026-10-19 | yes | 2026-10-19 | — |
 | Command mode, project words | 2026-10-19 | yes | 2026-10-19 (all checks pass) | — |
 | Learn from corrections, action items, Shortcuts, live preview | 2026-10-19 | yes | 2026-10-19 | — |
-| Spanish dictation | 2026-10-23 | yes | no | Checks 1–7 (`spanish-log.md`) |
+| Spanish dictation | 2026-10-23 | yes | no (1–3, 5–6 by Claude) | 4 and 7 skipped by the owner |
 | Cleanup fidelity check | 2026-10-24 | yes | no | Checks F1–F8 (`fidelity-log.md`); rerun the history replay |
-| Update check | 2026-10-24 | yes | no | Checks 1–5 (`updates-log.md`) |
+| Update check | 2026-10-24 | yes | no (1–3, 5, 6 by Claude) | 4 skipped by the owner |
 | Incremental transcription | bench only | yes (bench) | — | **Blocked**: gate needs the owner's real-voice clips; no app change |
 | Trust fixes, app-switch copy, failed dictations, search aliases, action-item checkmarks | 2026-10-27 | yes | no | Review checks 1–5 below |
 | Readiness card | 2026-10-28 | yes | no (Claude saw it on screen) | Review check 6 |
