@@ -155,3 +155,9 @@ Findings:
 
 - The feed's `release_url` is a direct DMG download, not a release page, so Open starts a download while the copy says "Open shows its release page in your browser." Either point the feed at a page or change the copy.
 - At 160% text the sidebar wraps "Dictionary" onto two lines next to its badge.
+
+## Skipped by the owner (2026-11-03)
+
+- Updates 4 (Wi-Fi off): turning Wi-Fi off would end the remote session.
+- Spanish 4 and 7: the owner does not speak Spanish; Spanish played through the speakers transcribes badly.
+- Backup B4 (cancel during backup): an 8 MB backup finishes before Cancel can be pressed. Cancellation shares the cleanup path covered by `failedZipLeavesNoFile`, and Restore rejects a partial file. Revisit when backups take noticeable time.
