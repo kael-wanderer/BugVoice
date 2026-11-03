@@ -1,13 +1,22 @@
 # BugVoice — Handoff
 
-Last updated: 2026-10-28
+Last updated: 2026-11-03
 
 ## Current state
 
-`main` is pushed through `91ca906` (version 0.1.0, build 373; the pre-commit
-hook raises the build on every commit). `swift test`: **1,364 VoiceCore, 30
+`main` is pushed through `8f55801` (version 0.1.0, build 388; the pre-commit
+hook raises the build on every commit). `swift test`: **1,384 VoiceCore, 30
 MCPKit, 114 BugVoiceMac**, all pass. Every feature below is merged on `main`
 unless the row says otherwise. No feature branch is pending a merge.
+
+**2026-11-02/03 device checks by Claude** (builds 376 and 388, log
+`docs/progress/claude-device-checks-2026-11-02.md`): Ask parse failure, stuck
+progress bar and the other findings are fixed; meeting prompts (action items,
+Interview, Stand-up) tuned (`docs/progress/prompt-quality-log.md`). On build 388
+these pass: Retry cancelled dictation, Chrome same-field paste after reload,
+Scratchpad Ask, Markdown export of an edited line. **Postponed by the owner
+(2026-11-03):** regenerate action items and the Interview summary on a real
+meeting; Spanish 4 and 7, Updates 2–5, Backup B4.
 
 "Owner-verified" means device evidence from the owner. On 2026-10-19 the owner
 marked every device check written up to that day done; that blanket statement is
