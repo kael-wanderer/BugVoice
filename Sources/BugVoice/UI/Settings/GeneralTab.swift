@@ -133,7 +133,7 @@ private struct UpdatesCard: View {
         case .failed(.notFound), .failed(.serverError): "The update feed is not answering right now. Try again later."
         case .failed(.malformed): "The update feed could not be read, so no version was compared."
         case .upToDate(let latest): "Up to date. The newest release is \(latest)."
-        case .offer(let update): "BugVoice \(update.version) is available. Open shows its release page in your browser."
+        case .offer(let update): "BugVoice \(update.version) is available. Open downloads it in your browser."
         }
     }
 }

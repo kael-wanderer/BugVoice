@@ -139,3 +139,19 @@ Run through the app (Meetings › Action items / Summary), not the eval script.
 | Spanish 4 | Not run | Spanish is not ticked in the owner's dictation languages; Spanish played through the speakers transcribed badly before. |
 
 The generated action item and Interview summary stay on the people-bot meeting; the action item also appears on the Action items page.
+
+## Updates 2–5 against the live feed (2026-11-03, installed build 389, feed 0.1.0-build.390)
+
+The feed's download matches `build/BugVoice-0.1.0-390.dmg` (SHA-256 `04853ec4…bdde6`).
+
+| # | Result | Evidence |
+|---|---|---|
+| 2 | Pass | Check for Updates…: "BugVoice 0.1.0-build.390 is available. Open shows its release page in your browser.", button "Open 0.1.0-build.390". Menu popover row "BugVoice 0.1.0-build.390 is available" with Open. |
+| 3 | Pass | Switch off: `updateNotify` false, menu row gone, still gone after a relaunch. Switch on: row back. |
+| 4 | Not run | Turning Wi-Fi off would cut the owner's network while they were at the Mac. |
+| 5 | Pass | Light and dark at 160% text: Updates card rows, button and switch title fit. Restored to light, 100%. |
+
+Findings:
+
+- The feed's `release_url` is a direct DMG download, not a release page, so Open starts a download while the copy says "Open shows its release page in your browser." Either point the feed at a page or change the copy.
+- At 160% text the sidebar wraps "Dictionary" onto two lines next to its badge.

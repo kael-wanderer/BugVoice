@@ -24,7 +24,7 @@ Phase 474, which reads the same kind of feed).
   `updateNotify` (default on, `settings.json`). Turning it off clears the menu
   row; turning it on checks at once.
 - Menu popover: "BugVoice <version> is available" row with Open, while an offer
-  stands. Opens the release page in the browser; nothing downloads or installs.
+  stands. Opens the feed's `release_url` in the browser (a DMG download link); BugVoice itself never downloads or installs.
 
 - Check for Updates… (added 2026-10-27): in the BugVoice app menu under
   About, and in the popover's Tools submenu. Both open Settings › General and
@@ -46,7 +46,7 @@ would restart the owner's running BugVoice.
 1. Settings › General › Updates against the live feed (306, older than any current build): note
    reads "Up to date. The newest release is 0.1.0-build.306.", button "Check again".
 2. Publish a newer build to the feed (or lower `CFBundleVersion` in a dev build):
-   the menu shows "BugVoice … is available"; Open lands on the release page.
+   the menu shows "BugVoice … is available"; Open opens the feed's download link in the browser.
 3. Switch off: the menu row goes; relaunch shows none. Switch on: row returns.
 4. Wi-Fi off, Check again: "could not reach the update feed", button "Retry".
 5. Light and dark, at the larger text sizes: the card's row and toggle title fit.

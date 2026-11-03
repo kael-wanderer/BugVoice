@@ -124,7 +124,7 @@ struct MenuPopover: View {
             model.dictionaryTab = .words
             model.openMainWindow(.dictionary)
         case .update:
-            // Opens the release page; BugVoice never downloads or installs itself.
+            // Opens the feed's release URL in the browser; BugVoice never downloads or installs itself.
             guard let url = model.availableUpdate?.releaseURL else { return }
             close()
             NSWorkspace.shared.open(url)
