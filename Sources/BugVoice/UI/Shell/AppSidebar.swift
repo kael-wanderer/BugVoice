@@ -55,12 +55,15 @@ struct AppSidebar: View {
         Button { model.page = page; focused = true } label: {
             HStack(spacing: LayoutTokens.spacing[1]) {
                 Image(systemName: page.symbol).frame(width: store.scaled(20))
-                Text(page.title).frame(maxWidth: .infinity, alignment: .leading)
+                // One line at any text size: shrink a little before truncating.
+                Text(page.title).lineLimit(1).minimumScaleFactor(0.8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 if page == .dictionary, !model.suggestions.pending.isEmpty {
                     Text("\(model.suggestions.pending.count)")
                         .bvFont(.caption).foregroundStyle(.bvBackground)
                         .padding(.horizontal, 6).padding(.vertical, 2)
                         .background(Capsule().fill(.bvAccent))
+                        .fixedSize()
                 }
                 if page == .upload, let job = model.uploads?.active { UploadRing(progress: job.progress) }
             }
