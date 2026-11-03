@@ -126,3 +126,16 @@ Notes:
 - TextEdit (running 11 h) took no synthetic keystrokes, BugVoice's or a test tool's, so the checks moved to Chrome. While it lasted, keys typed with Chrome frontmost landed in BugVoice's search field; after quitting and relaunching BugVoice it did not happen again, even after the same popover, Esc and Retry steps. Most likely left over from an AX press on BugVoice's menu bar item during setup. Not reproduced; not treated as a bug.
 - In one run of four same-field dictations into Chrome, two logged `inserted` (Chrome asked for the clipboard data) but their text is not in the field or in any other Chrome window. Later runs placed every paste. Not reproduced.
 - Esc while recording (not processing) discards the clip without a log line or Retry row; by design, the Retry row follows Esc during Transcribing or Cleaning.
+
+## Real-meeting prompt checks (2026-11-03, build 389, oMLX Qwen3.8-27B)
+
+Run through the app (Meetings › Action items / Summary), not the eval script.
+
+| Check | Result | Evidence |
+|---|---|---|
+| Action items, people-bot demo (22 min) | Pass | One item: "Share the slide with the diagram", the only task stated in the meeting. 30 s. |
+| Action items, 3:44 meeting (questions and fragments, no tasks) | Pass | "No action items in this meeting." 10 s. |
+| Interview template, people-bot demo | Pass | "Candidate: Not an interview."; strengths and concerns N/A; topics and follow-ups match the transcript (20-minute expiry, 10-minute reminder, lock, hijack option, one session at a time, employee details shown). Commands are written as `/deactivate [email]`, a format the speaker did not spell out. 70 s. |
+| Spanish 4 | Not run | Spanish is not ticked in the owner's dictation languages; Spanish played through the speakers transcribed badly before. |
+
+The generated action item and Interview summary stay on the people-bot meeting; the action item also appears on the Action items page.
