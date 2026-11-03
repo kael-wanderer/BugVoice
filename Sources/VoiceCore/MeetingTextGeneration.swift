@@ -107,8 +107,9 @@ public enum SummaryTemplate: String, CaseIterable, Sendable {
         switch self {
         case .general: ""
         case .technicalDesign: "Use Markdown sections: decisions, options considered, open questions, and risks. Do not invent owners or deadlines; leave missing owners and deadlines unspecified."
-        case .standUp: "Use Markdown sections per person: done, next, and blocked. Do not invent owners or deadlines; leave missing owners and deadlines unspecified."
-        case .interview: "Use Markdown sections: candidate, topics, strengths, concerns, and follow-ups. Do not invent owners or deadlines; leave missing owners and deadlines unspecified."
+        case .standUp: "Use Markdown sections per person: done, next, and blocked. Under next, list only what a person said they will do; do not infer plans. Do not invent owners or deadlines; leave missing owners and deadlines unspecified."
+        // Picked for a demo or talk, the template judged the product as if it were a candidate.
+        case .interview: "Use Markdown sections: candidate, topics, strengths, concerns, and follow-ups. Strengths and concerns describe the candidate's answers, not a product or plan discussed. If no one is being interviewed, write \"Not an interview.\" under candidate, summarize the topics, and leave out strengths and concerns. Do not invent owners or deadlines; leave missing owners and deadlines unspecified."
         }
     }
 }
@@ -185,7 +186,8 @@ public struct MeetingTextGenerator: Sendable {
     private func systemPrompt(kind: MeetingTextKind, stage: Stage, followsNotes: Bool, template: SummaryTemplate) -> String {
         let kindInstruction = kind == .summary
             ? "Write a factual meeting summary. Keep names, decisions, and uncertainty faithful to the transcript."
-            : "Extract action items as concise Markdown bullets. Include an owner only when stated."
+            // Without this definition, models listed every topic of a demo as a task.
+            : "List the action items: tasks someone agreed, offered, was asked or said they will do after the meeting. Do not list topics discussed, features shown or explained, or work already done. One concise Markdown bullet per task; include an owner only when stated. If there are none, reply exactly: No action items"
         let stageInstruction = stage == .part ? "Process only the supplied transcript part." : "Combine the supplied partial results without adding facts."
         let notesInstruction = followsNotes ? " " + Self.followNotesInstruction : ""
         let templateInstruction = kind == .summary && template != .general ? " " + template.instruction : ""

@@ -6,6 +6,10 @@ struct ActionItemParserTests {
     @Test func bullets() {
         #expect(ActionItemParser.parse("- Send the build\n* Check crash rate\n• Book review\n1. Share report\n2) Read notes", meetingID: id).items.map(\.text) == ["Send the build", "Check crash rate", "Book review", "Share report", "Read notes"])
     }
+    @Test func noneReplyWithFullStopIsNotALine() {
+        let parsed = ActionItemParser.parse("No action items.", meetingID: id)
+        #expect(parsed.items.isEmpty && parsed.otherLines.isEmpty)
+    }
     @Test func ownerShapes() {
         let cases = [("- Kael: send the build to QA", "send the build to QA", "Kael"), ("* **Tuấn** — check the crash rate", "check the crash rate", "Tuấn"), ("1. Share the report (owner: Linh)", "Share the report", "Linh"), ("- [ ] Book a design review — Minh Anh", "Book a design review", "Minh Anh"), ("- Ask (Kael)", "Ask", "Kael")]
         for (line, text, owner) in cases {

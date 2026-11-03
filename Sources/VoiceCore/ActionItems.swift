@@ -33,7 +33,7 @@ public enum ActionItemParser {
         for raw in (markdown ?? "").components(separatedBy: .newlines) {
             guard raw.range(of: marker, options: .regularExpression) != nil else {
                 let line = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !line.isEmpty && !["no action items", "none"].contains(line.lowercased()) { result.otherLines.append(line) }
+                if !line.isEmpty && !["no action items", "none"].contains(line.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "."))) { result.otherLines.append(line) }
                 continue
             }
             let full = cleaned(raw)
