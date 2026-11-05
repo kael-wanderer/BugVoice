@@ -52,3 +52,13 @@ would restart the owner's running BugVoice.
 5. Light and dark, at the larger text sizes: the card's row and toggle title fit.
 6. BugVoice menu › Check for Updates… and popover › Tools › Check for Updates…:
    each opens Settings › General and the Updates card reads Checking…, then the result.
+
+## Quarantine step in the update note (2026-11-05)
+
+A DMG downloaded in the browser carries `com.apple.quarantine`; without a
+Developer ID, Gatekeeper then kills the installed app at launch (seen on build
+390). When an update is offered, Settings › General › Updates now says to run
+`xattr -cr /Applications/BugVoice.app` after dragging the app into Applications,
+and shows the command with a Copy button. Builds and tests pass; not yet seen on
+screen (the screen was locked). Owner check: with a newer build in the feed, the
+note and command appear and Copy puts the command on the clipboard.

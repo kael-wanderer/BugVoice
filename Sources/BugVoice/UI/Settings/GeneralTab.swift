@@ -90,6 +90,21 @@ private struct UpdatesCard: View {
                 .disabled(state == .checking)
             }
             Text(note).bvFont(.footnote).foregroundStyle(isFailure ? .bvWarning : .bvSecondary)
+            if case .offer = state {
+                // The DMG comes from the browser with a quarantine flag; without a
+                // Developer ID, macOS refuses to open the installed copy until it is cleared.
+                HStack(spacing: 8) {
+                    Text(Self.unquarantineCommand)
+                        .bvFont(.footnote).monospaced()
+                        .textSelection(.enabled)
+                        .foregroundStyle(.bvSecondary)
+                    Button("Copy") {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(Self.unquarantineCommand, forType: .string)
+                    }
+                    .controlSize(.small)
+                }
+            }
             Divider()
             SettingsToggle(title: "Check at launch and daily, and show new versions in the menu", isOn: $model.settings.updateNotify)
         }
@@ -133,7 +148,9 @@ private struct UpdatesCard: View {
         case .failed(.notFound), .failed(.serverError): "The update feed is not answering right now. Try again later."
         case .failed(.malformed): "The update feed could not be read, so no version was compared."
         case .upToDate(let latest): "Up to date. The newest release is \(latest)."
-        case .offer(let update): "BugVoice \(update.version) is available. Open downloads it in your browser."
+        case .offer(let update): "BugVoice \(update.version) is available. Open downloads it in your browser. After you drag it into Applications, run this in Terminal before opening it:"
         }
     }
+
+    static let unquarantineCommand = "xattr -cr /Applications/BugVoice.app"
 }
