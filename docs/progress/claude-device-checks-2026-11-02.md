@@ -161,3 +161,35 @@ Findings:
 - Updates 4 (Wi-Fi off): turning Wi-Fi off would end the remote session.
 - Spanish 4 and 7: the owner does not speak Spanish; Spanish played through the speakers transcribes badly.
 - Backup B4 (cancel during backup): an 8 MB backup finishes before Cancel can be pressed. Cancellation shares the cleanup path covered by `failedZipLeavesNoFile`, and Restore rejects a partial file. Revisit when backups take noticeable time.
+
+## Rerun on dev build 394 (2026-11-05, owner away)
+
+Dev build `build/BugVoice.app` 394 (same code as `main` 758e9a1), real cleanup
+model oMLX Qwen3.8-27B. Pastes went into a throwaway Chrome instance (own
+`--user-data-dir`) on the second display. Every hotkey hold ran only after a guard
+confirmed that window was frontmost and nobody had touched the keyboard or
+mouse since the previous run. Settings were restored byte-for-byte from a backup;
+clipboard unchanged.
+
+| Check | Result | Evidence |
+|---|---|---|
+| Fidelity history replay | Pass | 51 entries decoded, 17 checked, 0 flagged (all four kinds 0). |
+| F1 (real model) | Pass | "The timeout is fifteen seconds." → "The timeout is 15 seconds.", no issue. |
+| F6 (real model, Work style) | Pass | "at three, no, I mean four" → "Let's meet at 4.", no issue. In style Other the correction is not applied ("at three. No, I mean four."): Other's default rules do not ask for it. |
+| F7 (real model) | Pass | "họp lúc ba giờ" → "họp lúc 3 giờ", no issue. |
+| F2, F4 (real model) | Not forceable | Qwen kept "not" even with a custom Work rule "Always remove the word not", so no issue fires. App logic already passed against the fake model. |
+| Same-field paste in Chrome | Pass, 18 of 18 | 12 consecutive same-field dictations (cleanup off) plus the 6 above: every one logged `inserted` and every text is in the field (screenshot). The two missing pastes from build 388 did not recur. |
+| U2 labels (Models tab) | Pass | Every picker and model-name field has a name ("Dictation cleanup model", "… thinking", "Dictation time limit", "Embedding model name"…). Only unlabeled buttons are scroll arrows and window controls. |
+
+Findings:
+
+- **Installed app would not launch:** syspolicyd "Terminating process due to
+  Gatekeeper rejection". `/Applications/BugVoice.app` (build 390) carried
+  `com.apple.quarantine` from the DMG downloaded in Chrome on 2026-11-03 17:38. Every
+  update installed from a downloaded DMG will do this (no Developer ID). Cleared with
+  `xattr -cr /Applications/BugVoice.app` at the owner's request; app launches.
+  Possible follow-up: the update note could tell the owner to run that command.
+- With cleanup off, back-to-back dictations into one field are glued without a space
+  ("number onesame field…"), and raw Whisper text sometimes lacks capitals and the
+  final period.
+- The 18 test dictations were removed from history afterwards at the owner's request.
