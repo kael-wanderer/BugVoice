@@ -31,7 +31,8 @@ Phase 3 (built-in model) follow.
   adds `ModelEngine.builtIn`. The choice is not offered while the built-in
   model is disabled, so the path is unreachable for now.
 - No RED output was captured: the implementation was written before the first
-  test run. Focused green: 7 tests. Full `swift test`: 114 tests passed.
+  test run. Focused green: 7 tests. Full `swift test` after the commit (controller run):
+  1395 VoiceCore + 30 + 114 tests passed.
 - Commit: 419965f `feat(core): onboarding steps and cleanup choice`.
 
 ## Task 3 — Hotkey probe (2026-11-06)
@@ -87,7 +88,7 @@ Phase 3 (built-in model) follow.
 - Review found that Try-it capture was keyed on a flag rather than the target.
   Fix round 1 made it stricter as above.
 - Verification: `TryItResultTests` 4 passed; full `swift test` passed
-  (VoiceCore 1399, MCPKit 30, app 114); `Scripts/build-app.sh` ok.
+  (1399 + 30 + 114); `Scripts/build-app.sh` ok.
 - Commits: 53a8099 `feat(app): onboarding cleanup and try-it steps`;
   353ac8d `fix(app): try-it capture only for the onboarding text box`.
 
@@ -143,6 +144,8 @@ Device checks, Phase 1:
 - [ ] Tour, all three entry points: from onboarding finish, Settings > General,
       and the menu popover Tools > "Take the tour". Esc ends it, arrows move it,
       narrow or hidden sidebar skips hidden stops, and it matches the mockup.
+      The overlay swallows clicks to the main window; nothing starts a recording,
+      opens the meeting window or pastes.
 - [ ] Existing install path: an install with a `settings.json` never shows
       onboarding automatically and keeps its settings.
 - [ ] Run setup again: Settings > General reopens onboarding at step 1.
@@ -152,6 +155,10 @@ Device checks, Phase 1:
       History and Fix last paste, and the Try-it row does not change.
 - [ ] Step 5: oMLX with a key, Test passes, Continue; a cloud key is saved and
       the privacy line shows.
+- [ ] Try it while speech still downloads: the note shows the download percentage.
+- [ ] Try it cleanup failure: the reason shows in the Try-it row.
+- [ ] Try-it dictation does not appear in History and is not the "Fix last paste"
+      target.
 - [ ] Close and relaunch after closing onboarding does not reopen it.
 - [ ] DMG window: run `Scripts/build-dmg.sh` (allow Automation if asked); compare
       with mockup Part 1 (window bounds, icon positions, text not overlapped,
@@ -160,7 +167,7 @@ Device checks, Phase 1:
       `open-anyway.png`, rerun `Scripts/make-dmg-readme.sh`, commit.
 - [ ] Update note: Settings > General shows the way A and way B text correctly.
 
-Deferred minors (from the task reviews; fix in the final wave):
+Selected deferred review notes (not a complete list; fix in the final wave):
 
 - [ ] Try-it text view lacks min/max size and horizontal resize settings, so long
       text may not wrap.
