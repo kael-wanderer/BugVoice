@@ -364,7 +364,8 @@ final class AppModel {
     /// Brings up the Permissions window. Set by the app delegate.
     @ObservationIgnored var presentPermissionsWindow: (() -> Void)?
     /// While set, the talk key calls this on key-down and starts no dictation.
-    /// Onboarding uses it to show the key is heard. Key-up and other input are dropped.
+    /// A recording already running is cancelled. Onboarding uses it to show the key
+    /// is heard. Key-up and other input are dropped.
     @ObservationIgnored var hotkeyProbe: (() -> Void)?
     /// Created by `bootstrap()` once settings are loaded.
     @ObservationIgnored private(set) var dictation: DictationController?

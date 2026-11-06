@@ -109,6 +109,9 @@ final class DictationController {
 
     private func receive(_ input: KeyInput) {
         if let probe = model.hotkeyProbe {
+            // Ends any recording already running so the mic is not left open.
+            if recorder.isRunning { cancel() }
+            detector.reset()
             if case .hotkeyDown = input { probe() }
             return
         }
@@ -128,7 +131,8 @@ final class DictationController {
         Task { [weak self] in
             let wait = max(0, due - ProcessInfo.processInfo.systemUptime) + 0.005
             try? await Task.sleep(for: .seconds(wait))
-            guard let self, !self.isBusy, self.model.command?.isActive != true else { return }
+            guard let self, !self.isBusy, self.model.command?.isActive != true,
+                  self.model.hotkeyProbe == nil else { return }
             for action in self.detector.tick(now: ProcessInfo.processInfo.systemUptime) { self.perform(action) }
         }
     }
