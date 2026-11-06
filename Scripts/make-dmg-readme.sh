@@ -62,4 +62,5 @@ PY
 
 "$CHROME" --headless=new --disable-gpu --no-pdf-header-footer \
     --print-to-pdf="$PWD/App/DMG/Read Me First.pdf" "file://$WORK/readme.html" >/dev/null 2>&1
+[[ -s "App/DMG/Read Me First.pdf" ]] || { echo "error: the PDF was not written. Is Google Chrome installed?" >&2; exit 1; }
 echo "Wrote App/DMG/Read Me First.pdf"

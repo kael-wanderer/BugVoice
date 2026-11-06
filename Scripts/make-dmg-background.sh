@@ -23,4 +23,7 @@ render 2 "$PWD/App/DMG/background@2x.png"
 # Finder pairs the two by name; mark the 1x at 72 dpi and the 2x at 144 dpi.
 sips -s dpiWidth 72 -s dpiHeight 72 App/DMG/background.png >/dev/null
 sips -s dpiWidth 144 -s dpiHeight 144 App/DMG/background@2x.png >/dev/null
+for f in App/DMG/background.png App/DMG/background@2x.png; do
+    [[ -s "$f" ]] || { echo "error: $f was not written. Is Google Chrome installed?" >&2; exit 1; }
+done
 echo "Wrote App/DMG/background.png and background@2x.png"

@@ -65,21 +65,32 @@ ln -s /Applications "$STAGING/Applications"
 cp "$DMG_ASSETS/Read Me First.pdf" "$STAGING/"
 # One TIFF holds the 1x and 2x pictures so Finder picks the sharp one on Retina.
 tiffutil -cathidpicheck "$DMG_ASSETS/background.png" "$DMG_ASSETS/background@2x.png" \
-    -out "$STAGING/.background/background.tiff" >/dev/null 2>&1
+    -out "$STAGING/.background/background.tiff" >/dev/null \
+    || { echo "error: tiffutil could not build the background picture." >&2; exit 1; }
 
 # Read-write image with headroom: Finder writes .DS_Store when the layout is set.
 SIZE_MB=$(( $(du -sk "$STAGING" | cut -f1) / 1024 + 30 ))
-hdiutil create -volname "$VOLNAME" -srcfolder "$STAGING" -fs HFS+ -format UDRW -size "${SIZE_MB}m" -ov "$RW" >/dev/null 2>&1
+# (`diskutil image create from` sizes the image to the content with no headroom,
+# so the read-write image still comes from hdiutil, which works on current macOS.)
+hdiutil create -volname "$VOLNAME" -srcfolder "$STAGING" -fs HFS+ -format UDRW -size "${SIZE_MB}m" -ov "$RW" >/dev/null \
+    || { echo "error: hdiutil could not create the read-write image." >&2; exit 1; }
 ATTACH="$(hdiutil attach "$RW" -readwrite -noverify -noautoopen)"
 MOUNT="$(printf '%s\n' "$ATTACH" | awk -F'\t' '/\/Volumes\//{print $NF}' | head -n1)"
 if [[ -z "$MOUNT" || ! -d "$MOUNT" ]]; then
     echo "error: could not mount the read-write image." >&2
     exit 1
 fi
+# Finder addresses the disk by name; a same-named volume already mounted would
+# push this one to "/Volumes/<name> 1" and the layout would hit the wrong disk.
+if [[ "$MOUNT" != "/Volumes/$VOLNAME" ]]; then
+    echo "error: a volume named $VOLNAME is already mounted. Eject it and run again." >&2
+    exit 1
+fi
 chflags hidden "$MOUNT/.background" 2>/dev/null || true
 
 # Window content is 660x420 (the background size); bounds add the 28pt title bar.
-if ! osascript >/dev/null 2>&1 <<OSA
+OSA_ERR="$WORK/osascript.err"
+if ! osascript >/dev/null 2>"$OSA_ERR" <<OSA
 tell application "Finder"
     tell disk "$VOLNAME"
         open
@@ -103,6 +114,7 @@ tell application "Finder"
 end tell
 OSA
 then
+    cat "$OSA_ERR" >&2
     echo "Finder automation is needed to lay out the DMG. Allow Terminal under Privacy & Security › Automation." >&2
     exit 1
 fi
@@ -112,6 +124,14 @@ hdiutil detach "$MOUNT" -quiet >/dev/null 2>&1 || { sleep 2; hdiutil detach "$MO
 MOUNT=""
 
 rm -f "$DMG"
-hdiutil convert "$RW" -format UDZO -imagekey zlib-level=9 -ov -o "$DMG" >/dev/null 2>&1
+# `hdiutil convert` is deprecated from macOS 26; `diskutil image create from`
+# converts an image there. Older macOS has only hdiutil.
+if diskutil image create from -h >/dev/null 2>&1; then
+    diskutil image create from --format UDZO "$RW" "$DMG" >/dev/null \
+        || { echo "error: diskutil could not compress the image." >&2; exit 1; }
+else
+    hdiutil convert "$RW" -format UDZO -imagekey zlib-level=9 -ov -o "$DMG" >/dev/null \
+        || { echo "error: hdiutil could not compress the image." >&2; exit 1; }
+fi
 hdiutil verify "$DMG" >/dev/null
 echo "Built $DMG ($VERSION build $BUILD)"
