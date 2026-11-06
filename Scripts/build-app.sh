@@ -74,6 +74,19 @@ else
 fi
 # The MCP bridge agents start; it finds the app three folders up from itself.
 cp "$BIN/bugvoice-mcp" "$CONTENTS/MacOS/bugvoice-mcp"
+# Pinned llama.cpp server for the built-in cleanup model. Only llama-server and
+# the dylibs it links (all @rpath, resolved through its @loader_path rpath) go in.
+LLAMA_DIR="$("$ROOT/Scripts/fetch-llama-server.sh" | tail -n 1)"
+LLAMA_DIR="$ROOT/$(dirname "$LLAMA_DIR")"
+HELPERS="$CONTENTS/Helpers"
+mkdir -p "$HELPERS"
+cp "$LLAMA_DIR/llama-server" "$HELPERS/llama-server"
+for lib in libllama-server-impl.dylib libllama-common.0.dylib libmtmd.0.dylib libllama.0.dylib \
+           libggml.0.dylib libggml-cpu.0.dylib libggml-blas.0.dylib libggml-metal.0.dylib \
+           libggml-rpc.0.dylib libggml-base.0.dylib; do
+    cp -L "$LLAMA_DIR/$lib" "$HELPERS/$lib"   # -L: the .0 names are symlinks to versioned files
+done
+xattr -cr "$HELPERS"
 cp "$ROOT/App/Info.plist" "$CONTENTS/Info.plist"
 cp "$ROOT/App/AppIcon.icns" "$CONTENTS/Resources/AppIcon.icns"
 for resource in Icons MenuBarIcons Fonts; do
@@ -90,10 +103,16 @@ ENTITLEMENTS="$ROOT/App/$APP_NAME.entitlements"
 # Nested code is signed before the bundle so the bundle signature covers it.
 if [[ -n "$IDENTITY" ]]; then
     codesign --force --options runtime --timestamp=none --sign "$IDENTITY" "$CONTENTS/MacOS/bugvoice-mcp"
+    # No --options runtime here: with it, library validation rejects the dylibs
+    # ("different Team IDs", the identity has no Team ID) and llama-server fails to start.
+    for item in "$HELPERS"/*.dylib "$HELPERS/llama-server"; do
+        codesign --force --timestamp=none --sign "$IDENTITY" "$item"
+    done
     codesign --force --options runtime --timestamp=none --entitlements "$ENTITLEMENTS" --sign "$IDENTITY" "$APP_DIR"
     echo "Signed with: $IDENTITY"
 else
     codesign --force --sign - "$CONTENTS/MacOS/bugvoice-mcp"
+    for item in "$HELPERS"/*.dylib "$HELPERS/llama-server"; do codesign --force --sign - "$item"; done
     codesign --force --entitlements "$ENTITLEMENTS" --sign - "$APP_DIR"
     echo "ALLOW_ADHOC=1: signed ad hoc. Permissions will be asked again after each build."
 fi
