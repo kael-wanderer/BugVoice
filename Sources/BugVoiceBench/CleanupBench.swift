@@ -134,12 +134,20 @@ func runCleanupBench() async -> Int32 {
     print("Model: \(modelID)")
     print("Entries run: \(inputs.count) (history \(historyCount), fixed \(fixedSentences.count)), runs: \(runs)")
     print("10-20 word inputs: \(bucket.count)")
-    print(String(format: "Median cleanup s (10-20 words): %.3f", LatencyStats.median(bucket)))
-    print(String(format: "P90 cleanup s (10-20 words): %.3f", LatencyStats.percentile(bucket, 90)))
-    print(String(format: "Overall median cleanup s: %.3f", LatencyStats.median(all)))
+    // An empty set has no timing; print n/a rather than a misleading 0.000.
+    func timing(_ values: [Double], _ stat: ([Double]) -> Double) -> String {
+        values.isEmpty ? "n/a" : String(format: "%.3f", stat(values))
+    }
+    print("Median cleanup s (10-20 words): \(timing(bucket, LatencyStats.median))")
+    print("P90 cleanup s (10-20 words): \(timing(bucket) { LatencyStats.percentile($0, 90) })")
+    print("Overall median cleanup s: \(timing(all, LatencyStats.median))")
     print(String(format: "Fidelity flagged (median over runs): %.1f", LatencyStats.median(flaggedPerRun)))
     print("Fidelity flagged per run: \(flaggedPerRun.map { Int($0) })")
     print(String(format: "Sanitizer rejected (median over runs): %.1f", LatencyStats.median(rejectedPerRun)))
     print(String(format: "Request errors (median over runs): %.1f", LatencyStats.median(errorsPerRun)))
+    if all.isEmpty {
+        log("Every cleanup request failed.")
+        return 1
+    }
     return 0
 }
