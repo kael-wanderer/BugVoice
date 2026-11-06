@@ -388,7 +388,7 @@ final class DictationController {
             }
             stagedRun = nil
             if result.outcome == .inserted, !intoNotes, result.style != .terminal,
-               !focus.isSecure, model.settings.speech.learnFromCorrections,
+               !focus.isSecure, model.settings.speech.learnFromCorrections, !model.tryItActive,
                let captured = correctionFocus,
                FocusInspector.isSameElement(correctionElement, FocusInspector.focusedElement()) {
                 model.correctionWatcher.start(pasted: result.finalText, focus: captured, app: captured.appName)
@@ -414,7 +414,11 @@ final class DictationController {
                     hud.hide()
                 }
                 await model.recordInsights(result, noteID: notesCapture?.noteID)
-                if !intoNotes { await model.record(result) }
+                if model.tryItActive, !intoNotes {
+                    model.lastTryItResult = TryItResult(result, cleanupName: modelName)
+                } else if !intoNotes {
+                    await model.record(result)
+                }
             }
             if let retrying {
                 if result.outcome == .transcriptionFailed {

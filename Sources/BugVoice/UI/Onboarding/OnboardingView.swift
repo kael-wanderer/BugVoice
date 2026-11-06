@@ -7,6 +7,7 @@ struct OnboardingView: View {
     @Environment(AppearanceStore.self) private var store
     @Bindable var model: AppModel
     @State private var step: OnboardingStep
+    @State private var cleanupDraft = OnboardingCleanupDraft()
     let close: () -> Void
 
     init(model: AppModel, start: OnboardingStep, close: @escaping () -> Void) {
@@ -17,7 +18,7 @@ struct OnboardingView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            OnboardingStepBody(model: model, step: step, advance: advance, finish: finish, startTour: tour)
+            OnboardingStepBody(model: model, step: step, cleanupDraft: cleanupDraft, finish: finish, startTour: tour)
                 .id(step)
                 .padding(LayoutTokens.spacing[4])
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -54,6 +55,9 @@ struct OnboardingView: View {
             }
             if step == .welcome {
                 Button("Get started") { advance() }.buttonStyle(.borderedProminent)
+            } else if step == .cleanup {
+                Button("Continue") { if cleanupDraft.commit(to: model) { advance() } }
+                    .buttonStyle(.borderedProminent).disabled(!cleanupDraft.canContinue)
             } else if step.next != nil {
                 Button("Continue") { advance() }.buttonStyle(.borderedProminent)
             }

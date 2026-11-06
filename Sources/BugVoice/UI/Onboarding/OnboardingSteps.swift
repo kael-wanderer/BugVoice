@@ -6,7 +6,7 @@ import VoiceCore
 struct OnboardingStepBody: View {
     @Bindable var model: AppModel
     let step: OnboardingStep
-    let advance: () -> Void
+    @Bindable var cleanupDraft: OnboardingCleanupDraft
     let finish: () -> Void
     let startTour: () -> Void
 
@@ -16,8 +16,8 @@ struct OnboardingStepBody: View {
         case .hotkey: HotkeyStep(model: model)
         case .permissions: PermissionsStep(model: model)
         case .speech: SpeechStep(model: model)
-        case .cleanup: PlaceholderStep(title: "Cleanup model", advance: advance) // Task 5 fills this in.
-        case .tryIt: PlaceholderStep(title: "Try it", advance: advance) // Task 5 fills this in.
+        case .cleanup: OnboardingCleanupStep(model: model, draft: cleanupDraft)
+        case .tryIt: OnboardingTryItStep(model: model)
         case .finish: FinishStep(model: model, finish: finish, startTour: startTour)
         }
     }
@@ -148,17 +148,6 @@ private struct SpeechStep: View {
         case .failed(let message):
             Text("The download failed: \(message)").bvFont(.footnote).foregroundStyle(.bvWarning)
             Button("Retry") { model.retrySpeech() }
-        }
-    }
-}
-
-private struct PlaceholderStep: View {
-    let title: String
-    let advance: () -> Void
-    var body: some View {
-        VStack(alignment: .leading, spacing: LayoutTokens.spacing[2]) {
-            Text(title).bvFont(.title1)
-            Text("Press Continue.").bvFont(.reading).foregroundStyle(.bvSecondary)
         }
     }
 }

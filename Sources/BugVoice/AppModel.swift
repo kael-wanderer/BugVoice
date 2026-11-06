@@ -368,6 +368,11 @@ final class AppModel {
     /// is heard. Key-up and other input are dropped.
     @ObservationIgnored var presentOnboarding: ((OnboardingStep) -> Void)?
     @ObservationIgnored var hotkeyProbe: (() -> Void)?
+    /// True while the Try it step is showing. A dictation then pastes into its
+    /// text box, fills `lastTryItResult`, and skips history and correction learning.
+    @ObservationIgnored var tryItActive = false
+    /// The latest dictation made on the Try it step.
+    var lastTryItResult: TryItResult?
     /// Created by `bootstrap()` once settings are loaded.
     @ObservationIgnored private(set) var dictation: DictationController?
     @ObservationIgnored private(set) var command: CommandController?
@@ -514,6 +519,7 @@ final class AppModel {
     func finishOnboarding() {
         if !settings.onboardingDone { settings.onboardingDone = true }
         hotkeyProbe = nil
+        tryItActive = false
     }
 
     /// Task 5b implements the guided tour.

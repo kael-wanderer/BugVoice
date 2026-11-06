@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import VoiceCore
 
@@ -57,5 +58,41 @@ import Testing
     @Test func choicesHideUnavailableKinds() {
         #expect(OnboardingSetup.choices(appleIntelligence: false, builtInEnabled: false) == [.localApp, .cloud, .none])
         #expect(OnboardingSetup.choices(appleIntelligence: true, builtInEnabled: true) == [.builtIn, .appleIntelligence, .localApp, .cloud, .none])
+    }
+}
+
+@Suite struct TryItResultTests {
+    private func result(_ outcome: DictationOutcome, cleaned: String? = "Hello.", rawReason: RawReason? = nil, error: String? = nil) -> DictationResult {
+        DictationResult(
+            startedAt: Date(), style: .document, raw: "hello", cleaned: cleaned, finalText: cleaned ?? "hello",
+            outcome: outcome, rawReason: rawReason, errorMessage: error,
+            timings: StageTimings(recording: 2, transcribe: 0.6, clean: 0.8, insert: 0.1))
+    }
+
+    @Test func successCarriesTimesAndModel() {
+        let r = TryItResult(result(.inserted), cleanupName: "Qwen3 4B")
+        #expect(r.problem == nil)
+        #expect(r.speechSeconds == 0.6)
+        #expect(r.cleanupSeconds == 0.8)
+        #expect(r.cleanupName == "Qwen3 4B")
+        #expect(r.text == "Hello.")
+    }
+
+    @Test func noCleanupModelHasNoCleanupTime() {
+        let r = TryItResult(result(.inserted, cleaned: nil, rawReason: .cleanupOff), cleanupName: nil)
+        #expect(r.problem == nil)
+        #expect(r.cleanupSeconds == nil)
+    }
+
+    @Test func cleanupFailureNamesTheReason() {
+        let r = TryItResult(result(.inserted, cleaned: nil, rawReason: .modelError, error: "connection refused"), cleanupName: "x")
+        #expect(r.problem?.contains("connection refused") == true)
+        #expect(r.cleanupSeconds == nil)
+    }
+
+    @Test func copiedAndFailedOutcomesExplainThemselves() {
+        #expect(TryItResult(result(.copiedNotConsumed), cleanupName: nil).problem != nil)
+        #expect(TryItResult(result(.transcriptionFailed, error: "no model"), cleanupName: nil).problem == "no model")
+        #expect(TryItResult(result(.nothingHeard, cleaned: nil), cleanupName: nil).problem != nil)
     }
 }
