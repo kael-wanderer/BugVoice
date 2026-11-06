@@ -34,6 +34,8 @@ final class BuiltInServerController: BuiltInServing {
     private var starting: (modelID: String, generation: UInt64, task: Task<BuiltInEndpoint, Error>)?
     private var generation: UInt64 = 0
     private var lastUse = Date()
+    /// Cleanup requests sent and not yet answered. The idle stop waits for them.
+    private var inFlight = 0
     private var idleTask: Task<Void, Never>?
 
     /// - Parameters:
@@ -89,7 +91,13 @@ final class BuiltInServerController: BuiltInServing {
         return try await task.value
     }
 
-    func noteUse() async {
+    func beginRequest() async {
+        inFlight += 1
+        lastUse = Date()
+    }
+
+    func endRequest() async {
+        inFlight = max(0, inFlight - 1)
         lastUse = Date()
     }
 
@@ -239,7 +247,8 @@ final class BuiltInServerController: BuiltInServing {
                 try? await Task.sleep(for: .seconds(60))
                 guard let self, !Task.isCancelled else { return }
                 if self.running != nil, self.starting == nil,
-                   BuiltInIdle.shouldStop(lastUse: self.lastUse, now: Date(), idleMinutes: self.idleMinutes()) {
+                   BuiltInIdle.shouldStop(lastUse: self.lastUse, now: Date(), idleMinutes: self.idleMinutes(),
+                                          inFlight: self.inFlight) {
                     Log.app.notice("built-in server stopped after idle")
                     self.stop()
                     return

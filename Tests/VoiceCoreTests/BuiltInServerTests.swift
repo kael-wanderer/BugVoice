@@ -6,9 +6,10 @@ import Testing
 /// that use `StubURLProtocol`.
 final class BuiltInStubProtocol: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) private static var requests: [(URLRequest, Data)] = []
+    nonisolated(unsafe) private static var replyText = "Clean."
     private static let lock = NSLock()
 
-    static func reset() { lock.withLock { requests = [] } }
+    static func reset(reply: String = "Clean.") { lock.withLock { requests = []; replyText = reply } }
     static var seen: [(URLRequest, Data)] { lock.withLock { requests } }
 
     override class func canInit(with request: URLRequest) -> Bool { true }
@@ -19,7 +20,9 @@ final class BuiltInStubProtocol: URLProtocol, @unchecked Sendable {
         Self.lock.withLock { Self.requests.append((request, body)) }
         let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: nil)!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-        client?.urlProtocol(self, didLoad: Data(#"{"choices":[{"message":{"content":"Clean."}}]}"#.utf8))
+        let reply = Self.lock.withLock { Self.replyText }
+        let json = try! JSONSerialization.data(withJSONObject: ["choices": [["message": ["content": reply]]]])
+        client?.urlProtocol(self, didLoad: json)
         client?.urlProtocolDidFinishLoading(self)
     }
 
@@ -36,6 +39,7 @@ private actor FakeServer: BuiltInServing {
     enum Failure: Error, Equatable { case boom }
     let result: Result<BuiltInEndpoint, Failure>
     private(set) var uses = 0
+    private(set) var begins = 0
     private(set) var asked: [String] = []
 
     init(_ result: Result<BuiltInEndpoint, Failure>) { self.result = result }
@@ -45,7 +49,27 @@ private actor FakeServer: BuiltInServing {
         return try result.get()
     }
 
-    func noteUse() async { uses += 1 }
+    func beginRequest() async { begins += 1 }
+    func endRequest() async { uses += 1 }
+}
+
+/// A server that is cold: its first `endpoint(for:)` waits `loadSeconds`, as
+/// llama-server does while it loads the model. Later calls answer at once.
+private actor ColdServer: BuiltInServing {
+    let loadSeconds: Double
+    private var loaded = false
+    init(loadSeconds: Double) { self.loadSeconds = loadSeconds }
+
+    func endpoint(for model: BuiltInModel) async throws -> BuiltInEndpoint {
+        if !loaded {
+            try await Task.sleep(for: .seconds(loadSeconds))
+            loaded = true
+        }
+        return BuiltInEndpoint(baseURL: URL(string: "http://127.0.0.1:51234")!, apiKey: "KEY123")
+    }
+
+    func beginRequest() async {}
+    func endRequest() async {}
 }
 
 @Suite(.serialized)
@@ -56,7 +80,7 @@ struct BuiltInServerTests {
     @Test func argumentsAreExact() {
         #expect(BuiltInServerArguments.make(modelPath: "/m/x.gguf", port: 51234, apiKey: "abc") == [
             "-m", "/m/x.gguf", "--host", "127.0.0.1", "--port", "51234", "--api-key", "abc",
-            "-c", "4096", "-ngl", "999", "--jinja",
+            "-c", "4096", "-ngl", "999", "--jinja", "--no-webui",
         ])
     }
 
@@ -66,6 +90,42 @@ struct BuiltInServerTests {
         #expect(BuiltInIdle.shouldStop(lastUse: last, now: last.addingTimeInterval(15 * 60), idleMinutes: 15))
     }
 
+    @Test func idleNeverStopsWhileARequestRuns() {
+        let last = Date(timeIntervalSinceReferenceDate: 1_000_000)
+        let late = last.addingTimeInterval(60 * 60)
+        #expect(!BuiltInIdle.shouldStop(lastUse: last, now: late, idleMinutes: 15, inFlight: 1))
+        #expect(BuiltInIdle.shouldStop(lastUse: last, now: late, idleMinutes: 15, inFlight: 0))
+    }
+
+    @Test func modelLoadDoesNotCountAgainstCleanupTimeout() async {
+        BuiltInStubProtocol.reset(reply: "Hello world.")
+        let server = ColdServer(loadSeconds: 0.6)
+        let text = BuiltInTextModel(model: model, server: server, requestTimeout: 5, session: BuiltInStubProtocol.session())
+        let pipeline = DictationPipeline(
+            transcriber: FakeTranscriber(),
+            cleanup: CleanupModel(model: text, modelID: model.id, disableThinking: true, timeoutSeconds: 0.2),
+            insertion: RecordingInsertion(), focus: FixedFocus(focus: notionFocus),
+            settings: AppSettings(), vocabulary: Vocabulary())
+        let r = await pipeline.run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })
+        #expect(r.rawReason == nil)
+        #expect(r.cleaned == "Hello world.")
+        #expect(r.finalText == "Hello world.")
+    }
+
+    @Test func serverThatFailsToStartLeavesRawText() async {
+        let server = FakeServer(.failure(.boom))
+        let text = BuiltInTextModel(model: model, server: server, requestTimeout: 5, session: BuiltInStubProtocol.session())
+        let pipeline = DictationPipeline(
+            transcriber: FakeTranscriber(),
+            cleanup: CleanupModel(model: text, modelID: model.id, disableThinking: true, timeoutSeconds: 0.2),
+            insertion: RecordingInsertion(), focus: FixedFocus(focus: notionFocus),
+            settings: AppSettings(), vocabulary: Vocabulary())
+        let r = await pipeline.run(clip: speechClip, startFocus: notionFocus, startedAt: Date(), onStage: { _ in })
+        #expect(r.rawReason == .modelError)
+        #expect(r.cleaned == nil)
+        #expect(r.finalText == "hello world")
+    }
+
     @Test func serverFailureIsThrownByClean() async {
         let server = FakeServer(.failure(.boom))
         let text = BuiltInTextModel(model: model, server: server, requestTimeout: 5, session: BuiltInStubProtocol.session())
@@ -73,6 +133,7 @@ struct BuiltInServerTests {
             _ = try await text.clean(request)
         }
         #expect(await server.uses == 0)
+        #expect(await server.begins == 0)
     }
 
     @Test func cleanSendsKeyAndModelIDAndNotesUse() async throws {
@@ -90,6 +151,7 @@ struct BuiltInServerTests {
         let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
         #expect(json?["model"] as? String == model.id)
         #expect((json?["chat_template_kwargs"] as? [String: Bool]) == ["enable_thinking": false])
+        #expect(await server.begins == 1)
         #expect(await server.uses == 1)
         #expect(await server.asked == [model.id])
     }

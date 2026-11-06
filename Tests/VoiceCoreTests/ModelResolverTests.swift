@@ -145,6 +145,14 @@ struct TransformPlanTests {
         #expect(plan(.dictation, settings(dictation: .builtIn("gone")), installed: ["gone"]) == .unavailable("This built-in model is no longer offered. Choose another in Settings → Models."))
     }
 
+    @Test func askAndTransformsRefuseBuiltIn() {
+        let s = settings(dictation: .builtIn(id))
+        #expect(ModelResolver.transformPlan(settings: s, cliPaths: [:], appleIntelligenceAvailable: false, builtInInstalled: [id])
+            == .unavailable("Built-in models clean dictation only. Choose a model for Ask and Transforms in Settings → Models."))
+        // Notes dictation cleanup still uses the built-in model.
+        #expect(plan(.notes, s, installed: [id]) == .builtIn(BuiltInCatalog.model(id: id)!, timeout: 4))
+    }
+
     @Test func meetingsRefuseBuiltIn() {
         #expect(plan(.meetings, settings(dictation: .none, meetings: .builtIn(id)), installed: [id]) == .unavailable("Built-in models are for Dictation and Notes."))
     }

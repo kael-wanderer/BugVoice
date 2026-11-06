@@ -146,6 +146,36 @@ final class StubProtocol: URLProtocol, @unchecked Sendable {
         #expect(try Data(contentsOf: url) == Self.content)
     }
 
+    @Test func resumedSizeMismatchRestartsFromZero() async throws {
+        let (dl, dir) = session { req in
+            if req.value(forHTTPHeaderField: "Range") != nil {
+                return .init(status: 206, headers: ["Content-Range": "bytes 4-9/10", "Content-Length": "3"],
+                             body: Data("456".utf8))
+            }
+            return .init(status: 200, body: Self.content)
+        }
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try seedPart(dir, "0123")
+        let url = try await dl.download(model(), into: dir) { _ in }
+        #expect(requestCount == 2)
+        #expect(range(at: 1) == nil)
+        #expect(try Data(contentsOf: url) == Self.content)
+    }
+
+    @Test func resumedSizeMismatchTwiceThrowsAndKeepsNoPart() async throws {
+        let (dl, dir) = session { req in
+            req.value(forHTTPHeaderField: "Range") != nil
+                ? .init(status: 206, headers: ["Content-Range": "bytes 4-9/10", "Content-Length": "3"], body: Data("456".utf8))
+                : .init(status: 200, headers: ["Content-Length": "99"], body: Self.content)
+        }
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try seedPart(dir, "0123")
+        await #expect(throws: BuiltInDownloadError.sizeMismatch) {
+            _ = try await dl.download(model(), into: dir) { _ in }
+        }
+        #expect(!FileManager.default.fileExists(atPath: dir.appendingPathComponent("m.gguf.part").path))
+    }
+
     @Test func status416RestartsFromZero() async throws {
         let (dl, dir) = session { req in
             req.value(forHTTPHeaderField: "Range") != nil

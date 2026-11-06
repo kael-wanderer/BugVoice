@@ -11,6 +11,10 @@ import Testing
         #expect(mem == mem.sorted())
     }
 
+    @Test func largeSummaryMatchesTheMemoryItNeeds() {
+        #expect(BuiltInCatalog.models.last?.summary == "Qwen3 8B · best text, needs 24 GB+")
+    }
+
     @Test func idsAreUniqueAndContainQwen() {
         let ids = BuiltInCatalog.models.map(\.id)
         #expect(Set(ids).count == ids.count)

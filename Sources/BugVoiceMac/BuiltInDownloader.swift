@@ -118,6 +118,9 @@ public final class BuiltInDownloader: Sendable {
             throw BuiltInDownloadError.badStatus(http.statusCode)
         }
         if http.expectedContentLength > 0, http.expectedContentLength != model.bytes - offset {
+            // The partial file does not match what the server sends: start over once
+            // rather than keep a .part that fails the same way on every retry.
+            if offset > 0 { throw RestartNeeded.restart }
             throw BuiltInDownloadError.sizeMismatch
         }
 

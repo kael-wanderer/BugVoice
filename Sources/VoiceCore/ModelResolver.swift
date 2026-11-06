@@ -95,8 +95,12 @@ public enum ModelResolver {
 }
 
 extension ModelResolver {
+    public static let builtInTransformsReason =
+        "Built-in models clean dictation only. Choose a model for Ask and Transforms in Settings → Models."
+
     /// Transforms and Ask use the Notes model with the long time limit of
     /// Meetings: 10 minutes for a local server, 2 minutes for a cloud one.
+    /// Built-in models are refused: they clean Dictation and Notes dictation only.
     public static func transformPlan(
         settings: ModelSettings,
         cliPaths: [CLITool: String],
@@ -111,8 +115,9 @@ extension ModelResolver {
                 timeout: ConnectionAddress.isLocal(url) ? localTimeout : cloudTimeout)
         case .appleIntelligence:
             return .appleIntelligence(timeout: cloudTimeout)
-        case .builtIn(let model, _):
-            return .builtIn(model, timeout: localTimeout)
+        case .builtIn:
+            // The built-in server's 4096-token context is sized for cleanup only.
+            return .unavailable(builtInTransformsReason)
         case .none, .unavailable, .cli:
             return notes
         }
@@ -145,6 +150,10 @@ public struct ThinkingOverride: TextModel {
     public init(base: any TextModel, disableThinking: Bool) {
         self.base = base
         self.disableThinking = disableThinking
+    }
+
+    public func prepare() async throws {
+        try await base.prepare()
     }
 
     public func clean(_ request: CleanupRequest) async throws -> String {

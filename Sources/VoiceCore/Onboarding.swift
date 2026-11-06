@@ -31,7 +31,8 @@ public enum CleanupChoiceKind: Sendable {
 }
 
 public enum OnboardingSetup {
-    /// Writes the choice into `models`. Connections are replaced by id, never duplicated.
+    /// Writes the choice into `models`. Notes follows Dictation for every choice.
+    /// Connections are replaced by id, never duplicated.
     public static func apply(_ choice: CleanupChoice, to models: inout ModelSettings) {
         switch choice {
         case .builtIn(let modelID):
@@ -39,6 +40,7 @@ public enum OnboardingSetup {
             models.notes = nil
         case .appleIntelligence:
             models.dictation = ModelUse(engine: .appleIntelligence)
+            models.notes = nil
         case .connection(let connection, let local):
             if let i = models.connections.firstIndex(where: { $0.id == connection.id }) {
                 models.connections[i] = connection
@@ -50,6 +52,7 @@ public enum OnboardingSetup {
             models.notes = nil
         case .none:
             models.dictation = ModelUse(engine: .none)
+            models.notes = nil
         }
     }
 

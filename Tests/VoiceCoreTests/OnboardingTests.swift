@@ -41,18 +41,22 @@ import Testing
 
     @Test func appleIntelligenceLeavesMeetingsAlone() {
         var m = AppSettings.freshInstall().models
+        m.notes = ModelUse(engine: .builtIn("qwen3-4b-q4_k_m"))
         OnboardingSetup.apply(.appleIntelligence, to: &m)
         #expect(m.dictation.engine == .appleIntelligence)
         #expect(m.meetings.engine == .none)
+        #expect(m.notes == nil)
     }
 
     @Test func noneTurnsCleanupOff() {
         var m = AppSettings.freshInstall().models
         let c = ModelConnection(id: "server-abc123", name: "LM Studio", kind: .openAICompatible, baseURL: "http://localhost:1234/v1", model: "m")
         OnboardingSetup.apply(.connection(c, local: true), to: &m)
+        m.notes = ModelUse(engine: .connection(c.id))
         OnboardingSetup.apply(.none, to: &m)
         #expect(m.dictation.engine == .none)
         #expect(m.connections == [c])
+        #expect(m.notes == nil)
     }
 
     @Test func choicesHideUnavailableKinds() {

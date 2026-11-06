@@ -51,7 +51,7 @@ public enum BuiltInCatalog {
             id: "qwen3-8b-q4_k_m",
             tier: .large,
             name: "Large",
-            summary: "Qwen3 8B · best text, needs 16 GB+",
+            summary: "Qwen3 8B · best text, needs 24 GB+",
             fileName: "Qwen3-8B-Q4_K_M.gguf",
             url: URL(string: "https://huggingface.co/Qwen/Qwen3-8B-GGUF/resolve/7c41481f57cb95916b40956ab2f0b139b296d974/Qwen3-8B-Q4_K_M.gguf")!,
             sha256: "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785",
