@@ -40,6 +40,11 @@ struct GeneralTab: View {
                     .labelsHidden().fixedSize()
                 }
             }
+            SettingsCard(title: "Setup") {
+                SettingsRow(title: "Run setup again") {
+                    Button("Open setup") { model.openOnboarding() }
+                }
+            }
             SettingsCard(title: "Folders and tags") {
                 SettingsRow(title: "\(counted(model.library.folders.count, "folder")) · \(counted(model.tagRows.count, "tag"))") {
                     Button("Manage…") { librarySheet = .folders }

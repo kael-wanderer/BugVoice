@@ -366,6 +366,7 @@ final class AppModel {
     /// While set, the talk key calls this on key-down and starts no dictation.
     /// A recording already running is cancelled. Onboarding uses it to show the key
     /// is heard. Key-up and other input are dropped.
+    @ObservationIgnored var presentOnboarding: ((OnboardingStep) -> Void)?
     @ObservationIgnored var hotkeyProbe: (() -> Void)?
     /// Created by `bootstrap()` once settings are loaded.
     @ObservationIgnored private(set) var dictation: DictationController?
@@ -444,7 +445,7 @@ final class AppModel {
         detection.start()
         uploads = UploadController(model: self)
         refreshPermissions()
-        if !permissionsGranted { openPermissionsWindow() }
+        if !settings.onboardingDone { openOnboarding() } else if !permissionsGranted { openPermissionsWindow() }
         await applyRetention()
         await recoverUnfinishedMeetings()
         await applyMeetingRetention()
@@ -504,6 +505,19 @@ final class AppModel {
         updateCheckRequest &+= 1
         openMainWindow(.settings)
     }
+
+    func openOnboarding(at step: OnboardingStep = .welcome) {
+        presentOnboarding?(step)
+    }
+
+    /// Ends setup: finishing, Skip setup and closing the window all land here.
+    func finishOnboarding() {
+        if !settings.onboardingDone { settings.onboardingDone = true }
+        hotkeyProbe = nil
+    }
+
+    /// Task 5b implements the guided tour.
+    func startTour() {}
 
     func openPermissionsWindow() {
         presentPermissionsWindow?()

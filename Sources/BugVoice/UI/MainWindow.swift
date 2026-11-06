@@ -196,11 +196,12 @@ final class MainWindowController: NSObject, NSWindowDelegate {
 enum AppWindow {
     static let main = NSUserInterfaceItemIdentifier("BugVoiceMain")
     static let permissions = NSUserInterfaceItemIdentifier("BugVoicePermissions")
+    static let onboarding = NSUserInterfaceItemIdentifier("BugVoiceOnboarding")
     static let scratchpad = NSUserInterfaceItemIdentifier("BugVoiceScratchpad")
     static let meeting = NSUserInterfaceItemIdentifier("BugVoiceMeeting")
 
     static func didClose(_ closing: NSWindow?) {
-        let ours: Set<NSUserInterfaceItemIdentifier> = [main, permissions]
+        let ours: Set<NSUserInterfaceItemIdentifier> = [main, permissions, onboarding]
         let otherVisible = NSApp.windows.contains {
             $0 !== closing && ($0.isVisible || $0.isMiniaturized)
                 && ($0.identifier.map(ours.contains) ?? false)
