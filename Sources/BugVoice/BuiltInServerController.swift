@@ -11,6 +11,12 @@ import VoiceCore
 final class BuiltInServerController: BuiltInServing {
     nonisolated static let notInBuild = "The built-in model is not installed in this build."
     nonisolated static let didNotStart = "The built-in model did not start."
+    /// An exit sooner than this after launch counts as "did not run".
+    nonisolated static let immediateExitSeconds: TimeInterval = 3
+    /// The helper could not run or quit at once: likely quarantine left on
+    /// Contents/Helpers after Open Anyway.
+    nonisolated static let didNotRun =
+        "The built-in model did not start. If you opened BugVoice with Open Anyway, run the Terminal command from the Read Me (Way B) once."
 
     /// `Contents/Helpers/llama-server` in the app bundle; nil under `swift run`.
     static var bundledHelper: URL? {
@@ -22,6 +28,20 @@ final class BuiltInServerController: BuiltInServing {
         let process: Process
         let modelID: String
         let endpoint: BuiltInEndpoint
+        let stop: StopRequest
+    }
+
+    /// Set when BugVoice itself ends a server, so a start it cuts short is a
+    /// cancellation rather than a load failure.
+    private final class StopRequest {
+        var requested = false
+    }
+
+    private enum StartFailure: Error {
+        /// The helper quit before it answered.
+        case exited
+        /// No answer within the start limit.
+        case timedOut
     }
 
     private let helper: URL?
@@ -63,11 +83,17 @@ final class BuiltInServerController: BuiltInServing {
             let endpoint = try await startOrReuse(model)
             onLoadResult?(model.id, nil)
             return endpoint
+        } catch is CancellationError {
+            // Stopped by BugVoice (another model, quit, delete): not a load failure.
+            throw CancellationError()
         } catch {
             onLoadResult?(model.id, error)
             throw error
         }
     }
+
+    /// The model the server runs or is starting, if any.
+    var activeModelID: String? { starting?.modelID ?? running?.modelID }
 
     private func startOrReuse(_ model: BuiltInModel) async throws -> BuiltInEndpoint {
         lastUse = Date()
@@ -111,14 +137,17 @@ final class BuiltInServerController: BuiltInServing {
         idleTask = nil
         guard let running else { return removePIDFile() }
         self.running = nil
-        let process = running.process
-        if process.isRunning {
-            process.terminate()
-            let deadline = Date().addingTimeInterval(2)
-            while process.isRunning, Date() < deadline { Thread.sleep(forTimeInterval: 0.05) }
-            if process.isRunning { kill(process.processIdentifier, SIGKILL) }
+        running.stop.requested = true
+        let pid = running.process.processIdentifier
+        // The main thread blocks here, so ask the kernel rather than Process.
+        if Self.isAlive(pid) {
+            kill(pid, SIGTERM)
+            if !Self.waitForExit(pid, seconds: 2) {
+                kill(pid, SIGKILL)
+                _ = Self.waitForExit(pid, seconds: 1)
+            }
         }
-        removePIDFile()
+        if !Self.isAlive(pid) { removePIDFile() }
         Log.app.notice("built-in server stopped on quit")
     }
 
@@ -142,8 +171,10 @@ final class BuiltInServerController: BuiltInServing {
               Self.isHelper(pid: pid, helper: helper) else { return }
         Log.app.notice("built-in server: stopping a server left by an earlier launch")
         kill(pid, SIGTERM)
-        Task { @MainActor in
+        Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(2))
+            // The pid may now belong to a server this launch started.
+            guard self?.running?.process.processIdentifier != pid else { return }
             if Self.isHelper(pid: pid, helper: helper) { kill(pid, SIGKILL) }
         }
     }
@@ -151,14 +182,18 @@ final class BuiltInServerController: BuiltInServing {
     // MARK: Private
 
     /// Ends the current server without waiting: SIGTERM, then SIGKILL after 2 seconds.
+    /// The pid file goes once the process has exited (`processExited`).
     private func stop() {
         idleTask?.cancel()
         idleTask = nil
         guard let running else { return }
         self.running = nil
-        removePIDFile()
+        running.stop.requested = true
         let process = running.process
-        guard process.isRunning else { return }
+        guard process.isRunning else {
+            removePIDFile(ifHolding: process.processIdentifier)
+            return
+        }
         process.terminate()
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(2))
@@ -192,16 +227,29 @@ final class BuiltInServerController: BuiltInServing {
         do {
             try process.run()
         } catch {
-            Log.app.error("built-in server could not launch: \(error.localizedDescription, privacy: .public)")
-            throw ProviderError.unavailable(Self.didNotStart)
+            // The error text can hold the helper's path: log only its domain and code.
+            let ns = error as NSError
+            Log.app.error("built-in server could not launch: \(ns.domain, privacy: .public) \(ns.code, privacy: .public)")
+            throw ProviderError.unavailable(Self.didNotRun)
         }
-        running = Running(process: process, modelID: model.id, endpoint: endpoint)
+        let stopRequest = StopRequest()
+        running = Running(process: process, modelID: model.id, endpoint: endpoint, stop: stopRequest)
         writePIDFile(process.processIdentifier)
         Log.app.notice("built-in server starting model=\(model.id, privacy: .public)")
 
         let started = Date()
         do {
-            try await waitForHealth(endpoint, process: process)
+            try await waitForHealth(endpoint, process: process, stop: stopRequest)
+        } catch is CancellationError {
+            if running?.process === process { stop() }
+            Log.app.notice("built-in server start cancelled")
+            throw CancellationError()
+        } catch StartFailure.exited {
+            if running?.process === process { stop() }
+            Log.app.error("built-in server exited before it was ready")
+            // Quarantine kills the helper at once; a later exit is a load problem.
+            let atOnce = Date().timeIntervalSince(started) < Self.immediateExitSeconds
+            throw ProviderError.unavailable(atOnce ? Self.didNotRun : Self.didNotStart)
         } catch {
             if running?.process === process { stop() }
             Log.app.error("built-in server did not become healthy")
@@ -214,30 +262,34 @@ final class BuiltInServerController: BuiltInServing {
     }
 
     /// Polls `GET /health` every 100 ms for up to 60 seconds.
-    private func waitForHealth(_ endpoint: BuiltInEndpoint, process: Process) async throws {
+    /// Throws `CancellationError` when BugVoice stopped the start, and
+    /// `StartFailure` when the helper quit or never answered.
+    private func waitForHealth(_ endpoint: BuiltInEndpoint, process: Process, stop: StopRequest) async throws {
         var request = URLRequest(url: endpoint.baseURL.appendingPathComponent("health"))
         request.setValue("Bearer \(endpoint.apiKey)", forHTTPHeaderField: "Authorization")
         request.timeoutInterval = 2
         let deadline = Date().addingTimeInterval(60)
         while Date() < deadline {
             try Task.checkCancellation()
-            guard process.isRunning, running?.process === process else { throw CancellationError() }
+            if stop.requested { throw CancellationError() }
+            guard process.isRunning else { throw StartFailure.exited }
             if let (_, response) = try? await healthSession.data(for: request),
                (response as? HTTPURLResponse)?.statusCode == 200 {
                 return
             }
             try await Task.sleep(for: .milliseconds(100))
         }
-        throw CancellationError()
+        throw StartFailure.timedOut
     }
 
     private func processExited(pid: Int32, status: Int32) {
+        // A server BugVoice stopped is gone now: its pid file can go.
+        removePIDFile(ifHolding: pid)
         guard let running, running.process.processIdentifier == pid else { return }
         Log.app.notice("built-in server exited status=\(status, privacy: .public)")
         self.running = nil
         idleTask?.cancel()
         idleTask = nil
-        removePIDFile()
     }
 
     private func startIdleCheck() {
@@ -270,7 +322,29 @@ final class BuiltInServerController: BuiltInServing {
         try? FileManager.default.removeItem(at: pidFile)
     }
 
+    /// Removes the pid file only while it still names `pid`, so a newer server's file stays.
+    private func removePIDFile(ifHolding pid: Int32) {
+        guard let text = try? String(contentsOf: pidFile, encoding: .utf8),
+              Int32(text.trimmingCharacters(in: .whitespacesAndNewlines)) == pid else { return }
+        removePIDFile()
+    }
+
     // MARK: Helpers
+
+    /// True while `pid` exists. Works with the main thread blocked, unlike `Process.isRunning`.
+    nonisolated static func isAlive(_ pid: Int32) -> Bool {
+        !(kill(pid, 0) == -1 && errno == ESRCH)
+    }
+
+    /// Polls every 50 ms until `pid` is gone; false when it is still there after `seconds`.
+    nonisolated static func waitForExit(_ pid: Int32, seconds: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(seconds)
+        while isAlive(pid) {
+            guard Date() < deadline else { return false }
+            Thread.sleep(forTimeInterval: 0.05)
+        }
+        return true
+    }
 
     /// True when `pid` is alive and runs the executable at `helper`.
     nonisolated static func isHelper(pid: Int32, helper: URL) -> Bool {

@@ -186,6 +186,8 @@ final class MainWindowController: NSObject, NSWindowDelegate {
         model.mainWindowIsKey = false
     }
     func windowWillClose(_ notification: Notification) {
+        // A tour left open would come back when the window reopens.
+        model.endTour()
         AppWindow.didClose(notification.object as? NSWindow)
     }
 }

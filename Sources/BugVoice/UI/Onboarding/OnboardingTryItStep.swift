@@ -17,8 +17,13 @@ private struct TryItTextBox: NSViewRepresentable {
         scroll.hasVerticalScroller = true
         scroll.borderType = .bezelBorder
         let view = TryItTextView(frame: .zero)
+        // Long text wraps to the box's width and scrolls down.
+        view.minSize = .zero
+        view.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         view.isVerticallyResizable = true
+        view.isHorizontallyResizable = false
         view.autoresizingMask = [.width]
+        view.textContainer?.containerSize = NSSize(width: 0, height: CGFloat.greatestFiniteMagnitude)
         view.textContainer?.widthTracksTextView = true
         scroll.documentView = view
         view.delegate = context.coordinator

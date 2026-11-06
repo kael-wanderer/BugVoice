@@ -384,10 +384,11 @@ final class AppModel {
     @ObservationIgnored var presentMainWindow: (() -> Void)?
     /// Brings up the Permissions window. Set by the app delegate.
     @ObservationIgnored var presentPermissionsWindow: (() -> Void)?
+    /// Brings up the setup window at a step. Set by the app delegate.
+    @ObservationIgnored var presentOnboarding: ((OnboardingStep) -> Void)?
     /// While set, the talk key calls this on key-down and starts no dictation.
     /// A recording already running is cancelled. Onboarding uses it to show the key
     /// is heard. Key-up and other input are dropped.
-    @ObservationIgnored var presentOnboarding: ((OnboardingStep) -> Void)?
     @ObservationIgnored var hotkeyProbe: (() -> Void)?
     /// True while the Try it step is showing. A dictation then pastes into its
     /// text box, fills `lastTryItResult`, and skips history and correction learning.
@@ -635,7 +636,10 @@ final class AppModel {
             scratchpadWindow?.applyLayout()
         }
         if settings.backup != old.backup { backup.settingsChanged() }
-        if settings.models.dictation.engine != old.models.dictation.engine { preloadBuiltInModel() }
+        if settings.models.dictation.engine != old.models.dictation.engine
+            || settings.models.notes?.engine != old.models.notes?.engine {
+            preloadBuiltInModel()
+        }
         if settings.speech.livePreview != old.speech.livePreview || settings.speech.engine != old.speech.engine {
             preparePreviewModel()
         }
@@ -741,12 +745,26 @@ final class AppModel {
         )
     }
 
-    /// Starts the built-in server early when Dictation uses it, so the first
-    /// dictation does not wait for the model to load. Other uses start it on demand.
-    func preloadBuiltInModel() {
-        guard case .builtIn(let model, _) = plan(for: .dictation) else { return }
+    /// Starts the built-in server early when Dictation or Notes uses it, so the
+    /// first dictation does not wait for the model to load. When neither uses a
+    /// built-in model, stops one that runs, unless `releaseUnused` is false
+    /// (a download just finished; onboarding may be testing that model).
+    func preloadBuiltInModel(releaseUnused: Bool = true) {
+        for feature in [ModelFeature.dictation, .notes] where warmBuiltInModel(for: feature) { return }
+        guard releaseUnused, let id = builtInServer.activeModelID else { return }
+        let server = builtInServer
+        Task { await server.release(modelID: id) }
+    }
+
+    /// Starts loading the built-in model `feature` uses, without waiting. Failures
+    /// reach the readiness card through the server's load report. False when
+    /// `feature` does not use a built-in model.
+    @discardableResult
+    func warmBuiltInModel(for feature: ModelFeature) -> Bool {
+        guard case .builtIn(let model, _) = plan(for: feature) else { return false }
         let server = builtInServer
         Task { _ = try? await server.endpoint(for: model) }
+        return true
     }
 
     func makeCommandPipeline() -> CommandPipeline {

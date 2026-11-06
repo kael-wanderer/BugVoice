@@ -118,6 +118,6 @@ extension AppModel {
             Log.app.error("built-in download failed for \(id, privacy: .public)")
         }
         refreshBuiltInInstalled()
-        if error == nil { preloadBuiltInModel() }
+        if error == nil { preloadBuiltInModel(releaseUnused: false) }
     }
 }

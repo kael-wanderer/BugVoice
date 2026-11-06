@@ -196,6 +196,8 @@ final class DictationController {
             return
         }
         model.isListening = true
+        // Load the built-in model while the user speaks, so cleanup does not wait for it.
+        model.warmBuiltInModel(for: notesCapture != nil || meetingNotes != nil ? .notes : .dictation)
         model.notesIsListening = notesCapture != nil
         model.notesRecordingStartedAt = notesCapture == nil ? nil : startedAt
         if model.settings.soundsEnabled { NSSound(named: "Tink")?.play() }
