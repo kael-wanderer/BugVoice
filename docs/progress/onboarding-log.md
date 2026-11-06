@@ -316,6 +316,31 @@ not catch changed or dropped ordinary words.
   failure show in readiness (amber) and stops a late onboarding download from
   overriding a later Settings choice.
 
+## Final fix wave (2026-11-06)
+
+Fixes from the whole-branch review plus the deferred minors below. Commits:
+14cde51 `fix(core): model load outside the cleanup limit, built-in kept to
+cleanup`, a635f04 `fix(app): warm the built-in model at key-down, clearer
+start failures`, 689da01 `build: fail when llama-server links a library not in
+Helpers`.
+
+- Cold start: recording start now loads the built-in model while the user
+  speaks, and the time spent waiting for the model is no longer counted
+  against the cleanup timeout (`TextModel.prepare()`, awaited before
+  `withTimeout`). The server's own 60-second start limit still bounds the wait.
+- Ask AI and Transforms do not use built-in models. With a built-in model for
+  Dictation, they show "Built-in models clean dictation only. Choose a model
+  for Ask and Transforms in Settings → Models." Notes dictation cleanup still
+  uses the built-in model (it resolves through `plan(for: .notes)`, not
+  `transformPlan`).
+- A helper that cannot run, or quits within 3 seconds, reports "The built-in
+  model did not start. If you opened BugVoice with Open Anyway, run the
+  Terminal command from the Read Me (Way B) once."
+- Switching Dictation and Notes away from built-in models stops the server.
+- The idle stop waits while a cleanup request is in flight.
+- `llama-server` runs with `--no-webui` (b11829 accepts it).
+- Onboarding clears the Notes override for every cleanup choice.
+
 ## Owner checks (open)
 
 Not run by the implementers. Record results here at hand-over. Every item is
@@ -374,20 +399,31 @@ Built-in model:
       override that choice.
 - [ ] `lsof` shows the server listening on 127.0.0.1 only.
 - [ ] A request to the server without the key gets 401.
-- [ ] The server process exits on quit and after the idle period (the local
-      build uses a temporary 1-minute rule).
+- [ ] The server process exits on quit. After the idle period: set Unload after
+      to 5 minutes, wait, confirm the process exits.
+- [ ] Install from a browser-downloaded DMG with Way A only (Open Anyway, no
+      Terminal command), then use the built-in model. If it does not start, the
+      readiness card names Way B.
+- [ ] First dictation after the server unloaded cleans the text (it is not
+      pasted raw while the model loads).
+- [ ] Switching Dictation from a built-in model to another engine stops the
+      `llama-server` process.
+- [ ] With a built-in model for Dictation, Ask AI and Transforms say to choose
+      another model in Settings → Models.
 - [ ] Review the three model picks and the catalog values (see Phase 3).
 
 ## Known follow-ups
 
-Minor review findings deferred to the final fix wave. The wave is still to come
-and will tick some of them.
+Minor review findings deferred to the final fix wave. Ticked items were fixed
+in that wave (see "Final fix wave"); open items remain.
 
-- [ ] Try-it text view lacks min/max size and horizontal resize settings, so
-      long text may not wrap or scroll.
-- [ ] Closing the main window mid-tour leaves the tour index set; the tour
-      reappears on reopen.
-- [ ] Speech step lacks the download size (spec: name, size, progress).
+- [x] Try-it text view lacks min/max size and horizontal resize settings, so
+      long text may not wrap or scroll. Fixed in a635f04.
+- [x] Closing the main window mid-tour leaves the tour index set; the tour
+      reappears on reopen. Fixed in a635f04: closing the window ends the tour.
+- [x] Speech step lacks the download size (spec: name, size, progress). Already
+      shown: the model label reads "large-v3-turbo · 1.6 GB" (from
+      `SpeechTab.whisperModels`); a custom model id has no known size.
 - [ ] Duplicated cleanup-test block between `OnboardingCleanupStep` and
       `UseForCard.runTest`.
 - [ ] Re-running onboarding adds a second local connection.
@@ -400,8 +436,8 @@ and will tick some of them.
       sidebar rows.
 - [ ] The tour overlay swallows Tab and Return.
 - [ ] `onChange(page)` ending the tour relies on same-update writes.
-- [ ] `presentOnboarding` sits between the `hotkeyProbe` doc comment and its
-      property (`AppModel.swift:57-61`).
+- [x] `presentOnboarding` sits between the `hotkeyProbe` doc comment and its
+      property. Fixed in a635f04.
 - [ ] `PlaceholderStep` has an unused `advance` parameter.
 - [ ] The hotkey step's "Other choices" line is hard-coded.
 - [ ] The step dots are off-centre and "Step N of 7" layout needs a GUI look.
@@ -413,14 +449,15 @@ and will tick some of them.
 - [ ] Meetings-unchanged tests start only from a fresh install; add a
       connection-first test.
 - [ ] `.appleIntelligence` and `.none` replace the dictation `ModelUse`
-      wholesale and drop its other fields.
+      wholesale and drop its other fields. (Both now clear the Notes override,
+      14cde51.)
 - [ ] No explicit legacy-encoding regression test for connection, cli and
       `appleIntelligence` engines.
 - [ ] Missing RED evidence for Tasks 2 and 5 (`TryItResult`); code was written
       before the tests.
 - [ ] No boundary test that 8 GB gives Small.
-- [ ] The Large summary should read "Qwen3 8B · best text, needs 24 GB+" (the
-      fit rule recommends Large from about 21 GB).
+- [x] The Large summary should read "Qwen3 8B · best text, needs 24 GB+" (the
+      fit rule recommends Large from about 21 GB). Fixed in 14cde51.
 - [ ] Read Me HTML puts a paragraph and images inside an `<ol>` (cosmetic).
 - [ ] `make-dmg-background.sh` runs `sips` before its `-s` check, so the
       friendly Chrome message never prints; `-s` passes on a stale file; the
@@ -429,19 +466,22 @@ and will tick some of them.
       pinned, low risk); `CleanupBench` parsing is untested.
 - [ ] The bench log says the Hugging Face API returned "not found" for
       Qwen3-4B-Instruct-2507-GGUF; it was HTTP 401 (same as a nonexistent repo).
-- [ ] `BuiltInDownloader.swift:170-172`: a size mismatch on a resumed 206 keeps
-      the `.part` file, so retry loops on the same error; delete it or restart.
-- [ ] `build-app.sh:81-84` hardcodes the dylib list; check every `@rpath`
+- [x] `BuiltInDownloader`: a size mismatch on a resumed 206 kept the `.part`
+      file, so retry looped on the same error. Fixed in 14cde51: it restarts
+      from zero once.
+- [x] `build-app.sh` hardcodes the dylib list; check every `@rpath`
       dependency of the helper exists in Helpers (`otool -L`) so a tag bump
-      fails at build time.
-- [ ] `BuiltInServerController.swift:125` `stop()` removes the pid file before
-      the process exits.
-- [ ] `BuiltInServerController.swift:95` shutdown polls `Process.isRunning`
-      under `Thread.sleep`; use `kill(pid, 0)` or `waitpid` with WNOHANG.
-- [ ] `BuiltInServerController.swift:113` `cleanUpStale` delayed SIGKILL should
-      skip when the pid is the running process.
-- [ ] A cancelled start (stop, shutdown, release) may be reported as a load
-      failure (amber); rethrow `CancellationError` or skip `onLoadResult`.
+      fails at build time. Fixed in 689da01 (the list stays; the check fails
+      the build with the missing names).
+- [x] `BuiltInServerController` `stop()` removed the pid file before the
+      process exited. Fixed in a635f04: removed on exit.
+- [x] `BuiltInServerController` shutdown polled `Process.isRunning` under
+      `Thread.sleep`. Fixed in a635f04: polls `kill(pid, 0)`.
+- [x] `BuiltInServerController` `cleanUpStale` delayed SIGKILL should skip
+      when the pid is the running process. Fixed in a635f04.
+- [x] A cancelled start (stop, shutdown, release) may be reported as a load
+      failure (amber). Fixed in a635f04: a start BugVoice stops throws
+      `CancellationError` and skips `onLoadResult`.
 
 Accepted as is: same-size final model file returned without a hash check;
 `build-app.sh:78` relies on the fetch script's last stdout line; no port retry
