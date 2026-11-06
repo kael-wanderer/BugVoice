@@ -86,6 +86,22 @@ for lib in libllama-server-impl.dylib libllama-common.0.dylib libmtmd.0.dylib li
            libggml-rpc.0.dylib libggml-base.0.dylib; do
     cp -L "$LLAMA_DIR/$lib" "$HELPERS/$lib"   # -L: the .0 names are symlinks to versioned files
 done
+# The list above is fixed: fail if the helper or a copied dylib links an
+# @rpath library that is not in Helpers (a new llama.cpp release may add one).
+MISSING_LIBS=""
+for item in "$HELPERS/llama-server" "$HELPERS"/*.dylib; do
+    DEPS="$(otool -L "$item" | awk 'NR > 1 && $1 ~ /^@rpath\// { print $1 }')"
+    while IFS= read -r dep; do
+        [[ -n "$dep" ]] || continue
+        name="${dep#@rpath/}"
+        [[ -f "$HELPERS/$name" ]] || MISSING_LIBS="$MISSING_LIBS $name (linked by $(basename "$item"))"
+    done <<< "$DEPS"
+done
+if [[ -n "$MISSING_LIBS" ]]; then
+    echo "error: Contents/Helpers lacks libraries llama-server needs:$MISSING_LIBS" >&2
+    echo "Add them to the dylib list in Scripts/build-app.sh." >&2
+    exit 1
+fi
 xattr -cr "$HELPERS"
 cp "$ROOT/App/Info.plist" "$CONTENTS/Info.plist"
 cp "$ROOT/App/AppIcon.icns" "$CONTENTS/Resources/AppIcon.icns"
