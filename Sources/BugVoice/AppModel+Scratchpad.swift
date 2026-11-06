@@ -211,7 +211,7 @@ extension AppModel {
     var transformPlan: ModelPlan {
         ModelResolver.transformPlan(
             settings: settings.models, cliPaths: cliInfo.mapValues(\.path),
-            appleIntelligenceAvailable: appleIntelligenceAvailable)
+            appleIntelligenceAvailable: appleIntelligenceAvailable, builtInInstalled: builtInInstalled)
     }
 
     /// Calls the Notes model with the long time limit. `build` gets the model
@@ -222,7 +222,8 @@ extension AppModel {
         let (modelID, disableThinking, timeout): (String, Bool, TimeInterval) = switch plan {
         case .connection(_, _, let id, let off, let timeout): (id, off, timeout)
         case .appleIntelligence(let timeout): ("apple-intelligence", false, timeout)
-        default: ("", false, 120)
+        case .builtIn(let m, let timeout): (m.id, true, timeout)
+        case .none, .unavailable, .cli: ("", false, 120)
         }
         let request = build(modelID, disableThinking)
         let started = Date()
@@ -260,7 +261,8 @@ extension AppModel {
         switch plan {
         case .connection(_, _, let id, let off, _): modelID = id; disableThinking = off
         case .appleIntelligence: modelID = "apple-intelligence"; disableThinking = false
-        default: modelID = ""; disableThinking = false
+        case .builtIn(let m, _): modelID = m.id; disableThinking = true
+        case .none, .unavailable, .cli: modelID = ""; disableThinking = false
         }
         return AskPipeline(
             model: model, modelID: modelID, disableThinking: disableThinking,

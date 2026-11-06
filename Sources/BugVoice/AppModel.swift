@@ -135,6 +135,12 @@ final class AppModel {
     @ObservationIgnored lazy var searchIndexer = SearchIndexer(model: self)
     /// The MCP server for coding agents (Settings › Agents).
     @ObservationIgnored lazy var mcp = MCPService(model: self)
+    /// The bundled llama-server for the built-in cleanup model.
+    @ObservationIgnored lazy var builtInServer = BuiltInServerController(
+        helper: BuiltInServerController.bundledHelper,
+        modelsDirectory: paths.cleanupModels,
+        pidFile: paths.root.appendingPathComponent("llama-server.pid"),
+        idleMinutes: { [weak self] in self?.settings.models.builtInIdleMinutes ?? 15 })
 
     @ObservationIgnored lazy var backup = BackupController(model: self)
     /// A newer release from the update feed; the menu and Settings › General offer it.
@@ -326,6 +332,18 @@ final class AppModel {
     /// Coding CLIs found on this Mac, looked up at launch and when Settings → Models opens.
     var cliInfo: [CLITool: CLIInfo] = [:]
     var connectionStatus: [String: ConnectionStatus] = [:]
+    /// Built-in models whose file is on disk at full size. See `refreshBuiltInInstalled`.
+    var builtInInstalled: Set<String> = []
+    /// The built-in download in progress, by model id, as a fraction. At most one.
+    var builtInDownloads: [String: Double] = [:]
+    /// Why the last download of a model failed, by model id. Cleared on retry.
+    var builtInDownloadErrors: [String: String] = [:]
+    /// Why the built-in server last failed to start each model. Cleared on the
+    /// next successful start, a new download, or delete.
+    var builtInLoadFailures: [String: String] = [:]
+    /// When the current download started and how far along it was then, for the time left.
+    var builtInDownloadStart: (date: Date, fraction: Double)?
+    @ObservationIgnored var builtInDownloadTask: (id: String, task: Task<Bool, Never>)?
     var hotkeyActive = false
     /// Global shortcuts another app already holds, e.g. "⌃⌥V Paste last".
     var unavailableShortcuts: [String] = []
@@ -345,6 +363,9 @@ final class AppModel {
     @ObservationIgnored var scratchpadCreatedHere: Set<NoteID> = []
     /// The capsule at the bottom of the main window; see `showNotice`.
     var notice: String?
+    /// The tour's stops that are on screen, and the current one. Nil index = no tour.
+    var tourCards: [TourCard] = []
+    var tourIndex: Int?
     @ObservationIgnored var noticeTask: Task<Void, Never>?
     var permissionsGranted = Permissions.allGranted
     var permissionStatus: [PermissionKind: Bool] = [:]
@@ -363,6 +384,17 @@ final class AppModel {
     @ObservationIgnored var presentMainWindow: (() -> Void)?
     /// Brings up the Permissions window. Set by the app delegate.
     @ObservationIgnored var presentPermissionsWindow: (() -> Void)?
+    /// Brings up the setup window at a step. Set by the app delegate.
+    @ObservationIgnored var presentOnboarding: ((OnboardingStep) -> Void)?
+    /// While set, the talk key calls this on key-down and starts no dictation.
+    /// A recording already running is cancelled. Onboarding uses it to show the key
+    /// is heard. Key-up and other input are dropped.
+    @ObservationIgnored var hotkeyProbe: (() -> Void)?
+    /// True while the Try it step is showing. A dictation then pastes into its
+    /// text box, fills `lastTryItResult`, and skips history and correction learning.
+    @ObservationIgnored var tryItActive = false
+    /// The latest dictation made on the Try it step.
+    var lastTryItResult: TryItResult?
     /// Created by `bootstrap()` once settings are loaded.
     @ObservationIgnored private(set) var dictation: DictationController?
     @ObservationIgnored private(set) var command: CommandController?
@@ -404,6 +436,10 @@ final class AppModel {
             self?.searchIndexer.listLoaded(.note)
             self?.pruneSelectedNote()
         }
+        ProviderFactory.builtInServer = builtInServer
+        builtInServer.onLoadResult = { [weak self] id, error in self?.noteBuiltInLoad(id, error: error) }
+        builtInServer.cleanUpStale()
+        refreshBuiltInInstalled()
         await notesController.reloadList()
         let loaded = store.load()
         importKeychainKeys(connections: loaded.models.connections)
@@ -440,7 +476,7 @@ final class AppModel {
         detection.start()
         uploads = UploadController(model: self)
         refreshPermissions()
-        if !permissionsGranted { openPermissionsWindow() }
+        if !settings.onboardingDone { openOnboarding() } else if !permissionsGranted { openPermissionsWindow() }
         await applyRetention()
         await recoverUnfinishedMeetings()
         await applyMeetingRetention()
@@ -453,6 +489,7 @@ final class AppModel {
         searchIndexer.librariesDidLoad()
         Task { await prepareSpeech() }
         Task { await refreshCLIs() }
+        preloadBuiltInModel()
         // Last, so agents never see half-loaded notes or meetings.
         mcp.start()
         backup.startSchedule()
@@ -501,6 +538,58 @@ final class AppModel {
         openMainWindow(.settings)
     }
 
+    func openOnboarding(at step: OnboardingStep = .welcome) {
+        presentOnboarding?(step)
+    }
+
+    /// Ends setup: finishing, Skip setup and closing the window all land here.
+    func finishOnboarding() {
+        if !settings.onboardingDone { settings.onboardingDone = true }
+        hotkeyProbe = nil
+        tryItActive = false
+    }
+
+    /// Starts the main-window tour from the first stop whose target is on screen.
+    /// Does nothing when no stop is visible. Never records, opens a meeting window or pastes.
+    func startTour() {
+        openMainWindow(.dictation)
+        Task { @MainActor in
+            // One layout pass, so a window that was just created has its sidebar state.
+            try? await Task.sleep(for: .milliseconds(150))
+            let shortcuts = settings.shortcuts
+            let all = Tour.cards(
+                hotkey: settings.hotkey.spokenName,
+                meetingShortcut: "⌃⌥\(shortcuts.letter(for: .toggleMeeting))",
+                scratchpadShortcut: "⌃⌥\(shortcuts.letter(for: .newNote))")
+            let sidebar = !sidebarHidden
+            let recording = meetings?.isRecording == true || meetings?.isPaused == true || meetings?.isTranscribing == true
+            var onScreen: Set<TourStop> = [.menuBar]
+            if sidebar { onScreen.formUnion([.dictation, .scratchpad, .dictionary, .style]) }
+            if !recording { onScreen.insert(.recordMeeting) }
+            let cards = Tour.visibleStops(all, onScreen: onScreen)
+            guard let first = cards.first else { return }
+            tourCards = cards
+            page = first.stop.page
+            tourIndex = 0
+        }
+    }
+
+    func endTour() {
+        tourIndex = nil
+        tourCards = []
+    }
+
+    func tourNext() { moveTour(1) }
+    func tourBack() { moveTour(-1) }
+
+    private func moveTour(_ offset: Int) {
+        guard let index = tourIndex else { return }
+        let next = index + offset
+        guard tourCards.indices.contains(next) else { return }
+        page = tourCards[next].stop.page
+        tourIndex = next
+    }
+
     func openPermissionsWindow() {
         presentPermissionsWindow?()
     }
@@ -547,6 +636,10 @@ final class AppModel {
             scratchpadWindow?.applyLayout()
         }
         if settings.backup != old.backup { backup.settingsChanged() }
+        if settings.models.dictation.engine != old.models.dictation.engine
+            || settings.models.notes?.engine != old.models.notes?.engine {
+            preloadBuiltInModel()
+        }
         if settings.speech.livePreview != old.speech.livePreview || settings.speech.engine != old.speech.engine {
             preparePreviewModel()
         }
@@ -652,6 +745,28 @@ final class AppModel {
         )
     }
 
+    /// Starts the built-in server early when Dictation or Notes uses it, so the
+    /// first dictation does not wait for the model to load. When neither uses a
+    /// built-in model, stops one that runs, unless `releaseUnused` is false
+    /// (a download just finished; onboarding may be testing that model).
+    func preloadBuiltInModel(releaseUnused: Bool = true) {
+        for feature in [ModelFeature.dictation, .notes] where warmBuiltInModel(for: feature) { return }
+        guard releaseUnused, let id = builtInServer.activeModelID else { return }
+        let server = builtInServer
+        Task { await server.release(modelID: id) }
+    }
+
+    /// Starts loading the built-in model `feature` uses, without waiting. Failures
+    /// reach the readiness card through the server's load report. False when
+    /// `feature` does not use a built-in model.
+    @discardableResult
+    func warmBuiltInModel(for feature: ModelFeature) -> Bool {
+        guard case .builtIn(let model, _) = plan(for: feature) else { return false }
+        let server = builtInServer
+        Task { _ = try? await server.endpoint(for: model) }
+        return true
+    }
+
     func makeCommandPipeline() -> CommandPipeline {
         // The transport must allow the full command timeout too, rather than
         // inheriting the shorter dictation cleanup timeout.
@@ -662,6 +777,8 @@ final class AppModel {
                 disableThinking: thinking, timeout: CommandPipeline.timeoutSeconds)
         case .appleIntelligence:
             commandPlan = .appleIntelligence(timeout: CommandPipeline.timeoutSeconds)
+        case .builtIn(let model, _):
+            commandPlan = .builtIn(model, timeout: CommandPipeline.timeoutSeconds)
         case .cli(let tool, let path, let model, let effort, _):
             commandPlan = .cli(tool, path: path, model: model, effort: effort, timeout: CommandPipeline.timeoutSeconds)
         case .none: commandPlan = .none

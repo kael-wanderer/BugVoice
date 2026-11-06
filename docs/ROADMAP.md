@@ -7,7 +7,7 @@ implementation, like Dictation, Meetings and Notes before it.
 
 The current-state table (implemented, automated tests, owner-verified, open or
 blocked) is in `docs/progress/HANDOFF.md`. Every numbered item below is built and
-merged except 7 (frozen). Proposed new features from the 2026-10-19 review:
+merged except 7 (frozen) and 10 (built, not yet merged). Proposed new features from the 2026-10-19 review:
 `docs/propose-new-features.md`. The "pending" notes in the Order table are
 history; the owner marked those device checks done on 2026-10-19.
 
@@ -25,6 +25,7 @@ history; the owner marked those device checks done on 2026-10-19.
 | 7 | Integrations | Frozen (2026-10-19); see Frozen below | Rarely used; the sidebar hides the page |
 | 8 | Scratchpad (Notes v2) | Note window with tabs for several open notes, formatting toolbar, Transforms (Polish, More concise, More professional, ask a question) using the Notes model; uploaded and dictated text can land here. As in Wispr Flow | Built (2026-10-16). Spec: `docs/superpowers/specs/2026-10-15-scratchpad-design.md`. Floating Scratchpad window (the only editor; the page lists cards): spec `docs/superpowers/specs/2026-10-16-scratchpad-window-design.md`, merged (2026-10-16) |
 | 9 | Folders and tags | One level of folders plus tags, shared by meetings, uploads and notes; AI suggests existing tags after a summary. Spec: `docs/superpowers/specs/2026-10-15-folders-tags-design.md` | Built before item 8 |
+| 10 | Onboarding and built-in model | First-run setup window (hotkey probe, permissions, speech model, cleanup choice, Try it), main-window tour, DMG layout with install help, and a built-in local cleanup model (Qwen3 GGUF in three tiers through a bundled llama.cpp server on 127.0.0.1). Spec: `docs/superpowers/specs/2026-11-06-onboarding-and-built-in-model-design.md` | Built (2026-11-06; plan `docs/superpowers/plans/2026-11-06-onboarding-and-built-in-model.md`); on `feat/onboarding`, final fix wave and device checks pending in `docs/progress/onboarding-log.md` |
 
 ## Notes on scope
 

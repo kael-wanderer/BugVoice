@@ -233,6 +233,10 @@ public struct DictationPipeline: Sendable {
             built.maxTokens = min(1024, 2 * protected.text.count + 50)
             let request = built
             do {
+                // Loading the model (the built-in server after an idle stop)
+                // does not count against the cleanup time limit.
+                let model = cleanup.model
+                try await abandoningOnCancel { try await model.prepare() }
                 let output = try await withTimeout(seconds: CleanupTimeout.limit(base: cleanup.timeoutSeconds, raw: protected.text)) {
                     try await cleanup.model.clean(request)
                 }

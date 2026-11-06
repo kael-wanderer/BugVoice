@@ -35,6 +35,8 @@ final class DictationController {
     private var notesCapture: NotesDictationCapture?
     /// The meeting window's notes editor when it had the keyboard at the start.
     private var meetingNotes: MeetingNotesTextView?
+    /// Set at key-down: the Try it box had the keyboard, so this dictation belongs to onboarding.
+    private var tryItRun = false
     private var startedAt = Date()
     private var limitTask: Task<Void, Never>?
     private var runCounter = 0
@@ -108,6 +110,13 @@ final class DictationController {
     // MARK: Gesture
 
     private func receive(_ input: KeyInput) {
+        if let probe = model.hotkeyProbe {
+            // Ends any recording already running so the mic is not left open.
+            if recorder.isRunning { cancel() }
+            detector.reset()
+            if case .hotkeyDown = input { probe() }
+            return
+        }
         guard !isBusy, model.command?.isActive != true else { return }
         if case .hotkeyDown(let pressedAt) = input {
             // A result, warning or failure stays until the next press.
@@ -124,7 +133,8 @@ final class DictationController {
         Task { [weak self] in
             let wait = max(0, due - ProcessInfo.processInfo.systemUptime) + 0.005
             try? await Task.sleep(for: .seconds(wait))
-            guard let self, !self.isBusy, self.model.command?.isActive != true else { return }
+            guard let self, !self.isBusy, self.model.command?.isActive != true,
+                  self.model.hotkeyProbe == nil else { return }
             for action in self.detector.tick(now: ProcessInfo.processInfo.systemUptime) { self.perform(action) }
         }
     }
@@ -165,6 +175,7 @@ final class DictationController {
         )
         handsFreeRecording = handsFree
         meetingNotes = notesOnly ? nil : model.meetingNotesEditorWithKeyboard()
+        tryItRun = !notesOnly && model.tryItBoxHasKeyboard()
         notesCapture = notesOnly ? micCapture : meetingNotes == nil ? model.captureNotesDictation(startFocus: startFocus) : nil
         startedAt = Date()
         do {
@@ -185,6 +196,8 @@ final class DictationController {
             return
         }
         model.isListening = true
+        // Load the built-in model while the user speaks, so cleanup does not wait for it.
+        model.warmBuiltInModel(for: notesCapture != nil || meetingNotes != nil ? .notes : .dictation)
         model.notesIsListening = notesCapture != nil
         model.notesRecordingStartedAt = notesCapture == nil ? nil : startedAt
         if model.settings.soundsEnabled { NSSound(named: "Tink")?.play() }
@@ -261,6 +274,7 @@ final class DictationController {
         model.isListening = false
         releaseNotesCapture()
         meetingNotes = nil
+        tryItRun = false
         model.notesIsListening = false
         model.notesRecordingStartedAt = nil
         hud.hide()
@@ -293,6 +307,8 @@ final class DictationController {
         notesCapture = nil
         let capturedMeetingNotes = meetingNotes
         meetingNotes = nil
+        let capturedTryIt = tryItRun
+        tryItRun = false
         model.notesIsListening = false
         model.notesRecordingStartedAt = nil
         var savedLastRecording = false
@@ -310,7 +326,7 @@ final class DictationController {
             }
         }
         let languageChoice = languageCycler?.changed == true ? languageCycler?.current : nil
-        process(clip, focus: startFocus, startedAt: startedAt, notesCapture: capturedNotesRun, meetingNotes: capturedMeetingNotes, languageChoice: languageChoice, savedLastRecording: savedLastRecording)
+        process(clip, focus: startFocus, startedAt: startedAt, notesCapture: capturedNotesRun, meetingNotes: capturedMeetingNotes, tryIt: capturedTryIt, languageChoice: languageChoice, savedLastRecording: savedLastRecording)
     }
 
     private func releaseNotesCapture() {
@@ -326,6 +342,7 @@ final class DictationController {
         startedAt: Date,
         notesCapture: NotesDictationCapture? = nil,
         meetingNotes: MeetingNotesTextView? = nil,
+        tryIt: Bool = false,
         languageChoice: SpeechLanguage? = nil,
         retrying: FailedDictation? = nil,
         copyOnly: Bool = false,
@@ -346,7 +363,7 @@ final class DictationController {
             insertion = ClipboardOnlyInsertionTarget(inserter: inserter)
         } else {
             insertion = RecordingPasteInsertionTarget(inserter: inserter) { [weak self] text in
-                self?.recordOrdinaryInsertion(text, focus: focus)
+                if !tryIt { self?.recordOrdinaryInsertion(text, focus: focus) }
             } onFailure: { [weak self] in self?.clearReplacementRecord() }
         }
         let intoNotes = notesCapture != nil || meetingNotes != nil
@@ -380,7 +397,7 @@ final class DictationController {
             }
             stagedRun = nil
             if result.outcome == .inserted, !intoNotes, result.style != .terminal,
-               !focus.isSecure, model.settings.speech.learnFromCorrections,
+               !focus.isSecure, model.settings.speech.learnFromCorrections, !tryIt,
                let captured = correctionFocus,
                FocusInspector.isSameElement(correctionElement, FocusInspector.focusedElement()) {
                 model.correctionWatcher.start(pasted: result.finalText, focus: captured, app: captured.appName)
@@ -405,8 +422,12 @@ final class DictationController {
                 } else {
                     hud.hide()
                 }
-                await model.recordInsights(result, noteID: notesCapture?.noteID)
-                if !intoNotes { await model.record(result) }
+                if !tryIt { await model.recordInsights(result, noteID: notesCapture?.noteID) }
+                if tryIt, !intoNotes {
+                    model.lastTryItResult = TryItResult(result, cleanupName: modelName)
+                } else if !intoNotes {
+                    await model.record(result)
+                }
             }
             if let retrying {
                 if result.outcome == .transcriptionFailed {

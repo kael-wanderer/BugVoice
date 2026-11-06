@@ -359,8 +359,22 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var appearance = AppearanceSettings()
     public var shortcuts = ShortcutSettings()
     public var backup = BackupSettings()
+    /// False only on a fresh install until the welcome window is finished or skipped.
+    /// A settings file without the key belongs to an existing install: true.
+    public var onboardingDone = true
 
     public init() {}
+
+    /// A first launch with no `settings.json`: no model server, no cleanup engine.
+    public static func freshInstall() -> AppSettings {
+        var s = AppSettings()
+        s.onboardingDone = false
+        s.models.connections = []
+        s.models.dictation = ModelUse(engine: .none)
+        s.models.notes = nil
+        s.models.meetings = ModelUse(engine: .none)
+        return s
+    }
 }
 
 // Tolerant decoding: a key that is missing or has a value this build does not
@@ -475,5 +489,6 @@ extension AppSettings {
         appearance = c.value(.appearance, default: appearance)
         shortcuts = c.value(.shortcuts, default: shortcuts)
         backup = c.value(.backup, default: backup)
+        onboardingDone = c.value(.onboardingDone, default: true)
     }
 }

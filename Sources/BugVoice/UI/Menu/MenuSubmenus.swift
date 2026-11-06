@@ -51,6 +51,7 @@ struct MenuSubmenuView: View {
         row("permissions", "Permissions…")
         row("dataFolder", "Open data folder")
         row("updates", "Check for Updates…")
+        row("tour", "Take the tour")
     }
 
     // MARK: Dictation options
@@ -102,6 +103,8 @@ struct MenuSubmenuItems {
     static func engines(for model: AppModel) -> [(id: String, title: String, value: ModelEngine)] {
         model.settings.models.connections.map { ("engine.\($0.id)", $0.name, .connection($0.id)) }
             + (model.appleIntelligenceAvailable ? [("engine.apple", "Apple Intelligence", .appleIntelligence)] : [])
+            + BuiltInChoices.dictationChoices(installed: model.builtInInstalled)
+                .map { ("engine.builtIn.\($0.id)", BuiltInChoices.pickerLabel($0), .builtIn($0.id)) }
             + [("engine.none", "None", .none)]
     }
 
@@ -109,7 +112,7 @@ struct MenuSubmenuItems {
     func ids(_ submenu: MenuSubmenu) -> [String] {
         switch submenu {
         case .library: ["meetings", "scratchpad", "floating"]
-        case .tools: ["permissions", "dataFolder", "updates"]
+        case .tools: ["permissions", "dataFolder", "updates", "tour"]
         case .dictationOptions: ["cleanup", "handsFree"] + Self.languages(for: model).map(\.id) + Self.engines(for: model).map(\.id)
         }
     }
@@ -134,6 +137,9 @@ struct MenuSubmenuItems {
         case "updates":
             close()
             model.checkForUpdates()
+        case "tour":
+            close()
+            model.startTour()
         case "cleanup":
             model.settings.cleanupEnabled.toggle()
         case "handsFree":
@@ -142,7 +148,7 @@ struct MenuSubmenuItems {
             if let language = Self.languages(for: model).first(where: { $0.id == id }) {
                 model.settings.speech.language = language.value
             } else if let engine = Self.engines(for: model).first(where: { $0.id == id }) {
-                model.settings.models.dictation.engine = engine.value
+                BuiltInChoices.chooseForDictation(engine.value, in: &model.settings.models)
             }
         }
     }

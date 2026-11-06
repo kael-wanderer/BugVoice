@@ -40,6 +40,7 @@ struct MainWindow: View {
                     .accessibilityAddTraits(.updatesFrequently)
             }
         }
+        .overlayPreferenceValue(TourAnchorKey.self) { TourOverlay(model: model, anchors: $0) }
         .sheet(item: $model.librarySheet) { ManageLibrarySheet(model: model, tab: $0) }
         .animation(.easeInOut(duration: 0.2), value: model.notice)
         .alert(
@@ -185,6 +186,8 @@ final class MainWindowController: NSObject, NSWindowDelegate {
         model.mainWindowIsKey = false
     }
     func windowWillClose(_ notification: Notification) {
+        // A tour left open would come back when the window reopens.
+        model.endTour()
         AppWindow.didClose(notification.object as? NSWindow)
     }
 }
@@ -196,11 +199,12 @@ final class MainWindowController: NSObject, NSWindowDelegate {
 enum AppWindow {
     static let main = NSUserInterfaceItemIdentifier("BugVoiceMain")
     static let permissions = NSUserInterfaceItemIdentifier("BugVoicePermissions")
+    static let onboarding = NSUserInterfaceItemIdentifier("BugVoiceOnboarding")
     static let scratchpad = NSUserInterfaceItemIdentifier("BugVoiceScratchpad")
     static let meeting = NSUserInterfaceItemIdentifier("BugVoiceMeeting")
 
     static func didClose(_ closing: NSWindow?) {
-        let ours: Set<NSUserInterfaceItemIdentifier> = [main, permissions]
+        let ours: Set<NSUserInterfaceItemIdentifier> = [main, permissions, onboarding]
         let otherVisible = NSApp.windows.contains {
             $0 !== closing && ($0.isVisible || $0.isMiniaturized)
                 && ($0.identifier.map(ours.contains) ?? false)

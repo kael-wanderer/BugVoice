@@ -28,6 +28,41 @@ struct SettingsTests {
         #expect(s.styles.isCleanupEnabled(for: .document))
     }
 
+    @Test func freshInstallHasNoServerAndNoCleanup() {
+        let s = AppSettings.freshInstall()
+        #expect(s.onboardingDone == false)
+        #expect(s.models.connections.isEmpty)
+        #expect(s.models.dictation.engine == .none)
+        #expect(s.models.notes == nil)
+        #expect(s.models.meetings.engine == .none)
+    }
+
+    @Test func decodedFileWithoutKeyCountsAsOnboarded() throws {
+        let data = #"{"hotkey":"rightControl","models":{"connections":[{"id":"omlx","kind":"openAICompatible","baseURL":"http://localhost:8000","model":"Q"}],"dictation":{"engine":{"connection":"omlx"}}}}"#.data(using: .utf8)!
+        let s = try JSONDecoder().decode(AppSettings.self, from: data)
+        #expect(s.onboardingDone == true)
+        #expect(s.models.connections.map(\.id) == ["omlx"])
+        #expect(s.models.dictation.engine == .connection("omlx"))
+    }
+
+    @Test func onboardingDoneRoundTrips() throws {
+        var s = AppSettings.freshInstall()
+        let fresh = try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(s))
+        #expect(fresh == s)
+        s.onboardingDone = true
+        let back = try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(s))
+        #expect(back.onboardingDone == true)
+    }
+
+    @Test func storeGivesFreshInstallOnlyWhenFileMissing() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let store = SettingsStore(url: dir.appendingPathComponent("settings.json"))
+        #expect(store.load().onboardingDone == false)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try Data("not json".utf8).write(to: store.url)
+        #expect(store.load().onboardingDone == true)   // corrupt file = existing user
+    }
+
     @Test func roundTripsThroughStore() throws {
         let store = SettingsStore(url: tempDir().appendingPathComponent("settings.json"))
         var s = AppSettings()

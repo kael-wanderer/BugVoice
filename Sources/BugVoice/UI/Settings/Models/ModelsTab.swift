@@ -9,6 +9,7 @@ struct ModelsTab: View {
         VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) {
             VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) {
                 UseForCard(model: model)
+                BuiltInModelsCard(model: model)
                 ConnectionsCard(model: model)
                 SearchCard(model: model)
                 CLIsCard(model: model)
@@ -16,6 +17,7 @@ struct ModelsTab: View {
             .padding(.vertical, LayoutTokens.spacing[0])
         }
         .task {
+            model.refreshBuiltInInstalled()
             await model.refreshCLIs()
             for connection in model.settings.models.connections { await model.testConnection(connection) }
         }

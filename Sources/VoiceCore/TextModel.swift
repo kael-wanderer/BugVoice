@@ -19,7 +19,14 @@ public struct CleanupRequest: Sendable, Equatable {
 }
 
 public protocol TextModel: Sendable {
+    /// Readies the model before a request, such as loading it into memory.
+    /// Dictation waits for it outside the cleanup time limit. Default: nothing.
+    func prepare() async throws
     func clean(_ request: CleanupRequest) async throws -> String
+}
+
+extension TextModel {
+    public func prepare() async throws {}
 }
 
 public enum ProviderError: Error, Equatable, Sendable, LocalizedError {

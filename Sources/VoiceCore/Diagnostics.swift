@@ -54,6 +54,7 @@ public enum Diagnostics {
             return "\(connection.name) (\(connection.kind.rawValue)) \(model)"
         case .cli(let tool): return "\(tool.rawValue) CLI"
         case .appleIntelligence: return "Apple Intelligence"
+        case .builtIn(let id): return "built-in \(id)"
         case .none: return "none"
         }
     }

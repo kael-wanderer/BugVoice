@@ -19,7 +19,8 @@ extension AppModel {
         ModelResolver.plan(
             for: feature, settings: settings.models,
             cliPaths: cliInfo.mapValues(\.path),
-            appleIntelligenceAvailable: appleIntelligenceAvailable
+            appleIntelligenceAvailable: appleIntelligenceAvailable,
+            builtInInstalled: builtInInstalled
         )
     }
 
@@ -72,6 +73,12 @@ extension AppModel {
     func meetingNotesEditorWithKeyboard() -> MeetingNotesTextView? {
         guard let window = NSApp.keyWindow, window.identifier == AppWindow.meeting else { return nil }
         return window.firstResponder as? MeetingNotesTextView
+    }
+
+    /// True while the Try it step is showing and its text box has the keyboard.
+    func tryItBoxHasKeyboard() -> Bool {
+        guard tryItActive, let window = NSApp.keyWindow, window.identifier == AppWindow.onboarding else { return false }
+        return window.firstResponder is TryItTextView
     }
 
     func captureNotesDictation(startFocus: FocusSnapshot) -> NotesDictationCapture? {

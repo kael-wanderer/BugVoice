@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BugVoice Onboarding</title>
+<meta name="description" content="Install help in the DMG, first-launch onboarding (hotkey, permissions, speech model, cleanup model with a built-in option), and a Get Started page.">
+<style>
+:root{
+  --bg:#f7f0d2;--panel:#fbf5df;--hover:#efe6c6;--line:#d9cfa8;--text:#2b2a26;--muted:#5f5948;--accent:#9a7a2a;--soft:#e9dcae;--on:#fff;--rec:#d8443f;--ok:#3f9a5e;--warn:#d99a2b;
+  --desk:linear-gradient(160deg,#c9b98a,#8f7f56);--finder:#f4f4f4;--finderText:#222;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#2b2f37;--panel:#323741;--hover:#3a404b;--line:#454b57;--text:#eceff4;--muted:#bcc3cf;--accent:#88c0d0;--soft:#3d4a5a;--on:#0b0d12;--rec:#e06c66;--ok:#8fc79f;--warn:#e0b25a;
+  --desk:linear-gradient(160deg,#5a6b8c,#2b3346);--finder:#2a2a2c;--finderText:#eee}}
+:root[data-theme="dark"]{
+  --bg:#2b2f37;--panel:#323741;--hover:#3a404b;--line:#454b57;--text:#eceff4;--muted:#bcc3cf;--accent:#88c0d0;--soft:#3d4a5a;--on:#0b0d12;--rec:#e06c66;--ok:#8fc79f;--warn:#e0b25a;
+  --desk:linear-gradient(160deg,#5a6b8c,#2b3346);--finder:#2a2a2c;--finderText:#eee}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font:13px/1.45 -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+.review{max-width:1300px;margin:0 auto;padding:20px 16px 48px}
+header.top{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:flex-end;margin-bottom:12px}
+header.top h1{font-size:22px;margin:0}
+header.top p{margin:4px 0 0;color:var(--muted);max-width:860px}
+.toggle{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:6px 14px}
+h2.sec{font-size:15px;margin:32px 0 6px}
+p.why{margin:0 0 12px;color:var(--muted);max-width:900px}
+.stage{background:var(--desk);border-radius:12px;padding:20px}
+.pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:18px;align-items:start}
+.label{color:#fff;font-weight:600;margin:0 0 8px;text-shadow:0 1px 2px #0006}
+.notes{color:#fff;font-size:12px;margin:8px 0 0;text-shadow:0 1px 2px #0008}
+code{font:12px ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:0 4px}
+
+/* DMG Finder window */
+.finder{background:var(--finder);color:var(--finderText);border-radius:10px;box-shadow:0 18px 50px #0006;overflow:hidden;max-width:640px}
+.fbar{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid #8884;font-size:12px}
+.lights{display:flex;gap:6px}.lights i{width:11px;height:11px;border-radius:50%;background:#ff5f57}.lights i:nth-child(2){background:#febc2e}.lights i:nth-child(3){background:#28c840}
+.fbar span{flex:1;text-align:center;font-weight:600}
+.dmgbg{position:relative;padding:22px 24px 18px;background:linear-gradient(180deg,#f7f0d2,#efe2b4);color:#2b2a26}
+.dmgicons{display:flex;justify-content:space-around;align-items:center}
+.dicon{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12px}
+.appicon{width:76px;height:76px;border-radius:18px;background:linear-gradient(145deg,#d8b65a,#9a7a2a);display:grid;place-items:center;color:#fff;font-weight:800;font-size:26px;box-shadow:0 6px 14px #0003}
+.folder{width:82px;height:66px;border-radius:8px;background:linear-gradient(180deg,#7ab7f0,#3d8ad8);display:grid;place-items:center;color:#fff;font-size:26px}
+.arrow{font-size:34px;color:#9a7a2a;font-weight:700}
+.dmgstep{font-weight:700;font-size:13px;text-align:center;margin:0 0 14px}
+.blocked{margin-top:16px;border-top:1px dashed #9a7a2a88;padding-top:12px}
+.blocked b{display:block;margin-bottom:8px}
+.ways{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.way{background:#fffaf0;border:1px solid #d9cfa8;border-radius:8px;padding:8px 10px;font-size:12px}
+.way h3.wh{margin:0 0 4px;font-size:12px}
+.way ol{margin:0;padding-left:16px}
+.way code{background:#f1e7c4;border-color:#d9cfa8;color:#2b2a26}
+.tag{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:1px 7px;background:#3f9a5e;color:#fff;margin-left:4px;vertical-align:1px}
+@media (max-width:560px){.ways{grid-template-columns:1fr}}
+
+/* macOS system sheets */
+.sys{background:#ececec;color:#222;border-radius:12px;box-shadow:0 18px 50px #0006;max-width:300px;padding:18px;text-align:center;font-size:12px}
+.sys .appicon{width:56px;height:56px;margin:0 auto 10px;font-size:20px}
+.sys b{display:block;font-size:13px;margin-bottom:6px}
+.sys .sbtns{display:flex;flex-direction:column;gap:6px;margin-top:12px}
+.sys .sbtns span{border-radius:6px;padding:4px;background:#fff;border:1px solid #ccc}
+.sys .sbtns span.p{background:#1a62d6;color:#fff;border-color:#1a62d6}
+.sysset{background:#ececec;color:#222;border-radius:12px;box-shadow:0 18px 50px #0006;overflow:hidden;max-width:520px;font-size:12px}
+.sysset .scols{display:flex}
+.sysset .sside{width:150px;background:#e0e0e0;padding:8px}
+.sysset .sside div{padding:3px 8px;border-radius:5px}
+.sysset .sside div.on{background:#1a62d6;color:#fff}
+.sysset .smain{flex:1;padding:12px}
+.sysset .sgroup{background:#fff;border-radius:8px;padding:10px;margin-top:8px;display:flex;align-items:center;gap:10px}
+.sysset .sgroup .grow{flex:1}
+.sysset .hl{outline:3px solid #d8443f;outline-offset:2px;border-radius:6px;padding:3px 10px;background:#fff;border:1px solid #ccc}
+
+/* Onboarding window */
+.win{background:var(--bg);border:1px solid var(--line);border-radius:14px;box-shadow:0 18px 50px #0006;overflow:hidden;max-width:620px;display:flex;flex-direction:column;min-height:440px}
+.wtitle{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted)}
+.wtitle span{flex:1;text-align:center}
+.ob{flex:1;padding:22px 28px 10px;display:flex;flex-direction:column;gap:12px}
+.ob h3{margin:0;font-size:20px}
+.ob p.lead{margin:0;color:var(--muted)}
+.obfoot{display:flex;align-items:center;gap:10px;padding:12px 18px;border-top:1px solid var(--line)}
+.dots{display:flex;gap:5px;flex:1;align-items:center}
+.dots i{width:7px;height:7px;border-radius:4px;background:var(--muted);opacity:.4}
+.dots i.on{width:22px;background:var(--accent);opacity:1}
+.stepn{color:var(--muted);font-size:12px;margin-right:6px}
+.btn{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);background:var(--panel);border-radius:7px;padding:5px 12px;white-space:nowrap}
+.btn.prim{background:var(--accent);color:var(--on);border-color:var(--accent);font-weight:600}
+.btn.link{border:0;background:none;color:var(--muted);padding:5px 4px}
+.btn.sm{padding:3px 9px;font-size:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px}
+.card .t{flex:1;min-width:0}
+.card .t div:last-child{color:var(--muted);font-size:12px}
+.ico{width:30px;height:30px;border-radius:8px;background:var(--soft);display:grid;place-items:center;flex:none;font-size:15px}
+.ok{color:var(--ok);font-weight:600}
+.dot{width:9px;height:9px;border-radius:50%;flex:none}
+.d-ok{background:var(--ok)}.d-bad{background:var(--warn)}.d-wait{background:var(--muted);opacity:.5}
+.keycap{display:inline-block;border:1px solid var(--line);border-bottom-width:3px;border-radius:7px;padding:6px 14px;background:var(--panel);font-weight:600}
+.trybox{border:2px dashed var(--line);border-radius:10px;padding:14px;min-height:70px;color:var(--muted)}
+.trybox.done{border-style:solid;border-color:var(--ok);color:var(--text)}
+.pop{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:3px 8px}
+.bar{height:6px;border-radius:3px;background:var(--hover);overflow:hidden}
+.bar i{display:block;height:100%;width:62%;background:var(--accent)}
+.choice{background:var(--panel);border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;gap:10px;align-items:flex-start}
+.choice.sel{border-color:var(--accent);background:var(--soft)}
+.radio{width:15px;height:15px;border-radius:50%;border:1.5px solid var(--muted);flex:none;margin-top:2px}
+.choice.sel .radio{border:5px solid var(--accent)}
+.choice .t b{display:block}
+.choice .t div{color:var(--muted);font-size:12px}
+.badge{font-size:11px;font-weight:700;border-radius:999px;padding:1px 7px;background:var(--accent);color:var(--on);margin-left:6px;vertical-align:1px}
+.mtable{display:flex;flex-direction:column;gap:6px}
+.mrow{display:grid;grid-template-columns:16px 1fr auto auto;gap:10px;align-items:center;background:var(--panel);border:1.5px solid var(--line);border-radius:9px;padding:8px 10px}
+.mrow.sel{border-color:var(--accent);background:var(--soft)}
+.mrow .nm b{display:block}
+.mrow .nm span{color:var(--muted);font-size:12px}
+.meter{display:flex;gap:2px}.meter i{width:6px;height:10px;border-radius:2px;background:var(--line)}.meter i.f{background:var(--accent)}
+.size{color:var(--muted);font-size:12px;text-align:right;min-width:52px}
+.note{font-size:12px;color:var(--muted)}
+.result{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--panel);font-size:12px}
+.result .in{color:var(--muted)}
+.big{font-size:44px;text-align:center}
+.tips{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tip{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px}
+.tip b{display:block;margin-bottom:3px}
+.tip div{color:var(--muted);font-size:12px}
+@media (max-width:560px){.tips{grid-template-columns:1fr}.ob{padding:18px 16px 8px}}
+.flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0 0}
+.flow span{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:12px}
+.flow em{color:var(--muted);font-style:normal}
+</style></head><body><div class="review">
+
+<header class="top"><div><h1>Onboarding</h1>
+<p>Three parts: (1) install help inside the DMG, (2) a first-launch onboarding window, (3) a 6-stop tour of the main window. The built-in cleanup model sits inside step 5 of the onboarding. Model names and sizes are placeholders until the bench picks them.</p>
+<div class="flow"><span>DMG</span><em>→</em><span>1 Welcome</span><em>→</em><span>2 Hotkey</span><em>→</em><span>3 Permissions</span><em>→</em><span>4 Speech model</span><em>→</em><span>5 Cleanup</span><em>→</em><span>6 Try it</span><em>→</em><span>7 Tour or start</span></div>
+</div><button class="toggle" id="t">Light / dark</button></header>
+
+<!-- ============ PART 1: DMG ============ -->
+<h2 class="sec">Part 1. The DMG window</h2>
+<p class="why">Today the DMG shows the app and an Applications shortcut, nothing else. New: a background image with the drag arrow and, below it, the two ways past the "Not Opened" block. Way A comes first because it needs no Terminal. The DMG also carries a <code>Read Me First.pdf</code> with the same steps and screenshots.</p>
+<div class="stage">
+  <div class="finder">
+    <div class="fbar"><div class="lights"><i></i><i></i><i></i></div><span>BugVoice 1.4</span></div>
+    <div class="dmgbg">
+      <p class="dmgstep">1. Drag BugVoice into Applications</p>
+      <div class="dmgicons">
+        <div class="dicon"><div class="appicon">BV</div>BugVoice</div>
+        <div class="arrow">⟶</div>
+        <div class="dicon"><div class="folder">A</div>Applications</div>
+      </div>
+      <div class="blocked">
+        <b>2. Open BugVoice. If macOS says "BugVoice Not Opened", use one of these:</b>
+        <div class="ways">
+          <div class="way"><h3 class="wh">Way A: System Settings <span class="tag">Easiest</span></h3>
+            <ol><li>Click <b>Done</b> on the message.</li><li>Open System Settings › Privacy &amp; Security.</li><li>Scroll down, click <b>Open Anyway</b> next to BugVoice.</li><li>Enter your Mac password.</li></ol></div>
+          <div class="way"><h3 class="wh">Way B: Terminal</h3>
+            <ol><li>Open Terminal.</li><li>Paste and press Return:<br><code>xattr -cr /Applications/BugVoice.app</code></li><li>Open BugVoice again.</li></ol></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="notes">You only do this once. Updates through Check for Updates do the same check, so the update note keeps Way A and Way B too.</p>
+</div>
+
+<h2 class="sec">What the owner sees on the way (Way A)</h2>
+<p class="why">Screenshots of these two macOS screens go in the Read Me. The red ring marks the button to click.</p>
+<div class="stage"><div class="pair">
+  <div><p class="label">macOS blocks the first open</p>
+    <div class="sys"><div class="appicon">BV</div><b>"BugVoice" Not Opened</b>Apple could not verify "BugVoice" is free of malware that may harm your Mac or compromise your privacy.<div class="sbtns"><span class="p">Done</span><span>Move to Trash</span></div></div>
+    <p class="notes">Click Done, not Move to Trash.</p></div>
+  <div><p class="label">System Settings › Privacy &amp; Security</p>
+    <div class="sysset"><div class="scols"><div class="sside"><div>General</div><div>Appearance</div><div>Control Center</div><div class="on">Privacy &amp; Security</div><div>Desktop &amp; Dock</div></div>
+      <div class="smain"><b>Security</b><div class="sgroup"><div class="grow">"BugVoice" was blocked to protect your Mac.</div><span class="hl">Open Anyway</span></div></div></div></div></div>
+</div></div>
+
+<!-- ============ PART 2: ONBOARDING ============ -->
+<h2 class="sec">Part 2. Onboarding, step 1: Welcome</h2>
+<p class="why">Opens on first launch, once. Every step has Back and Skip; Skip setup ends it and leaves the Readiness card to show what is missing. Reopen any time from Settings › General › Run setup again.</p>
+<div class="stage"><div class="win">
+  <div class="wtitle"><div class="lights"><i></i><i></i><i></i></div><span>Welcome to BugVoice</span></div>
+  <div class="ob" style="align-items:center;text-align:center;justify-content:center">
+    <div class="appicon" style="width:84px;height:84px">BV</div>
+    <h3>Talk instead of type</h3>
+    <p class="lead" style="max-width:380px">Hold a key, speak English, Vietnamese or both, let go. Clean text appears where your cursor is. Everything runs on this Mac.</p>
+    <p class="note">Setup takes about 3 minutes.</p>
+  </div>
+  <div class="obfoot"><div class="dots"><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i></div><button class="btn link">Skip setup</button><button class="btn prim">Get started</button></div>
+</div></div>
+
+<h2 class="sec">Step 2: Hotkey</h2>
+<p class="why">Default Right Control. "Press it now" lights up when the key is seen, so the owner knows the key works before permissions. Input Monitoring is needed to see the key; if it is off, this step says so and points to step 3.</p>
+<div class="stage"><div class="win">
+  <div class="wtitle"><div class="lights"><i></i><i></i><i></i></div><span>Setup</span></div>
+  <div class="ob">
+    <h3>Pick your talk key</h3>
+    <p class="lead">Hold it while you speak. Let go to paste. Pressing another key while holding cancels.</p>
+    <div class="card"><div class="t"><div>Talk key</div><div>Right Control is free on most keyboards</div></div><span class="pop">Right Control ▾</span></div>
+    <div style="text-align:center;padding:10px 0"><span class="keycap">⌃ control</span><div class="ok" style="margin-top:8px">Key seen. It works.</div></div>
+    <p class="note">Other choices: Right Option, Right Command, Fn, or a key combination.</p>
+  </div>
+  <div class="obfoot"><span class="stepn">Step 2 of 7</span><div class="dots"><i></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i></div><button class="btn">Back</button><button class="btn link">Skip</button><button class="btn prim">Continue</button></div>
+</div></div>
+
+<h2 class="sec">Step 3: Permissions</h2>
+<p class="why">Same checks as the Readiness card. Each row updates live when the owner comes back from System Settings. Continue stays enabled; a missing permission shows on the Readiness card later.</p>
+<div class="stage"><div class="win">
+  <div class="wtitle"><div class="lights"><i></i><i></i><i></i></div><span>Setup</span></div>
+  <div class="ob">
+    <h3>Let BugVoice hear and paste</h3>
+    <p class="lead">macOS asks once for each. You can change them later in System Settings.</p>
+    <div class="card"><div class="ico">🎙</div><div class="t"><div>Microphone</div><div>To hear you while you hold the key</div></div><span class="ok">On</span></div>
+    <div class="card"><div class="ico">⌨</div><div class="t"><div>Input Monitoring</div><div>To notice the talk key in any app</div></div><span class="ok">On</span></div>
+    <div class="card"><div class="ico">⌘</div><div class="t"><div>Accessibility</div><div>To paste text where your cursor is</div></div><button class="btn sm prim">Allow…</button></div>
+    <div class="card"><div class="ico">🔊</div><div class="t"><div>System audio <span class="note">(optional)</span></div><div>Only for Meetings, to record the other people on a call</div></div><button class="btn sm">Allow…</button></div>
+  </div>
+  <div class="obfoot"><span class="stepn">Step 3 of 7</span><div class="dots"><i></i><i></i><i class="on"></i><i></i><i></i><i></i><i></i></div><button class="btn">Back</button><button class="btn link">Skip</button><button class="btn prim">Continue</button></div>
+</div></div>
+
+<h2 class="sec">Step 4: Speech model</h2>
+<p class="why">The speech-to-text model (WhisperKit) must be on the Mac before the first dictation. Download starts here and keeps going in the background, so the owner can move on to step 5 while it finishes.</p>
+<div class="stage"><div class="win">
+  <div class="wtitle"><div class="lights"><i></i><i></i><i></i></div><span>Setup</span></div>
+  <div class="ob">
+    <h3>Download the speech model</h3>
+    <p class="lead">This turns your voice into text. It runs on this Mac, no internet needed after the download.</p>
+    <div class="card" style="flex-direction:column;align-items:stretch">
+      <div style="display:flex;justify-content:space-between"><b>Large v3 Turbo</b><span class="note">Best for English and Vietnamese · 1.6 GB</span></div>
+      <div class="bar"><i></i></div>
+      <div class="note">Downloading, 62%. About 1 minute left. You can continue.</div>
+    </div>
+    <p class="note">Older or 8 GB Macs: choose a smaller model in Settings › Speech later.</p>
+  </div>
+  <div class="obfoot"><span class="stepn">Step 4 of 7</span><div class="dots"><i></i><i></i><i></i><i class="on"></i><i></i><i></i><i></i></div><button class="btn">Back</button><button class="btn prim">Continue</button></div>
+</div></div>
+
+<h2 class="sec">Step 5a: Cleanup model, choose a kind</h2>
+<p class="why">Cleanup fixes punctuation, filler words and mixed-language spelling. Built-in is first and recommended for people without LM Studio or an API key. Apple Intelligence shows only on macOS 26 Macs that have it. "Paste raw text" is a valid choice, not a failure.</p>
+<div class="stage"><div class="win">
+  <div class="wtitle"><div class="lights"><i></i><i></i><i></i></div><span>Setup</span></div>
+  <div class="ob">
+    <h3>Choose how text gets cleaned up</h3>
+    <p class="lead">Removes "um", fixes punctuation, keeps your words. You can change this any time in Settings › Models.</p>
+    <div class="choice sel"><span class="radio"></span><div class="t"><b>Built-in model<span class="badge">Recommended</span></b><div>BugVoice downloads and runs a model by itself. Nothing else to install.</div></div></div>
+    <div class="choice"><span class="radio"></span><div class="t"><b>Apple Intelligence</b><div>Already on this Mac. Fast, English works best.</div></div></div>
+    <div class="choice"><span class="radio"></span><div class="t"><b>An app I already run</b><div>LM Studio, Ollama, oMLX or another local server. Enter its address.</div></div></div>
+    <div class="choice"><span class="radio"></span><div class="t"><b>A cloud service</b><div>OpenAI, Anthropic, OpenRouter or another API with your key. Text leaves this Mac.</div></div></div>
+    <div class="choice"><span class="radio"></span><div class="t"><b>No cleanup</b><div>Paste exactly what the speech model heard.</div></div></div>
+  </div>
+  <div class="obfoot"><span class="stepn">Step 5 of 7</span><div class="dots"><i></i><i></i><i></i><i></i><i class="on"></i><i></i><i></i></div><button class="btn">Back</button><button class="btn prim">Continue</button></div>
+</div></div>
+
+<h2 class="sec">Step 5b: Built-in model, pick and download</h2>
+<p class="why">Small to large. Bars show speed and quality. One model is marked "Fits this Mac" from its memory. BugVoice downloads it, shows progress, then runs a test sentence by itself. Placeholder names until the bench.</p>
+<div class="stage"><div class="pair">
+  <div><p class="label">Pick a model</p>
+  <div class="win" style="min-height:0">
+    <div class="wtitle"><div class="lights"><i></i><i></i><i></i></div><span>Setup</span></div>
+    <div class="ob">
+      <h3>Pick a built-in model</h3>
+      <p class="lead">Bigger models clean better and take longer. This Mac has 16 GB of memory.</p>
+      <div class="mtable">
+        <div class="mrow"><span class="radio"></span><div class="nm"><b>Small</b><span>Qwen3 1.7B · fastest, English best</span></div><div><div class="meter" title="speed"><i class="f"></i><i class="f"></i><i class="f"></i></div><div class="meter" title="quality" style="margin-top:3px"><i class="f"></i><i></i><i></i></div></div><div class="size">1.0 GB</div></div>
+        <div class="mrow sel"><span class="radio" style="border:5px solid var(--accent)"></span><div class="nm"><b>Medium <span class="badge">Fits this Mac</span></b><span>Qwen3 4B · good English and Vietnamese</span></div><div><div class="meter"><i class="f"></i><i class="f"></i><i></i></div><div class="meter" style="margin-top:3px"><i class="f"></i><i class="f"></i><i></i></div></div><div class="size">2.5 GB</div></div>
+        <div class="mrow"><span class="radio"></span><div class="nm"><b>Large</b><span>Qwen3 8B · best text, needs 16 GB+</span></div><div><div class="meter"><i class="f"></i><i></i><i></i></div><div class="meter" style="margin-top:3px"><i class="f"></i><i class="f"></i><i class="f"></i></div></div><div class="size">5.0 GB</div></div>
+      </div>
+      <p class="note">Top bar speed, bottom bar quality. Stored in ~/Library/Application Support/BugVoice/Models.</p>
+    </div>
+    <div class="obfoot"><span class="stepn">Step 5 of 7</span><div class="dots"><i></i><i></i><i></i><i></i><i class="on"></i><i></i><i></i></div><button class="btn">Back</button><button class="btn prim">Download 2.5 GB</button></div>
+  </div></div>
+  <div><p class="label">Downloading, then the self-test</p>
+  <div class="win" style="min-height:0">
+    <div class="wtitle"><div class="lights"><i></i><i></i><i></i></div><span>Setup</span></div>
+    <div class="ob">
+      <h3>Medium model</h3>
+      <div class="card" style="flex-direction:column;align-items:stretch"><div style="display:flex;justify-content:space-between"><b>Downloading</b><span class="note">1.6 of 2.5 GB</span></div><div class="bar"><i></i></div><div class="note">About 40 seconds left. <a href="#" style="color:var(--muted)">Cancel</a></div></div>
+      <div class="card"><span class="dot d-ok"></span><div class="t"><div>Downloaded and loaded</div><div>Ran a test sentence in 0.8 s</div></div><span class="ok">Works</span></div>
+      <div class="result"><div class="in">Heard: "um so tomorrow mình họp lúc ba giờ nha, uh, with the design team"</div><div style="margin-top:4px">Cleaned: "Tomorrow mình họp lúc 3 giờ nha, with the design team."</div></div>
+      <div class="card"><span class="dot d-bad"></span><div class="t"><div>If the download fails</div><div>The connection dropped at 1.1 GB. It continues from there.</div></div><button class="btn sm">Try again</button></div>
+    </div>
+    <div class="obfoot"><span class="stepn">Step 5 of 7</span><div class="dots"><i></i><i></i><i></i><i></i><i class="on"></i><i></i><i></i></div><button class="btn">Back</button><button class="btn prim">Continue</button></div>
+  </div></div>
+</div></div>
+
+<h2 class="sec">Step 5c: Other kinds (local server, cloud)</h2>
+<p class="why">Same fields as Settings › Models, cut down to the minimum. "Test" sends one sentence and shows the result or a plain error.</p>
+<div class="stage"><div class="pair">
+  <div><p class="label">An app I already run</p><div class="win" style="min-height:0"><div class="wtitle"><div class="lights"><i></i><i></i><i></i></div><span>Setup</span></div><div class="ob">
+    <h3>Connect your local app</h3>
+    <div class="card"><div class="t"><div>App</div></div><span class="pop">LM Studio ▾</span></div>
+    <div class="card"><div class="t"><div>Address</div></div><code>http://localhost:1234/v1</code></div>
+    <div class="card"><div class="t"><div>Model</div></div><span class="pop">qwen3-4b ▾</span></div>
+    <div class="card"><span class="dot d-bad"></span><div class="t"><div>No answer from localhost:1234</div><div>Open LM Studio and start its server, then test again.</div></div><button class="btn sm">Test again</button></div>
+  </div><div class="obfoot"><div class="dots"></div><button class="btn">Back</button><button class="btn prim">Continue</button></div></div></div>
+  <div><p class="label">A cloud service</p><div class="win" style="min-height:0"><div class="wtitle"><div class="lights"><i></i><i></i><i></i></div><span>Setup</span></div><div class="ob">
+    <h3>Connect a cloud service</h3>
+    <div class="card"><div class="t"><div>Service</div></div><span class="pop">OpenAI ▾</span></div>
+    <div class="card"><div class="t"><div>API key</div><div>Saved on this Mac only</div></div><code>sk-••••••••3f2a</code></div>
+    <div class="card"><span class="dot d-ok"></span><div class="t"><div>Test passed</div><div>gpt-5-mini answered in 1.1 s</div></div></div>
+    <p class="note">Your dictated text is sent to this service. Audio stays on this Mac.</p>
+  </div><div class="obfoot"><div class="dots"></div><button class="btn">Back</button><button class="btn prim">Continue</button></div></div></div>
+</div></div>
+
+<h2 class="sec">Step 6: Try it</h2>
+<p class="why">A text box inside the onboarding window, so the first real paste lands in BugVoice, not in another app. The box fills with the result and shows the raw and cleaned text.</p>
+<div class="stage"><div class="win">
+  <div class="wtitle"><div class="lights"><i></i><i></i><i></i></div><span>Setup</span></div>
+  <div class="ob">
+    <h3>Try it here</h3>
+    <p class="lead">Click the box, hold <b>Right Control</b>, say a sentence, let go.</p>
+    <p class="note">Try: "Remind me to send the report to Lan before Friday, cảm ơn nhé."</p>
+    <div class="trybox done">Remind me to send the report to Lan before Friday, cảm ơn nhé.</div>
+    <div class="card"><span class="dot d-ok"></span><div class="t"><div>It works</div><div>Heard in 0.6 s, cleaned in 0.8 s by the built-in Medium model</div></div><button class="btn sm">Try again</button></div>
+  </div>
+  <div class="obfoot"><span class="stepn">Step 6 of 7</span><div class="dots"><i></i><i></i><i></i><i></i><i></i><i class="on"></i><i></i></div><button class="btn">Back</button><button class="btn link">Skip</button><button class="btn prim">Continue</button></div>
+</div></div>
+
+<!-- ============ PART 3: GET STARTED + TOUR ============ -->
+<h2 class="sec">Part 3. Step 7: Take the tour or start</h2>
+<p class="why">Last onboarding step. Either choice ends setup (onboardingDone). "Take the tour" closes this window, opens the main window and starts the 6-stop tour. The tour can be run again from Settings › General and from the menu bar popover ("Take the tour").</p>
+<div class="stage"><div class="win" style="min-height:0">
+  <div class="wtitle"><div class="lights"><i></i><i></i><i></i></div><span>Setup</span></div>
+  <div class="ob" style="align-items:center;text-align:center;padding-top:30px;padding-bottom:26px">
+    <div class="big" style="color:var(--ok)">&#10003;</div>
+    <h3>You are ready</h3>
+    <p class="lead" style="max-width:400px">Hold <b>Right Control</b> in any app to speak. Want a quick look at the rest: Meetings, Scratchpad, Dictionary and Style?</p>
+    <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;justify-content:center">
+      <button class="btn">Skip, start using BugVoice</button>
+      <button class="btn prim">Take a 1-minute tour</button>
+    </div>
+  </div>
+  <div class="obfoot"><span class="stepn">Step 7 of 7</span><div class="dots"><i></i><i></i><i></i><i></i><i></i><i></i><i class="on"></i></div><button class="btn">Back</button></div>
+</div></div>
+
+<h2 class="sec">The tour: 6 stops in the main window</h2>
+<p class="why">Click Next / Back in the popover (or the stop list) to walk it. The window dims except the target; the popover points at the real control. Esc or End tour stops at any time. A stop whose target is not on screen is skipped. Dictation is a reminder, not a click: it runs on the hotkey.</p>
+<style>
+.tourwrap{display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:16px;align-items:start}
+@media (max-width:760px){.tourwrap{grid-template-columns:1fr}}
+.mwin{position:relative;background:var(--bg);border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 50px #0006;overflow:hidden;min-height:400px}
+.mbar{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);font-size:12px}
+.mbar .grow{flex:1}
+.menubar{display:flex;justify-content:flex-end;align-items:center;gap:12px;padding:3px 12px;background:#0003;color:#fff;font-size:12px;border-radius:8px 8px 0 0;margin:-20px -20px 14px}
+.mbicon{display:inline-grid;place-items:center;width:22px;height:18px;border-radius:5px;font-weight:800;font-size:11px;background:#fff3}
+.mcols{display:flex;min-height:360px}
+.mside{width:170px;flex:none;border-right:1px solid var(--line);padding:8px;background:var(--panel)}
+.mside .g{font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--muted);padding:8px 8px 2px}
+.mside .it{padding:4px 8px;border-radius:6px}
+.mside .it.on{background:var(--soft);font-weight:600}
+.mmain{flex:1;padding:14px;display:flex;flex-direction:column;gap:10px}
+.mhead{display:flex;align-items:center;gap:8px}.mhead b{font-size:16px;flex:1}
+.mrowx{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--muted);font-size:12px}
+.dim{position:absolute;inset:0;background:#0007;pointer-events:none}
+.spot{position:relative;z-index:2;box-shadow:0 0 0 3px var(--accent),0 0 0 9999px #0000;border-radius:7px;background:var(--bg)}
+.tpop{position:absolute;z-index:3;width:250px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 30px #0006;padding:12px}
+.tpop:before{content:"";position:absolute;width:12px;height:12px;background:var(--panel);border-left:1px solid var(--line);border-top:1px solid var(--line);transform:rotate(-45deg);left:-7px;top:18px}
+.tpop.up:before{transform:rotate(45deg);left:auto;right:24px;top:-7px}
+.tpop b{display:block;margin-bottom:4px}
+.tpop p{margin:0 0 10px;color:var(--muted);font-size:12px}
+.tpop .tf{display:flex;align-items:center;gap:6px}
+.tpop .tf span{flex:1;color:var(--muted);font-size:11px}
+.stops{display:flex;flex-direction:column;gap:6px}
+.stops button{text-align:left;border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:6px 10px;color:#fff;background:#0003;border-color:#fff4}
+.stops button.on{background:#fff;color:#2b2a26;font-weight:600}
+</style>
+<div class="stage">
+  <div class="menubar"><span>Wed 12:30</span><span class="mbicon" id="mbicon">BV</span></div>
+  <div class="tourwrap">
+    <div class="mwin" id="mwin">
+      <div class="mbar"><div class="lights"><i></i><i></i><i></i></div><span class="grow"></span><button class="btn sm" id="t-record">&#9679; Record meeting</button></div>
+      <div class="mcols">
+        <div class="mside">
+          <div class="g">CAPTURE</div><div class="it on" id="t-dictation">Dictation</div><div class="it">Insights</div>
+          <div class="g">LIBRARY</div><div class="it" id="t-meetings">Meetings</div><div class="it">Action items</div><div class="it" id="t-scratchpad">Scratchpad</div><div class="it">Upload</div>
+          <div class="g">PERSONALIZE</div><div class="it" id="t-style">Style</div><div class="it" id="t-dictionary">Dictionary</div>
+          <div style="height:30px"></div><div class="it">Settings</div>
+        </div>
+        <div class="mmain"><div class="mhead"><b id="pagetitle">Dictation</b></div>
+          <div class="mrowx">Remind me to send the report to Lan before Friday, cảm ơn nhé.</div>
+          <div class="mrowx">git commit with message fix the paste bug in Chrome</div>
+          <div class="mrowx">Tomorrow mình họp lúc 3 giờ nha, with the design team.</div>
+        </div>
+      </div>
+      <div class="dim"></div>
+      <div class="tpop" id="tpop"><b id="tp-title"></b><p id="tp-body"></p><div class="tf"><span id="tp-n"></span><button class="btn link sm" id="tp-end">End tour</button><button class="btn sm" id="tp-back">Back</button><button class="btn sm prim" id="tp-next">Next</button></div></div>
+    </div>
+    <div><p class="label">Stops</p><div class="stops" id="stops"></div>
+      <p class="notes">Stop 1 points up at the menu bar icon from inside the main window; the popover is not attached to the menu bar itself.</p></div>
+  </div>
+</div>
+<script>
+(function(){
+const stops=[
+ {id:'mbicon',page:'Dictation',title:'BugVoice lives in the menu bar',body:'Click the BV icon for status, quick actions and settings. The window can stay closed.',up:true},
+ {id:'t-dictation',page:'Dictation',title:'Dictate anywhere',body:'Hold Right Control in any app, speak, let go. Everything you dictated is listed here.'},
+ {id:'t-record',page:'Meetings',title:'Record a meeting',body:'Record a call and get a transcript, summary and action items. Shortcut: Control-Option-M.',up:true,sel:'t-meetings'},
+ {id:'t-scratchpad',page:'Scratchpad',title:'Scratchpad',body:'Speak into a note. Control-Option-N opens a floating scratchpad from any app.'},
+ {id:'t-dictionary',page:'Dictionary',title:'Your words',body:'Add names and terms so they come out right every time.'},
+ {id:'t-style',page:'Style',title:'Style',body:'Terminal, chat and email each get their own cleanup. Change how each one reads here.'},
+];
+let i=0;const win=document.getElementById('mwin'),pop=document.getElementById('tpop'),list=document.getElementById('stops');
+stops.forEach((s,k)=>{const b=document.createElement('button');b.textContent=(k+1)+'. '+s.title;b.onclick=()=>{i=k;show()};list.appendChild(b)});
+function show(){
+ document.querySelectorAll('.spot').forEach(e=>e.classList.remove('spot'));
+ document.querySelectorAll('.mside .it').forEach(e=>e.classList.remove('on'));
+ const s=stops[i];const sel=document.getElementById(s.sel||s.id);if(sel&&sel.classList.contains('it'))sel.classList.add('on');
+ if(!s.sel&&!document.getElementById(s.id).classList.contains('it'))document.getElementById('t-dictation').classList.add('on');
+ document.getElementById('pagetitle').textContent=s.page;
+ const t=document.getElementById(s.id);t.classList.add('spot');
+ document.getElementById('tp-title').textContent=s.title;document.getElementById('tp-body').textContent=s.body;
+ document.getElementById('tp-n').textContent=(i+1)+' of '+stops.length;
+ document.getElementById('tp-back').style.visibility=i?'visible':'hidden';
+ document.getElementById('tp-next').textContent=i==stops.length-1?'Done':'Next';
+ pop.classList.toggle('up',!!s.up);
+ const w=win.getBoundingClientRect(),r=t.getBoundingClientRect();
+ if(s.id==='mbicon'){pop.style.left=Math.max(8,w.width-262)+'px';pop.style.top='10px'}
+ else if(s.up){pop.style.left=Math.max(8,r.right-w.left-250)+'px';pop.style.top=(r.bottom-w.top+12)+'px'}
+ else{pop.style.left=Math.min(w.width-258,r.right-w.left+14)+'px';pop.style.top=(r.top-w.top-8)+'px'}
+ [...list.children].forEach((b,k)=>b.classList.toggle('on',k===i));
+}
+document.getElementById('tp-next').onclick=()=>{i=(i+1)%stops.length;show()};
+document.getElementById('tp-back').onclick=()=>{i=Math.max(0,i-1);show()};
+document.getElementById('tp-end').onclick=()=>{i=0;show()};
+window.addEventListener('resize',show);show();
+})();
+</script>
+
+<!-- ============ SETTINGS: BUILT-IN MODELS ============ -->
+<h2 class="sec">Settings › Models: Built-in models card</h2>
+<p class="why">The same catalog after onboarding. Download, Cancel and Delete per model. A downloaded model shows up in the Dictation and Notes engine pickers as "Built-in · Medium". The Readiness card's cleanup row reads "Medium, built in".</p>
+<div class="stage"><div class="win" style="min-height:0;max-width:760px">
+  <div class="wtitle"><div class="lights"><i></i><i></i><i></i></div><span>Settings</span></div>
+  <div class="ob">
+    <h3 style="font-size:15px">Built-in models</h3>
+    <p class="lead">Run by BugVoice on this Mac. Nothing else to install. Unloaded after 15 minutes idle to free memory.</p>
+    <div class="mtable">
+      <div class="mrow" style="grid-template-columns:1fr auto auto auto"><div class="nm"><b>Small</b><span>Qwen3 1.7B · fastest, English best</span></div><div><div class="meter"><i class="f"></i><i class="f"></i><i class="f"></i></div><div class="meter" style="margin-top:3px"><i class="f"></i><i></i><i></i></div></div><div class="size">1.0 GB</div><button class="btn sm">Download</button></div>
+      <div class="mrow sel" style="grid-template-columns:1fr auto auto auto"><div class="nm"><b>Medium <span class="badge">In use</span></b><span>Qwen3 4B · good English and Vietnamese</span></div><div><div class="meter"><i class="f"></i><i class="f"></i><i></i></div><div class="meter" style="margin-top:3px"><i class="f"></i><i class="f"></i><i></i></div></div><div class="size">2.5 GB</div><button class="btn sm">Delete</button></div>
+      <div class="mrow" style="grid-template-columns:1fr auto auto auto"><div class="nm"><b>Large</b><span>Qwen3 8B · Downloading, 41%</span><div class="bar" style="margin-top:4px;width:180px"><i style="width:41%"></i></div></div><div><div class="meter"><i class="f"></i><i></i><i></i></div><div class="meter" style="margin-top:3px"><i class="f"></i><i class="f"></i><i class="f"></i></div></div><div class="size">5.0 GB</div><button class="btn sm">Cancel</button></div>
+    </div>
+    <div class="card"><div class="t"><div>Use for Dictation</div><div>Notes follows Dictation unless set</div></div><span class="pop">Built-in · Medium ▾</span></div>
+  </div>
+</div></div>
+
+</div>
+<script>
+document.getElementById('t').onclick=()=>{const r=document.documentElement;const dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme: dark)').matches;r.dataset.theme=dark?'light':'dark'};
+</script></body></html>

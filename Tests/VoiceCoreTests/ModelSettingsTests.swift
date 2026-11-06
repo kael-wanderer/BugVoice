@@ -167,3 +167,30 @@ struct ModelSettingsTests {
         #expect(ModelNames.short("  ") == nil)
     }
 }
+
+@Suite struct BuiltInSettingsTests {
+    func decode(_ json: String) throws -> ModelSettings {
+        try JSONDecoder().decode(ModelSettings.self, from: Data(json.utf8))
+    }
+
+    @Test func builtInEngineRoundTrips() throws {
+        let data = try JSONEncoder().encode(ModelEngine.builtIn("qwen3-4b-q4_k_m"))
+        #expect(String(decoding: data, as: UTF8.self) == #"{"builtIn":"qwen3-4b-q4_k_m"}"#)
+        #expect(try JSONDecoder().decode(ModelEngine.self, from: data) == .builtIn("qwen3-4b-q4_k_m"))
+    }
+
+    @Test func unreadableDictationEngineKeepsDefault() throws {
+        // What an older build does with an engine it does not know.
+        let s = try decode(#"{"dictation":{"engine":{"futureEngine":"x"}}}"#)
+        #expect(s.dictation.engine == ModelSettings().dictation.engine)
+    }
+
+    @Test func idleMinutesRoundTripAndClamp() throws {
+        var s = ModelSettings()
+        #expect(s.builtInIdleMinutes == 15)
+        s.builtInIdleMinutes = 30
+        let back = try JSONDecoder().decode(ModelSettings.self, from: JSONEncoder().encode(s))
+        #expect(back.builtInIdleMinutes == 30)
+        #expect(try decode(#"{"builtInIdleMinutes":7}"#).builtInIdleMinutes == 15)
+    }
+}

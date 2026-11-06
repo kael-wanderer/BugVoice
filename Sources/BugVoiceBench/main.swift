@@ -9,6 +9,8 @@ import WhisperEngine
 //   Cached models only; stdout contains metrics, text only on stderr with --show-text.
 // bugvoice-bench --fidelity-history <history.jsonl>
 //   Prints counts and flagged raw/cleaned pairs to the terminal only, then exits.
+// bugvoice-bench --cleanup-bench --history <history.jsonl> --llm-base <url> --llm-model <id>
+//   [--llm-key-env VAR] [--runs N] [--show-text]   (see CleanupBench.swift)
 // Each clip `name.wav` may have a reference transcript `name.txt`.
 // In clip mode stdout carries markdown results; progress goes to stderr.
 
@@ -60,6 +62,10 @@ if CommandLine.arguments.contains("--fidelity-history") {
         for issue in item.issues { print("\(issue.kind.rawValue) \(issue.direction.rawValue): \(issue.token)") }
     }
     exit(0)
+}
+
+if CommandLine.arguments.contains("--cleanup-bench") {
+    exit(await runCleanupBench())
 }
 
 if CommandLine.arguments.contains("--latency") {

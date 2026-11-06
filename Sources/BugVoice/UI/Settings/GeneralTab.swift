@@ -40,6 +40,15 @@ struct GeneralTab: View {
                     .labelsHidden().fixedSize()
                 }
             }
+            SettingsCard(title: "Setup") {
+                SettingsRow(title: "Run setup again") {
+                    Button("Open setup") { model.openOnboarding() }
+                }
+                Divider()
+                SettingsRow(title: "A short tour of the main window") {
+                    Button("Take the tour") { model.startTour() }
+                }
+            }
             SettingsCard(title: "Folders and tags") {
                 SettingsRow(title: "\(counted(model.library.folders.count, "folder")) · \(counted(model.tagRows.count, "tag"))") {
                     Button("Manage…") { librarySheet = .folders }
@@ -93,16 +102,24 @@ private struct UpdatesCard: View {
             if case .offer = state {
                 // The DMG comes from the browser with a quarantine flag; without a
                 // Developer ID, macOS refuses to open the installed copy until it is cleared.
-                HStack(spacing: 8) {
-                    Text(Self.unquarantineCommand)
-                        .bvFont(.footnote).monospaced()
-                        .textSelection(.enabled)
-                        .foregroundStyle(.bvSecondary)
-                    Button("Copy") {
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(Self.unquarantineCommand, forType: .string)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("If macOS says \"BugVoice Not Opened\", use one of these:")
+                        .bvFont(.footnote).foregroundStyle(.bvSecondary)
+                    Text("Way A (easiest): click Done. Open System Settings › Privacy & Security, scroll down, click Open Anyway next to BugVoice, and enter your Mac password.")
+                        .bvFont(.footnote).foregroundStyle(.bvSecondary)
+                    Text("Way B: paste this in Terminal, press Return, then open BugVoice again.")
+                        .bvFont(.footnote).foregroundStyle(.bvSecondary)
+                    HStack(spacing: 8) {
+                        Text(Self.unquarantineCommand)
+                            .bvFont(.footnote).monospaced()
+                            .textSelection(.enabled)
+                            .foregroundStyle(.bvSecondary)
+                        Button("Copy") {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(Self.unquarantineCommand, forType: .string)
+                        }
+                        .controlSize(.small)
                     }
-                    .controlSize(.small)
                 }
             }
             Divider()

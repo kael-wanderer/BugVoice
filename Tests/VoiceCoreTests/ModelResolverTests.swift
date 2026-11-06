@@ -115,3 +115,52 @@ struct TransformPlanTests {
         #expect(plan(s) == ModelPlan.none)
     }
 }
+
+@Suite struct BuiltInResolverTests {
+    let id = "qwen3-4b-q4_k_m"
+    func settings(dictation: ModelEngine, notes: ModelEngine? = nil, meetings: ModelEngine = .none) -> ModelSettings {
+        var s = ModelSettings()
+        s.dictation = ModelUse(engine: dictation)
+        s.notes = notes.map { ModelUse(engine: $0) }
+        s.meetings = ModelUse(engine: meetings)
+        s.dictationTimeoutSeconds = 4
+        return s
+    }
+    func plan(_ f: ModelFeature, _ s: ModelSettings, installed: Set<String>) -> ModelPlan {
+        ModelResolver.plan(for: f, settings: s, cliPaths: [:], appleIntelligenceAvailable: false, builtInInstalled: installed)
+    }
+
+    @Test func installedModelResolves() {
+        let model = BuiltInCatalog.model(id: id)!
+        let p = plan(.dictation, settings(dictation: .builtIn(id)), installed: [id])
+        #expect(p == .builtIn(model, timeout: 4))
+        #expect(p.shortName == "Medium")
+    }
+
+    @Test func notInstalledIsUnavailable() {
+        #expect(plan(.dictation, settings(dictation: .builtIn(id)), installed: []) == .unavailable("Medium is not downloaded. Download it in Settings → Models."))
+    }
+
+    @Test func unknownIDIsUnavailable() {
+        #expect(plan(.dictation, settings(dictation: .builtIn("gone")), installed: ["gone"]) == .unavailable("This built-in model is no longer offered. Choose another in Settings → Models."))
+    }
+
+    @Test func askAndTransformsRefuseBuiltIn() {
+        let s = settings(dictation: .builtIn(id))
+        #expect(ModelResolver.transformPlan(settings: s, cliPaths: [:], appleIntelligenceAvailable: false, builtInInstalled: [id])
+            == .unavailable("Built-in models clean dictation only. Choose a model for Ask and Transforms in Settings → Models."))
+        // Notes dictation cleanup still uses the built-in model.
+        #expect(plan(.notes, s, installed: [id]) == .builtIn(BuiltInCatalog.model(id: id)!, timeout: 4))
+    }
+
+    @Test func meetingsRefuseBuiltIn() {
+        #expect(plan(.meetings, settings(dictation: .none, meetings: .builtIn(id)), installed: [id]) == .unavailable("Built-in models are for Dictation and Notes."))
+    }
+
+    @Test func notesMustMatchDictation() {
+        let s = settings(dictation: .builtIn(id), notes: .builtIn("qwen3-8b-q4_k_m"))
+        #expect(plan(.notes, s, installed: [id, "qwen3-8b-q4_k_m"]) == .unavailable("Notes must use the same built-in model as Dictation."))
+        let same = settings(dictation: .builtIn(id))
+        #expect(plan(.notes, same, installed: [id]) == plan(.dictation, same, installed: [id]))
+    }
+}

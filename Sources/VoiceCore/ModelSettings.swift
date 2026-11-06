@@ -87,9 +87,10 @@ public enum ModelEngine: Codable, Equatable, Sendable, Hashable {
     case connection(String)
     case cli(CLITool)
     case appleIntelligence
+    case builtIn(String)
     case none
 
-    private enum Keys: String, CodingKey { case connection, cli }
+    private enum Keys: String, CodingKey { case connection, cli, builtIn }
 
     public init(from decoder: Decoder) throws {
         if let single = try? decoder.singleValueContainer().decode(String.self) {
@@ -104,6 +105,8 @@ public enum ModelEngine: Codable, Equatable, Sendable, Hashable {
         let c = try decoder.container(keyedBy: Keys.self)
         if let id = try c.decodeIfPresent(String.self, forKey: .connection) {
             self = .connection(id)
+        } else if let id = try c.decodeIfPresent(String.self, forKey: .builtIn) {
+            self = .builtIn(id)
         } else {
             self = .cli(try c.decode(CLITool.self, forKey: .cli))
         }
@@ -117,6 +120,9 @@ public enum ModelEngine: Codable, Equatable, Sendable, Hashable {
         case .cli(let tool):
             var c = encoder.container(keyedBy: Keys.self)
             try c.encode(tool, forKey: .cli)
+        case .builtIn(let id):
+            var c = encoder.container(keyedBy: Keys.self)
+            try c.encode(id, forKey: .builtIn)
         case .appleIntelligence:
             var c = encoder.singleValueContainer()
             try c.encode("appleIntelligence")
@@ -224,13 +230,16 @@ public struct ModelSettings: Codable, Equatable, Sendable {
     /// Dictation and Notes: after this, raw text is pasted.
     public var dictationTimeoutSeconds: Double = 3
     public var search = SearchSettings()
+    /// Minutes of quiet before the built-in model unloads: 5, 15, 30 or 60.
+    public var builtInIdleMinutes: Int = 15
+    public static let allowedBuiltInIdleMinutes = [5, 15, 30, 60]
     /// Set by migration, done by the app at launch, never saved.
     public var pendingKeyMoves: [KeyMove] = []
 
     public init() {}
 
     enum CodingKeys: String, CodingKey {
-        case connections, dictation, notes, meetings, dictationTimeoutSeconds, search
+        case connections, dictation, notes, meetings, dictationTimeoutSeconds, search, builtInIdleMinutes
     }
 }
 
@@ -260,6 +269,8 @@ extension ModelSettings {
         meetings = c.value(.meetings, default: meetings)
         dictationTimeoutSeconds = c.value(.dictationTimeoutSeconds, default: dictationTimeoutSeconds)
         search = c.value(.search, default: search)
+        let idle = c.value(.builtInIdleMinutes, default: builtInIdleMinutes)
+        builtInIdleMinutes = Self.allowedBuiltInIdleMinutes.contains(idle) ? idle : 15
     }
 }
 

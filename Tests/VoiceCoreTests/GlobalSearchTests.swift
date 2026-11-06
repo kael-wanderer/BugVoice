@@ -103,7 +103,7 @@ import Testing
     }
 
     @Test func settingsListIsExact() {
-        #expect(GlobalSearch.settingsEntries.count == 45)
+        #expect(GlobalSearch.settingsEntries.count == 46)
         #expect(GlobalSearch.settingsEntries.first == SettingsSearchEntry(label: "General", section: "general"))
         #expect(GlobalSearch.settingsEntries.last == SettingsSearchEntry(label: "Ready to dictate", section: "general", keywords: ["setup", "status", "permissions", "readiness"]))
     }
@@ -120,6 +120,7 @@ import Testing
         ("whisper", "Speech model", "speech"),
         ("retry", "Failed recordings", "storage"),
         ("setup", "Ready to dictate", "general"),
+        ("onboarding", "Run setup again", "general"),
     ])
     func settingsKeywordsFindTheSection(query: String, label: String, section: String) {
         let hits = GlobalSearch.search(query, passages: [], titles: [], first: nil)

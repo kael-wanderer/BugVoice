@@ -34,6 +34,10 @@ public struct AppPaths: Sendable {
     /// Recordings whose transcription failed, owner-only. See `FailedDictationStore`.
     public var failedDictations: URL { root.appendingPathComponent("Failed", isDirectory: true) }
     public var models: URL { root.appendingPathComponent("models", isDirectory: true) }
+    /// Downloaded cleanup models (GGUF files) for the built-in model.
+    public var cleanupModels: URL {
+        root.appendingPathComponent("Models", isDirectory: true).appendingPathComponent("Cleanup", isDirectory: true)
+    }
     /// Reserved for sub-project 2.
     public var meetings: URL { root.appendingPathComponent("Meetings", isDirectory: true) }
     /// Notes stored as Markdown files.

@@ -35,6 +35,11 @@ extension AppModel {
             guard let connection = dictationConnection else { return }
             Task { await testConnection(connection) }
         case .openModels: settingsTab = .models
+        case .downloadBuiltIn:
+            settingsTab = .models
+            if case .builtIn(let id) = settings.models.dictation.engine, let model = BuiltInCatalog.model(id: id) {
+                downloadBuiltIn(model)
+            }
         }
     }
 
@@ -54,6 +59,11 @@ extension AppModel {
     }
 
     private var cleanupCheck: CleanupCheck {
+        if let check = BuiltInChoices.readinessCheck(
+            dictation: settings.models.dictation.engine, installed: builtInInstalled,
+            downloads: builtInDownloads, failures: builtInDownloadErrors, loadFailures: builtInLoadFailures) {
+            return check
+        }
         let plan = plan(for: .dictation)
         switch plan {
         case .none:
@@ -67,6 +77,9 @@ extension AppModel {
             case .reachable: return .reachable(name: name)
             case .failed(let message): return .failed(name: name, message: message)
             }
+        case .builtIn(let model, _):
+            // Reached only if the check above did not apply; the plan means the file is there.
+            return .builtIn(name: model.name, state: .ready)
         case .appleIntelligence, .cli:
             return .local(name: plan.shortName ?? "")
         }

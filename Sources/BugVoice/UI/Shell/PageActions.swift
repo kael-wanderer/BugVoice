@@ -35,6 +35,7 @@ struct PageActions: View {
                         Button("Record meeting", action: startMeeting).keyboardShortcut("m", modifiers: [.control, .option])
                         Button("Upload a recording…") { model.page = .upload }
                     }
+                    .tourAnchor(.recordMeeting)
                 }
             case .notes:
                 SplitButton("New note", systemImage: "plus", action: newNote) {
