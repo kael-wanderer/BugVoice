@@ -7,10 +7,11 @@ public struct SettingsStore: Sendable {
         self.url = url
     }
 
-    /// Never throws: a missing file gives defaults; an unreadable one is moved
+    /// Never throws: a missing file gives fresh-install settings; an unreadable one is moved
     /// aside as `settings.json.corrupt-<unix time>` so the next save does not
     /// destroy what the user had.
     public func load() -> AppSettings {
+        guard FileManager.default.fileExists(atPath: url.path) else { return .freshInstall() }
         guard let data = try? Data(contentsOf: url) else { return AppSettings() }
         if let settings = try? JSONDecoder().decode(AppSettings.self, from: data) {
             return settings
