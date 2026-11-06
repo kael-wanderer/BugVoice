@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="660" height="420" viewBox="0 0 660 420">
+  <rect width="660" height="420" fill="#f6f6f8"/>
+  <g font-family="-apple-system, 'SF Pro Text', Helvetica, Arial, sans-serif" fill="#1d1d1f">
+    <text x="330" y="38" text-anchor="middle" font-size="17" font-weight="600">1. Drag BugVoice into Applications</text>
+    <!-- arrow between the app icon (165,150) and Applications (495,150) -->
+    <g stroke="#8e8e93" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <line x1="250" y1="150" x2="400" y2="150"/>
+      <polyline points="384,134 402,150 384,166"/>
+    </g>
+    <line x1="24" y1="228" x2="636" y2="228" stroke="#d8d8dc" stroke-width="1"/>
+    <text x="330" y="250" text-anchor="middle" font-size="13" font-weight="600">2. Open BugVoice. If macOS says "BugVoice Not Opened", use one of these:</text>
+    <!-- Way A, left of the Read Me icon -->
+    <text x="24" y="276" font-size="12" font-weight="700">Way A: System Settings <tspan fill="#2e7d32">Easiest</tspan></text>
+    <g font-size="11" fill="#3a3a3c">
+      <text x="24" y="296">1. Click Done on the message.</text>
+      <text x="24" y="312">2. Open System Settings › Privacy &amp; Security.</text>
+      <text x="24" y="328">3. Scroll down, click Open Anyway</text>
+      <text x="35" y="344">next to BugVoice.</text>
+      <text x="24" y="360">4. Enter your Mac password.</text>
+    </g>
+    <!-- Way B, right of the Read Me icon -->
+    <text x="408" y="276" font-size="12" font-weight="700">Way B: Terminal</text>
+    <g font-size="11" fill="#3a3a3c">
+      <text x="408" y="296">1. Open Terminal.</text>
+      <text x="408" y="312">2. Paste and press Return:</text>
+      <text x="408" y="344">3. Open BugVoice again.</text>
+    </g>
+    <rect x="408" y="318" width="228" height="18" rx="4" fill="#e5e5ea"/>
+    <text x="414" y="331" font-size="10" font-family="Menlo, Monaco, monospace">xattr -cr /Applications/BugVoice.app</text>
+  </g>
+</svg>
