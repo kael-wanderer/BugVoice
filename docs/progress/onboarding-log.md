@@ -4,10 +4,12 @@ Spec: `docs/superpowers/specs/2026-11-06-onboarding-and-built-in-model-design.md
 Plan: `docs/superpowers/plans/2026-11-06-onboarding-and-built-in-model.md`
 Mockup: `docs/design/proposal-onboarding.html`
 
-Phase 1 (onboarding, tour, DMG layout) is built on `feat/onboarding`. Build,
-`swift test` and `Scripts/build-app.sh` pass. The device checks below were not
-run; the owner is at the keyboard and they are open. Phase 2 (bench gate) passed
-for all three tiers (see below); Phase 3 (built-in model) follows.
+All three phases are built on `feat/onboarding`: Phase 1 (onboarding, tour, DMG
+layout), Phase 2 (bench gate, Task 8, results in "Phase 2 — Bench" below) and
+Phase 3 (built-in model, Tasks 9 to 14). Full `swift test` at the end of Task 15
+passes: 1467 tests in 157 suites (VoiceCore), 30 in 2 suites and 136 in 23
+suites. No device check has run; the owner was at the keyboard, so every one is
+open in the list at the end of this log. A final fix wave is still to come.
 
 ## Task 1 — Fresh-install settings and onboardingDone (2026-11-06)
 
@@ -267,52 +269,182 @@ That gives 8 GB Macs Small (2.4 GB budget), 16 and 18 GB Macs Medium (4.8 /
 5.4 GB), and 24 GB and up Large (7.2 GB+), leaving at least 70% of memory for
 macOS, the speech model and the owner's apps.
 
+## Phase 3 — Built-in model (Tasks 9 to 14, 2026-11-06)
+
+The bench itself is the "Phase 2 — Bench" section above (Task 8: commits
+94f7789 `feat(bench): cleanup bench mode`, 56af1f5 `fix(bench): cleanup bench
+prints n/a for empty sets and fails when ev...`, a02192a `docs: built-in model
+bench`, 0984e87 `docs: bench follow-up`). All three tiers passed the gate. Picks:
+Small Qwen3-VL-2B-Instruct Q4_K_M, Medium Qwen3-4B Q4_K_M, Large Qwen3-8B
+Q4_K_M, with `memoryShare` 0.30. llama.cpp is pinned at `b11829` (the macOS
+build ships as a `.tar.gz`). The owner still reviews the picks; the catalog
+values are easy to change. Quality notes for that review: Small left two
+Vietnamese sentences uncleaned, Medium leaves leading capitals off some English
+sentences, and Large dropped "hôm nay" from one sentence. `FidelityCheck` does
+not catch changed or dropped ordinary words.
+
+- Task 9, built-in model catalog. 0b57361 `feat(core): built-in model catalog`.
+  `BuiltInModel` and `BuiltInCatalog` hold the three tiers with pinned
+  revision, SHA-256 and size, plus the fit rule that picks the largest model
+  within 0.30 of physical memory. Model ids contain "qwen" so thinking stays
+  off.
+- Task 10, built-in engine in settings, resolver and readiness. 6c48485
+  `feat(core): built-in engine in settings, resolver and readiness`. Adds
+  `ModelEngine.builtIn`, `ModelPlan.builtIn`, the resolver case and the
+  readiness case, and replaces the Task 2 no-op for `CleanupChoice.builtIn`.
+- Task 11, download plan and verifier. 4725c7a `feat(core): built-in model
+  download plan and verifier`; 2ef8489 `fix(app): verify download ranges and cap
+  size`. Resumable HTTPS download with a pinned revision and SHA-256 check; a
+  file that fails the hash is deleted. The fix checks the `Content-Range` start
+  and total, caps the body at the model size, replaces the final file
+  atomically, makes the URLSession injectable and removes temp directories.
+- Task 12, bundled helper. 413e1b4 `build: bundle llama-server helper`.
+  `Scripts/build-app.sh` fetches the pinned, hash-checked llama.cpp build and
+  signs `llama-server` and its libraries with `Bugler Local Dev`. The helpers
+  are signed without `--options runtime` because library validation rejects
+  them without a Team ID.
+- Task 13, built-in server. 85b503f `feat(app): built-in model server`.
+  `BuiltInServerController` starts `llama-server` on 127.0.0.1 only with a
+  random per-launch key, stops it after idle and on quit, and cleans up stale
+  processes. The key stays on the command line (`--api-key`), which only the
+  same user or root can read.
+- Task 14, built-in models in onboarding and Settings. 0b1f2b2 `feat(app):
+  built-in models in onboarding and settings`; 390a29a `fix(app): built-in load
+  failures and late onboarding downloads`. Step 5 offers the built-in model
+  with download, cancel and resume; Settings has a Built-in section with
+  delete; readiness shows "<name>, built in". The fix makes a server start
+  failure show in readiness (amber) and stops a late onboarding download from
+  overriding a later Settings choice.
+
 ## Owner checks (open)
 
-Not run by the implementer. Record results here at hand-over.
+Not run by the implementers. Record results here at hand-over. Every item is
+open.
 
-Device checks, Phase 1:
+Onboarding and Try it:
 
 - [ ] Fresh install path: with no `settings.json`, onboarding opens at step 1;
       Back, Skip and Skip setup behave as the mockup shows.
 - [ ] Hotkey probe: step 2 shows "Key seen. It works." when the talk key is
       held, and the press does not dictate.
-- [ ] Tour, all three entry points: from onboarding finish, Settings > General,
-      and the menu popover Tools > "Take the tour". Esc ends it, arrows move it,
-      narrow or hidden sidebar skips hidden stops, and it matches the mockup.
-      The overlay swallows clicks to the main window; nothing starts a recording,
-      opens the meeting window or pastes.
 - [ ] Existing install path: an install with a `settings.json` never shows
       onboarding automatically and keeps its settings.
+- [ ] Close and relaunch after closing onboarding does not reopen it.
 - [ ] Run setup again: Settings > General reopens onboarding at step 1.
+- [ ] Step 5: oMLX with a key, Test passes, Continue; a cloud key is saved and
+      the privacy line shows.
 - [ ] Try it: hold the talk key; text lands only in the box; the "It works" row
       shows times and model; Try again clears; long dictation wraps and scrolls.
 - [ ] Try it isolation: with step 6 open, dictate into another app; it reaches
-      History and Fix last paste, and the Try-it row does not change.
-- [ ] Step 5: oMLX with a key, Test passes, Continue; a cloud key is saved and
-      the privacy line shows.
+      History and Fix last paste, and the Try-it row does not change. Try-it
+      dictation does not appear in History and is not the "Fix last paste"
+      target.
 - [ ] Try it while speech still downloads: the note shows the download percentage.
 - [ ] Try it cleanup failure: the reason shows in the Try-it row.
-- [ ] Try-it dictation does not appear in History and is not the "Fix last paste"
-      target.
-- [ ] Close and relaunch after closing onboarding does not reopen it.
-- [ ] DMG window: run `Scripts/build-dmg.sh` (allow Automation if asked); compare
-      with mockup Part 1 (window bounds, icon positions, text not overlapped,
-      Retina sharpness, hidden `.background`).
+
+Tour:
+
+- [ ] All three entry points work: from onboarding finish, Settings > General,
+      and the menu popover Tools > "Take the tour". Esc ends it, arrows move it,
+      a narrow or hidden sidebar skips hidden stops, and it matches the mockup.
+- [ ] The overlay swallows clicks to the main window; nothing starts a recording,
+      opens the meeting window or pastes.
+
+DMG and install:
+
+- [ ] Run `Scripts/build-dmg.sh` (allow Automation if asked) and compare the
+      window with mockup Part 1: window bounds, icon positions, Way A text not
+      overlapping the Read Me icon, Retina sharpness, hidden `.background`.
+      Not run in Task 15; the script drives Finder.
+- [ ] Quarantined-download "Way A" walk: install the DMG from a browser
+      download and follow Way A end to end. Not run in Task 15.
 - [ ] Screenshots: capture `App/DMG/screenshots/not-opened.png` and
       `open-anyway.png`, rerun `Scripts/make-dmg-readme.sh`, commit.
-- [ ] Update note: Settings > General shows the way A and way B text correctly.
+- [ ] Update note: Settings > General shows the Way A and Way B text correctly.
 
-Selected deferred review notes (not a complete list; fix in the final wave):
+Built-in model:
 
-- [ ] Try-it text view lacks min/max size and horizontal resize settings, so long
-      text may not wrap.
-- [ ] Closing the main window mid-tour leaves the tour index set; it reappears on
-      reopen.
+- [ ] Real Small download: cancel, resume, and the hash passes. Note the
+      download speed; if it is slow, switch the downloader from byte-wise
+      `AsyncBytes` to a `URLSessionDataDelegate`.
+- [ ] Fresh install, step 5 with Small: cancel and resume work, Try it works,
+      readiness shows "<name>, built in", and Delete flips the choice to Off.
+- [ ] A server start failure shows amber in readiness.
+- [ ] A late step 5 download after picking another engine in Settings does not
+      override that choice.
+- [ ] `lsof` shows the server listening on 127.0.0.1 only.
+- [ ] A request to the server without the key gets 401.
+- [ ] The server process exits on quit and after the idle period (the local
+      build uses a temporary 1-minute rule).
+- [ ] Review the three model picks and the catalog values (see Phase 3).
+
+## Known follow-ups
+
+Minor review findings deferred to the final fix wave. The wave is still to come
+and will tick some of them.
+
+- [ ] Try-it text view lacks min/max size and horizontal resize settings, so
+      long text may not wrap or scroll.
+- [ ] Closing the main window mid-tour leaves the tour index set; the tour
+      reappears on reopen.
 - [ ] Speech step lacks the download size (spec: name, size, progress).
 - [ ] Duplicated cleanup-test block between `OnboardingCleanupStep` and
       `UseForCard.runTest`.
 - [ ] Re-running onboarding adds a second local connection.
 - [ ] Cloud Continue is allowed with an empty key.
-- [ ] `make-dmg-background.sh` runs `sips` before its `-s` check, so the friendly
-      Chrome message never prints.
+- [ ] The `connection` getter writes `cloudIDs`.
+- [ ] Field edits during a running cleanup test are not caught.
+- [ ] `begin()` catch path does not reset `tryItRun` (harmless).
+- [ ] The tour's on-screen set is a heuristic, not measured anchors; a clipped
+      row gives a ring-less card. The card is not clamped at the bottom for low
+      sidebar rows.
+- [ ] The tour overlay swallows Tab and Return.
+- [ ] `onChange(page)` ending the tour relies on same-update writes.
+- [ ] `presentOnboarding` sits between the `hotkeyProbe` doc comment and its
+      property (`AppModel.swift:57-61`).
+- [ ] `PlaceholderStep` has an unused `advance` parameter.
+- [ ] The hotkey step's "Other choices" line is hard-coded.
+- [ ] The step dots are off-centre and "Step N of 7" layout needs a GUI look.
+- [ ] The probe cancels a running hold on the next input, not at the instant it
+      is set. The talk hotkey still dictates normally during the tour, so the
+      log's "never records" means tour actions only.
+- [ ] `SettingsStore` doc comment should say an unreadable-but-present file
+      counts as an existing user.
+- [ ] Meetings-unchanged tests start only from a fresh install; add a
+      connection-first test.
+- [ ] `.appleIntelligence` and `.none` replace the dictation `ModelUse`
+      wholesale and drop its other fields.
+- [ ] No explicit legacy-encoding regression test for connection, cli and
+      `appleIntelligence` engines.
+- [ ] Missing RED evidence for Tasks 2 and 5 (`TryItResult`); code was written
+      before the tests.
+- [ ] No boundary test that 8 GB gives Small.
+- [ ] The Large summary should read "Qwen3 8B · best text, needs 24 GB+" (the
+      fit rule recommends Large from about 21 GB).
+- [ ] Read Me HTML puts a paragraph and images inside an `<ol>` (cosmetic).
+- [ ] `make-dmg-background.sh` runs `sips` before its `-s` check, so the
+      friendly Chrome message never prints; `-s` passes on a stale file; the
+      diskutil UDZO path skips zlib level 9.
+- [ ] `fetch-llama-server.sh` unsafe-path check ignores symlink entries (hash is
+      pinned, low risk); `CleanupBench` parsing is untested.
+- [ ] The bench log says the Hugging Face API returned "not found" for
+      Qwen3-4B-Instruct-2507-GGUF; it was HTTP 401 (same as a nonexistent repo).
+- [ ] `BuiltInDownloader.swift:170-172`: a size mismatch on a resumed 206 keeps
+      the `.part` file, so retry loops on the same error; delete it or restart.
+- [ ] `build-app.sh:81-84` hardcodes the dylib list; check every `@rpath`
+      dependency of the helper exists in Helpers (`otool -L`) so a tag bump
+      fails at build time.
+- [ ] `BuiltInServerController.swift:125` `stop()` removes the pid file before
+      the process exits.
+- [ ] `BuiltInServerController.swift:95` shutdown polls `Process.isRunning`
+      under `Thread.sleep`; use `kill(pid, 0)` or `waitpid` with WNOHANG.
+- [ ] `BuiltInServerController.swift:113` `cleanUpStale` delayed SIGKILL should
+      skip when the pid is the running process.
+- [ ] A cancelled start (stop, shutdown, release) may be reported as a load
+      failure (amber); rethrow `CancellationError` or skip `onLoadResult`.
+
+Accepted as is: same-size final model file returned without a hash check;
+`build-app.sh:78` relies on the fetch script's last stdout line; no port retry
+if the port is lost between probe and bind; a minimised setup window skips the
+late apply; delete waits through the hash check; Readiness Download while
+another download runs.
