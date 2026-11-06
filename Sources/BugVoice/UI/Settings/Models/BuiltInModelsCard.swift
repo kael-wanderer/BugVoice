@@ -63,7 +63,7 @@ struct BuiltInModelsCard: View {
                     .monospacedDigit()
                 button(item, fraction: fraction, installed: installed, inUse: inUse)
             }
-            if let message = model.builtInDownloadErrors[item.id] {
+            if let message = model.builtInDownloadErrors[item.id] ?? (installed ? model.builtInLoadFailures[item.id] : nil) {
                 Text(message).bvFont(.footnote).foregroundStyle(.bvWarning)
             }
         }
@@ -73,21 +73,28 @@ struct BuiltInModelsCard: View {
     private func detail(_ item: BuiltInModel, fraction: Double?) -> String {
         guard let fraction else { return item.summary }
         let family = item.summary.components(separatedBy: " · ").first ?? item.name
+        if BuiltInChoices.isChecking(fraction) { return "\(family) · Checking the file" }
         return "\(family) · Downloading, \(Int(fraction * 100))%"
     }
 
     @ViewBuilder
     private func button(_ item: BuiltInModel, fraction: Double?, installed: Bool, inUse: Bool) -> some View {
-        if fraction != nil {
-            Button("Cancel") { model.cancelBuiltInDownload(item.id) }
+        if let fraction {
+            // The hash check cannot be cancelled; it ends on its own.
+            if !BuiltInChoices.isChecking(fraction) {
+                Button("Cancel") { model.cancelBuiltInDownload(item.id) }
+                    .accessibilityLabel("Cancel \(item.name) download")
+            }
         } else if installed {
             Button("Delete") {
                 if inUse { confirmDelete = item } else { Task { await model.deleteBuiltIn(item) } }
             }
+            .accessibilityLabel("Delete \(item.name)")
         } else {
             Button(model.builtInDownloadErrors[item.id] == nil ? "Download" : "Try again") { model.downloadBuiltIn(item) }
                 .disabled(model.builtInDownloadingID != nil)
                 .help(model.builtInDownloadingID != nil ? "One download at a time." : "")
+                .accessibilityLabel("Download \(item.name)")
         }
     }
 }

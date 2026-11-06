@@ -24,9 +24,14 @@ public enum BuiltInChoices {
 
     // MARK: State
 
+    /// `failures` are download failures; `loadFailures` are server starts that failed.
     public static func state(of id: String, installed: Set<String>,
-                             downloads: [String: Double], failures: [String: String]) -> BuiltInState {
-        if installed.contains(id) { return .ready }
+                             downloads: [String: Double], failures: [String: String],
+                             loadFailures: [String: String] = [:]) -> BuiltInState {
+        if installed.contains(id) {
+            if let message = loadFailures[id] { return .failed(message) }
+            return .ready
+        }
         if let fraction = downloads[id] { return .downloading(fraction) }
         if let message = failures[id] { return .failed(message) }
         return .notDownloaded
@@ -34,10 +39,25 @@ public enum BuiltInChoices {
 
     /// The readiness check when Dictation uses a known built-in model; nil otherwise.
     public static func readinessCheck(dictation: ModelEngine, installed: Set<String>,
-                                      downloads: [String: Double], failures: [String: String]) -> CleanupCheck? {
+                                      downloads: [String: Double], failures: [String: String],
+                                      loadFailures: [String: String] = [:]) -> CleanupCheck? {
         guard case .builtIn(let id) = dictation, let model = BuiltInCatalog.model(id: id) else { return nil }
-        return .builtIn(name: model.name, state: state(of: id, installed: installed, downloads: downloads, failures: failures))
+        return .builtIn(name: model.name, state: state(
+            of: id, installed: installed, downloads: downloads, failures: failures, loadFailures: loadFailures))
     }
+
+    /// What to show when the built-in server did not start. The server's own
+    /// reasons are plain English; any other error may hold paths, so it gets a
+    /// fixed line. Nil for a cancel.
+    public static func loadFailureMessage(_ error: Error) -> String? {
+        if error is CancellationError { return nil }
+        if let error = error as? URLError, error.code == .cancelled { return nil }
+        if case .unavailable(let reason)? = error as? ProviderError { return reason }
+        return "The built-in model did not start."
+    }
+
+    /// At 100% the downloader is checking the file's hash.
+    public static func isChecking(_ fraction: Double) -> Bool { fraction >= 1 }
 
     // MARK: Choosing and deleting
 

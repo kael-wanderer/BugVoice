@@ -55,6 +55,48 @@ import Testing
         #expect(state == .failed("The download was damaged. Try again."))
     }
 
+    @Test func installedWithALoadFailureIsFailed() {
+        let state = BuiltInChoices.state(of: medium.id, installed: [medium.id], downloads: [:], failures: [:],
+                                         loadFailures: [medium.id: "The built-in model did not start."])
+        #expect(state == .failed("The built-in model did not start."))
+    }
+
+    @Test func aLoadFailureOfAnotherModelDoesNotCount() {
+        let state = BuiltInChoices.state(of: medium.id, installed: [medium.id], downloads: [:], failures: [:],
+                                         loadFailures: [small.id: "x"])
+        #expect(state == .ready)
+    }
+
+    @Test func readinessShowsTheLoadFailureWithOpenModels() {
+        let check = BuiltInChoices.readinessCheck(
+            dictation: .builtIn(medium.id), installed: [medium.id], downloads: [:], failures: [:],
+            loadFailures: [medium.id: "The built-in model did not start."])
+        #expect(check == .builtIn(name: "Medium", state: .failed("The built-in model did not start.")))
+        let row = Readiness.cleanupRow(check!)
+        #expect(row.tone == .problem)
+        #expect(row.action == .openModels)
+    }
+
+    @Test func loadFailureMessageKeepsPlainReasons() {
+        #expect(BuiltInChoices.loadFailureMessage(ProviderError.unavailable("Small is not downloaded. Download it in Settings → Models."))
+            == "Small is not downloaded. Download it in Settings → Models.")
+    }
+
+    @Test func loadFailureMessageHidesOtherDetail() {
+        struct Odd: Error {}
+        #expect(BuiltInChoices.loadFailureMessage(Odd()) == "The built-in model did not start.")
+        #expect(BuiltInChoices.loadFailureMessage(ProviderError.http(status: 500, body: "/Users/x/model.gguf")) == "The built-in model did not start.")
+    }
+
+    @Test func loadFailureMessageIgnoresCancellation() {
+        #expect(BuiltInChoices.loadFailureMessage(CancellationError()) == nil)
+    }
+
+    @Test func checkingTheFileAtFullProgress() {
+        #expect(BuiltInChoices.isChecking(1))
+        #expect(!BuiltInChoices.isChecking(0.999))
+    }
+
     @Test func stateIsNotDownloadedOtherwise() {
         #expect(BuiltInChoices.state(of: medium.id, installed: [small.id], downloads: [small.id: 0.2], failures: [:]) == .notDownloaded)
     }

@@ -50,9 +50,24 @@ final class BuiltInServerController: BuiltInServing {
         healthSession = URLSession(configuration: config)
     }
 
+    /// Told the outcome of every `endpoint(for:)`: nil on success, else the error.
+    /// AppModel uses it for the readiness card. Covers preload, Try it, dictation and Notes.
+    var onLoadResult: ((_ modelID: String, _ error: Error?) -> Void)?
+
     // MARK: BuiltInServing
 
     func endpoint(for model: BuiltInModel) async throws -> BuiltInEndpoint {
+        do {
+            let endpoint = try await startOrReuse(model)
+            onLoadResult?(model.id, nil)
+            return endpoint
+        } catch {
+            onLoadResult?(model.id, error)
+            throw error
+        }
+    }
+
+    private func startOrReuse(_ model: BuiltInModel) async throws -> BuiltInEndpoint {
         lastUse = Date()
         // Callers that race share one start. A start for another model finishes first.
         while let pending = starting {

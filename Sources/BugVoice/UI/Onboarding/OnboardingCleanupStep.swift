@@ -54,6 +54,11 @@ final class OnboardingCleanupDraft {
     var builtInID: String? = (BuiltInCatalog.recommended(physicalMemory: ProcessInfo.processInfo.physicalMemory)
         ?? BuiltInCatalog.models.first)?.id { didSet { if builtInID != oldValue { builtInTest = .idle } } }
     var builtInTest: OnboardingBuiltInTest = .idle
+    /// True while the 5b list is on screen; the self-test runs only then.
+    @ObservationIgnored var builtInFormVisible = false
+    /// What runs after a download or a Test click. Cancelled when the step goes away;
+    /// the download itself keeps going and shows in Settings › Models.
+    @ObservationIgnored private var followUp: Task<Void, Never>?
 
     static let services: [ConnectionKind] = [.openAI, .anthropic, .openRouter]
     @ObservationIgnored private let localID = ModelConnection.newID(for: .openAICompatible)
@@ -115,11 +120,30 @@ final class OnboardingCleanupDraft {
             return
         }
         builtInTest = .idle
-        Task {
-            guard await task.value, kind == .builtIn, builtInID == item.id else { return }
+        let engineAtStart = model.settings.models.dictation.engine
+        followUp?.cancel()
+        followUp = Task { [weak self] in
+            guard await task.value, !Task.isCancelled, let self,
+                  kind == .builtIn, builtInID == item.id, model.onboardingWindowIsOpen else { return }
+            // Never undo a choice made elsewhere (Settings, the menu) during the download.
+            let engine = model.settings.models.dictation.engine
+            guard engine == engineAtStart || engine == .builtIn(item.id) else { return }
             OnboardingSetup.apply(.builtIn(modelID: item.id), to: &model.settings.models)
+            guard builtInFormVisible else { return }
             await selfTest(item, on: model)
         }
+    }
+
+    /// The Test button: same self-test, tied to the step like the download follow-up.
+    func runSelfTest(_ item: BuiltInModel, on model: AppModel) {
+        followUp?.cancel()
+        followUp = Task { [weak self] in await self?.selfTest(item, on: model) }
+    }
+
+    func cancelFollowUp() {
+        followUp?.cancel()
+        followUp = nil
+        if builtInTest == .running { builtInTest = .idle }
     }
 
     /// Loads the model in the built-in server on 127.0.0.1 and cleans the fixed sentence.
@@ -140,12 +164,14 @@ final class OnboardingCleanupDraft {
             let start = Date()
             let output = try await cleanup.model.clean(request)
             let seconds = Date().timeIntervalSince(start)
+            guard !Task.isCancelled else { return }
             switch OutputSanitizer.sanitize(output, raw: sample) {
             case .accepted(let text): builtInTest = .passed(cleaned: text, seconds: seconds)
             case .rejected: builtInTest = .failed("The model answered, but its text was not usable. Try a bigger model.")
             }
         } catch {
-            builtInTest = .failed(error.localizedDescription)
+            guard !Task.isCancelled else { return }
+            builtInTest = .failed(BuiltInChoices.loadFailureMessage(error) ?? "Cancelled.")
         }
     }
 
@@ -235,17 +261,30 @@ struct OnboardingCleanupStep: View {
                 Text("Removes \"um\", fixes punctuation, keeps your words. You can change this any time in Settings › Models.")
                     .bvFont(.reading).foregroundStyle(.bvSecondary)
             }
-            ScrollView {
-                VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {
-                    ForEach(kinds, id: \.self) { kind in
-                        row(kind)
-                        if draft.kind == kind, kind == .builtIn { builtInForm }
-                        if draft.kind == kind, kind == .localApp { localForm }
-                        if draft.kind == kind, kind == .cloud { cloudForm }
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {
+                        ForEach(kinds, id: \.self) { kind in
+                            row(kind)
+                            if draft.kind == kind, kind == .builtIn { builtInForm }
+                            if draft.kind == kind, kind == .localApp { localForm }
+                            if draft.kind == kind, kind == .cloud { cloudForm }
+                        }
                     }
                 }
+                .onChange(of: model.builtInDownloadingID) { _, id in if id != nil { scrollToStatus(proxy) } }
+                .onChange(of: draft.builtInTest) { scrollToStatus(proxy) }
+                .onChange(of: model.builtInDownloadErrors) { scrollToStatus(proxy) }
             }
         }
+        .onDisappear { draft.cancelFollowUp() }
+    }
+
+    private static let statusID = "builtInStatus"
+
+    private func scrollToStatus(_ proxy: ScrollViewProxy) {
+        guard draft.kind == .builtIn else { return }
+        withAnimation { proxy.scrollTo(Self.statusID, anchor: .bottom) }
     }
 
     private func text(_ kind: CleanupChoiceKind) -> (String, String) {
@@ -301,9 +340,11 @@ struct OnboardingCleanupStep: View {
             }
             Text("Top bar speed, bottom bar quality. Stored in ~/Library/Application Support/BugVoice/Models/Cleanup.")
                 .bvFont(.footnote).foregroundStyle(.bvSecondary)
-            if let item = draft.builtInModel { builtInStatus(item) }
+            if let item = draft.builtInModel { builtInStatus(item).id(Self.statusID) }
         }
         .formIndent()
+        .onAppear { draft.builtInFormVisible = true }
+        .onDisappear { draft.builtInFormVisible = false }
     }
 
     private func builtInRow(_ item: BuiltInModel) -> some View {
@@ -337,16 +378,20 @@ struct OnboardingCleanupStep: View {
     @ViewBuilder
     private func builtInStatus(_ item: BuiltInModel) -> some View {
         if let fraction = model.builtInDownloads[item.id] {
+            let checking = BuiltInChoices.isChecking(fraction)
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
-                    Text("Downloading").bvFont(.bodyStrong)
+                    Text(checking ? "Checking the file" : "Downloading").bvFont(.bodyStrong)
                     Spacer()
                     Text(BuiltInChoices.progress(fraction, of: item)).bvFont(.footnote).foregroundStyle(.bvSecondary).monospacedDigit()
                 }
                 ProgressView(value: fraction).accessibilityLabel("\(item.name) download")
-                HStack {
-                    if let left = timeLeft(fraction) { Text(left).bvFont(.footnote).foregroundStyle(.bvSecondary) }
-                    Button("Cancel") { model.cancelBuiltInDownload(item.id) }
+                if !checking {
+                    HStack {
+                        if let left = timeLeft(fraction) { Text(left).bvFont(.footnote).foregroundStyle(.bvSecondary) }
+                        Button("Cancel") { model.cancelBuiltInDownload(item.id) }
+                            .accessibilityLabel("Cancel \(item.name) download")
+                    }
                 }
             }
         } else if let message = model.builtInDownloadErrors[item.id] {
@@ -358,6 +403,7 @@ struct OnboardingCleanupStep: View {
                 }
                 Spacer()
                 Button("Try again") { draft.startDownload(on: model) }
+                    .accessibilityLabel("Download \(item.name)")
             }
         } else if model.builtInInstalled.contains(item.id) {
             builtInTestView(item)
@@ -372,7 +418,7 @@ struct OnboardingCleanupStep: View {
         case .idle:
             HStack {
                 Text("Downloaded.").bvFont(.footnote).foregroundStyle(.bvSecondary)
-                Button("Test") { Task { await draft.selfTest(item, on: model) } }
+                Button("Test") { draft.runSelfTest(item, on: model) }
             }
         case .running:
             HStack {
@@ -397,7 +443,7 @@ struct OnboardingCleanupStep: View {
             HStack(alignment: .top) {
                 Text(message).bvFont(.footnote).foregroundStyle(.bvWarning).lineLimit(3)
                 Spacer()
-                Button("Test again") { Task { await draft.selfTest(item, on: model) } }
+                Button("Test again") { draft.runSelfTest(item, on: model) }
             }
         }
     }

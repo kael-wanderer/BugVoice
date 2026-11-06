@@ -1,3 +1,4 @@
+import AppKit
 import BugVoiceMac
 import Foundation
 import VoiceCore
@@ -16,6 +17,11 @@ extension AppModel {
         }.map(\.id))
     }
 
+    /// True while the setup window is on screen.
+    var onboardingWindowIsOpen: Bool {
+        NSApp.windows.contains { $0.identifier == AppWindow.onboarding && $0.isVisible }
+    }
+
     /// The model that is downloading now, if any. One download at a time.
     var builtInDownloadingID: String? { builtInDownloadTask?.id }
 
@@ -27,6 +33,7 @@ extension AppModel {
             return current.id == model.id ? current.task : nil
         }
         builtInDownloadErrors[model.id] = nil
+        builtInLoadFailures[model.id] = nil
         builtInDownloads[model.id] = 0
         builtInDownloadStart = nil
         let dir = paths.cleanupModels
@@ -57,7 +64,11 @@ extension AppModel {
     /// Stops the server if it uses the model, then deletes the file and any
     /// partial download. Dictation and Notes stop using it first.
     func deleteBuiltIn(_ model: BuiltInModel) async {
-        cancelBuiltInDownload(model.id)
+        // Let a cancelled download stop writing before its files go.
+        if let current = builtInDownloadTask, current.id == model.id {
+            current.task.cancel()
+            _ = await current.task.value
+        }
         BuiltInChoices.forget(model.id, in: &settings.models)
         await builtInServer.release(modelID: model.id)
         let dir = paths.cleanupModels
@@ -67,10 +78,26 @@ extension AppModel {
             do {
                 try fm.removeItem(at: url)
             } catch {
-                saveError = "Could not delete \(model.name): \(error.localizedDescription)"
+                // The error text can hold the file's path: log only its domain and code.
+                let ns = error as NSError
+                Log.app.error("could not delete built-in \(model.id, privacy: .public): \(ns.domain, privacy: .public) \(ns.code, privacy: .public)")
+                saveError = "Could not delete \(model.name)."
             }
         }
         builtInDownloadErrors[model.id] = nil
+        builtInLoadFailures[model.id] = nil
+        refreshBuiltInInstalled()
+    }
+
+    /// The server's report on each start: records or clears the readiness failure.
+    func noteBuiltInLoad(_ id: String, error: Error?) {
+        guard let error else {
+            builtInLoadFailures[id] = nil
+            return
+        }
+        guard let message = BuiltInChoices.loadFailureMessage(error) else { return }
+        builtInLoadFailures[id] = message
+        // A missing or truncated file shows as "not downloaded" rather than a load failure.
         refreshBuiltInInstalled()
     }
 

@@ -338,6 +338,9 @@ final class AppModel {
     var builtInDownloads: [String: Double] = [:]
     /// Why the last download of a model failed, by model id. Cleared on retry.
     var builtInDownloadErrors: [String: String] = [:]
+    /// Why the built-in server last failed to start each model. Cleared on the
+    /// next successful start, a new download, or delete.
+    var builtInLoadFailures: [String: String] = [:]
     /// When the current download started and how far along it was then, for the time left.
     var builtInDownloadStart: (date: Date, fraction: Double)?
     @ObservationIgnored var builtInDownloadTask: (id: String, task: Task<Bool, Never>)?
@@ -433,6 +436,7 @@ final class AppModel {
             self?.pruneSelectedNote()
         }
         ProviderFactory.builtInServer = builtInServer
+        builtInServer.onLoadResult = { [weak self] id, error in self?.noteBuiltInLoad(id, error: error) }
         builtInServer.cleanUpStale()
         refreshBuiltInInstalled()
         await notesController.reloadList()

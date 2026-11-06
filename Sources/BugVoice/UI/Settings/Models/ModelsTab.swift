@@ -17,6 +17,7 @@ struct ModelsTab: View {
             .padding(.vertical, LayoutTokens.spacing[0])
         }
         .task {
+            model.refreshBuiltInInstalled()
             await model.refreshCLIs()
             for connection in model.settings.models.connections { await model.testConnection(connection) }
         }

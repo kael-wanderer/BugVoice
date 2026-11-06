@@ -60,6 +60,9 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
         pollTask?.cancel()
         pollTask = nil
         model.finishOnboarding()
+        // Drop the view so its work (the 5b download follow-up, the self-test) stops.
+        // `show` makes a fresh root view anyway.
+        (notification.object as? NSWindow)?.contentViewController = nil
         AppWindow.didClose(notification.object as? NSWindow)
     }
 }

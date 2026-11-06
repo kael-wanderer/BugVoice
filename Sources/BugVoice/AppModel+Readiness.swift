@@ -61,7 +61,7 @@ extension AppModel {
     private var cleanupCheck: CleanupCheck {
         if let check = BuiltInChoices.readinessCheck(
             dictation: settings.models.dictation.engine, installed: builtInInstalled,
-            downloads: builtInDownloads, failures: builtInDownloadErrors) {
+            downloads: builtInDownloads, failures: builtInDownloadErrors, loadFailures: builtInLoadFailures) {
             return check
         }
         let plan = plan(for: .dictation)
