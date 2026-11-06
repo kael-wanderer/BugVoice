@@ -9,6 +9,14 @@ public enum LatencyStats {
             ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle]
     }
 
+    /// Nearest-rank percentile; `p` is clamped to 0...100. Empty input gives 0.
+    public static func percentile(_ values: [Double], _ p: Double) -> Double {
+        guard !values.isEmpty else { return 0 }
+        let sorted = values.sorted()
+        let rank = Int((min(max(p, 0), 100) / 100 * Double(sorted.count)).rounded(.up))
+        return sorted[min(max(rank, 1), sorted.count) - 1]
+    }
+
     /// Least-squares intercept and slope. With no x variation, returns the mean y and zero slope.
     public static func linearFit(x: [Double], y: [Double]) -> (fixed: Double, perSecond: Double) {
         precondition(x.count == y.count)
