@@ -206,3 +206,37 @@ private final class HTTPSOnlyRedirects: NSObject, URLSessionTaskDelegate {
         request.url?.scheme?.lowercased() == "https" ? request : nil
     }
 }
+
+extension BuiltInDownloadError {
+    /// Plain-English reason for a failed download, for the screen.
+    public static func message(for error: Error) -> String {
+        if let error = error as? BuiltInDownloadError {
+            switch error {
+            case .notEnoughSpace(let needed):
+                return "Not enough disk space. The download needs \(BuiltInChoices.gigabytes(needed)) free."
+            case .hashMismatch, .tooLarge, .sizeMismatch, .incomplete:
+                return "The download was damaged. Try again."
+            case .badStatus(let code):
+                return "The download server answered with error \(code). Try again later."
+            case .insecureURL:
+                return "The download address is not secure, so BugVoice did not use it."
+            }
+        }
+        if let error = error as? URLError {
+            switch error.code {
+            case .notConnectedToInternet, .dataNotAllowed, .internationalRoamingOff:
+                return "This Mac is not connected to the internet. Try again when it is."
+            default:
+                return "The connection dropped. Try again to continue from where it stopped."
+            }
+        }
+        return "The download failed. Try again."
+    }
+
+    /// True for a Cancel, which is not a failure to report.
+    public static func isCancellation(_ error: Error) -> Bool {
+        if error is CancellationError { return true }
+        if let error = error as? URLError, error.code == .cancelled { return true }
+        return false
+    }
+}

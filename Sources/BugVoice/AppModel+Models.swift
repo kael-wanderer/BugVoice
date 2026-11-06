@@ -19,7 +19,8 @@ extension AppModel {
         ModelResolver.plan(
             for: feature, settings: settings.models,
             cliPaths: cliInfo.mapValues(\.path),
-            appleIntelligenceAvailable: appleIntelligenceAvailable
+            appleIntelligenceAvailable: appleIntelligenceAvailable,
+            builtInInstalled: builtInInstalled
         )
     }
 

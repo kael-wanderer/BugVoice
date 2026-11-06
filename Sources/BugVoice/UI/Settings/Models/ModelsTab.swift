@@ -9,6 +9,7 @@ struct ModelsTab: View {
         VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) {
             VStack(alignment: .leading, spacing: LayoutTokens.spacing[3]) {
                 UseForCard(model: model)
+                BuiltInModelsCard(model: model)
                 ConnectionsCard(model: model)
                 SearchCard(model: model)
                 CLIsCard(model: model)

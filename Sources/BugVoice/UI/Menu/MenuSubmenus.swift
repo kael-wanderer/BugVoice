@@ -103,6 +103,8 @@ struct MenuSubmenuItems {
     static func engines(for model: AppModel) -> [(id: String, title: String, value: ModelEngine)] {
         model.settings.models.connections.map { ("engine.\($0.id)", $0.name, .connection($0.id)) }
             + (model.appleIntelligenceAvailable ? [("engine.apple", "Apple Intelligence", .appleIntelligence)] : [])
+            + BuiltInChoices.dictationChoices(installed: model.builtInInstalled)
+                .map { ("engine.builtIn.\($0.id)", BuiltInChoices.pickerLabel($0), .builtIn($0.id)) }
             + [("engine.none", "None", .none)]
     }
 
@@ -146,7 +148,7 @@ struct MenuSubmenuItems {
             if let language = Self.languages(for: model).first(where: { $0.id == id }) {
                 model.settings.speech.language = language.value
             } else if let engine = Self.engines(for: model).first(where: { $0.id == id }) {
-                model.settings.models.dictation.engine = engine.value
+                BuiltInChoices.chooseForDictation(engine.value, in: &model.settings.models)
             }
         }
     }

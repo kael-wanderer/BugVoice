@@ -211,7 +211,7 @@ extension AppModel {
     var transformPlan: ModelPlan {
         ModelResolver.transformPlan(
             settings: settings.models, cliPaths: cliInfo.mapValues(\.path),
-            appleIntelligenceAvailable: appleIntelligenceAvailable)
+            appleIntelligenceAvailable: appleIntelligenceAvailable, builtInInstalled: builtInInstalled)
     }
 
     /// Calls the Notes model with the long time limit. `build` gets the model

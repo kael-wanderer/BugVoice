@@ -332,6 +332,15 @@ final class AppModel {
     /// Coding CLIs found on this Mac, looked up at launch and when Settings → Models opens.
     var cliInfo: [CLITool: CLIInfo] = [:]
     var connectionStatus: [String: ConnectionStatus] = [:]
+    /// Built-in models whose file is on disk at full size. See `refreshBuiltInInstalled`.
+    var builtInInstalled: Set<String> = []
+    /// The built-in download in progress, by model id, as a fraction. At most one.
+    var builtInDownloads: [String: Double] = [:]
+    /// Why the last download of a model failed, by model id. Cleared on retry.
+    var builtInDownloadErrors: [String: String] = [:]
+    /// When the current download started and how far along it was then, for the time left.
+    var builtInDownloadStart: (date: Date, fraction: Double)?
+    @ObservationIgnored var builtInDownloadTask: (id: String, task: Task<Bool, Never>)?
     var hotkeyActive = false
     /// Global shortcuts another app already holds, e.g. "⌃⌥V Paste last".
     var unavailableShortcuts: [String] = []
@@ -425,6 +434,7 @@ final class AppModel {
         }
         ProviderFactory.builtInServer = builtInServer
         builtInServer.cleanUpStale()
+        refreshBuiltInInstalled()
         await notesController.reloadList()
         let loaded = store.load()
         importKeychainKeys(connections: loaded.models.connections)
@@ -621,6 +631,7 @@ final class AppModel {
             scratchpadWindow?.applyLayout()
         }
         if settings.backup != old.backup { backup.settingsChanged() }
+        if settings.models.dictation.engine != old.models.dictation.engine { preloadBuiltInModel() }
         if settings.speech.livePreview != old.speech.livePreview || settings.speech.engine != old.speech.engine {
             preparePreviewModel()
         }

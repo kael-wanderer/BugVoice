@@ -51,7 +51,7 @@ struct UseForCard: View {
     private func row(_ feature: ModelFeature, use: Binding<ModelUse>) -> some View {
         VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {
             label(feature)
-            enginePicker(use.engine, allowCLI: feature == .meetings, label: "\(feature.title) model")
+            enginePicker(feature == .dictation ? dictationEngine : use.engine, feature: feature, label: "\(feature.title) model")
             TextField(placeholder(use.wrappedValue), text: use.model).textFieldStyle(.roundedBorder)
                 .accessibilityLabel("\(feature.title) model name")
             thinkingOrEffort(use, feature: feature)
@@ -80,7 +80,12 @@ struct UseForCard: View {
                 Divider()
                 ForEach(model.settings.models.connections) { Text($0.name).tag(ModelEngine?.some(.connection($0.id))) }
                 if model.appleIntelligenceAvailable { Text("Apple Intelligence").tag(ModelEngine?.some(.appleIntelligence)) }
+                let builtIn = BuiltInChoices.notesChoices(dictation: model.settings.models.dictation.engine, installed: model.builtInInstalled)
+                ForEach(builtIn) { Text(BuiltInChoices.pickerLabel($0)).tag(ModelEngine?.some(.builtIn($0.id))) }
                 Text("None (raw text)").tag(ModelEngine?.some(.none))
+                if case .builtIn(let id)? = model.settings.models.notes?.engine, !builtIn.contains(where: { $0.id == id }) {
+                    Text(unlistedBuiltInLabel(id)).tag(ModelEngine?.some(.builtIn(id)))
+                }
             }
             .labelsHidden()
             if model.settings.models.notes != nil {
@@ -97,14 +102,35 @@ struct UseForCard: View {
         }
     }
 
+    /// Dictation's engine; choosing one also keeps a Notes built-in model in step.
+    private var dictationEngine: Binding<ModelEngine> {
+        Binding(
+            get: { model.settings.models.dictation.engine },
+            set: { BuiltInChoices.chooseForDictation($0, in: &model.settings.models) }
+        )
+    }
+
+    /// A built-in model that is chosen but cannot run: not downloaded, or not Dictation's.
+    private func unlistedBuiltInLabel(_ id: String) -> String {
+        guard let item = BuiltInCatalog.model(id: id) else { return "Choose a model" }
+        let reason = model.builtInInstalled.contains(id) ? "not the Dictation model" : "not downloaded"
+        return "\(BuiltInChoices.pickerLabel(item)), \(reason)"
+    }
+
     /// `label` is hidden on screen but names the picker for VoiceOver.
-    private func enginePicker(_ engine: Binding<ModelEngine>, allowCLI: Bool, label: String) -> some View {
+    private func enginePicker(_ engine: Binding<ModelEngine>, feature: ModelFeature, label: String) -> some View {
         Picker(label, selection: engine) {
             Section("Connections") {
                 ForEach(model.settings.models.connections) { Text($0.name).tag(ModelEngine.connection($0.id)) }
                 if model.appleIntelligenceAvailable { Text("Apple Intelligence").tag(ModelEngine.appleIntelligence) }
             }
-            if allowCLI {
+            let builtIn = feature == .dictation ? BuiltInChoices.dictationChoices(installed: model.builtInInstalled) : []
+            if !builtIn.isEmpty {
+                Section("Built-in") {
+                    ForEach(builtIn) { Text(BuiltInChoices.pickerLabel($0)).tag(ModelEngine.builtIn($0.id)) }
+                }
+            }
+            if feature == .meetings {
                 Section("Coding CLIs") {
                     ForEach(CLITool.allCases, id: \.self) { tool in
                         Text("\(tool.title) (\(tool.rawValue))").tag(ModelEngine.cli(tool))
@@ -114,6 +140,9 @@ struct UseForCard: View {
             Text("None (raw text)").tag(ModelEngine.none)
             if case .connection(let id) = engine.wrappedValue, !model.settings.models.connections.contains(where: { $0.id == id }) {
                 Text("Choose a model").tag(engine.wrappedValue)
+            }
+            if case .builtIn(let id) = engine.wrappedValue, !builtIn.contains(where: { $0.id == id }) {
+                Text(unlistedBuiltInLabel(id)).tag(engine.wrappedValue)
             }
         }
         .labelsHidden()
@@ -133,7 +162,15 @@ struct UseForCard: View {
                 Text("Thinking on").tag(false)
             }
             .labelsHidden().frame(width: store.scaled(130))
-            .disabled(use.wrappedValue.engine == .none || use.wrappedValue.engine == .appleIntelligence)
+            .disabled(!thinkingApplies(use.wrappedValue.engine))
+        }
+    }
+
+    /// Apple Intelligence has no switch, and built-in models always run with thinking off.
+    private func thinkingApplies(_ engine: ModelEngine) -> Bool {
+        switch engine {
+        case .none, .appleIntelligence, .builtIn: false
+        case .connection, .cli: true
         }
     }
 
@@ -152,7 +189,11 @@ struct UseForCard: View {
         case .connection(let id): model.connectionStatus[id]
         case .cli(let tool): model.cliInfo[tool] == nil ? .failed("\(tool.rawValue) was not found on this Mac.") : .reachable(models: [])
         case .appleIntelligence: model.appleIntelligenceAvailable ? .reachable(models: []) : .failed("Apple Intelligence is not available on this Mac")
-        case .builtIn, .none: nil
+        case .builtIn(let id):
+            model.builtInInstalled.contains(id)
+                ? .reachable(models: [])
+                : .failed("\(BuiltInCatalog.model(id: id)?.name ?? "This model") is not downloaded.")
+        case .none: nil
         }
     }
 

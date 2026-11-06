@@ -31,6 +31,13 @@ enum OnboardingTestState: Equatable {
     case failed(String)
 }
 
+/// The built-in model's self-test after its download.
+enum OnboardingBuiltInTest: Equatable {
+    case idle, running
+    case passed(cleaned: String, seconds: Double)
+    case failed(String)
+}
+
 /// What the cleanup step has picked so far. Nothing is written to settings
 /// until `commit`. `kind == nil` means the person has not chosen, and Continue
 /// leaves the current settings alone.
@@ -43,6 +50,10 @@ final class OnboardingCleanupDraft {
     var key = "" { didSet { resetTest() } }
     var modelName = "" { didSet { resetTest() } }
     var state: OnboardingTestState = .idle
+    /// The built-in model picked in 5b. Starts on the one that fits this Mac.
+    var builtInID: String? = (BuiltInCatalog.recommended(physicalMemory: ProcessInfo.processInfo.physicalMemory)
+        ?? BuiltInCatalog.models.first)?.id { didSet { if builtInID != oldValue { builtInTest = .idle } } }
+    var builtInTest: OnboardingBuiltInTest = .idle
 
     static let services: [ConnectionKind] = [.openAI, .anthropic, .openRouter]
     @ObservationIgnored private let localID = ModelConnection.newID(for: .openAICompatible)
@@ -75,7 +86,7 @@ final class OnboardingCleanupDraft {
         case .none?: CleanupChoice.none
         case .localApp?: .connection(connection, local: true)
         case .cloud?: .connection(connection, local: false)
-        case .builtIn?: nil // Not offered until the built-in engine ships.
+        case .builtIn?: builtInID.map { .builtIn(modelID: $0) }
         }
     }
 
@@ -84,6 +95,57 @@ final class OnboardingCleanupDraft {
         case .localApp?: addressProblem == nil && !modelName.trimmingCharacters(in: .whitespaces).isEmpty
         case .cloud?: !modelName.trimmingCharacters(in: .whitespaces).isEmpty
         default: true
+        }
+    }
+
+    var builtInModel: BuiltInModel? { builtInID.flatMap(BuiltInCatalog.model(id:)) }
+
+    /// True when the footer's primary button should start the download instead of Continue.
+    func needsDownload(_ model: AppModel) -> Bool {
+        guard kind == .builtIn, let item = builtInModel else { return false }
+        return !model.builtInInstalled.contains(item.id) && model.builtInDownloadingID != item.id
+    }
+
+    /// Downloads the picked model (or resumes it). When done, and still the
+    /// choice here, it becomes Dictation's model and runs the self-test.
+    func startDownload(on model: AppModel) {
+        guard let item = builtInModel else { return }
+        guard let task = model.downloadBuiltIn(item) else {
+            builtInTest = .failed("Another model is downloading. Wait for it to finish, or cancel it in Settings › Models.")
+            return
+        }
+        builtInTest = .idle
+        Task {
+            guard await task.value, kind == .builtIn, builtInID == item.id else { return }
+            OnboardingSetup.apply(.builtIn(modelID: item.id), to: &model.settings.models)
+            await selfTest(item, on: model)
+        }
+    }
+
+    /// Loads the model in the built-in server on 127.0.0.1 and cleans the fixed sentence.
+    func selfTest(_ item: BuiltInModel, on model: AppModel) async {
+        builtInTest = .running
+        do {
+            // Loading is not part of the timed run.
+            _ = try await model.builtInServer.endpoint(for: item)
+            guard let cleanup = ProviderFactory.cleanupModel(
+                .builtIn(item, timeout: 30), credentials: model.credentials, fallbackTimeout: 30) else {
+                builtInTest = .failed("The built-in model could not be started.")
+                return
+            }
+            let sample = BuiltInChoices.testSentence
+            let request = PromptBuilder(customRules: model.settings.styles.customRules).request(
+                raw: sample, style: .document, focus: .unknown, vocabulary: model.vocabulary,
+                modelID: cleanup.modelID, disableThinking: cleanup.disableThinking)
+            let start = Date()
+            let output = try await cleanup.model.clean(request)
+            let seconds = Date().timeIntervalSince(start)
+            switch OutputSanitizer.sanitize(output, raw: sample) {
+            case .accepted(let text): builtInTest = .passed(cleaned: text, seconds: seconds)
+            case .rejected: builtInTest = .failed("The model answered, but its text was not usable. Try a bigger model.")
+            }
+        } catch {
+            builtInTest = .failed(error.localizedDescription)
         }
     }
 
@@ -163,7 +225,7 @@ struct OnboardingCleanupStep: View {
     @Bindable var draft: OnboardingCleanupDraft
 
     private var kinds: [CleanupChoiceKind] {
-        OnboardingSetup.choices(appleIntelligence: model.appleIntelligenceAvailable, builtInEnabled: false)
+        OnboardingSetup.choices(appleIntelligence: model.appleIntelligenceAvailable, builtInEnabled: !BuiltInCatalog.models.isEmpty)
     }
 
     var body: some View {
@@ -177,6 +239,7 @@ struct OnboardingCleanupStep: View {
                 VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {
                     ForEach(kinds, id: \.self) { kind in
                         row(kind)
+                        if draft.kind == kind, kind == .builtIn { builtInForm }
                         if draft.kind == kind, kind == .localApp { localForm }
                         if draft.kind == kind, kind == .cloud { cloudForm }
                     }
@@ -187,7 +250,7 @@ struct OnboardingCleanupStep: View {
 
     private func text(_ kind: CleanupChoiceKind) -> (String, String) {
         switch kind {
-        case .builtIn: ("Built-in model", "BugVoice downloads and runs a model by itself.")
+        case .builtIn: ("Built-in model", "BugVoice downloads and runs a model by itself. Nothing else to install.")
         case .appleIntelligence: ("Apple Intelligence", "Already on this Mac. Fast, English works best.")
         case .localApp: ("An app I already run", "LM Studio, Ollama, oMLX or another local server. Enter its address.")
         case .cloud: ("A cloud service", "OpenAI, Anthropic or OpenRouter with your key. Text leaves this Mac.")
@@ -203,7 +266,10 @@ struct OnboardingCleanupStep: View {
                 Image(systemName: selected ? "largecircle.fill.circle" : "circle")
                     .foregroundStyle(selected ? .bvAccent : .bvSecondary)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title).bvFont(.bodyStrong)
+                    HStack(spacing: LayoutTokens.spacing[1]) {
+                        Text(title).bvFont(.bodyStrong)
+                        if kind == .builtIn { BuiltInBadge(text: "Recommended") }
+                    }
                     Text(detail).bvFont(.footnote).foregroundStyle(.bvSecondary)
                 }
                 Spacer(minLength: 0)
@@ -217,6 +283,129 @@ struct OnboardingCleanupStep: View {
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    // MARK: 5b: built-in model
+
+    private var recommendedID: String? {
+        BuiltInCatalog.recommended(physicalMemory: ProcessInfo.processInfo.physicalMemory)?.id
+    }
+
+    private var builtInForm: some View {
+        VStack(alignment: .leading, spacing: LayoutTokens.spacing[1]) {
+            Text("Pick a built-in model").bvFont(.bodyStrong)
+            Text(BuiltInChoices.memoryLine(physicalMemory: ProcessInfo.processInfo.physicalMemory))
+                .bvFont(.footnote).foregroundStyle(.bvSecondary)
+            VStack(spacing: 0) {
+                ForEach(BuiltInCatalog.models) { builtInRow($0) }
+            }
+            Text("Top bar speed, bottom bar quality. Stored in ~/Library/Application Support/BugVoice/Models/Cleanup.")
+                .bvFont(.footnote).foregroundStyle(.bvSecondary)
+            if let item = draft.builtInModel { builtInStatus(item) }
+        }
+        .formIndent()
+    }
+
+    private func builtInRow(_ item: BuiltInModel) -> some View {
+        let selected = draft.builtInID == item.id
+        return Button { draft.builtInID = item.id } label: {
+            HStack(spacing: LayoutTokens.spacing[2]) {
+                Image(systemName: selected ? "largecircle.fill.circle" : "circle")
+                    .foregroundStyle(selected ? .bvAccent : .bvSecondary)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: LayoutTokens.spacing[1]) {
+                        Text(item.name).bvFont(.bodyStrong)
+                        if item.id == recommendedID { BuiltInBadge(text: "Fits this Mac") }
+                    }
+                    Text(item.summary).bvFont(.footnote).foregroundStyle(.bvSecondary)
+                }
+                Spacer(minLength: 0)
+                BuiltInMeters(model: item)
+                Text(BuiltInChoices.gigabytes(item.bytes)).bvFont(.footnote).foregroundStyle(.bvSecondary).monospacedDigit()
+            }
+            .padding(LayoutTokens.spacing[1])
+            .background {
+                if selected { RoundedRectangle(cornerRadius: LayoutTokens.cardRadius).fill(.bvHover) }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(model.builtInDownloadingID != nil)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    @ViewBuilder
+    private func builtInStatus(_ item: BuiltInModel) -> some View {
+        if let fraction = model.builtInDownloads[item.id] {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("Downloading").bvFont(.bodyStrong)
+                    Spacer()
+                    Text(BuiltInChoices.progress(fraction, of: item)).bvFont(.footnote).foregroundStyle(.bvSecondary).monospacedDigit()
+                }
+                ProgressView(value: fraction).accessibilityLabel("\(item.name) download")
+                HStack {
+                    if let left = timeLeft(fraction) { Text(left).bvFont(.footnote).foregroundStyle(.bvSecondary) }
+                    Button("Cancel") { model.cancelBuiltInDownload(item.id) }
+                }
+            }
+        } else if let message = model.builtInDownloadErrors[item.id] {
+            HStack(alignment: .top) {
+                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.bvWarning)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("The download stopped").bvFont(.bodyStrong)
+                    Text(message).bvFont(.footnote).foregroundStyle(.bvSecondary)
+                }
+                Spacer()
+                Button("Try again") { draft.startDownload(on: model) }
+            }
+        } else if model.builtInInstalled.contains(item.id) {
+            builtInTestView(item)
+        } else if case .failed(let message) = draft.builtInTest {
+            Text(message).bvFont(.footnote).foregroundStyle(.bvWarning)
+        }
+    }
+
+    @ViewBuilder
+    private func builtInTestView(_ item: BuiltInModel) -> some View {
+        switch draft.builtInTest {
+        case .idle:
+            HStack {
+                Text("Downloaded.").bvFont(.footnote).foregroundStyle(.bvSecondary)
+                Button("Test") { Task { await draft.selfTest(item, on: model) } }
+            }
+        case .running:
+            HStack {
+                ProgressView().controlSize(.small)
+                Text("Loading the model and cleaning a test sentence…").bvFont(.footnote).foregroundStyle(.bvSecondary)
+            }
+        case .passed(let cleaned, let seconds):
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .top) {
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.bvSuccess)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Downloaded and loaded").bvFont(.bodyStrong)
+                        Text(String(format: "Ran a test sentence in %.1f s", seconds)).bvFont(.footnote).foregroundStyle(.bvSecondary)
+                    }
+                    Spacer()
+                    Text("Works").bvFont(.footnote).foregroundStyle(.bvSuccess)
+                }
+                Text("Heard: \"\(BuiltInChoices.testSentence)\"").bvFont(.footnote).foregroundStyle(.bvSecondary)
+                Text("Cleaned: \"\(cleaned)\"").bvFont(.footnote).textSelection(.enabled)
+            }
+        case .failed(let message):
+            HStack(alignment: .top) {
+                Text(message).bvFont(.footnote).foregroundStyle(.bvWarning).lineLimit(3)
+                Spacer()
+                Button("Test again") { Task { await draft.selfTest(item, on: model) } }
+            }
+        }
+    }
+
+    private func timeLeft(_ fraction: Double) -> String? {
+        guard let start = model.builtInDownloadStart else { return nil }
+        return BuiltInChoices.timeLeft(fraction: fraction, startFraction: start.fraction,
+                                       elapsed: Date().timeIntervalSince(start.date))
     }
 
     private var localForm: some View {

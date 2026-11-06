@@ -55,6 +55,9 @@ struct OnboardingView: View {
             }
             if step == .welcome {
                 Button("Get started") { advance() }.buttonStyle(.borderedProminent)
+            } else if step == .cleanup, cleanupDraft.needsDownload(model), let item = cleanupDraft.builtInModel {
+                Button(BuiltInChoices.downloadTitle(item)) { cleanupDraft.startDownload(on: model) }
+                    .buttonStyle(.borderedProminent)
             } else if step == .cleanup {
                 Button("Continue") { if cleanupDraft.commit(to: model) { advance() } }
                     .buttonStyle(.borderedProminent).disabled(!cleanupDraft.canContinue)

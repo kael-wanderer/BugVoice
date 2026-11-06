@@ -99,6 +99,17 @@ final class BuiltInServerController: BuiltInServing {
         Log.app.notice("built-in server stopped on quit")
     }
 
+    /// Stops the server if it runs, or is starting, `modelID`, so its file can
+    /// be deleted. A start for that model is let finish first, then stopped.
+    func release(modelID: String) async {
+        while let pending = starting, pending.modelID == modelID {
+            _ = try? await pending.task.value
+        }
+        guard running?.modelID == modelID else { return }
+        stop()
+        Log.app.notice("built-in server stopped to delete \(modelID, privacy: .public)")
+    }
+
     /// Kills a server left by an earlier launch that crashed, but only when
     /// the pid still belongs to our bundled helper.
     func cleanUpStale() {
