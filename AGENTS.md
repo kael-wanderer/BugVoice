@@ -118,6 +118,9 @@ version and build live in `App/Info.plist`. Every commit raises the build by one
 - Field check spec: `docs/superpowers/specs/2026-10-28-field-check-design.md` (mockup: `docs/design/proposal-field-check.html`)
 - Usability pass log and owner checks: `docs/progress/usability-log.md`
 - Meeting prompt quality (action items, Interview, Stand-up) eval: `docs/progress/prompt-quality-log.md`
+- Onboarding and built-in model spec: `docs/superpowers/specs/2026-11-06-onboarding-and-built-in-model-design.md` (mockup: `docs/design/proposal-onboarding.html`)
+- Onboarding and built-in model plan: `docs/superpowers/plans/2026-11-06-onboarding-and-built-in-model.md`
+- Onboarding execution log and owner checks: `docs/progress/onboarding-log.md`
 
 ## Rules
 
