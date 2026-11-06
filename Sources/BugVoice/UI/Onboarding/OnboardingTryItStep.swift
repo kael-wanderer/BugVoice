@@ -2,6 +2,9 @@ import AppKit
 import SwiftUI
 import VoiceCore
 
+/// The Try it box. A class of its own so dictation can tell it has the keyboard.
+final class TryItTextView: NSTextView {}
+
 /// A plain text box that takes the keyboard when it appears, so the first
 /// dictation pastes here (a normal ⌘V into BugVoice's own window).
 private struct TryItTextBox: NSViewRepresentable {
@@ -10,10 +13,14 @@ private struct TryItTextBox: NSViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     func makeNSView(context: Context) -> NSScrollView {
-        let scroll = NSTextView.scrollableTextView()
+        let scroll = NSScrollView()
         scroll.hasVerticalScroller = true
         scroll.borderType = .bezelBorder
-        guard let view = scroll.documentView as? NSTextView else { return scroll }
+        let view = TryItTextView(frame: .zero)
+        view.isVerticallyResizable = true
+        view.autoresizingMask = [.width]
+        view.textContainer?.widthTracksTextView = true
+        scroll.documentView = view
         view.delegate = context.coordinator
         view.isRichText = false
         view.allowsUndo = true

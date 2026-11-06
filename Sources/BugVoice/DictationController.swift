@@ -35,6 +35,8 @@ final class DictationController {
     private var notesCapture: NotesDictationCapture?
     /// The meeting window's notes editor when it had the keyboard at the start.
     private var meetingNotes: MeetingNotesTextView?
+    /// Set at key-down: the Try it box had the keyboard, so this dictation belongs to onboarding.
+    private var tryItRun = false
     private var startedAt = Date()
     private var limitTask: Task<Void, Never>?
     private var runCounter = 0
@@ -173,6 +175,7 @@ final class DictationController {
         )
         handsFreeRecording = handsFree
         meetingNotes = notesOnly ? nil : model.meetingNotesEditorWithKeyboard()
+        tryItRun = !notesOnly && model.tryItBoxHasKeyboard()
         notesCapture = notesOnly ? micCapture : meetingNotes == nil ? model.captureNotesDictation(startFocus: startFocus) : nil
         startedAt = Date()
         do {
@@ -269,6 +272,7 @@ final class DictationController {
         model.isListening = false
         releaseNotesCapture()
         meetingNotes = nil
+        tryItRun = false
         model.notesIsListening = false
         model.notesRecordingStartedAt = nil
         hud.hide()
@@ -301,6 +305,8 @@ final class DictationController {
         notesCapture = nil
         let capturedMeetingNotes = meetingNotes
         meetingNotes = nil
+        let capturedTryIt = tryItRun
+        tryItRun = false
         model.notesIsListening = false
         model.notesRecordingStartedAt = nil
         var savedLastRecording = false
@@ -318,7 +324,7 @@ final class DictationController {
             }
         }
         let languageChoice = languageCycler?.changed == true ? languageCycler?.current : nil
-        process(clip, focus: startFocus, startedAt: startedAt, notesCapture: capturedNotesRun, meetingNotes: capturedMeetingNotes, languageChoice: languageChoice, savedLastRecording: savedLastRecording)
+        process(clip, focus: startFocus, startedAt: startedAt, notesCapture: capturedNotesRun, meetingNotes: capturedMeetingNotes, tryIt: capturedTryIt, languageChoice: languageChoice, savedLastRecording: savedLastRecording)
     }
 
     private func releaseNotesCapture() {
@@ -334,6 +340,7 @@ final class DictationController {
         startedAt: Date,
         notesCapture: NotesDictationCapture? = nil,
         meetingNotes: MeetingNotesTextView? = nil,
+        tryIt: Bool = false,
         languageChoice: SpeechLanguage? = nil,
         retrying: FailedDictation? = nil,
         copyOnly: Bool = false,
@@ -354,7 +361,7 @@ final class DictationController {
             insertion = ClipboardOnlyInsertionTarget(inserter: inserter)
         } else {
             insertion = RecordingPasteInsertionTarget(inserter: inserter) { [weak self] text in
-                self?.recordOrdinaryInsertion(text, focus: focus)
+                if !tryIt { self?.recordOrdinaryInsertion(text, focus: focus) }
             } onFailure: { [weak self] in self?.clearReplacementRecord() }
         }
         let intoNotes = notesCapture != nil || meetingNotes != nil
@@ -388,7 +395,7 @@ final class DictationController {
             }
             stagedRun = nil
             if result.outcome == .inserted, !intoNotes, result.style != .terminal,
-               !focus.isSecure, model.settings.speech.learnFromCorrections, !model.tryItActive,
+               !focus.isSecure, model.settings.speech.learnFromCorrections, !tryIt,
                let captured = correctionFocus,
                FocusInspector.isSameElement(correctionElement, FocusInspector.focusedElement()) {
                 model.correctionWatcher.start(pasted: result.finalText, focus: captured, app: captured.appName)
@@ -413,8 +420,8 @@ final class DictationController {
                 } else {
                     hud.hide()
                 }
-                await model.recordInsights(result, noteID: notesCapture?.noteID)
-                if model.tryItActive, !intoNotes {
+                if !tryIt { await model.recordInsights(result, noteID: notesCapture?.noteID) }
+                if tryIt, !intoNotes {
                     model.lastTryItResult = TryItResult(result, cleanupName: modelName)
                 } else if !intoNotes {
                     await model.record(result)

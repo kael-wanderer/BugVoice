@@ -74,6 +74,12 @@ extension AppModel {
         return window.firstResponder as? MeetingNotesTextView
     }
 
+    /// True while the Try it step is showing and its text box has the keyboard.
+    func tryItBoxHasKeyboard() -> Bool {
+        guard tryItActive, let window = NSApp.keyWindow, window.identifier == AppWindow.onboarding else { return false }
+        return window.firstResponder is TryItTextView
+    }
+
     func captureNotesDictation(startFocus: FocusSnapshot) -> NotesDictationCapture? {
         let frontmostPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
         // The Scratchpad panel takes the keyboard without making BugVoice the
