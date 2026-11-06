@@ -14,6 +14,9 @@ struct UnavailableModel: TextModel {
 
 @MainActor
 enum ProviderFactory {
+    /// The bundled llama-server. `AppModel` sets it at launch.
+    static var builtInServer: (any BuiltInServing)?
+
     static func embedder(settings: ModelSettings, credentials: CredentialStore) -> (any Embedder)? {
         let search = settings.search
         let name = search.embeddingModel.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -48,8 +51,9 @@ enum ProviderFactory {
             }
             #endif
             return UnavailableModel(reason: "Apple Intelligence is not available on this Mac")
-        case .builtIn:
-            return UnavailableModel(reason: "The built-in model is not set up yet.") // Task 13 wires the server.
+        case .builtIn(let model, let timeout):
+            guard let server = builtInServer else { return UnavailableModel(reason: BuiltInServerController.notInBuild) }
+            return BuiltInTextModel(model: model, server: server, requestTimeout: timeout)
         case .cli(let tool, let path, let model, let effort, let timeout):
             return CLITextModel(tool: tool, executable: path, model: model, effort: effort, timeout: timeout, runner: FoundationProcessRunner())
         }

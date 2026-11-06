@@ -135,6 +135,12 @@ final class AppModel {
     @ObservationIgnored lazy var searchIndexer = SearchIndexer(model: self)
     /// The MCP server for coding agents (Settings › Agents).
     @ObservationIgnored lazy var mcp = MCPService(model: self)
+    /// The bundled llama-server for the built-in cleanup model.
+    @ObservationIgnored lazy var builtInServer = BuiltInServerController(
+        helper: BuiltInServerController.bundledHelper,
+        modelsDirectory: paths.cleanupModels,
+        pidFile: paths.root.appendingPathComponent("llama-server.pid"),
+        idleMinutes: { [weak self] in self?.settings.models.builtInIdleMinutes ?? 15 })
 
     @ObservationIgnored lazy var backup = BackupController(model: self)
     /// A newer release from the update feed; the menu and Settings › General offer it.
@@ -417,6 +423,8 @@ final class AppModel {
             self?.searchIndexer.listLoaded(.note)
             self?.pruneSelectedNote()
         }
+        ProviderFactory.builtInServer = builtInServer
+        builtInServer.cleanUpStale()
         await notesController.reloadList()
         let loaded = store.load()
         importKeychainKeys(connections: loaded.models.connections)
@@ -466,6 +474,7 @@ final class AppModel {
         searchIndexer.librariesDidLoad()
         Task { await prepareSpeech() }
         Task { await refreshCLIs() }
+        preloadBuiltInModel()
         // Last, so agents never see half-loaded notes or meetings.
         mcp.start()
         backup.startSchedule()
@@ -715,6 +724,14 @@ final class AppModel {
             vocabulary: vocabulary,
             projects: projects.projects
         )
+    }
+
+    /// Starts the built-in server early when Dictation uses it, so the first
+    /// dictation does not wait for the model to load. Other uses start it on demand.
+    func preloadBuiltInModel() {
+        guard case .builtIn(let model, _) = plan(for: .dictation) else { return }
+        let server = builtInServer
+        Task { _ = try? await server.endpoint(for: model) }
     }
 
     func makeCommandPipeline() -> CommandPipeline {
