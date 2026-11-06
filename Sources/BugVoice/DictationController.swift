@@ -108,6 +108,10 @@ final class DictationController {
     // MARK: Gesture
 
     private func receive(_ input: KeyInput) {
+        if let probe = model.hotkeyProbe {
+            if case .hotkeyDown = input { probe() }
+            return
+        }
         guard !isBusy, model.command?.isActive != true else { return }
         if case .hotkeyDown(let pressedAt) = input {
             // A result, warning or failure stays until the next press.
