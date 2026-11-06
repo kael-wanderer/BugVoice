@@ -197,6 +197,34 @@ Candidate notes:
   newer and Apache-2.0, but Qwen ships no GGUF for them, so they fall outside the
   "publisher's own GGUF" rule. The VL files are loaded text-only (no `mmproj`).
 
+### Model ids passed to the bench
+
+| Model | `--llm-model` id |
+|---|---|
+| oMLX baseline | `Qwen3.8-27B-MLX-8bit` |
+| Qwen3-VL-2B-Instruct Q4_K_M | `qwen3-vl-2b-instruct-q4_k_m` |
+| Qwen3-1.7B Q8_0 | `qwen3-1.7b-q8_0` |
+| Qwen3-4B Q4_K_M | `qwen3-4b-q4_k_m` |
+| Qwen3-VL-4B-Instruct Q4_K_M | `qwen3-vl-4b-instruct-q4_k_m` |
+| Qwen3-8B Q4_K_M | `qwen3-8b-q4_k_m` |
+
+llama-server serves whichever model it loaded and ignores the request's
+`model` field, but BugVoice does not: `PromptBuilder` appends `/no_think` to
+the user message, and sets `disableThinking` (which sends
+`chat_template_kwargs.enable_thinking = false`), only when the id contains
+"qwen", case-insensitive (`PromptBuilder.swift:80`). Every id above contains
+"qwen", so every run had thinking off. **Phase 3's catalog ids must contain
+"qwen" the same way** (use the ids above); an id without it would run the
+Qwen3 models with thinking on and these timings would not hold.
+
+### Qwen3-4B-Instruct-2507 (follow-up check)
+
+Qwen publishes no official GGUF for Qwen3-4B-Instruct-2507: there is no
+`Qwen/Qwen3-4B-Instruct-2507-GGUF` repo (the Hugging Face API returns not
+found), and `Qwen/Qwen3-4B-Instruct-2507` (Apache-2.0, revision
+`cdbee75f17c01a7cc42f958dc650907174af0554`) has safetensors only, plus an FP8
+variant. It was not benched, and Qwen3-4B stays the Medium pick.
+
 ### Gate
 
 Spec: median 10–20 word cleanup at most 1.0 s (Small), 1.5 s (Medium), 2.5 s
