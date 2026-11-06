@@ -40,6 +40,7 @@ struct MainWindow: View {
                     .accessibilityAddTraits(.updatesFrequently)
             }
         }
+        .overlayPreferenceValue(TourAnchorKey.self) { TourOverlay(model: model, anchors: $0) }
         .sheet(item: $model.librarySheet) { ManageLibrarySheet(model: model, tab: $0) }
         .animation(.easeInOut(duration: 0.2), value: model.notice)
         .alert(

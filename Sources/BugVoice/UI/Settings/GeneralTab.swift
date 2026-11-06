@@ -44,6 +44,10 @@ struct GeneralTab: View {
                 SettingsRow(title: "Run setup again") {
                     Button("Open setup") { model.openOnboarding() }
                 }
+                Divider()
+                SettingsRow(title: "A short tour of the main window") {
+                    Button("Take the tour") { model.startTour() }
+                }
             }
             SettingsCard(title: "Folders and tags") {
                 SettingsRow(title: "\(counted(model.library.folders.count, "folder")) · \(counted(model.tagRows.count, "tag"))") {

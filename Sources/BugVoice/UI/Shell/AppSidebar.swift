@@ -45,6 +45,16 @@ struct AppSidebar: View {
         .onKeyPress(.downArrow) { move(1); return .handled }
     }
 
+    private static func tourStop(for page: Page) -> TourStop? {
+        switch page {
+        case .dictation: .dictation
+        case .notes: .scratchpad
+        case .dictionary: .dictionary
+        case .style: .style
+        default: nil
+        }
+    }
+
     private func move(_ offset: Int) {
         let pages = SidebarGroup.allCases.flatMap(\.pages)
         guard let index = pages.firstIndex(of: model.page) else { return }
@@ -73,6 +83,7 @@ struct AppSidebar: View {
             .overlay(RoundedRectangle(cornerRadius: LayoutTokens.controlRadius).stroke(model.page == page ? store.theme.accent.opacity(0.55) : .clear))
         }
         .buttonStyle(.plain)
+        .tourAnchor(Self.tourStop(for: page))
         .onHover { hovered = $0 ? page : nil }
         .accessibilityAddTraits(model.page == page ? .isSelected : [])
     }

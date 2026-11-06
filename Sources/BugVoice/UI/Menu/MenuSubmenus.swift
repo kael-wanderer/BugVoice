@@ -51,6 +51,7 @@ struct MenuSubmenuView: View {
         row("permissions", "Permissions…")
         row("dataFolder", "Open data folder")
         row("updates", "Check for Updates…")
+        row("tour", "Take the tour")
     }
 
     // MARK: Dictation options
@@ -109,7 +110,7 @@ struct MenuSubmenuItems {
     func ids(_ submenu: MenuSubmenu) -> [String] {
         switch submenu {
         case .library: ["meetings", "scratchpad", "floating"]
-        case .tools: ["permissions", "dataFolder", "updates"]
+        case .tools: ["permissions", "dataFolder", "updates", "tour"]
         case .dictationOptions: ["cleanup", "handsFree"] + Self.languages(for: model).map(\.id) + Self.engines(for: model).map(\.id)
         }
     }
@@ -134,6 +135,9 @@ struct MenuSubmenuItems {
         case "updates":
             close()
             model.checkForUpdates()
+        case "tour":
+            close()
+            model.startTour()
         case "cleanup":
             model.settings.cleanupEnabled.toggle()
         case "handsFree":

@@ -345,6 +345,9 @@ final class AppModel {
     @ObservationIgnored var scratchpadCreatedHere: Set<NoteID> = []
     /// The capsule at the bottom of the main window; see `showNotice`.
     var notice: String?
+    /// The tour's stops that are on screen, and the current one. Nil index = no tour.
+    var tourCards: [TourCard] = []
+    var tourIndex: Int?
     @ObservationIgnored var noticeTask: Task<Void, Never>?
     var permissionsGranted = Permissions.allGranted
     var permissionStatus: [PermissionKind: Bool] = [:]
@@ -522,8 +525,46 @@ final class AppModel {
         tryItActive = false
     }
 
-    /// Task 5b implements the guided tour.
-    func startTour() {}
+    /// Starts the main-window tour from the first stop whose target is on screen.
+    /// Does nothing when no stop is visible. Never records, opens a meeting window or pastes.
+    func startTour() {
+        openMainWindow(.dictation)
+        Task { @MainActor in
+            // One layout pass, so a window that was just created has its sidebar state.
+            try? await Task.sleep(for: .milliseconds(150))
+            let shortcuts = settings.shortcuts
+            let all = Tour.cards(
+                hotkey: settings.hotkey.spokenName,
+                meetingShortcut: "⌃⌥\(shortcuts.letter(for: .toggleMeeting))",
+                scratchpadShortcut: "⌃⌥\(shortcuts.letter(for: .newNote))")
+            let sidebar = !sidebarHidden
+            let recording = meetings?.isRecording == true || meetings?.isPaused == true || meetings?.isTranscribing == true
+            var onScreen: Set<TourStop> = [.menuBar]
+            if sidebar { onScreen.formUnion([.dictation, .scratchpad, .dictionary, .style]) }
+            if !recording { onScreen.insert(.recordMeeting) }
+            let cards = Tour.visibleStops(all, onScreen: onScreen)
+            guard let first = cards.first else { return }
+            tourCards = cards
+            page = first.stop.page
+            tourIndex = 0
+        }
+    }
+
+    func endTour() {
+        tourIndex = nil
+        tourCards = []
+    }
+
+    func tourNext() { moveTour(1) }
+    func tourBack() { moveTour(-1) }
+
+    private func moveTour(_ offset: Int) {
+        guard let index = tourIndex else { return }
+        let next = index + offset
+        guard tourCards.indices.contains(next) else { return }
+        page = tourCards[next].stop.page
+        tourIndex = next
+    }
 
     func openPermissionsWindow() {
         presentPermissionsWindow?()
