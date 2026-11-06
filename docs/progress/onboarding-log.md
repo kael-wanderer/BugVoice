@@ -6,8 +6,8 @@ Mockup: `docs/design/proposal-onboarding.html`
 
 Phase 1 (onboarding, tour, DMG layout) is built on `feat/onboarding`. Build,
 `swift test` and `Scripts/build-app.sh` pass. The device checks below were not
-run; the owner is at the keyboard and they are open. Phase 2 (bench gate) and
-Phase 3 (built-in model) follow.
+run; the owner is at the keyboard and they are open. Phase 2 (bench gate) passed
+for all three tiers (see below); Phase 3 (built-in model) follows.
 
 ## Task 1 — Fresh-install settings and onboardingDone (2026-11-06)
 
@@ -130,6 +130,114 @@ Phase 3 (built-in model) follow.
   Automation prompt on the owner's screen.
 - Commits: 1196e30 `build: DMG layout with install help`;
   b3e86d5 `fix(build): DMG script guards volume name and shows errors`.
+
+## Phase 2 — Bench (Task 8, 2026-11-06)
+
+Verdict: **all three tiers pass the gate.** Picks: Small `Qwen3-VL-2B-Instruct`
+Q4_K_M, Medium `Qwen3-4B` Q4_K_M, Large `Qwen3-8B` Q4_K_M; `memoryShare` 0.30.
+The owner reviews the picks before Phase 3 writes the catalog.
+
+### Setup
+
+- Runtime: llama.cpp `b11829` (2026-10-22, newest build at least two weeks old;
+  the `v0.x` releases carry no macOS binaries). llama.cpp now ships the macOS
+  arm64 build as `llama-b11829-bin-macos-arm64.tar.gz`, not a `.zip`;
+  `Scripts/llama-server.env` records `LLAMA_ASSET` and the archive hash in
+  `LLAMA_ZIP_SHA256` (`e006ea32abe757c10a93718d246796b9bb7eafd309398927ff7b69139e4ba27e`,
+  matches GitHub's asset digest). `Scripts/fetch-llama-server.sh` downloads it to
+  `build/cache/`, deletes it on a hash mismatch, refuses unsafe archive paths and
+  unpacks to `build/cache/llama-b11829/`. `llama-server --version`: 0.7.0-dev
+  (build 11829, commit 184f65360).
+- Server: `llama-server -m <file> --host 127.0.0.1 --port <free port> --api-key <random 48 hex> -c 4096 -ngl 999 --jinja`,
+  one at a time, killed by a trap after each model. `lsof` showed it listening
+  on 127.0.0.1 only. No llama-server was left running.
+- Bench: new `bugvoice-bench --cleanup-bench` (see `Sources/BugVoiceBench/CleanupBench.swift`).
+  It sends each history dictation (50 non-command entries with raw text, read
+  only) plus 12 fixed sentences (5 English, 3 Vietnamese, 4 mixed EN/VI; 14–17
+  words) through the dictation cleanup path: `PromptBuilder` request (owner's
+  language per entry, keep English words on for Vietnamese, thinking off,
+  pipeline `maxTokens`), `OpenAICompatibleModel` `.local`, `OutputSanitizer`,
+  then `FidelityCheck`. One discarded warm-up request, then `--runs 3`; time per
+  input is its median over runs. 18 inputs fall in the 10–20 word bucket
+  (6 history, 12 fixed). Empty vocabulary and default custom rules, so the
+  prompt differs slightly from the owner's live one.
+- Baseline: the owner's dictation model on oMLX (`Qwen3.8-27B-MLX-8bit`,
+  `http://127.0.0.1:8000/v1`, key read from `credentials.json` into an env var),
+  same bench, same 62 inputs.
+- First load is server start to `/health` 200 with the file already in the page
+  cache (the files had just been downloaded and hashed). A cold read from disk
+  will be slower; the one run before the cache was warm (VL-2B) took 3.42 s
+  against 0.40 s warm.
+- RSS is `ps -o rss=` on the server after the bench (the higher of the two
+  readings; after-load values were 0.3–0.5 GB lower), at `-c 4096`.
+
+### Candidates and results
+
+Licence of every repo: Apache-2.0 (Hugging Face `license:apache-2.0`). Files from
+the Qwen organisation's own GGUF repos, pinned by commit, SHA-256 checked with
+`shasum -a 256` after download (all matched the repo's LFS hash).
+
+| Model | Repo | Revision | File | Size (bytes) | SHA-256 | First load s | RSS MB | Median s 10–20 w | P90 s | Overall median s | Flagged (per run) |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| oMLX baseline | owner's `Qwen3.8-27B-MLX-8bit` | – | – | – | – | – | – | 1.360 | 1.779 | 1.016 | 0 (0, 0, 0) |
+| Qwen3-VL-2B-Instruct Q4_K_M | Qwen/Qwen3-VL-2B-Instruct-GGUF | 52d6c8ffea26cc873ac5ad116f8631268d7eb503 | Qwen3VL-2B-Instruct-Q4_K_M.gguf | 1107409952 | 089d75c52f4b7ffc56ba998ffc50aae89fcafc755f9e7208aacca281dca6c2ae | 0.40 | 2080 | 0.103 | 0.121 | 0.066 | 0 (1, 0, 0) |
+| Qwen3-1.7B Q8_0 | Qwen/Qwen3-1.7B-GGUF | 90862c4b9d2787eaed51d12237eafdfe7c5f6077 | Qwen3-1.7B-Q8_0.gguf | 1834426016 | 061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a | 1.66 | 2583 | 0.185 | 0.222 | 0.116 | 0 (0, 0, 0) |
+| Qwen3-4B Q4_K_M | Qwen/Qwen3-4B-GGUF | bc640142c66e1fdd12af0bd68f40445458f3869b | Qwen3-4B-Q4_K_M.gguf | 2497280256 | 7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5 | 1.45 | 3483 | 0.225 | 0.283 | 0.153 | 0 (0, 0, 0) |
+| Qwen3-VL-4B-Instruct Q4_K_M | Qwen/Qwen3-VL-4B-Instruct-GGUF | 1cd86afb9a95c410a6038ab3b40d8b578c892266 | Qwen3VL-4B-Instruct-Q4_K_M.gguf | 2497281664 | 66358cb18bb6b3b1b6675aa412c7a88ef01d228f481184d13668e5201c730a0a | 1.46 | 3553 | 0.182 | 0.218 | 0.117 | 0 (0, 0, 0) |
+| Qwen3-8B Q4_K_M | Qwen/Qwen3-8B-GGUF | 7c41481f57cb95916b40956ab2f0b139b296d974 | Qwen3-8B-Q4_K_M.gguf | 5027783488 | d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785 | 3.12 | 5904 | 0.321 | 0.362 | 0.196 | 0 (0, 0, 0) |
+
+No sanitizer rejections and no request errors for any model. "Flagged" is the
+median over the three runs, with each run's count in brackets.
+
+Candidate notes:
+
+- Qwen publishes no Q4_K_M for Qwen3-1.7B, only Q8_0, so that file was benched.
+- The two "newest small" slots went to Qwen3-VL-2B/4B-Instruct (2025-10-31), the
+  newest small models Qwen publishes as GGUF. Qwen3.5 0.8B/2B/4B/9B (2026-02) are
+  newer and Apache-2.0, but Qwen ships no GGUF for them, so they fall outside the
+  "publisher's own GGUF" rule. The VL files are loaded text-only (no `mmproj`).
+
+### Gate
+
+Spec: median 10–20 word cleanup at most 1.0 s (Small), 1.5 s (Medium), 2.5 s
+(Large), and fidelity failures no more than oMLX's (0).
+
+| Tier | Limit | Pick | Median s | Flagged | Verdict |
+|---|---|---|---|---|---|
+| Small | 1.0 s | Qwen3-VL-2B-Instruct Q4_K_M | 0.103 | 0 | pass |
+| Medium | 1.5 s | Qwen3-4B Q4_K_M | 0.225 | 0 | pass |
+| Large | 2.5 s | Qwen3-8B Q4_K_M | 0.321 | 0 | pass |
+
+Every candidate passes on speed by a wide margin (all at least 4x faster than the
+oMLX 27B baseline) and none exceeds oMLX's flagged count. The picks therefore
+rest on what the fixed sentences showed (only these 12 bench sentences were
+read back with `--show-text`; no history text was printed):
+
+- Small: Qwen3-VL-2B is the smallest and fastest and does clean English
+  (capitals, punctuation, fillers). It left two Vietnamese sentences uncleaned
+  and changed "mười giờ" to "10 giờ" and "update" to "cập nhật". It had one
+  flagged entry in run 1 of 3 (median 0). Qwen3-1.7B was not picked: it passed
+  but barely cleaned anything (most sentences came back lowercase with fillers).
+- Medium: Qwen3-4B kept the Vietnamese meaning intact. Qwen3-VL-4B was faster
+  (0.182 s) but rewrote "cuộc họp" (meeting) as "Hội nghị" (conference) and
+  dropped words, which FidelityCheck does not catch. Qwen3-4B left four of five
+  English sentences without a leading capital. Owner call: swap to VL-4B if
+  English capitalisation matters more than that Vietnamese drift.
+- Large: Qwen3-8B, the best-cleaned output overall, but it dropped "hôm nay"
+  (today) from one Vietnamese sentence along with the filler.
+
+FidelityCheck guards numbers, names and similar tokens; it does not catch word
+substitutions or dropped ordinary words. A gate pass here is a speed and
+token-fidelity pass, not a quality guarantee.
+
+### Fit rule
+
+`memoryShare` = **0.30**: "Fits this Mac" picks the largest model whose
+`memoryNeed` is at most 0.30 × `physicalMemory`. Memory figures for the catalog,
+from measured RSS rounded up: Small 2.1 GB, Medium 3.5 GB, Large 6.0 GB.
+That gives 8 GB Macs Small (2.4 GB budget), 16 and 18 GB Macs Medium (4.8 /
+5.4 GB), and 24 GB and up Large (7.2 GB+), leaving at least 70% of memory for
+macOS, the speech model and the owner's apps.
 
 ## Owner checks (open)
 
