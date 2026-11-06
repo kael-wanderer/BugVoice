@@ -5,7 +5,7 @@ import Foundation
 public enum ReadinessTone: Equatable, Sendable { case ok, waiting, problem, off }
 
 /// What a readiness row's button does.
-public enum ReadinessAction: Equatable, Sendable { case openPermissions, retryHotkey, retrySpeech, checkCleanup, openModels }
+public enum ReadinessAction: Equatable, Sendable { case openPermissions, retryHotkey, retrySpeech, checkCleanup, openModels, downloadBuiltIn }
 
 /// The dictation cleanup model as the readiness card sees it.
 public enum CleanupCheck: Equatable, Sendable {
@@ -19,6 +19,11 @@ public enum CleanupCheck: Equatable, Sendable {
     case local(name: String)
     /// The chosen model cannot be used, with the reason.
     case unavailable(String)
+    case builtIn(name: String, state: BuiltInState)
+}
+
+public enum BuiltInState: Equatable, Sendable {
+    case ready, downloading(Double), notDownloaded, failed(String)
 }
 
 public struct ReadinessRow: Equatable, Sendable, Identifiable {
@@ -107,6 +112,20 @@ public enum Readiness {
                                 action: .checkCleanup, actionTitle: "Check again")
         case .local(let name):
             return ReadinessRow(kind: .cleanup, title: "Cleanup model", detail: name, tone: .ok)
+        case .builtIn(let name, let state):
+            switch state {
+            case .ready:
+                return ReadinessRow(kind: .cleanup, title: "Cleanup model", detail: "\(name), built in", tone: .ok)
+            case .downloading(let fraction):
+                return ReadinessRow(kind: .cleanup, title: "Cleanup model",
+                                    detail: "Downloading \(name), \(Int(fraction * 100))%", tone: .waiting)
+            case .notDownloaded:
+                return ReadinessRow(kind: .cleanup, title: "Cleanup model", detail: "\(name) not downloaded", tone: .problem,
+                                    action: .downloadBuiltIn, actionTitle: "Download")
+            case .failed(let message):
+                return ReadinessRow(kind: .cleanup, title: "Cleanup model", detail: "\(name): \(message)", tone: .problem,
+                                    action: .openModels, actionTitle: "Open Models")
+            }
         case .unavailable(let reason):
             return ReadinessRow(kind: .cleanup, title: "Cleanup model", detail: reason, tone: .problem,
                                 action: .openModels, actionTitle: "Open Models")

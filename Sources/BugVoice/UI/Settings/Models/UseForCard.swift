@@ -143,7 +143,7 @@ struct UseForCard: View {
             model.settings.models.connections.first { $0.id == id }
                 .map { $0.model.isEmpty ? "Connection default" : "\($0.model) (connection default)" } ?? "Choose a model"
         case .cli: "CLI default"
-        case .appleIntelligence, .none: "—"
+        case .appleIntelligence, .builtIn, .none: "—"
         }
     }
 
@@ -152,7 +152,7 @@ struct UseForCard: View {
         case .connection(let id): model.connectionStatus[id]
         case .cli(let tool): model.cliInfo[tool] == nil ? .failed("\(tool.rawValue) was not found on this Mac.") : .reachable(models: [])
         case .appleIntelligence: model.appleIntelligenceAvailable ? .reachable(models: []) : .failed("Apple Intelligence is not available on this Mac")
-        case .none: nil
+        case .builtIn, .none: nil
         }
     }
 

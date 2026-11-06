@@ -48,6 +48,8 @@ enum ProviderFactory {
             }
             #endif
             return UnavailableModel(reason: "Apple Intelligence is not available on this Mac")
+        case .builtIn:
+            return UnavailableModel(reason: "The built-in model is not set up yet.") // Task 13 wires the server.
         case .cli(let tool, let path, let model, let effort, let timeout):
             return CLITextModel(tool: tool, executable: path, model: model, effort: effort, timeout: timeout, runner: FoundationProcessRunner())
         }
@@ -60,6 +62,8 @@ enum ProviderFactory {
             return CleanupModel(model: model, modelID: modelID, shortName: plan.shortName, disableThinking: disableThinking, timeoutSeconds: timeout)
         case .appleIntelligence(let timeout):
             return CleanupModel(model: model, modelID: "apple-intelligence", shortName: plan.shortName, timeoutSeconds: timeout)
+        case .builtIn(let m, let timeout):
+            return CleanupModel(model: model, modelID: m.id, shortName: plan.shortName, disableThinking: true, timeoutSeconds: timeout)
         case .none, .unavailable, .cli:
             return CleanupModel(model: model, modelID: "", shortName: nil, timeoutSeconds: fallbackTimeout)
         }

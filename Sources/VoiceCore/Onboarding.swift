@@ -34,8 +34,9 @@ public enum OnboardingSetup {
     /// Writes the choice into `models`. Connections are replaced by id, never duplicated.
     public static func apply(_ choice: CleanupChoice, to models: inout ModelSettings) {
         switch choice {
-        case .builtIn:
-            break // Task 10 wires the built-in engine.
+        case .builtIn(let modelID):
+            models.dictation = ModelUse(engine: .builtIn(modelID), disableThinking: true)
+            models.notes = nil
         case .appleIntelligence:
             models.dictation = ModelUse(engine: .appleIntelligence)
         case .connection(let connection, let local):

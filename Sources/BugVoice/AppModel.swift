@@ -727,6 +727,8 @@ final class AppModel {
                 disableThinking: thinking, timeout: CommandPipeline.timeoutSeconds)
         case .appleIntelligence:
             commandPlan = .appleIntelligence(timeout: CommandPipeline.timeoutSeconds)
+        case .builtIn(let model, _):
+            commandPlan = .builtIn(model, timeout: CommandPipeline.timeoutSeconds)
         case .cli(let tool, let path, let model, let effort, _):
             commandPlan = .cli(tool, path: path, model: model, effort: effort, timeout: CommandPipeline.timeoutSeconds)
         case .none: commandPlan = .none

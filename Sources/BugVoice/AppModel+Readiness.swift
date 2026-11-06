@@ -34,7 +34,7 @@ extension AppModel {
         case .checkCleanup:
             guard let connection = dictationConnection else { return }
             Task { await testConnection(connection) }
-        case .openModels: settingsTab = .models
+        case .openModels, .downloadBuiltIn: settingsTab = .models // Task 14 starts the download here.
         }
     }
 
@@ -67,6 +67,8 @@ extension AppModel {
             case .reachable: return .reachable(name: name)
             case .failed(let message): return .failed(name: name, message: message)
             }
+        case .builtIn(let model, _):
+            return .builtIn(name: model.name, state: .ready)
         case .appleIntelligence, .cli:
             return .local(name: plan.shortName ?? "")
         }

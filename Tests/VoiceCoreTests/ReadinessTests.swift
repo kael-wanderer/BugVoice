@@ -74,3 +74,20 @@ import Testing
         #expect(!Readiness.isReady(rows(speech: .loading)))
     }
 }
+
+@Suite struct BuiltInReadinessTests {
+    func cleanup(_ s: BuiltInState) -> ReadinessRow {
+        Readiness.cleanupRow(.builtIn(name: "Medium", state: s))
+    }
+
+    @Test func rowsForEachState() {
+        let ready = cleanup(.ready)
+        #expect(ready.detail == "Medium, built in" && ready.tone == .ok && ready.action == nil)
+        let dl = cleanup(.downloading(0.41))
+        #expect(dl.detail == "Downloading Medium, 41%" && dl.tone == .waiting)
+        let nd = cleanup(.notDownloaded)
+        #expect(nd.detail == "Medium not downloaded" && nd.tone == .problem && nd.action == .downloadBuiltIn && nd.actionTitle == "Download")
+        let f = cleanup(.failed("out of memory"))
+        #expect(f.detail == "Medium: out of memory" && f.tone == .problem && f.action == .openModels)
+    }
+}

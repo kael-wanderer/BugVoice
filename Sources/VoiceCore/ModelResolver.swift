@@ -21,6 +21,7 @@ public enum ModelPlan: Equatable, Sendable {
     case unavailable(String)
     case connection(ModelConnection, baseURL: URL, modelID: String, disableThinking: Bool, timeout: TimeInterval)
     case appleIntelligence(timeout: TimeInterval)
+    case builtIn(BuiltInModel, timeout: TimeInterval)
     case cli(CLITool, path: String, model: String, effort: String, timeout: TimeInterval)
 
     /// For the HUD's *Cleaning (…)*.
@@ -29,6 +30,7 @@ public enum ModelPlan: Equatable, Sendable {
         case .none, .unavailable: nil
         case .connection(let c, _, let modelID, _, _): ModelNames.short(modelID) ?? c.name
         case .appleIntelligence: "Apple Intelligence"
+        case .builtIn(let model, _): model.name
         case .cli(let tool, _, _, _, _): tool.title
         }
     }
@@ -43,7 +45,8 @@ public enum ModelResolver {
         for feature: ModelFeature,
         settings: ModelSettings,
         cliPaths: [CLITool: String],
-        appleIntelligenceAvailable: Bool
+        appleIntelligenceAvailable: Bool,
+        builtInInstalled: Set<String> = []
     ) -> ModelPlan {
         let use: ModelUse = switch feature {
         case .dictation: settings.dictation
@@ -56,6 +59,18 @@ public enum ModelResolver {
         case .appleIntelligence:
             guard appleIntelligenceAvailable else { return .unavailable("Apple Intelligence is not available on this Mac") }
             return .appleIntelligence(timeout: feature.isFast ? settings.dictationTimeoutSeconds : cloudTimeout)
+        case .builtIn(let id):
+            guard feature != .meetings else { return .unavailable("Built-in models are for Dictation and Notes.") }
+            if feature == .notes, case .builtIn(let dictationID) = settings.dictation.engine, dictationID != id {
+                return .unavailable("Notes must use the same built-in model as Dictation.")
+            }
+            guard let model = BuiltInCatalog.model(id: id) else {
+                return .unavailable("This built-in model is no longer offered. Choose another in Settings → Models.")
+            }
+            guard builtInInstalled.contains(id) else {
+                return .unavailable("\(model.name) is not downloaded. Download it in Settings → Models.")
+            }
+            return .builtIn(model, timeout: settings.dictationTimeoutSeconds)
         case .cli(let tool):
             guard !feature.isFast else { return .none }
             guard let path = cliPaths[tool] else { return .unavailable("\(tool.rawValue) was not found on this Mac.") }
@@ -85,9 +100,10 @@ extension ModelResolver {
     public static func transformPlan(
         settings: ModelSettings,
         cliPaths: [CLITool: String],
-        appleIntelligenceAvailable: Bool
+        appleIntelligenceAvailable: Bool,
+        builtInInstalled: Set<String> = []
     ) -> ModelPlan {
-        let notes = plan(for: .notes, settings: settings, cliPaths: cliPaths, appleIntelligenceAvailable: appleIntelligenceAvailable)
+        let notes = plan(for: .notes, settings: settings, cliPaths: cliPaths, appleIntelligenceAvailable: appleIntelligenceAvailable, builtInInstalled: builtInInstalled)
         switch notes {
         case .connection(let connection, let url, let modelID, let disableThinking, _):
             return .connection(
@@ -95,6 +111,8 @@ extension ModelResolver {
                 timeout: ConnectionAddress.isLocal(url) ? localTimeout : cloudTimeout)
         case .appleIntelligence:
             return .appleIntelligence(timeout: cloudTimeout)
+        case .builtIn(let model, _):
+            return .builtIn(model, timeout: localTimeout)
         case .none, .unavailable, .cli:
             return notes
         }

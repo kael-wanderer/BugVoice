@@ -96,3 +96,15 @@ import Testing
         #expect(TryItResult(result(.nothingHeard, cleaned: nil), cleanupName: nil).problem != nil)
     }
 }
+
+@Suite struct OnboardingBuiltInTests {
+    @Test func builtInChoiceSetsDictationOnly() {
+        var m = AppSettings.freshInstall().models
+        let meetings = m.meetings
+        OnboardingSetup.apply(.builtIn(modelID: "qwen3-4b-q4_k_m"), to: &m)
+        #expect(m.dictation.engine == .builtIn("qwen3-4b-q4_k_m"))
+        #expect(m.dictation.disableThinking == true)
+        #expect(m.notes == nil)
+        #expect(m.meetings == meetings)
+    }
+}
